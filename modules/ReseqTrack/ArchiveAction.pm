@@ -1,3 +1,4 @@
+
 =pod
 
 =head1 NAME
@@ -24,8 +25,6 @@ use ReseqTrack::Base;
 
 @ISA = qw(ReseqTrack::Base);
 
-
-
 =head2 new
 
   Arg [1]   : ReseqTrack::ArchiveAction
@@ -37,23 +36,26 @@ use ReseqTrack::Base;
 
 =cut
 
-
-sub new{
-  my ($class, @args) = @_;
-  my $self = $class->SUPER::new(@args);
-  my ($action) = rearrange(['ACTION'],@args);
-  $self->action($action);
-  throw("Can't have a dbID ".$self->dbID." which isn't 1, 2, 3 or 4") 
-      unless($self->dbID == 1 || $self->dbID == 2 || $self->dbID == 3 || 
-             $self->dbID == 4);
-  throw("Can't have an action ".$self->action." which isn't archive, dearchive, ".
-        "replace or move_within_volume")
-      unless($self->action eq "archive" || $self->action eq "dearchive" || 
-             $self->action eq "replace" || $self->action eq "move_within_volume");
-  return $self;
+sub new {
+    my ( $class, @args ) = @_;
+    my $self = $class->SUPER::new(@args);
+    my ($action) = rearrange( ['ACTION'], @args );
+    $self->action($action);
+    throw( "Can't have a dbID " . $self->dbID . " which isn't 1, 2, 3 or 4" )
+      unless ( $self->dbID == 1
+        || $self->dbID == 2
+        || $self->dbID == 3
+        || $self->dbID == 4 );
+    throw(  "Can't have an action "
+          . $self->action
+          . " which isn't archive, dearchive, "
+          . "replace or move_within_volume" )
+      unless ( $self->action eq "archive"
+        || $self->action eq "dearchive"
+        || $self->action eq "replace"
+        || $self->action eq "move_within_volume" );
+    return $self;
 }
-
-
 
 =head2 action
 
@@ -66,18 +68,15 @@ sub new{
 
 =cut
 
-
-
-sub action{
-  my ($self, $action) = @_;
-  if($action){
-    $self->{'action'} = $action;
-  }
-  return $self->{'action'};
+sub action {
+    my ( $self, $action ) = @_;
+    if ($action) {
+        $self->{'action'} = $action;
+    }
+    return $self->{'action'};
 }
 
-
-=head2 table_name
+=head2 object_table_name
 
   Arg [1]   : ReseqTrack::ArchiveAction
   Function  : returning table name
@@ -87,11 +86,9 @@ sub action{
 
 =cut
 
-
-
-sub table_name{
-  my ($self) = @_;
-  return "archive_action";
+sub object_table_name {
+    my ($self) = @_;
+    return "archive_action";
 }
 
 1;
