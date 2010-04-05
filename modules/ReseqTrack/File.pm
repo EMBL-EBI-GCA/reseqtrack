@@ -1,3 +1,26 @@
+
+=pod
+
+=head1 NAME
+
+ReseqTrack::Event
+
+=head1 SYNOPSIS
+
+This is a container object for the file table. The file table describes the location, md5sum 
+and size of the file alongside a type which defines a group of objects
+
+=head1 Example
+
+my $file = ReseqTrack::File->new(
+      -name => $path,
+      -type => $type,
+      -size => $size,
+      -host => $host,
+        );
+
+=cut
+
 package ReseqTrack::File;
 
 use strict;
@@ -8,12 +31,9 @@ use File::Basename;
 use ReseqTrack::Tools::Exception qw(throw warning stack_trace_dump);
 use ReseqTrack::Tools::Argument qw(rearrange);
 
-
 use ReseqTrack::HasHistory;
 
-
 @ISA = qw(ReseqTrack::HasHistory);
-
 
 =head2 new
   
@@ -35,42 +55,48 @@ use ReseqTrack::HasHistory;
 
 =cut
 
+sub new {
+    my ( $class, @args ) = @_;
+    my $self = $class->SUPER::new(@args);
+    my (
+        $name,      $md5,     $type,    $size, $host,
+        $withdrawn, $created, $updated, $host_id
+      )
+      = rearrange(
+        [
+            qw(NAME MD5 TYPE SIZE HOST WITHDRAWN CREATED UPDATED
+              HOST_ID)
+        ],
+        @args
+      );
+    if ( $host_id && $self->adaptor ) {
+        my $ha = $self->get_HostAdaptor;
+        $host = $ha->fetch_by_dbID;
+    }
 
-sub new{
-  my ($class, @args) = @_;
-  my $self = $class->SUPER::new(@args);
-  my ($name, $md5, $type, $size, $host, $withdrawn, $created, 
-      $updated, $host_id) =
-          rearrange([qw(NAME MD5 TYPE SIZE HOST WITHDRAWN CREATED UPDATED 
-                     HOST_ID)], @args);
-  if($host_id && $self->adaptor){
-    my $ha = $self->get_HostAdaptor;
-    $host = $ha->fetch_by_dbID;
-  }
-  #ERROR CHECKING
-  throw("Can't create ReseqTrack::File without a name") unless($name);
-  throw("Can't create ReseqTrack::File without a type") unless($type);
-  throw("Can't create ReseqTrack::File without a host object ") 
-      unless($host || $host->isa("ReseqTrack::Host"));
-  ######
-  $self->md5($md5);
-  $self->type($type);
-  $self->size($size);
-  $self->name($name);
-  $self->host($host);
-  $self->withdrawn($withdrawn);
-  $self->created($created);
-  $self->updated($updated);
-  #########
-
-  if(!$self->size && -e $self->full_path){
-    my $size = -s $self->full_path;
+    #ERROR CHECKING
+    throw("Can't create ReseqTrack::File without a name") unless ($name);
+    throw("Can't create ReseqTrack::File without a type") unless ($type);
+    throw("Can't create ReseqTrack::File without a host object ")
+      unless ( $host || $host->isa("ReseqTrack::Host") );
+    ######
+    $self->md5($md5);
+    $self->type($type);
     $self->size($size);
-  }
-  $self->withdrawn(0) unless(defined($self->withdrawn));
-  return $self;
-}
+    $self->name($name);
+    $self->host($host);
+    $self->withdrawn($withdrawn);
+    $self->created($created);
+    $self->updated($updated);
+    #########
 
+    if ( !$self->size && -e $self->full_path ) {
+        my $size = -s $self->full_path;
+        $self->size($size);
+    }
+    $self->withdrawn(0) unless ( defined( $self->withdrawn ) );
+    return $self;
+}
 
 =head2 accessor methods
 
@@ -83,46 +109,45 @@ sub new{
 
 =cut
 
-sub type{
-  my ($self, $arg) = @_;
-  if($arg){
-    $self->{type} = $arg;
-  }
-  return $self->{type};
+sub type {
+    my ( $self, $arg ) = @_;
+    if ($arg) {
+        $self->{type} = $arg;
+    }
+    return $self->{type};
 }
 
-sub size{
-  my ($self, $arg) = @_;
-  if(defined($arg)){
-    $self->{size} = $arg;
-  }
-  return $self->{size};
+sub size {
+    my ( $self, $arg ) = @_;
+    if ( defined($arg) ) {
+        $self->{size} = $arg;
+    }
+    return $self->{size};
 }
 
-sub withdrawn{
-  my ($self, $arg) = @_;
-  if(defined($arg)){
-    $self->{withdrawn} = $arg;
-  }
-  return $self->{withdrawn};
+sub withdrawn {
+    my ( $self, $arg ) = @_;
+    if ( defined($arg) ) {
+        $self->{withdrawn} = $arg;
+    }
+    return $self->{withdrawn};
 }
 
-sub created{
-  my ($self, $arg) = @_;
-  if($arg){
-    $self->{created} = $arg;
-  }
-  return $self->{created};
+sub created {
+    my ( $self, $arg ) = @_;
+    if ($arg) {
+        $self->{created} = $arg;
+    }
+    return $self->{created};
 }
 
-sub updated{
-  my ($self, $arg) = @_;
-  if($arg){
-    $self->{updated} = $arg;
-  }
-  return $self->{updated};
+sub updated {
+    my ( $self, $arg ) = @_;
+    if ($arg) {
+        $self->{updated} = $arg;
+    }
+    return $self->{updated};
 }
-
 
 =head2 name
 
@@ -135,18 +160,17 @@ sub updated{
 
 =cut
 
+sub name {
+    my ( $self, $arg ) = @_;
+    if ($arg) {
 
-sub name{
-  my ($self, $arg) = @_;
-  if($arg){
-    #trying to prevent database / and // issues
-    $arg =~ s/\/$//;
-    $arg =~ s/\/\//\//;
-    $self->{name} = $arg;
-  }
-  return $self->{name};
+        #trying to prevent database / and // issues
+        $arg =~ s/\/$//;
+        $arg =~ s/\/\//\//;
+        $self->{name} = $arg;
+    }
+    return $self->{name};
 }
-
 
 =head2 md5
 
@@ -159,19 +183,18 @@ sub name{
 
 =cut
 
-
-sub md5{
-  my ($self, $arg) = @_;
-  if($arg){
-    $self->{md5} = $arg;
-  }
-  if($self->{md5} && length($self->{md5}) != 32){
-    throw("Have give ReseqTrack::File::md5 a string which is ".
-          length($self->{md5})." not 32 characters long");
-  }
-  return $self->{md5};
+sub md5 {
+    my ( $self, $arg ) = @_;
+    if ($arg) {
+        $self->{md5} = $arg;
+    }
+    if ( $self->{md5} && length( $self->{md5} ) != 32 ) {
+        throw(  "Have give ReseqTrack::File::md5 a string which is "
+              . length( $self->{md5} )
+              . " not 32 characters long" );
+    }
+    return $self->{md5};
 }
-
 
 =head2 host
 
@@ -184,18 +207,15 @@ sub md5{
 
 =cut
 
-
-
-sub host{
-  my ($self, $host) = @_;
-  if($host){
-    throw("ReseqTrack::File::host must be a ReseqTrack::Host object")
-        unless($host->isa("ReseqTrack::Host"));
-    $self->{host} = $host;
-  }
-  return $self->{host};
+sub host {
+    my ( $self, $host ) = @_;
+    if ($host) {
+        throw("ReseqTrack::File::host must be a ReseqTrack::Host object")
+          unless ( $host->isa("ReseqTrack::Host") );
+        $self->{host} = $host;
+    }
+    return $self->{host};
 }
-
 
 =head2 filename/path
 
@@ -207,28 +227,23 @@ sub host{
 
 =cut
 
-
-
 sub filename {
-  my ($self) = @_;
-  if(!$self->{filename}){
-    my $filename = basename($self->name);
-    $self->{filename} = $filename;
-  }
-  return $self->{filename};
+    my ($self) = @_;
+    if ( !$self->{filename} ) {
+        my $filename = basename( $self->name );
+        $self->{filename} = $filename;
+    }
+    return $self->{filename};
 }
-
 
 sub path {
-  my ($self) = @_;
-  if(!$self->{dir}){
-    my $dir = dirname($self->name);
-    $self->{dir} = $dir;
-  }
-  return $self->{dir};
+    my ($self) = @_;
+    if ( !$self->{dir} ) {
+        my $dir = dirname( $self->name );
+        $self->{dir} = $dir;
+    }
+    return $self->{dir};
 }
-
-
 
 =head2 full_path
 
@@ -240,17 +255,24 @@ sub path {
 
 =cut
 
-
-
-sub full_path{
-  my ($self) = @_;
-  return $self->name;
+sub full_path {
+    my ($self) = @_;
+    return $self->name;
 }
 
-sub object_table_name{
-  my ($self) = @_;
-  return 'file';
-}
+=head2 object_table_name
 
+  Arg [1]   : ReseqTrack::Event
+  Function  : return table name for object, event
+  Returntype: string
+  Exceptions: 
+  Example   : 
+
+=cut
+
+sub object_table_name {
+    my ($self) = @_;
+    return 'file';
+}
 
 1;
