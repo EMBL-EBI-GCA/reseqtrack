@@ -418,6 +418,9 @@ sub standard_type_hash{
   $hash{'ARCHIVE_FASTQ'} = 1;
   $hash{'WITHDRAWN_FILTERED_FASTQ'} = 1;
   $hash{'WITHDRAWN_PILOT_INTERNAL'} = 1;
+  $hash{'BAM'} = 1;
+  $hash{'BAI'} = 1;
+  $hash{'BAS'} = 1;
   return \%hash;
 }
 

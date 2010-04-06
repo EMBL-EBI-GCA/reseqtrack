@@ -1,3 +1,4 @@
+
 =pod
 
 =head1 NAME
@@ -50,13 +51,9 @@ use File::Basename;
 use ReseqTrack::Tools::Exception qw(throw warning stack_trace_dump);
 use ReseqTrack::Tools::Argument qw(rearrange);
 
-
 use ReseqTrack::HasHistory;
 
-
 @ISA = qw(ReseqTrack::HasHistory);
-
-
 
 =head2 new
 
@@ -78,34 +75,39 @@ use ReseqTrack::HasHistory;
 
 =cut
 
+sub new {
+    my ( $class, @args ) = @_;
+    my $self = $class->SUPER::new(@args);
+    my (
+        $file_id,       $file,    $sample_name,      $region,
+        $assembly,      $program, $mapped_basecount, $index_file,
+        $index_file_id, $technology
+      )
+      = rearrange(
+        [
+            qw(FILE_ID FILE SAMPLE_NAME REGION ASSEMBLY PROGRAM
+              MAPPED_BASECOUNT INDEX_FILE INDEX_FILE_ID TECHNOLOGY)
+        ],
+        @args
+      );
 
+    #Setting defaults
+    $region = 'genome' unless ($region);
+    ######
 
-sub new{
-  my ($class, @args) = @_;
-  my $self = $class->SUPER::new(@args);
-  my ($file_id, $file, $sample_name, $region, $assembly, $program, $mapped_basecount,
-      $index_file, $index_file_id, $technology) = 
-      rearrange([qw(FILE_ID FILE SAMPLE_NAME REGION ASSEMBLY PROGRAM 
-  MAPPED_BASECOUNT INDEX_FILE INDEX_FILE_ID TECHNOLOGY)], @args);
-  #Setting defaults
-  $region = 'genome' unless($region);
-  ######
+    $self->file_id($file_id);
+    $self->file($file);
+    $self->index_file_id($index_file_id);
+    $self->index_file($index_file);
+    $self->sample_name($sample_name);
+    $self->region($region);
+    $self->assembly($assembly);
+    $self->program($program);
+    $self->mapped_basecount($mapped_basecount);
+    $self->technology($technology);
 
-  $self->file_id($file_id);
-  $self->file($file);
-  $self->index_file_id($index_file_id);
-  $self->index_file($index_file);
-  $self->sample_name($sample_name);
-  $self->region($region);
-  $self->assembly($assembly);
-  $self->program($program);
-  $self->mapped_basecount($mapped_basecount);
-  $self->technology($technology);
-
-  return $self
+    return $self;
 }
-
-
 
 =head2 Accessor methods
 
@@ -118,113 +120,113 @@ sub new{
 
 =cut
 
-
-
-sub sample_name{
-  my ($self, $sample_name) = @_;
-  if($sample_name){
-    $self->{sample_name} = $sample_name;
-  }
-  return $self->{sample_name};
-}
-
-sub region{
-  my ($self, $region) = @_;
-  if($region){
-    $self->{region} = $region;
-  }
-  return $self->{region};
-}
-
-sub assembly{
-  my ($self, $assembly) = @_;
-  if($assembly){
-    $self->{assembly} = $assembly;
-  }
-  return $self->{assembly};
-}
-
-sub program{
-  my ($self, $program) = @_;
-  if($program){
-    $self->{program} = $program;
-  }
-  return $self->{program};
-}
-
-sub mapped_basecount{
-  my ($self, $mapped_basecount) = @_;
-  if($mapped_basecount){
-    $self->{mapped_basecount} = $mapped_basecount;
-  }
-  return $self->{mapped_basecount};
-}
-
-sub file_id{
-  my ($self, $file_id) = @_;
-  if($file_id){
-    $self->{file_id} = $file_id;
-  }
-  if(!$self->{file_id} && $self->{file}){
-    $self->{file_id} = $self->{file}->dbID;
-  }
-  return $self->{file_id};
-
-}
-sub file{
-  my ($self, $file) = @_;
-  if($file){
-    $self->{file} = $file;
-  }
-  unless($self->{file}){
-    if($self->file_id && $self->adaptor){
-      $file = $self->get_file_object($self->file_id);
-      $self->{file} = $file;
+sub sample_name {
+    my ( $self, $sample_name ) = @_;
+    if ($sample_name) {
+        $self->{sample_name} = $sample_name;
     }
-  }
-  return $self->{file};
+    return $self->{sample_name};
 }
-sub index_file_id{
-  my ($self, $index_file_id) = @_;
-  if($index_file_id){
-    $self->{index_file_id} = $index_file_id;
-  }
-  if(!$self->{index_file_id} && $self->{index_file}){
-    $self->{index_file_id} = $self->{index_file}->dbID;
-  }
-  return $self->{index_file_id};
 
-}
-sub index_file{
-  my ($self, $index_file) = @_;
-  if($index_file){
-    $self->{index_file} = $index_file;
-  }
-  unless($self->{index_file}){
-    if($self->index_file_id && $self->adaptor){
-      $index_file = $self->get_file_object($self->index_file_id);
-      $self->{index_file} = $index_file;
+sub region {
+    my ( $self, $region ) = @_;
+    if ($region) {
+        $self->{region} = $region;
     }
-  }
-  return $self->{index_file};
+    return $self->{region};
 }
 
-sub get_file_object{
-  my ($self, $dbID) = @_;
-  return undef unless($self->adaptor);
-  $dbID = $self->file_id unless($dbID);
-  my $fa = $self->adaptor->db->get_FileAdaptor;
-  return $fa->fetch_by_dbID($dbID);
+sub assembly {
+    my ( $self, $assembly ) = @_;
+    if ($assembly) {
+        $self->{assembly} = $assembly;
+    }
+    return $self->{assembly};
 }
 
-sub technology{
-  my ($self, $technology) = @_;
-  if($technology){
-    $self->{technology} = $technology;
-  }
-  return $self->{technology};
+sub program {
+    my ( $self, $program ) = @_;
+    if ($program) {
+        $self->{program} = $program;
+    }
+    return $self->{program};
 }
 
+sub mapped_basecount {
+    my ( $self, $mapped_basecount ) = @_;
+    if ($mapped_basecount) {
+        $self->{mapped_basecount} = $mapped_basecount;
+    }
+    return $self->{mapped_basecount};
+}
+
+sub file_id {
+    my ( $self, $file_id ) = @_;
+    if ($file_id) {
+        $self->{file_id} = $file_id;
+    }
+    if ( !$self->{file_id} && $self->{file} ) {
+        $self->{file_id} = $self->{file}->dbID;
+    }
+    return $self->{file_id};
+
+}
+
+sub file {
+    my ( $self, $file ) = @_;
+    if ($file) {
+        $self->{file} = $file;
+    }
+    unless ( $self->{file} ) {
+        if ( $self->file_id && $self->adaptor ) {
+            $file = $self->get_file_object( $self->file_id );
+            $self->{file} = $file;
+        }
+    }
+    return $self->{file};
+}
+
+sub index_file_id {
+    my ( $self, $index_file_id ) = @_;
+    if ($index_file_id) {
+        $self->{index_file_id} = $index_file_id;
+    }
+    if ( !$self->{index_file_id} && $self->{index_file} ) {
+        $self->{index_file_id} = $self->{index_file}->dbID;
+    }
+    return $self->{index_file_id};
+
+}
+
+sub index_file {
+    my ( $self, $index_file ) = @_;
+    if ($index_file) {
+        $self->{index_file} = $index_file;
+    }
+    unless ( $self->{index_file} ) {
+        if ( $self->index_file_id && $self->adaptor ) {
+            $index_file = $self->get_file_object( $self->index_file_id );
+            $self->{index_file} = $index_file;
+        }
+    }
+    return $self->{index_file};
+}
+
+sub get_file_object {
+    my ( $self, $dbID ) = @_;
+    return unless ( $self->adaptor );
+    $dbID = $self->file_id unless ($dbID);
+    my $fa = $self->adaptor->db->get_FileAdaptor;
+    return $fa->fetch_by_dbID($dbID);
+}
+
+sub technology {
+    my ( $self, $technology ) = @_;
+    if ($technology) {
+        $self->{technology} = $technology;
+    }
+    return $self->{technology};
+}
 
 =head2 object_table_name
 
@@ -236,10 +238,9 @@ sub technology{
 
 =cut
 
-
-sub object_table_name{
-  my ($self) = @_;
-  return 'alignment_meta_info';
+sub object_table_name {
+    my ($self) = @_;
+    return 'alignment_meta_info';
 }
 
 1;
