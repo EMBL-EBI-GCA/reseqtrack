@@ -224,6 +224,7 @@ if($filesystem){
 if($syntax){
 
   print "Syntax check:\n";
+  check_header($index_file);
   my $column_count_hash = check_column_count_sanity($index_file);
   print "There are ".keys(%$column_count_hash)." lines in ".$index_file.
       " with the wrong number of columns\n" if($column_count_hash && 
