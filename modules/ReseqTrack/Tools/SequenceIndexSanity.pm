@@ -30,9 +30,33 @@ use vars qw (@ISA  @EXPORT);
       compare_index_to_era
       check_analysis_group
       check_population
+      check_header
     );
 
 
+sub check_header{
+   my ($file) = @_;
+   open(FH, $file) or throw("IndexUtils:check_column_count_sanity failed to open ".
+                            $file." $!");
+   my $count = 0;
+   while(<FH>){
+     chomp;
+     if($count == 0){
+       unless(/SUBMISSION/){
+         print STDERR $file." doesn't have an index header it first line is\n";
+         print $_."\n";
+         $count++;
+         next;
+       }else{
+         $count++;
+       }
+     }else{
+       $count++;
+     }
+     last unless($count == 0);
+   }
+   close(FH);
+}
 
 sub check_column_count_sanity{
   my ($file) = @_;
