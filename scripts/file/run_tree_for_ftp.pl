@@ -55,7 +55,7 @@ if(!$files || @$files == 0){
 my $old_tree = $files->[0];
 throw("Old tree ".$old_tree->name." doesn't have a dbID in ".$dbname) unless($old_tree->dbID);
 #run tree
-dump_dirtree_summary($dir_to_tree, $output_path);
+dump_dirtree_summary($dir_to_tree, $output_path, undef, $fa);
 #create new file object
 my ($filename, $location_path) = fileparse($output_path);
 my $new_tree =  create_object_from_path($output_path, $old_tree->type, $old_tree->host);
@@ -73,7 +73,7 @@ my $action = $archive_action_adaptor->fetch_by_action('replace');
 my $archive_location = $archive_location_adaptor->fetch_by_archive_location_name
     ('staging');
 
-
+$aa->delete_archive_lock;
 
 
 if($new_tree->md5 ne $old_tree->md5){
