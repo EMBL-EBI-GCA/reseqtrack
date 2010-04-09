@@ -7,7 +7,6 @@ use ReseqTrack::Rule;
 use ReseqTrack::Tools::Exception;
 use Getopt::Long;
 
-
 my $dbhost;
 my $dbuser;
 my $dbpass;
@@ -18,119 +17,127 @@ my $write;
 my $file;
 my $help;
 
-&GetOptions( 
-  'dbhost=s'      => \$dbhost,
-  'dbname=s'      => \$dbname,
-  'dbuser=s'      => \$dbuser,
-  'dbpass=s'      => \$dbpass,
-  'dbport=s'      => \$dbport,
-  'file=s' => \$file,
-  'read!' => \$read,
-  'write!' => \$write,
-  'help!' => \$help,
-    );
+&GetOptions(
+    'dbhost=s' => \$dbhost,
+    'dbname=s' => \$dbname,
+    'dbuser=s' => \$dbuser,
+    'dbpass=s' => \$dbpass,
+    'dbport=s' => \$dbport,
+    'file=s'   => \$file,
+    'read!'    => \$read,
+    'write!'   => \$write,
+    'help!'    => \$help,
+);
 
-if($help){
-  perldocs();
+if ($help) {
+    perldocs();
 }
 
 my $db = ReseqTrack::DBSQL::DBAdaptor->new(
-  -host => $dbhost,
-  -user => $dbuser,
-  -port => $dbport,
-  -dbname => $dbname,
-  -pass => $dbpass,
-    );
+    -host   => $dbhost,
+    -user   => $dbuser,
+    -port   => $dbport,
+    -dbname => $dbname,
+    -pass   => $dbpass,
+);
 
 my $ea = $db->get_EventAdaptor;
 my $ra = $db->get_WorkflowAdaptor;
 
-throw("Can't setup a workflow table or write a workflow config file without a file specified")
-    unless($file);
+throw(
+"Can't setup a workflow table or write a workflow config file without a file specified"
+) unless ($file);
 
-if($read){
-  my $workflows = parse_file($file, $ea);
-  foreach my $workflow(@$workflows){
-    $ra->store($workflow);
-  }
-}elsif($write){
-  if(-e $file){
-    print STDERR $file." exists this process will over write it\n";
-  }
-  open(FH, ">".$file) or throw("Failed to open ".$file);
-  my $workflows = $ra->fetch_all;
-  foreach my $workflow(@$workflows){
-    print FH "[".$workflow->goal_event->name."]\n";
-    foreach my $condition(@{$workflow->conditions}){
-      print FH "condition=".$condition->name."\n";
+if ($read) {
+    my $workflows = parse_file($file, $ea);
+    foreach my $workflow (@$workflows) {
+        $ra->store($workflow);
     }
-  }
-  close(FH);
-}else{
-  throw( "Don't know what to run in workflow_setup neither read nor write has be ".
-      "specified");
+} elsif ($write) {
+    if (-e $file) {
+        print STDERR $file . " exists this process will over write it\n";
+    }
+    open(my FH, ">", $file) or throw("Failed to open " . $file);
+    my $workflows = $ra->fetch_all;
+    foreach my $workflow (@$workflows) {
+        print FH "[" . $workflow->goal_event->name . "]\n";
+        foreach my $condition (@{$workflow->conditions}) {
+            print FH "condition=" . $condition->name . "\n";
+        }
+    }
+    close(FH);
+} else {
+    throw(
+"Don't know what to run in workflow_setup neither read nor write has be "
+          . "specified");
 }
 
-
-sub parse_file{
-  my ($file, $aa) = @_;
-  open (FILE, $file) or throw "Couldn't open file $file";
-  my %config;
-  my $header;
-  while (<FILE>) {
-    chomp();
-    next if (/^\s$/ || /^\#/);
-    if (/^\[(.*)\]\s*$/) {         # $1 will be the header name, without the [] 
-      $header = $1;
-      if($config{$header}){
-        warning($header." already exists in the file, you are now adding extra ".
-                " conditions to it");
-      }
-      $config{$header} = [] unless($config{$header});
+sub parse_file {
+    my ($file, $aa) = @_;
+    open(my FILE, "<", $file) or throw "Couldn't open file $file";
+    my %config;
+    my $header;
+    while (<FILE>) {
+        chomp();
+        next if (/^\s$/ || /^\#/);
+        if (/^\[(.*)\]\s*$/) {    # $1 will be the header name, without the []
+            $header = $1;
+            if ($config{$header}) {
+                warning($header
+                      . " already exists in the file, you are now adding extra "
+                      . " conditions to it");
+            }
+            $config{$header} = [] unless ($config{$header});
+        }
+        if (/^([^=\s]+)\s*=\s*(.+?)\s*$/) {    #key=value this defined pair
+            my $key =
+              lc($1); # keys stored as all lowercase, values have case preserved
+            my $value = $2;
+            if (length($header) == 0) {
+                throw("Found key/value pair $key/$value outside stanza");
+            }
+            if ($key eq 'condition') {
+                push(@{$config{$header}}, $value);
+            } else {
+                warning("Don't recognise " 
+                      . $key
+                      . " so doing nothing with "
+                      . $value);
+            }
+        }
     }
-    if (/^([^=\s]+)\s*=\s*(.+?)\s*$/) { #key=value this defined pair
-      my $key = lc($1);           # keys stored as all lowercase, values have case preserved
-      my $value = $2;
-      if (length($header) == 0) {
-        throw("Found key/value pair $key/$value outside stanza");
-      }
-      if($key eq 'condition'){
-        push(@{$config{$header}}, $value);
-      }else{
-        warning("Don't recognise ".$key." so doing nothing with ".
-                $value);
-      }
+    my @workflows;
+    foreach my $goal (keys(%config)) {
+        my $workflow;
+        eval {
+            my $event = $aa->fetch_by_name($goal);
+            throw(
+                "Failed to find event for " . $goal . " in " . $aa->dbc->dbname)
+              unless ($event);
+            $workflow = ReseqTrack::Workflow->new(-goal_event => $event,);
+            my $conditions = $config{$goal};
+            foreach my $condition_name (@$conditions) {
+                my $condition_event = $aa->fetch_by_name($condition_name);
+                throw(  "Failed to find event for "
+                      . $condition_name . " in "
+                      . $aa->dbc->dbname)
+                  unless ($condition_event);
+                $workflow->conditions($condition_event);
+            }
+        };
+        if ($@) {
+            print STDERR "Failed to create a Workflow object for " . $goal
+              . " $@";
+        }
+        push(@workflows, $workflow);
     }
-  }
-  my @workflows;
-  foreach my $goal(keys(%config)){
-    my $workflow;
-    eval{
-      my $event = $aa->fetch_by_name($goal);
-      throw("Failed to find event for ".$goal." in ".$aa->dbc->dbname) unless($event);
-      $workflow = ReseqTrack::Workflow->new(
-        -goal_event => $event,
-          );
-      my $conditions = $config{$goal};
-      foreach my  $condition_name(@$conditions){
-        my $condition_event = $aa->fetch_by_name($condition_name);
-        throw("Failed to find event for ".$condition_name." in ".$aa->dbc->dbname) unless($condition_event);
-        $workflow->conditions($condition_event);
-      }
-    };
-    if($@){
-      print STDERR "Failed to create a Workflow object for ".$goal." $@";
-    }
-    push(@workflows, $workflow);
-  }
-  return \@workflows;
+    return \@workflows;
 }
 
-sub perldocs{
-  exec('perldoc', $0);
-  exit(0);
+sub perldocs {
+    exec('perldoc', $0);
+    exit(0);
 }
-
 
 =pod
 

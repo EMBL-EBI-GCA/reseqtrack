@@ -15,69 +15,72 @@ my $dbname;
 my $user;
 my $help;
 
-&GetOptions( 
-  'dbhost=s'      => \$dbhost,
-  'dbname=s'      => \$dbname,
-  'dbuser=s'      => \$dbuser,
-  'dbpass=s'      => \$dbpass,
-  'dbport=s'      => \$dbport,
-  'user=s' => \$user,
-  'help!' => \$help,
-    );
+&GetOptions(
+    'dbhost=s' => \$dbhost,
+    'dbname=s' => \$dbname,
+    'dbuser=s' => \$dbuser,
+    'dbpass=s' => \$dbpass,
+    'dbport=s' => \$dbport,
+    'user=s'   => \$user,
+    'help!'    => \$help,
+);
 
 if ($help) {
-  perldocs();
+    perldocs();
 }
 
 my $db = ReseqTrack::DBSQL::DBAdaptor->new(
-  -host => $dbhost,
-  -user => $dbuser,
-  -port => $dbport,
-  -dbname => $dbname,
-  -pass => $dbpass,
-    );
+    -host   => $dbhost,
+    -user   => $dbuser,
+    -port   => $dbport,
+    -dbname => $dbname,
+    -pass   => $dbpass,
+);
 
-$user = $ENV{USER} if(!$user);
-my $ja = $db->get_JobAdaptor;
+$user = $ENV{USER} if (!$user);
+my $ja   = $db->get_JobAdaptor;
 my $jobs = $ja->fetch_all;
 
-
-my $hash = run_bjobs($user);
+my $hash  = run_bjobs($user);
 my $count = 0;
-foreach my $job(@$jobs){
-  next if($job->current_status =~ /^FAIL/);
-  next if($job->current_status =~ /AWOL/);
-  next if($job->current_status eq 'CREATED');
-  next if(!$job->submission_id || $job->submission_id == 0);
-  unless($hash->{$job->submission_id}){
-    $job->current_status("AWOL");
-    $ja->set_status($job);
-  }else{
-    #print $job->dbID." ".$job->submission_id." ".$hash->{$job->submission_id}."\n";
-  }
+foreach my $job (@$jobs) {
+    next if ($job->current_status =~ /^FAIL/);
+    next if ($job->current_status =~ /AWOL/);
+    next if ($job->current_status eq 'CREATED');
+    next
+      if (!$job->submission_id || $job->submission_id == 0);
+    unless ($hash->{$job->submission_id}) {
+        $job->current_status("AWOL");
+        $ja->set_status($job);
+    } else {
+
+#print $job->dbID." ".$job->submission_id." ".$hash->{$job->submission_id}."\n";
+    }
 }
 
-sub run_bjobs{
-  my ($user) = @_;
-  my $cmd = "bjobs -w -u $user";
-  print $cmd."\n";
-  open(CMD, $cmd." |") or throw("Failed to run ".$cmd);
-  my %hash;
-  while(<CMD>){
-    #print;
-    chomp;
-    my @values = split;
-    next unless($values[0] =~ /\d+/);
-    my $submission_id = $values[0];
-    my $job_name = $values[6];
-    $hash{$submission_id} = 1;
-  }
-  return \%hash;
+sub run_bjobs {
+    my ($user) = @_;
+    my $cmd = "bjobs -w -u $user";
+    print $cmd. "\n";
+    open(my FH, "<", $cmd . " |")
+      or throw("Failed to run " . $cmd);
+    my %hash;
+    while (<FH>) {
+
+        #print;
+        chomp;
+        my @values = split;
+        next unless ($values[0] =~ /\d+/);
+        my $submission_id = $values[0];
+        my $job_name      = $values[6];
+        $hash{$submission_id} = 1;
+    }
+    return \%hash;
 }
 
-sub perldoc{
-  exec('perldoc', $0);
-  exit(0);
+sub perldoc {
+    exec('perldoc', $0);
+    exit(0);
 }
 
 =pod

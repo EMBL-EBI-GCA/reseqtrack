@@ -23,6 +23,7 @@ my $md5_file;
 my $run;
 my $help;
 my $type;
+my $skip_defined;
 
 &GetOptions(
   'dbhost=s'       => \$dbhost,
@@ -31,6 +32,7 @@ my $type;
   'dbpass=s'       => \$dbpass,
   'dbport=s'       => \$dbport,
   'md5_file=s' => \$md5_file,
+  'skip_defined!' => \$skip_defined,
   'help!' => \$help,
   'type=s' => \$type,
   'run!' => \$run,
@@ -56,7 +58,7 @@ my $db = ReseqTrack::DBSQL::DBAdaptor->new(
 
 
 
-my $md5_hash = get_md5hash($md5_file);
+my $md5_hash = get_md5hash($md5_file, 1);
 
 my $fa = $db->get_FileAdaptor;
 
@@ -71,6 +73,9 @@ my %file_hash;
 
 foreach my $file(@$files){
   unless($file_hash{$file->name}){
+    if($file->filename eq 'NA19026.nonchrom.LS454.ssaha2.SRP000033.20091216.bam.bas'){
+      print "Have file ".$file->path."\n";
+    }
     $file_hash{$file->filename} = $file;
   }else{
     print "Have duplicate for ".$file->name." in ".$file_hash{$file->filename}->name
@@ -82,7 +87,7 @@ foreach my $file(keys(%$md5_hash)){
   #my $name = basename($file);
   my $object = $file_hash{$file};
   if(!$object){
-    warning("Failed to find object for ".$file);
+    #warning("Failed to find object for ".$file);
     next;
   }
   if($object->filename ne $file){
@@ -90,6 +95,9 @@ foreach my $file(keys(%$md5_hash)){
     next;
   }
   my $md5 = $md5_hash->{$file};
+  if($skip_defined){
+    next if($object->md5);
+  }
   $object->md5($md5_hash->{$file});
   if($run){
     my $history = ReseqTrack::History->new(

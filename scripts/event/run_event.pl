@@ -19,55 +19,53 @@ my $input_string;
 my $verbose;
 my $help;
 
-&GetOptions( 
-  'dbhost=s'      => \$dbhost,
-  'dbname=s'      => \$dbname,
-  'dbuser=s'      => \$dbuser,
-  'dbpass=s'      => \$dbpass,
-  'dbport=s'      => \$dbport,
-  'event_name=s' => \$event_name,
-  'input_string=s' => \$input_string,
-  'help!' => \$help,
-  'verbose!' => \$verbose,
-    );
+&GetOptions(
+    'dbhost=s'       => \$dbhost,
+    'dbname=s'       => \$dbname,
+    'dbuser=s'       => \$dbuser,
+    'dbpass=s'       => \$dbpass,
+    'dbport=s'       => \$dbport,
+    'event_name=s'   => \$event_name,
+    'input_string=s' => \$input_string,
+    'help!'          => \$help,
+    'verbose!'       => \$verbose,
+);
 
-
-if($help){
-  perldocs();
+if ($help) {
+    perldocs();
 }
 
 my $db = ReseqTrack::DBSQL::DBAdaptor->new(
-  -host => $dbhost,
-  -user => $dbuser,
-  -port => $dbport,
-  -dbname => $dbname,
-  -pass => $dbpass,
-    );
+    -host   => $dbhost,
+    -user   => $dbuser,
+    -port   => $dbport,
+    -dbname => $dbname,
+    -pass   => $dbpass,
+);
 
 my $ea = $db->get_EventAdaptor;
 
 my $event = $ea->fetch_by_name($event_name);
 
-if(!$input_string){
-  $input_string = get_random_input_string($db, $event);
+if (!$input_string) {
+    $input_string = get_random_input_string($db, $event);
 }
 my $cmd_line = create_event_commandline($event, $input_string);
-print $cmd_line."\n";
-eval{
-  my $exit = system($cmd_line);
-  throw($cmd_line." returned a non zero exit code ".$exit) unless($exit == 0);
+print $cmd_line. "\n";
+eval {
+    my $exit = system($cmd_line);
+    throw($cmd_line . " returned a non zero exit code " . $exit)
+      unless ($exit == 0);
 };
 
-if($@){
-  throw("Problem running ".$event->name." with ".$input_string." $@");
+if ($@) {
+    throw("Problem running " . $event->name . " with " . $input_string . " $@");
 }
 
-
-sub perldocs{
-  exec('perldoc', $0);
-  exit(0);
+sub perldocs {
+    exec('perldoc', $0);
+    exit(0);
 }
-
 
 =pod
 

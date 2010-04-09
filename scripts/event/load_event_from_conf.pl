@@ -16,7 +16,7 @@ my $infile;
 my $outfile = "event_table.dat";    #default name of output file
 my $run;
 
-my ( $read, $write, $update, $load, $help, $verbose, );
+my ($read, $write, $update, $load, $help, $verbose,);
 
 &GetOptions(
     'dbhost=s'  => \$dbhost,
@@ -34,21 +34,21 @@ my ( $read, $write, $update, $load, $help, $verbose, );
 );
 
 if ($help) {
-  perldocs();
+    perldocs();
 }
 
 #Could allow this. Add to db then dump contents. Always dump contents
 #after modifying db.
-if ( $read && $write ) {
+if ($read && $write) {
     throw "Must specify -read or -write. Not both\n";
 }
 
-if ( ! $read && ! $write ){
-     	 print "Must specify -read or -write.\n";
-	 perldocs();
-} 
+if (!$read && !$write) {
+    print "Must specify -read or -write.\n";
+    perldocs();
+}
 
-if ( $read && !$infile ) {
+if ($read && !$infile) {
     throw "Must specify file (-file) with list of events when in read mode";
 }
 
@@ -61,12 +61,12 @@ my $db = ReseqTrack::DBSQL::DBAdaptor->new(
 );
 
 if ($read) {
-    my $events_list = parse_events_list( $infile, $verbose );
-    process_event_from_file( $events_list, $verbose );
+    my $events_list = parse_events_list($infile, $verbose);
+    process_event_from_file($events_list, $verbose);
 }
 
 if ($write) {
-    dump_event_table_contents( $outfile, $verbose );
+    dump_event_table_contents($outfile, $verbose);
 }
 
 #######################################################
@@ -80,7 +80,7 @@ sub dump_event_table_contents {
     my $ea     = $db->get_EventAdaptor;
     my $events = $ea->fetch_all;
 
-    open( OUT, '>', "event_table.dat" ) or die "File open error: $!";
+    open(my OUT, '>', "event_table.dat") or die "File open error: $!";
 
     printf "Event data entries:%d \n", scalar @$events;
 
@@ -130,24 +130,23 @@ sub process_event_from_file {
         print Dumper ($ievent) if $verbose;
 
         my %params;
-        foreach my $key ( keys(%$ievent) ) {
+        foreach my $key (keys(%$ievent)) {
             my $new = "-" . $key;
             $params{$new} = $ievent->{$key};
         }
 
-        my $jevent = ReseqTrack::Event->new( %params, );
+        my $jevent = ReseqTrack::Event->new(%params,);
 
         print Dumper ($jevent) if $verbose;
 
-        my $stored_event = $ea->fetch_by_name( $jevent->name );
+        my $stored_event = $ea->fetch_by_name($jevent->name);
 
         if ($stored_event) {
-            $jevent->dbID( $stored_event->dbID );
+            $jevent->dbID($stored_event->dbID);
             $jevent->adaptor($ea);
             $ea->update($jevent);
             $updated++;
-        }
-        else {
+        } else {
             $ea->store($jevent);
             $stored++;
         }
@@ -171,7 +170,7 @@ sub parse_events_list {
     my $name      = "name";
     my @array_events;
 
-    open( INFILE, $filename ) or die "File designation error: $!";
+    open(my INFILE, "<", $filename) or die "File designation error: $!";
 
     while (<INFILE>) {
 
@@ -179,11 +178,11 @@ sub parse_events_list {
         chomp($_);
 
         #if blank line should be at end of event data
-        if ( $_ =~ /^$/ ) {
+        if ($_ =~ /^$/) {
 
-            if ( $this_file && $this_file->{$name} ) {
+            if ($this_file && $this_file->{$name}) {
                 print "Storing $this_file->{$name}\n" if $verbose;
-                push( @array_events, $this_file );
+                push(@array_events, $this_file);
             }
 
             $this_file = {};
@@ -191,7 +190,7 @@ sub parse_events_list {
         }
 
         #extract filename from between []
-        if ( $_ =~ /\[(.*?)\]/ ) {
+        if ($_ =~ /\[(.*?)\]/) {
             my $header = $1;    # file name
             $this_file->{$name} = $header;
             print "\[$this_file->{$name}\]\n" if $verbose;
@@ -199,19 +198,18 @@ sub parse_events_list {
         }
 
         #should not have data with no file name associated
-        if ( !( $_ =~ /^$/ ) && !$this_file->{name} ) {
+        if (!($_ =~ /^$/) && !$this_file->{name}) {
             warning("Unassociated data line $ctr.Ignoring");
             next;
         }
 
-        if ( $_ =~ /\=/ ) {
-            ( my $key, my $value ) = split /\=/, $_;
+        if ($_ =~ /\=/) {
+            (my $key, my $value) = split /\=/, $_;
 
-            if ( !exists $this_file->{$key} ) {
+            if (!exists $this_file->{$key}) {
                 $this_file->{$key} = $value;
                 print $key. "=" . $this_file->{$key} . "\n" if $verbose;
-            }
-            else {
+            } else {
                 warning("Duplicate key data. line $ctr.Ignoring");
             }
         }
@@ -219,20 +217,20 @@ sub parse_events_list {
     }
 
     #store last entry
-    if ( $this_file && $this_file->{$name} ) {
+    if ($this_file && $this_file->{$name}) {
         print "Storing $this_file->{$name}\n" if $verbose;
-        push( @array_events, $this_file );
+        push(@array_events, $this_file);
         $this_file = ();
     }
 
     #if last entry is corrupt
-    if ( $this_file && !$this_file->{$name} ) {
+    if ($this_file && !$this_file->{$name}) {
 
         #warning ("Residual data at fileend.Ignoring\n");
         $this_file = ();
     }
 
-    if ( scalar @array_events == 0 ) {
+    if (scalar @array_events == 0) {
         throw("No events loaded from $filename. Cannot continue.");
     }
 
@@ -244,7 +242,7 @@ sub parse_events_list {
 }
 
 sub perldocs {
-    exec( 'perldoc', $0 );
+    exec('perldoc', $0);
     exit(0);
 }
 

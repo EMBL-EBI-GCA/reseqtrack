@@ -252,7 +252,7 @@ my @storage_problems;
                }
              }
              $file->dbID($for_update->dbID) if($for_update);
-             my $history = create_history($file, $for_update);
+             my $history = create_history($file, $for_update) if($for_update);
              next FILE unless($history);
              $file->history($history) if($history);
              unless($for_update){
