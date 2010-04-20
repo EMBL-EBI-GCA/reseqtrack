@@ -64,11 +64,11 @@ die "No files specified" if (!@bas_file);
 
 
 my $db = ReseqTrack::DBSQL::DBAdaptor->new(
-	   -host   => $dbhost,
-	   -user   => $dbuser,
-                           -port   => $dbport,
-	   -dbname => $dbname,
-	    -pass   => $dbpass,
+					   -host   => $dbhost,
+					   -user   => $dbuser,
+					   -port   => $dbport,
+					   -dbname => $dbname,
+					   -pass   => $dbpass,
       );
 
 
@@ -120,6 +120,15 @@ foreach my $inf (@bas_file) {
       $errors++;
     }
    
+
+    foreach my $i (0 .. $#data){
+      if ( $data[$i] =~/unknown/){
+	print "Error 'unknown' entry in column $i: $data[$i]\n";
+	$errors++;
+
+      }
+    }
+
     #    print Dumper ($meta_info);
   }
   close (FH);
