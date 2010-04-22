@@ -476,7 +476,11 @@ sub convert_population{
     $pop = 'ASW';
   }elsif($string =~ /Mexican-American/){
     $pop = 'MXL';
-  }else{
+  }elsif($string =~ /UK/){
+    $pop = 'GBR'; 
+  }
+  
+  else{
     #print STDERR "Failed to find pop for ".$string." ".$run_id."\n";
     #throw("Failed to find pop for ".$string);
     return $string;
