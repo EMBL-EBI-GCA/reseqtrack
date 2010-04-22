@@ -31,7 +31,7 @@ sub columns{
   return "run_id, study_id, study_name, center_name, submission_id, submission_date, ".
       "sample_id, sample_name, population, experiment_id, instrument_platform, ".
       "instrument_model, library_name, run_name, run_block_name, paired_length, ".
-      "library_layout, run_file_name, status, read_count, base_count";
+      "library_layout, run_file_name, status, read_count, base_count,err_fastq_available";
 }
 
 sub fetch_by_dbID{
@@ -141,6 +141,7 @@ sub object_from_hashref{
     -status => $hashref->{STATUS},
     -archive_read_count => $hashref->{READ_COUNT},
     -archive_base_count => $hashref->{BASE_COUNT},
+    -err_fastq_available=> $hashref->{ERR_FASTQ_AVAILABLE},
       );  
    return $object;
 }
@@ -225,6 +226,8 @@ sub convert_population{
     $pop = 'ASW';
   }elsif($string =~ /Mexican-American/){
     $pop = 'MXL';
+  }elsif($string =~ /UK/){
+    $pop = 'GBR';
   }else{
     throw("Failed to find pop for ".$string);
    }
