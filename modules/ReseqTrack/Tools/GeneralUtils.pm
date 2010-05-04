@@ -27,7 +27,7 @@ use vars qw (@ISA  @EXPORT);
 
 @ISA = qw(Exporter);
 @EXPORT = qw(current_time parse_movelist get_input_arg create_lock_string
-             delete_lock_string is_locked useage);
+             delete_lock_string is_locked useage convert_to_giga current_date);
 
 
 
@@ -52,6 +52,27 @@ sub current_time{
   $minute = sprintf("%02.d", $minute);
   $hour = sprintf("%02.d", $hour);
   my $theTime = "$year-$months[$month]-$dayOfMonth $hour:$minute:$second";
+  return $theTime;
+}
+
+=head2 current_date
+
+  Arg [1]   : n/a
+  Function  : returns the current time in the from yyyy-mm-dd
+  Returntype: see above
+  Exceptions: none
+  Example   : my $time = current_time
+
+=cut
+
+
+
+sub current_date{
+  my @months = qw(01 02 03 04 05 06 07 08 09 10 11 12);
+  my ($second, $minute, $hour, $dayOfMonth, $month, $yearOffset, $dayOfWeek, $dayOfYear, $daylightSavings) = localtime();
+  my $year = 1900 + $yearOffset;
+  $dayOfMonth = sprintf("%02.d", $dayOfMonth);
+  my $theTime = $year.$months[$month].$dayOfMonth;
   return $theTime;
 }
 
@@ -171,5 +192,12 @@ sub useage{
   exit(0);
 }
 
+sub convert_to_giga{
+  my ($base_count) = @_;
+  $base_count = 0 unless($base_count);
+  my $gigabase = $base_count/1000000000;
+  my $rounded = sprintf("%2.f", $gigabase);
+  return $rounded;
+}
 
 1;

@@ -440,76 +440,76 @@ sub standard_type_hash{
 =cut
 
 sub move_file_in_db_and_dir { 
+  my ($file_objects, $dir, $new_f_type, $db) = @_;
+  
+  my @new_file_objects;
+  
+  unless ( -e $dir ) {
+    mkpath($dir);
+  }
+  
+  my $fa = $db->get_FileAdaptor;
+  
+  foreach my $f_obj ( @$file_objects ) {
+    
+    my $file_path = $f_obj->name;
+    my $base_name = basename($file_path);
+    
+    #print "moving bam file $file_path to archive staging........\n";	
+    #`mv $file_path $dir`;
+    
+    my $new_path = $dir . "/" . $base_name;
+    move($file_path, $new_path);
+    throw("Failed to move ".$file_path." to ".$new_path) unless(-e $new_path);
+    $f_obj->name($new_path);
+    $f_obj->type($new_f_type);
+    
+    my $history;
+    my $hist_a = $db->get_HistoryAdaptor();
+    my $possible_stored_file = $fa->fetch_by_filename($f_obj->filename); #filename function gets the basename of the file; name function gets the whole path 	
+    
+    if($possible_stored_file && @$possible_stored_file >0 ){
+      if (@$possible_stored_file == 1) {
+	#### get the possible stored object
+	my $stored_file = $possible_stored_file->[0];	
+	#print "matching filename stored in db: " . $stored_file->name . "\n";	
 	
-	my ($file_objects, $dir, $new_f_type, $db) = @_;
+	#### compare new file and the exisitng file to see what the difference between the files
+	my $comment = calculate_comment($f_obj, $stored_file); 
 	
-	my @new_file_objects;
-			
-	unless ( -e $dir ) {
-		mkpath($dir);
-	}
+	$history = ReseqTrack::History->new(
+					    -other_id => $stored_file->dbID,
+					    -table_name => 'file',
+					    -comment => $comment, 
+					   );
 	
-	my $fa = $db->get_FileAdaptor;
-		
-	foreach my $f_obj ( @$file_objects ) {
-			
-		my $file_path = $f_obj->name;
-		my $base_name = basename($file_path);
-		
-		#print "moving bam file $file_path to archive staging........\n";	
-		`mv $file_path $dir`;
-
-		my $new_path = $dir . "/" . $base_name;
-			
-		$f_obj->name($new_path);
-		$f_obj->type($new_f_type);
-			
-		my $history;
- 		my $hist_a = $db->get_HistoryAdaptor();
- 		my $possible_stored_file = $fa->fetch_by_filename($f_obj->filename); #filename function gets the basename of the file; name function gets the whole path 	
-	 
- 		if($possible_stored_file && @$possible_stored_file >0 ){
-     		    if (@$possible_stored_file == 1) {
-        		#### get the possible stored object
-        		my $stored_file = $possible_stored_file->[0];	
-        		#print "matching filename stored in db: " . $stored_file->name . "\n";	
-	        
-        		#### compare new file and the exisitng file to see what the difference between the files
-        		my $comment = calculate_comment($f_obj, $stored_file); 
-			
-				$history = ReseqTrack::History->new(
-					-other_id => $stored_file->dbID,
-					-table_name => 'file',
-					-comment => $comment, 
-		 		);
-				
-				#### update the history object and assign it to the new file
-		 		$f_obj->history($history);
-			
-				#### modify the file object and store it in the file table with the update function
-				$f_obj->dbID($stored_file->dbID);
-		 		$f_obj->created($stored_file->created);
-		 		$fa->update($f_obj,1); #1 is withdraw indicator for overwrite the old file in file table 
-		     }
-		     elsif ( @$possible_stored_file > 1) {
-			   	 warning("There are multiple files in the database with the filename ".
-			 		$f_obj->filename." Don't know what to do now");
-		    }
-		}
-	 	#### If the file object does not exist in db, store it and create a history object for it
-		else{
-			$fa->store($f_obj);	
-			$history = ReseqTrack::History->new(
-				-other_id => $f_obj->dbID,
-				-table_name => 'file',
-				-comment => "Created new BAM file object", 
-		 	);
-		 	$hist_a->store($history);
-		}	
-		push (@new_file_objects, $f_obj);					
-	}#end of foreach
+	#### update the history object and assign it to the new file
+	$f_obj->history($history);
 	
-	return (\@new_file_objects);	
+	#### modify the file object and store it in the file table with the update function
+	$f_obj->dbID($stored_file->dbID);
+	$f_obj->created($stored_file->created);
+	$fa->update($f_obj,1); #1 is withdraw indicator for overwrite the old file in file table 
+      }
+      elsif ( @$possible_stored_file > 1) {
+	warning("There are multiple files in the database with the filename ".
+		$f_obj->filename." Don't know what to do now");
+      }
+    }
+    #### If the file object does not exist in db, store it and create a history object for it
+    else{
+      $fa->store($f_obj);	
+      $history = ReseqTrack::History->new(
+					  -other_id => $f_obj->dbID,
+					  -table_name => 'file',
+					  -comment => "Created new BAM file object", 
+					 );
+      $hist_a->store($history);
+    }	
+    push (@new_file_objects, $f_obj);					
+  }#end of foreach
+  
+  return (\@new_file_objects);	
 }	
 
 

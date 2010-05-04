@@ -6,11 +6,12 @@ use ReseqTrack::RunMetaInfo;
 use ReseqTrack::History;
 use ReseqTrack::Tools::Exception qw(throw warning stack_trace_dump);
 use ReseqTrack::Tools::GeneralUtils qw(current_time);
+use File::Basename;
 
 use vars qw (@ISA  @EXPORT);
 
 @ISA = qw(Exporter);
-@EXPORT = qw(are_run_meta_infos_identical create_object_from_index_line index_to_name_hash get_meta_info_hash create_history_for_run_meta_info create_suppressed_index_line create_index_line get_files_associated_with_run get_file_collections_associated_with_run copy_run_meta_info get_analysis_group get_sequence_index_stats get_withdrawn_summary get_study_descriptions get_index_group_stats calculate_gigabase calculate_coverage);
+@EXPORT = qw(are_run_meta_infos_identical create_object_from_index_line index_to_name_hash get_meta_info_hash create_history_for_run_meta_info create_suppressed_index_line create_index_line get_files_associated_with_run get_file_collections_associated_with_run copy_run_meta_info get_analysis_group get_sequence_index_stats get_withdrawn_summary get_study_descriptions get_index_group_stats calculate_gigabase calculate_coverage get_run_id_from_filename);
 
 
 
@@ -31,6 +32,8 @@ use vars qw (@ISA  @EXPORT);
 
 sub are_run_meta_infos_identical{
   my ($one, $two, $skip_date) = @_;
+  my $verbose = 0;
+  $verbose = 1 if($one->run_id eq 'SRR003513');
   throw("Must pass are_run_meta_infos_identical two RunMetaInfo objects") unless($one && $two);
   throw("Must pass are_run_meta_infos_identical two RunMetaInfo objects and not ".$one." and ".
         $two) unless($one->isa("ReseqTrack::RunMetaInfo") && 
@@ -83,9 +86,16 @@ sub are_run_meta_infos_identical{
   }
   return 0 if($one->paired_length != $two->paired_length);
   return 0 if($one->library_layout ne $two->library_layout);
+  print "Comparing archive base count for ".$one->run_id." ".
+      $one->archive_base_count." compared to ".$two->archive_base_count."\n" 
+      if($verbose);
   if($one->archive_base_count || $two->archive_read_count){
     if($one->archive_base_count ne $two->archive_base_count){
-      return 0 unless(!$one->archive_base_count || $one->archive_base_count == 0);
+      unless(!$one->archive_base_count || $one->archive_base_count == 0){
+        print "ONE ".$one->archive_base_count." is different to TWO ".$two->archive_base_count.
+            " returning 0\n" if($verbose);
+        return 0;
+      }
     }
   }
   if($one->archive_read_count || $two->archive_read_count){
@@ -512,6 +522,13 @@ sub calculate_coverage{
   my $rounded_coverage = sprintf("%.2f", $coverage);
   $coverage = $rounded_coverage unless($dont_round);
   return $coverage;
+}
+
+sub get_run_id_from_filename{
+  my ($name) = @_;
+  my $filename = basename($name);
+  $filename =~ /([E|S]RR\d+)/;
+  return $1;
 }
 
 1;

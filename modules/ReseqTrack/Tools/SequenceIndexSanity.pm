@@ -639,7 +639,7 @@ sub check_column_8{
 sub check_column_9{
   my ($value) = @_;
   return 0 if(!$value);
-  return 0 unless($value =~ /^NA\d+$/);
+  return 0 unless($value =~ /^NA\d+$/ || $value =~ /^HG\d+$/);
   return 1;
 }
 

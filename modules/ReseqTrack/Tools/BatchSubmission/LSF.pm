@@ -81,13 +81,13 @@ sub new{
 
 sub construct_command_line{
   my ($self, $to_run, $options, $job, $name) = @_;
-  
+
   $to_run = $self->cmd unless($to_run);
   $options = $self->options unless($options);
   if($name){
     $options .= " -J ".$name unless($options =~ /\-J\s+\S+/);
   }
-  my $cmd = $self->program." ".$options." -o ".$job->stdout_file." -e ".$job->stderr_file.
+  my $cmd = $self->program." ".$options." -oo ".$job->stdout_file." -eo ".$job->stderr_file.
       " ".$to_run;
   return $cmd;
 }
@@ -132,8 +132,8 @@ sub get_total_job_number{
   Arg [3]   : username
   Function  : ensures all current pipeline jobs still exist in LSF
   Returntype: n/a
-  Exceptions: 
-  Example   : 
+  Exceptions:
+  Example   :
 
 =cut
 
@@ -155,7 +155,7 @@ sub check_for_awol_jobs{
       $ja->set_status($job);
     }
   }
-} 
+}
 
 
 =head2 run_bjobs
@@ -165,7 +165,7 @@ sub check_for_awol_jobs{
   Function  : run bjobs cmd
   Returntype: hash keyed on submission id
   Exceptions: throws if fails to run command
-  Example   : 
+  Example   :
 
 =cut
 

@@ -22,7 +22,8 @@ use vars qw (@ISA  @EXPORT);
              get_era_fastq 
              compare_era_and_dcc_meta_info
              fix_sample_swap
-             get_fastq_details);
+             get_fastq_details
+	     convert_population);
 
 
 sub get_erapro_conn{
@@ -338,5 +339,45 @@ sub date_hash{
   return \%hash;
 }
 
+sub convert_population{
+  my ($string, $run_id, $throw) = @_;
+  $throw = 1 unless(defined($throw));
+  my $pop;
+  if($string =~ /yri/i){
+    $pop = 'YRI';
+  }elsif($string =~ /yoruba/i){
+    $pop = 'YRI';
+  }elsif($string =~ /han chinese/i){
+    $pop = 'CHB';
+  }elsif($string =~ /japan/i){
+    $pop = 'JPT';
+  }elsif($string =~ /CEU/i){
+    $pop = 'CEU'; 
+  }elsif($string =~ /CEPH/i){
+    $pop = 'CEU';
+  }elsif($string =~ /tuscan/i){
+    $pop = 'TSI';
+  }elsif($string =~ /denver/i){
+    $pop = 'CHD';
+  }elsif($string =~ /Luhya/i){
+    $pop = 'LWK';
+  }elsif($string =~ /UTAH/i){
+    $pop = 'CEU';
+  }elsif($string =~ /ASW/){
+    $pop = 'ASW';
+  }elsif($string =~ /MXL/){
+    $pop = 'MXL';
+  }elsif($string =~ /African-American/){
+    $pop = 'ASW';
+  }elsif($string =~ /Mexican-American/){
+    $pop = 'MXL';
+  }elsif($string =~ /UK/){
+    $pop = 'GBR';	
+  }else{
+    throw("Failed to find pop for ".$string) if($throw);
+   }
+  $pop = $string unless($pop);
+  return $pop;
+}
 
 1;
