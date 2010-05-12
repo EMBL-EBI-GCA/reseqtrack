@@ -411,8 +411,9 @@ sub QA {
 	}	
 		
 	##### If a read pass all above check, go on checking more below ######
-	##### check if the seq length is > 25bp for Solexa and solid, for 454, use 30 bp #######
-	##### check to see if the first 25 or 30 bp contain no Ns and are not single type of base #####	
+	##### check if the seq length is > 35bp for Solexa, 25bp for solid, 30bp for 454 #######
+	##### check to see if the first 25,30 or 35 bp contain no Ns and are not single type of base #####	
+
 	if ($flag eq "Pass") {	
 		if ($$instrument eq "ABI_SOLID") {
 
@@ -422,10 +423,11 @@ sub QA {
 			else {
 				$flag = runSolidSeqCheck($line_2, $line_4, $read_num,  $instrument, $len_limit, $log_fh);
 			}
+			
 		}	
 		elsif ($$instrument eq "ILLUMINA") {
 			if (!$len_limit) {
-				$flag = runSeqCheck($line_2, $line_4, $read_num,  $instrument, 25, $log_fh);
+				$flag = runSeqCheck($line_2, $line_4, $read_num,  $instrument, 35, $log_fh);
 			}
 			else {
 				$flag = runSeqCheck($line_2, $line_4, $read_num,  $instrument, $len_limit, $log_fh);
@@ -440,9 +442,57 @@ sub QA {
 			}
 		}	
 	}	
+	
+	##### If the seq passes QA so far, check % of Ns in the whole length of the read ######
+	if ($flag eq "Pass") {	
+		if ($$instrument eq "ABI_SOLID") {
+			$flag = tooManyNsFullLenSolid($line_2, $read_num, $log_fh);
+		}
+		else {
+			$flag = tooManyNsFullLen($line_2, $read_num, $log_fh);
+		}
+	}
+				
 	END_OF_QA:
 	return $flag;
 }	
+
+sub tooManyNsFullLenSolid {
+	
+	my ($seq, $read_num, $log_fh) = @_;
+	my $flag;
+	my $N_cnt = 0;
+	my $read_length = length($seq) -1;
+			
+	my @characters = split (//, $seq); #split string into characters
+	foreach my $char (@characters) {
+		$N_cnt++ if ($char eq "\.");
+	}
+
+	if ($N_cnt/$read_length > 0.5) {
+		$flag = "Fail";
+		print $log_fh "ERROR: The colorspace string contains more than 50% Ns in the whole length of the read $read_num\n";
+	}
+	return $flag;
+}
+
+sub tooManyNsFullLen {
+	my ($seq,  $read_num, $log_fh) = @_;
+	my $flag;
+	my $N_cnt = 0;
+	my $read_length = length($seq);
+	
+	my @characters = split (//, $seq); #split string into characters
+	foreach my $char (@characters) {
+		$N_cnt++ if ($char eq "N");
+	}
+	
+	if ($N_cnt/$read_length > 0.5) {
+		$flag = "Fail";
+		print $log_fh "ERROR: The seq contains more than 50% Ns in the whole length of the read $read_num\n";
+	}
+	return $flag;
+}
 
 sub runSolidSeqCheck {
 	my ($line_2, $line_4, $read_num,  $instrument, $len_limit, $log_fh) = @_;

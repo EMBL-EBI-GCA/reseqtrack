@@ -405,7 +405,7 @@ sub help_info {
 
 =head1 NAME
 
- perl -w run_fastq_qc.pl
+ perl -w /homes/zheng/reseq-personal/zheng/bin/runQC.pl
 
  Required arguments:
    
@@ -454,10 +454,11 @@ Syntax Checks:
 
 Sequence Checks:
 
-	-Read is longer than 25bp for Solexa and Solid, for 454 use the length 30bp
-	-Read does not contain any N's in the first 25bp or 30bp
-	-Quality values are all 2 or higher in the first 25bp or 30bp
-	-The reads contain more than one type of base
+	-Read is longer than 35bp for Solexa, 25bp for Solid, and 30 bp for 454
+	-Read does not contain any N's in the first 25, 30 or 35bp
+	-Quality values are all 2 or higher in the first 25bp, 30bp or 35bp
+	-The reads contain more than one type of base in the first 25, 30, or 35bp
+	-Read does not contain more than 50% Ns in its whole length
 
 The output of the script are the followings:
 
@@ -468,14 +469,16 @@ The output of the script are the followings:
 	
 =head1 Example:
 
- perl -w run_fastq_qc.pl -dbhost mysql-g1kdcc -dbuser g1krw -dbpass xxxxxxxxxx -dbport 4197 -dbname zheng_fastq_test 
- -run_id ERR000587 -load -backfill_stats -type FASTQ > out
+ perl -w ~/ReseqTrack/scripts/qc/run_fastq_qc.pl -dbhost mysql-g1kdcc -dbuser g1krw -dbpass thousandgenomes -dbport 4197 -dbname zheng_fastq_test -run_id ERR000587 -load -type FASTQ -output_dir /tmp > out
+
+ perl -w ~/reseq-personal/zheng/bin/runQC.pl -dbhost mysql-g1kdcc -dbuser g1krw -dbpass thousandgenomes -dbport 4197 -dbname zheng_fastq_test 
+ -run_id ERR000587 -load -backfill_stats -type ARCHIVE_FASTQ -output_dir /tmp  > out
 
 	ERR000587 is a test case for ILLUMINA with two files
 	ERR000591 is a test case for ILLUMINA with three files
 	ERR001623 is a test case for Solid with one file
 	SRR014948 is a test case for 454 with two files
-
+ 
 =head1 Author:
 
  Holly Zheng Bradley Oct. 2009
