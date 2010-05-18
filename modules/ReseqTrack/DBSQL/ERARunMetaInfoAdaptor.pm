@@ -227,7 +227,7 @@ sub convert_population{
   }elsif($string =~ /Mexican-American/){
     $pop = 'MXL';
   }elsif($string =~ /UK/){
-    $pop = 'GBR';
+    $pop = 'GBR';	
   }else{
     throw("Failed to find pop for ".$string);
    }
