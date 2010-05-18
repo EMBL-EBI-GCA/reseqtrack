@@ -159,11 +159,13 @@ if($update_existing){
     my $dcc = $dcc_hash->{$run_id};
     my $era = $era_hash->{$run_id};
     $era->dbID($dcc->dbID);
-    if($dcc->archive_read_count >= 1 && $era->archive_read_count <= 0){
-      throw("Trying to set ".$run_id." archive_read_count to zero");
-    }
+    #if($dcc->archive_read_count >= 1 && $era->archive_read_count <= 0){
+    #  throw("Trying to set ".$run_id." archive_read_count to zero");
+    #}
     if($dcc->archive_base_count >= 1 && $era->archive_base_count <= 0){
-      throw("Trying to set ".$run_id." archive_read_count to zero");
+      #throw("Trying to set ".$run_id." archive_base_count to zero");
+      $era->archive_base_count($dcc->archive_base_count);
+      $era->archive_read_count($dcc->archive_read_count);
     }
     my $history = create_history_for_run_meta_info($era, $dcc);
     if(!$history){
