@@ -152,10 +152,11 @@ sub convert_date{
   #2009-NOV-16  21:39:50
   return undef unless($old_date);
   my ($date, $time) = split /\s+/, $old_date;
+
   $time = '00:00:00' unless($time);
   my ($day, $month, $year) = split /\-/, $date;
   my $date_hash = date_hash();
-  if($year =~ /\d\d/){
+  if($year =~ /\d\d/ && ( length ($year) == 2) ){
     $year = "20".$year
   }
   my $num_month = $date_hash->{$month};
