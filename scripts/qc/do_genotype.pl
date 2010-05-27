@@ -22,12 +22,32 @@ use Data::Dumper;
 
 
 
+
+
+
+
+#             WARNING
+#This is very messy code.  And I mean MESSY
+#
+#
+
+
+
+
+
+
+
+
+
+
 $| = 1;
 
-my $GRC37  = "/nfs/1000g-work/G1K/work/reference/BWA/GRC37/human_g1k_v37";
+my $GRC37      = "/nfs/1000g-work/G1K/work/reference/BWA/GRC37/human_g1k_v37";
+my $GRC37_SNPS ="/nfs/1000g-work/G1K/work/reference/BWA/GRC37/main_project/snps/snps-v37.bin";
 my $g1k_work        = '/nfs/1000g-work/G1K/work';
 my $samtools        =  '/nfs/1000g-work/G1K/work/bin/samtools/samtools';
 my $bwa_exe         = '/nfs/1000g-work/G1K/work/bin/bwa-0.5.7/bwa';
+
 my $bwamaleref      =  '/nfs/1000g-work/G1K/work/reference/BWA/NCBI36/human_b36_male';
 my $bwafemaleref    =  '/nfs/1000g-work/G1K/work/reference/BWA/NCBI36/human_b36_female';
 
@@ -35,12 +55,13 @@ my $ncbimaleref     = '/nfs/1000g-work/G1K/work/reference/BWA/NCBI36/human_b36_m
 my $ncbifemaleref   = '/nfs/1000g-work/G1K/work/reference/BWA/NCBI36/human_b36_female.fa';
 
 my $glf             = "/nfs/1000g-work/G1K/work/bin/glftools/glfv3/glf";
-my $snp_bin         = "/nfs/1000g-work/G1K/work/bin/ref/snps/hapmap3.snps.bin";
+my $NCBI36_SNPS     = "/nfs/1000g-work/G1K/work/bin/ref/snps/hapmap3.snps.bin";
+
 
 my $gender_file     = "/nfs/1000g-work/G1K/work/reference/BWA/NCBI36/sample_genders.csv";
-my $snp_list        = "/homes/smithre/bin/glf_snps.lst";
+my $snp_list        = "/homes/smithre/bin/hapmap3_release2_sb10.list";
 
-my $staging_root = "/nobackup/vol1/smithre/GT_CHECK/STAGING/"; #processing directory 
+my $staging_root = "/nfs/nobackup/resequencing_informatics/rseqpipe/genotype_check/STAGING/"; #process directory 
 my $internal_dir;		#process bam , create .bas in here
 my $host_name;
 my $file_type;
@@ -67,11 +88,13 @@ my $bwaref;
 
 my @in_files;
 my $subseq_files;
-my $sub_size = 5000000; 
+my $sub_size = (100 * 1000000); 
 my @process_files;
 my $grc37;
-
-
+my $db;
+my $paired= "NOT WORKING";
+my $clean = 1;
+my $single = 0;
 &GetOptions( 
 	    'staging_root=s'   => \$staging_root,
 	    'internal_dir=s'   => \$internal_dir,
@@ -91,12 +114,28 @@ my $grc37;
 	    'dbport=s'         => \$dbport,
 	    'sub_size=s'       => \$sub_size,
 	    'grc37'            => \$grc37,
+	    'clean!'           => \$clean,
+	    'single!'     => \$single,
 	   );
 
+print "single $single\n";
 
-$type="FILTERED_FASTQ";
+
+my $snp_bin;
+$snp_bin         = $NCBI36_SNPS;
+
+
+  if ($grc37){
+    $snp_bin         = $GRC37_SNPS;
+    $ncbiref         = "/nfs/1000g-work/G1K/work/reference/BWA/GRC37/human_g1k_v37.fa";
+    $bwaref          = "/nfs/1000g-work/G1K/work/reference/BWA/GRC37/human_g1k_v37.fa";
+  }
+
+
+
+
 $run=1;
-$verbose =1;
+#$verbose =1;
 
 
 
@@ -142,13 +181,14 @@ if ($run_id) {
   throw "File type not set" if (!$type);
 
 
-  my $db = ReseqTrack::DBSQL::DBAdaptor->new(
+  $db = ReseqTrack::DBSQL::DBAdaptor->new(
 					     -host => $dbhost,
 					     -user => $dbuser,
 					     -port => $dbport,
 					     -dbname => $dbname,
 					     -pass => $dbpass,
 					    );
+
 
 
 
@@ -165,6 +205,11 @@ if ($run_id) {
   $rmi_a      = $db->get_RunMetaInfoAdaptor;
   $meta_info  = $rmi_a->fetch_by_run_id ($run_id);
 
+
+  if ($meta_info->{instrument_platform} eq "ABI_SOLID"){
+    throw "SOLID PLATFORM SKIPPING";
+  }
+
   if (!defined ( $meta_info) ) {
     throw "Could not pull meta info for run_id = $run_id" ;
   }
@@ -176,7 +221,7 @@ if ($run_id) {
   print "run_meta_info  SAMPLE =  $meta_info->{sample_name}\n" if $verbose;
   $claimed_sample =  $meta_info->{sample_name};
 
-  print  ref ($collection) if $verbose;
+#  print  ref ($collection) if $verbose;
 
   throw("No collection object is found; please check the run_id and type\n") if (!$collection);
 
@@ -189,25 +234,37 @@ if ($run_id) {
   if ($verbose) { 
     my @coll_files;
     foreach my $q (@$others) {
-      print $q->{name},"\t";
-      print $q->{type},"\n";
+    #  print $q->{name},"\t";
+    #  print $q->{type},"\n";
 
       throw "Dead file $q->{name}" if ( ! -e  $q->{name} );
       push (@coll_files,  $q->{name});
     }
 
-    print "@coll_files", "\n";
+    #print "@coll_files", "\n";
   }
   my  ($pe1 , $pe2, $frag) = assign_file_objects ($others);
-  if ($pe1->{name} && $pe2->{name}) {
-    print "$pe1->{name}     + $pe2->{name}\n" if $verbose;
-  }
-  print "$frag->{name}   by lonesome\n"   if ( $verbose && $frag->{name});
+#  if ($pe1->{name} && $pe2->{name}) {
+#    print "$pe1->{name}     +\n $pe2->{name}\n" if $verbose;
+#  }
+#  print "$frag->{name}   by lonesome\n"   if ( $verbose && $frag->{name});
 
 
   $file1 = $pe1->{name}  if  $pe1->{name};
   $file2 = $pe2->{name}  if  $pe2->{name};
   $file  = $frag->{name} if  $frag->{name};
+
+   
+
+  if ($meta_info->{library_layout} eq "PAIRED"){  
+   if ($single == 0){
+     print "Not running on frag file of PAIRED layout\n";
+     $file = "" if ($file);
+   }
+  }
+  
+
+
 
   if ( ($file1 && !$file2) || ($file2 && !$file1) ) {  
     print "Missing Paired end file";
@@ -224,7 +281,7 @@ if ($run_id) {
 
 
   if ( $file) {
-    print "file $file\n" if $verbose;
+   # print "file $file\n" if $verbose;
     push (@in_files, [$file] );
   }
 
@@ -232,7 +289,7 @@ if ($run_id) {
 
 
 if (! $run_id) {		# giving file off command line
-  my $db = ReseqTrack::DBSQL::DBAdaptor->new(
+   $db = ReseqTrack::DBSQL::DBAdaptor->new(
 					     -host => $dbhost,
 					     -user => $dbuser,
 					     -port => $dbport,
@@ -257,33 +314,56 @@ my $snps = load_list_of_sample_snps ($snp_list);
 
 my @check = grep (/$claimed_sample/ ,@$snps);
 
-print  "Failed   $run_id      $claimed_sample \n" if ( ! @check);
+if ( ! @check){
+  throw "Failed   $run_id      $claimed_sample NO SNPS";
+}
+
 #print  "OK       $run_id      $claimed_sample    SNPS TO CHECK AGAINST\n";
 
-#print @check,"\n";
+
 
 
 
 # reference list of sample M/F,assign ncbi ref files
-create_gender_hash ($gender_file,$meta_info->{instrument_platform} ); 
-
+if (! $grc37){
+  create_gender_hash ($gender_file,$meta_info->{instrument_platform} ); 
+}
 my $process_dir = '';
+
+
+
+$db->dbc->disconnect_when_inactive(1);
+
+
+
 
 foreach my $r (@in_files) {
  
   my $now = time;
+  
 
+  my $nfiles =  scalar (@$r);
+  
+  if ($nfiles == 1){
+    if ($meta_info->{library_layout} eq "PAIRED"){
+      print "\nNOT TESTING SINGLE ENDS ONLY. Skipping paired ends\n\n";
+      next;
+    }
+  }
+  
+  
   foreach my $t ( @$r) {  
-    print "Processing $t\n";
+#    print "Processing $t\n";
   }
 
   #where to create to genotype 
    $process_dir = create_process_dir ($staging_root, $run);
-  print "Process directory =  $process_dir\n";
+   print "Process directory =  $process_dir\n" if $verbose;
 
 
   chdir($process_dir) if $run;
  
+
 
   $subseq_files  = create_subsequence_sample (\@$r,$process_dir, $sub_size, $run);
 
@@ -298,135 +378,45 @@ foreach my $r (@in_files) {
 
   my $passed     = check_glf_output ($glf_output, $claimed_sample, $verbose);
 
-  $now = time - $now;
-  printf("\n\nTotal running time: %02d:%02d:%02d\n\n",
-	 int($now / 3600), int(($now % 3600) / 60),  int($now % 60));
+#  $now = time - $now;
+#  printf("\n\nTotal running time: %02d:%02d:%02d\n\n",
+#	 int($now / 3600), int(($now % 3600) / 60),  int($now % 60));
 
-  chdir($staging_root);
-#  if ($passed) {
-#    print "Passed genotype\n check:Deleting $process_dir\n";
-  `chmod -R 775 $process_dir\*`;
-  clean_up($process_dir);
+#   print "Completed genotype\n check:Deleting $process_dir\n";
+#  `chmod -R 775 $process_dir\*`;
+  clean_up($process_dir) if ($clean);
+
 #  }
-
+  
   print "========================= Done =========================\n";
+  if ($passed == 1){
+    `echo $process_dir >> /homes/smithre/CLEAN_NOBACK`;
+  }
 }
 ##### ## ## ##                         END            ## ##  ##  ######
 #######################################################################
 sub clean_up {
 
+ 
+   return if ($clean == 0);
+
+
   my $pro_dir = shift;
-  chdir($staging_root);
-  `chmod -R 777 $pro_dir\*`;
-  print "Deleting $pro_dir\n";
-  rmdir($pro_dir);
+ `chmod -R 777 $pro_dir`;
+  chdir($pro_dir);
+  my  @files = <*>;
 
-}
-
-sub  color_space_conversion{
-
- my $file = shift;
- my $IN;
-
- if ( $file =~ /.gz$/){
-   print " XXXXXXXXXxxx zcating filepipe\n";
-   open( $IN, "zcat $file |" ) or die "Can not open gz $file: $!\n";
- }
-
- if ( $file =~ /.fastq$/){
-   open(  $IN, ,'<',"$file |" ) or die "Can not open fastq $file: $!\n";
- }
-
- throw ("No file handle") if (! $IN);
-
- (my $fh, my  $filename) = tempfile("g1k_XXXXX");
-
- print "\nTEMP FILE: $filename\n";
-
- while (<$IN>){
-  
-   my $line_id   = $_;
-   my $line_seq  = <$IN>;
-   my $line_sep  = <$IN>;
-   my $line_qual = <$IN>;
-   
-   $line_seq = substr($line_seq, 2);
-   $line_seq =~ tr/0123./ACGTN/;
-
-   $line_qual = substr($line_qual, 2);
-
-   if (length ($line_seq) != length ($line_qual)){
-     die "Lengths do not match";
-   }
-
-   my $seq_len = length ($line_seq) -1 ;
-
-   # $line_id =~ s/\d+$/$seq_len/;
-
-
-   print $fh   $line_id, $line_seq, $line_sep , $line_qual ;
-
-
-
- }
-  close ($fh);
-
- `gzip  $filename`;
- 
- $filename .= ".gz";
- print "mv $filename $file\n";
- `mv $filename $file`;
-
-
-
-}
- 
-sub create_subsequence_sample {
-  my $infiles         = shift;
-  my $process_dir     = shift;
-  my $size            =shift;
-  my $run             = shift if (@_);
-  my @new_subsample_files;
-  my $seq_list;
-
-  foreach my $file (@$infiles) {
-
-    my $outfile      = $$ . basename($file);
-
-    print "sampling: #$file#\n" if $verbose;
-
-    $seq_list = FastQ::sample( $file, $outfile,  $size)  if $run;
-    #    FastQ::sample( $copy_fastq, $outfile, $size,  $seq_list)  if $run;
-
-
-     if ($meta_info->{instrument_platform} =~ /.SOLID/i){
-       print "HAVE TO DO SNEAKY CONSVERSION\n";
-       color_space_conversion ($outfile);
-
-     }
-
-
-
-
-    push (@new_subsample_files, $outfile);
-
-    if ($run) {
-      my $tmp_size = stat($new_subsample_files[-1] )->size ;
-      $tmp_size /= (1024*1000);
-      printf "Size of $new_subsample_files[-1]  ~ %6.3f Mb (bytes)\n", $tmp_size ;
-      print  "Warning: small sub sample size $tmp_size\n" if ($tmp_size < 1.0);
-    }
+  foreach my $file (@files){
+    next if ($file =~ /out$/);
+    next if ($file =~/sorted.bam$/);
+    print"unlink $file\n" if $DEBUG;
+    unlink ($file);
   }
- # print "\n";
 
-  my $ctr = 0;
-  foreach my $file (@new_subsample_files) {
-    $ctr++;
-    print "$ctr   $file \n" if $verbose;
-  }
-  print "\n" if $verbose;
-  return \@new_subsample_files;
 }
+
+
+ 
 
 
 
@@ -461,9 +451,6 @@ sub check_glf_output {
     my $samp   = $line[1];
     my $score  = $line[3];
 
-
-   
-
     $all_scores [$i] = $line[3];
     $i++;
 
@@ -492,66 +479,77 @@ sub check_glf_output {
   if ( $top_score <= 0.0001) {
     print "Top score has likelihood of $top_score. Test probably failed\n"; 
     clean_up ($process_dir);
-    warning "Test failed";
+    throw "Test failed";
     return;
   }
 
-  print "Top ranked hit = $top_sample ";
-  print "    score  = $top_score\n";
+#  print "1. = $top_sample  $top_score  ";
+#  print "    score  = $top_score\n";
 
-  print "2nd ranked hit = $sec_sample ";
-  print "    score  = $sec_score\n";
+#  print "2. = $sec_sample  $sec_score  ";
+#  print "    score  = $sec_score\n";
+
+  print "RESULTS\:\:$run_id\:\:";
+  print $meta_info->{library_layout};
+  print "\:\:1=$top_sample  ";
+
+#  print "    score  = $top_score\n";
+
+  print "2=$sec_sample ";
+#  print "    score  = $sec_score\n";
 
 
   my $ratio21 = $all_scores[1]/$all_scores[0];
 
-  printf "Ratio of ranked 2 to 1              = %6.4f\n\n", 
-    $ratio21;
+  $ratio21 *= 10;
+  $ratio21 = int ($ratio21);
+  $ratio21 /= 10.0;
+
+  printf "r(2:1)= %3.1f\:\:", $ratio21;
 
   if (exists  $glf_scores{$sample}) {   
 
     my $ratio = $glf_scores{$sample}/$top_score;
 
-    print "Claimed Sample:: $sample    Rank:: $glf_rank{$sample}\n";
+    print "Claimed $sample  r($glf_rank{$sample}:1)";
+    printf "%6.3f", $ratio;
    
-    if ($glf_rank{$sample} ne "1"){
-      print "\nClaimed Sample:: ";
-      print "$glf_rank{$sample} :: $sample  $glf_scores{$sample}  Ratio = ";
-      printf "%6.4f\n", $ratio;
-    }
+  #  if ($glf_rank{$sample} ne "1"){
+  #    print "\nClaimed Sample:: ";
+  #    print "$glf_rank{$sample} :: $sample  $glf_scores{$sample}  Ratio = ";
+  #    printf "%6.4f\n", $ratio;
+  #  }
   }
-  else{
 
-    clean_up ($process_dir);
-    throw "SAMPLE SNPS NOT THERE: $claimed_sample\n";
-  }
   
 
   if (  $sample eq $top_sample ) {
-    print "CLAIMED SAMPLE IS HIGHEST HIT\n";
+    print "\:\:CLAIMED=HIGHEST";
   }
 
 
   my $sample_match = 0;
-  if ($top_sample ne $sample) {
-    print "Top sample does not match claimed sample\n\n";
+ 
+ if ($top_sample ne $sample) {
+#    print "Top sample does not match claimed sample\n";
   } else {
     $sample_match = 1;
   }
 
   if ( ($ratio21 > 1.2)   && $sample_match ) {
-    print "\nConvincing match of data to Sample Number\n";
+    print "\:\:Convincing match\n";
     return 1;
   }
 
   if ( ($ratio21 < 1.2) && ($ratio21 > 1.0)  && $sample_match ) {
-    print "\nUnconvincing match of data to Sample Number\n" ;
+    print "\:\:Unconvincing match, but highest hit\n" ;
     return 1;
   }
 
   
   if ( $ratio21 < 1.0 || !$sample_match ) {
-    throw "WARNING: Sequence data appears not match Sample Number\n";
+    print "\:\:DATA DOES NOT PASS\n";
+    return 0;
   }
 
 }
@@ -568,13 +566,21 @@ sub run_glf_sample_check {
   print "ncbiref  = $ncbiref\n" if $verbose;
 
 
-  print "Creating bam:\n";
+  print "Creating bam:\n" if $verbose;
   print "samtools import $ncbiref  $insam $$.bam\n" if $verbose;
   my $make_bam = "samtools import $ncbiref  $insam $$.bam";
   eval {
     `$make_bam` if $run;
   };
   throw "$make_bam failed:$@" if ($@);
+
+#  my @mapped = `samtools flagstat $$.bam`;
+#  
+#  foreach (@mapped){
+#    print;
+#  }
+
+
 
   # `samtools sort file.bam file.sorted` 
   #   samtools index file.sorted.bam     
@@ -628,7 +634,7 @@ sub run_glf_sample_check {
   print $run_glf,"\n" if $verbose;
 
   eval {
-    print "Running glf checkGenotype:$run_glf \n";
+    print "Running glf checkGenotype\n" if $verbose;
     `$run_glf` if $run;
   };
   throw "$run_glf failed:$@" if ($@);
@@ -639,6 +645,64 @@ sub run_glf_sample_check {
 
 
 
+sub create_subsequence_sample {
+  my $infiles         = shift;
+  my $process_dir     = shift;
+  my $size            =shift;
+  my $run             = shift if (@_);
+  my @new_subsample_files;
+  my $seq_list;
+
+  foreach my $file (@$infiles) {
+
+    my $outfile      = $$ . basename($file);
+
+    print "sampling: #$file#\n" if $verbose;
+    my $tmp_size1 = stat($file )->size ;
+    $tmp_size1 /= (1024*1000);
+     printf "Size of org  ~ %6.3f Mb (bytes)\n", $tmp_size1 if $verbose;
+
+    $seq_list = FastQ::sample( $file, $outfile,  $size)  if $run;
+    #    FastQ::sample( $copy_fastq, $outfile, $size,  $seq_list)  if $run;
+
+
+     if ($meta_info->{instrument_platform} =~ /.SOLID/i){
+       print "HAVE TO DO SNEAKY CONVERSION\n";
+       color_space_conversion ($outfile);
+
+     }
+
+
+
+
+    push (@new_subsample_files, $outfile);
+
+    if ($run) {
+      my $tmp_size = stat($new_subsample_files[-1] )->size ;
+      $tmp_size /= (1024*1000);
+      printf "Size of $new_subsample_files[-1]  ~ %6.3f Mb (bytes)\n", $tmp_size if $verbose;
+      print  "Warning: small sub sample size $tmp_size\n" if ($tmp_size < 1.0);
+    }
+  }
+ # print "\n";
+
+  my $ctr = 0;
+  foreach my $file (@new_subsample_files) {
+    $ctr++;
+    print "$ctr   $file \n" if $verbose;
+  }
+  print "\n" if $verbose;
+
+  if ( scalar (@new_subsample_files) == 2 ){
+    $paired = "paired";
+  }
+  if ( scalar (@new_subsample_files) == 1 ){
+    $paired = "single";
+  }
+  
+
+  return \@new_subsample_files;
+}
 
 ##############
 
@@ -659,8 +723,12 @@ sub from_fastq_to_sam {
   my  $make_sam;
 
 
+
+ # print "$refseq\n";
+
+
   foreach my $i (@$fastq_files) {
-    print "processing: $i\n" if $verbose;
+    print "processing: $i\n" if $DEBUG;
   }
   print "\n" if $verbose;
 
@@ -695,7 +763,7 @@ sub from_fastq_to_sam {
   }
 
   #create .sai files
-  print "Creating sai files\n";
+  print "Creating sai files\n" if $verbose;
   my $ok=0;
   foreach my $i (@create_sai_cmds) {
     $ok = 0;
@@ -720,7 +788,7 @@ sub from_fastq_to_sam {
   $make_sam = $make_sam .  " 2> ./log  >  $outsam";
 
 
-  print "\nCreating sam file \n";
+  print "Creating sam file \n" if $verbose;
   print $make_sam, "\n" if $verbose;
 
   eval {
@@ -781,7 +849,7 @@ sub create_gender_hash {
     }
 
   }
-  close (IN);
+  close (IN); 
 
 
   # human_b36_male.fa or human_b36_female.fa
@@ -795,22 +863,22 @@ sub create_gender_hash {
     if ($genders{ $claimed_sample } eq "Male") {
       $ncbiref    = $ncbimaleref;
       $bwaref     = $bwamaleref; 
-      print "Sample Male\n";
+      print "Sample Male\n" if $verbose ;
     }
 
     if ($genders{ $claimed_sample } eq "Female") { 
       $ncbiref    = $ncbifemaleref;
       $bwaref     = $bwafemaleref;
-      print "Sample Female\n";
+      print "Sample Female\n"  if $verbose;
     }
   }
 
   print "ncbi ref = $ncbiref\n" if $verbose;
   print "bwa ref  = $bwaref\n"  if $verbose;
 
-  print "PLATFORM IS $platform\n";
+  print "PLATFORM IS $platform\n" if $verbose;
   if ($platform =~ /.SOLID/) {
-    print "PLATFORM IS SOLID\n";
+   # print "PLATFORM IS SOLID\n";
 
     my $cs = 'NCBI36/COLOR_SPACE';
     $bwaref  =~ s/NCBI36/$cs/;
@@ -820,9 +888,9 @@ sub create_gender_hash {
 
 
   }
-  print "$bwaref\n";
-  print "$ncbiref\n";
-
+#  print "***bwa$bwaref\n";
+#  print "$ncbiref\n";
+  
   return \%genders;
 }   
 
@@ -913,7 +981,51 @@ sub  create_process_dir {
 }
 ##
 
+sub  color_space_conversion{
 
+ my $file = shift;
+ my $IN;
+
+ if ( $file =~ /.gz$/){   
+   open( $IN, "zcat $file |" ) or die "Can not open gz $file: $!\n";
+ }
+
+ if ( $file =~ /.fastq$/){
+   open(  $IN, ,'<',"$file |" ) or die "Can not open fastq $file: $!\n";
+ }
+
+ throw ("No file handle") if (! $IN);
+
+ (my $fh, my  $filename) = tempfile("g1k_XXXXX");
+
+ print "\nTEMP FILE: $filename\n";
+
+ while (<$IN>){  
+   my $line_id   = $_;
+   my $line_seq  = <$IN>;
+   my $line_sep  = <$IN>;
+   my $line_qual = <$IN>;
+   
+   $line_seq = substr($line_seq, 2);
+   $line_seq =~ tr/0123./ACGTN/;
+
+   $line_qual = substr($line_qual, 2);
+
+   if (length ($line_seq) != length ($line_qual)){
+     die "Lengths do not match";
+   }
+   my $seq_len = length ($line_seq) -1 ;
+   # $line_id =~ s/\d+$/$seq_len/;
+   print $fh   $line_id, $line_seq, $line_sep , $line_qual ;
+ }
+  close ($fh);
+
+ `gzip  $filename`;
+ 
+ $filename .= ".gz";
+ print "mv $filename $file\n";
+ `mv $filename $file`;
+}
 
 
 
