@@ -118,9 +118,9 @@ my $single = 0;
 	    'single!'     => \$single,
 	   );
 
-print "single $single\n";
-
-
+#print "single $single\n";
+print "RUN_ID :$run_id\n";
+print "SUBSIZE:$sub_size\n";
 my $snp_bin;
 $snp_bin         = $NCBI36_SNPS;
 
