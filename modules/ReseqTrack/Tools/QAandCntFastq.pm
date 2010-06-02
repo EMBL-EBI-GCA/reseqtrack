@@ -449,7 +449,7 @@ sub QA {
 			$flag = tooManyNsFullLenSolid($line_2, $read_num, $log_fh);
 		}
 		else {
-			$flag = tooManyNsFullLen($line_2, $read_num, $log_fh);
+			$flag = tooManyNsFullLen_OddChar($line_2, $read_num, $log_fh);
 		}
 	}
 				
@@ -476,7 +476,7 @@ sub tooManyNsFullLenSolid {
 	return $flag;
 }
 
-sub tooManyNsFullLen {
+sub tooManyNsFullLen_OddChar {
 	my ($seq,  $read_num, $log_fh) = @_;
 	my $flag;
 	my $N_cnt = 0;
@@ -491,6 +491,12 @@ sub tooManyNsFullLen {
 		$flag = "Fail";
 		print $log_fh "ERROR: The seq contains more than 50% Ns in the whole length of the read $read_num\n";
 	}
+	
+	if ( $seq =~ /[^ATGCN]/i) { #match anything other than A, T, G, C, N
+		print $log_fh "ERROR: The seq contains characters other than ATGCN in its full length\n";
+		$flag = "Fail";
+	}
+		
 	return $flag;
 }
 
