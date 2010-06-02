@@ -20,7 +20,7 @@ sub new {
     throw("Don't have a db [$dbobj] for new adaptor");
   }
   unless($dbobj->isa('ReseqTrack::DBSQL::DBAdaptor')){
-    throw("Must be passed a ReseqTrack::DBSQL::DBAdaptor not at ".$dbobj);
+    throw("Must be passed a ReseqTrack::DBSQL::DBAdaptor not a ".$dbobj);
   }
   $self->db($dbobj);
   $self->dbc($dbobj->dbc);
@@ -102,7 +102,6 @@ sub fetch_all{
   my $sql = "select ".$self->columns." from ".$self->table_name;
   $sql .= " where ".$self->where if($self->where);
   my @objects;
-  print STDERR "SQL ".$sql."\n";
   my $sth = $self->prepare($sql);
   $sth->execute;
   while(my $rowHashref = $sth->fetchrow_hashref){
