@@ -166,6 +166,28 @@ sub store{
   return $collection;
 }
 
+sub remove_others{
+ my ($self, $collection, $others_to_delete) = @_;
+ 
+ my $others = $collection->others;
+ my %all_others_in_collection;
+ foreach my $other ( @$others) { 	
+ 	#print "files in collection: " . $other->name . "\n";
+	$all_others_in_collection{$other->dbID} = 1;
+ }	
+ my $sql = "delete from collection_group where collection_id = ? " . " and other_id = ?";
+ my $sth = $self->prepare($sql);
+ 	 
+ foreach my $other_to_del (@$others_to_delete) {
+ 	my $other_to_del_name = $other_to_del->name;
+	warn ("Object $other_to_del_name does not exist to delete from collection\n") if ( !$all_others_in_collection{$other_to_del->dbID});		
+ 	$sth->bind_param(1, $collection->dbID);
+ 	$sth->bind_param(2, $other_to_del->dbID);
+ 	$sth->execute;
+ }
+ $sth->finish; 
+ return $collection;
+}
 
 sub store_others{
   my ($self, $collection) = @_;
@@ -191,8 +213,6 @@ sub store_others{
   }
   $sth->finish;
 }
-
-
 
 sub update_type{
   my ($self, $collection) = @_;
