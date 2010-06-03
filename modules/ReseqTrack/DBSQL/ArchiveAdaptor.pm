@@ -14,12 +14,14 @@ use ReseqTrack::Tools::GeneralUtils;
 @ISA = qw(ReseqTrack::DBSQL::BaseAdaptor);
 
 sub new {
-  my ($class, $db) = @_;
+  my ($class, $db, $nolock) = @_;
 
   my $self = $class->SUPER::new($db);
   my $ma = $self->db->get_MetaAdaptor;
-  unless(is_locked("archive.lock", $ma)){
-    create_lock_string("archive.lock", $ma);
+  unless($nolock){
+    unless(is_locked("archive.lock", $ma)){
+      create_lock_string("archive.lock", $ma);
+    }
   }
   return $self;
 }

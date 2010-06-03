@@ -181,10 +181,10 @@ sub get_AlignmentMetaInfoAdaptor{
 
 
 sub get_ArchiveAdaptor{
-  my ($self) = @_;
+  my ($self, $nolock) = @_;
   if(!$self->{archive_adaptor}){
     $self->{archive_adaptor} = ReseqTrack::DBSQL::ArchiveAdaptor->
-        new($self);
+        new($self, $nolock);
   }
   return $self->{archive_adaptor};
 }
