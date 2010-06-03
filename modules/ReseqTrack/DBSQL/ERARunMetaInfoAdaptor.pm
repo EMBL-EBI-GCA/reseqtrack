@@ -113,11 +113,11 @@ sub object_from_hashref{
   my ($self, $hashref) = @_;
   throw("Can't create a object from an undefined hashref") 
       if(!$hashref || keys(%$hashref) == 0);
-   my $new_date = $self->convert_date($hashref->{SUBMISSION_DATE}) if($hashref->{SUBMISSION_DATE});
+   my $new_date = $self->convert_date($hashref->{SUBMISSION_DATE}, $hashref->{RUN_ID}) if($hashref->{SUBMISSION_DATE});
   if(!$new_date && $hashref->{SUBMISSION_DATE}){
     throw("Failed to convert ".$hashref->{SUBMISSION_DATE});
   }
-  my $population = convert_population($hashref->{POPULATION});
+  my $population = convert_population($hashref->{POPULATION}, $hashref->{RUN_ID}, $hashref->{STUDY_ID});
   my $center_name = convert_center_name($hashref->{CENTER_NAME});
   my $object = ReseqTrack::RunMetaInfo->new(
     -run_id => $hashref->{RUN_ID},
@@ -148,8 +148,11 @@ sub object_from_hashref{
 
 
 sub convert_date{
-  my ($self, $old_date) = @_;
+  my ($self, $old_date, $run_id) = @_;
   #2009-NOV-16  21:39:50
+  my $verbose = 0;
+  $verbose = 1 if($run_id eq 'SRR015450');
+  print "Converting ".$old_date."\n" if($verbose);
   return undef unless($old_date);
   my ($date, $time) = split /\s+/, $old_date;
 
@@ -168,6 +171,7 @@ sub convert_date{
   }
   my $new_date = $year."-".$num_month."-".$day;
   $new_date .= " ".$time if($time);
+  print "Returning ".$new_date."\n" if($verbose);
   return $new_date;
 }
 
@@ -197,7 +201,7 @@ sub convert_center_name{
 }
 
 sub convert_population{
-  my ($string, $run_id) = @_;
+  my ($string, $run_id, $study_id) = @_;
   my $pop;
   if($string =~ /yri/i){
     $pop = 'YRI';
@@ -229,8 +233,12 @@ sub convert_population{
     $pop = 'MXL';
   }elsif($string =~ /UK/){
     $pop = 'GBR';	
+  }elsif($string =~ /FIN/i){
+    $pop = 'FIN';
+  }elsif($string =~ /SHC/){
+    $pop = 'CHS';
   }else{
-    throw("Failed to find pop for ".$string);
+    throw("Failed to find pop for ".$string." ".$run_id." ".$study_id);
    }
   return $pop;
 }
