@@ -83,7 +83,8 @@ my $reseq_db = ReseqTrack::DBSQL::DBAdaptor->new(
 
 #Fetching meta info
 my $era_rmi_a = $db->get_ERARunMetaInfoAdaptor;
-my $era_meta_info = $era_rmi_a->fetch_all;
+my $era_meta_info = $era_rmi_a->fetch_all if($store_new || $update_existing ||
+					     $fix_sample);
 my $era_hash = get_meta_info_hash($era_meta_info);
 my $dcc_rmi_a = $reseq_db->get_RunMetaInfoAdaptor;
 my $dcc_meta_info = $dcc_rmi_a->fetch_all;
@@ -91,7 +92,8 @@ my $dcc_hash = get_meta_info_hash($dcc_meta_info);
 
 #Comparing data sets
 my ($era_only, $dcc_only, $diff) = compare_era_and_dcc_meta_info($era_meta_info,
-                                                                 $dcc_meta_info);
+                                                                 $dcc_meta_info)
+  if($store_new || $update_existing || $fix_sample);
 
 if($summary){
   print "There are ".keys(%$era_only)." run ids only in the ERA\n";
@@ -204,6 +206,7 @@ if($fix_sample){
     print "There are ".keys(%sample_diff)." runs with sample differences which ".
         "need to be fixed\n";
     if($verbose){
+      my @keys = keys(%sample_diff);
       foreach my $run_id(keys(%sample_diff)){
         my $era = $era_hash->{$run_id};
         my $dcc = $dcc_hash->{$run_id};
@@ -217,6 +220,8 @@ if($fix_sample){
       print STDERR "Answer y or n :\n";
       if(get_input_arg()){
         $run = 1;
+      }else{
+	exit(0);
       }
   }
   if($run){
@@ -261,21 +266,35 @@ if($withdraw_suppressed){
 }
 $run = $original_run;
 if($check_individual){
-   print STDERR "*****check individual THIS IS TOTALLY UNTESTED CODE be certain that you want to run it ******\n";
+  print STDERR "*****check individual THIS IS TOTALLY UNTESTED CODE be certain that you want to run it ******\n";
   my %name_to_individual;
   my @files_to_fix;
+  my $archive_fastq = $fa->fetch_by_type("ARCHIVE_FASTQ");
+  my $filtered_fastq = $fa->fetch_by_type("FILTERED_FASTQ");
+  my @files;
+  push(@files, @$archive_fastq);
+  push(@files, @$filtered_fastq);
+  my %run_to_files;
+  foreach my $file(@files){
+    my $filename = $file->filename;
+    $filename =~ /^([E|S]RR\d+)\./;
+    my $run_id = $1;
+    push(@{$run_to_files{$run_id}}, $file);
+  }
   foreach my $meta_info(@$dcc_meta_info){
     next if($meta_info->status eq 'suppressed');
     my $run_id = $meta_info->run_id;
     my $sample_name = $meta_info->sample_name;
-    my $files =  $fa->fetch_all_like_name($run_id);
+    my $files =  $run_to_files{$run_id};
     if($files && @$files >= 1){
       foreach my $file(@$files){
         next unless($file->type eq $public_type);
         next if($file->name =~ /withdrawn/);
-        next if($file->name =~ /$sample_name/);
+	if($file->name =~ /$sample_name/){
+	  next;
+	}
         $name_to_individual{$file->name} = $sample_name;
-        push(@files_to_fix);
+        push(@files_to_fix, $file);
       }
     }
   }

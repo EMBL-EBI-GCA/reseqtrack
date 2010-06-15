@@ -53,8 +53,6 @@ sub are_run_meta_infos_identical{
         if($one->submission_date ne $two->submission_date){
           return 0;
         }
-      }else{
-        return 0 unless($two->submission_date eq '0000-00-00 00:00:00');
       }
     }
   }

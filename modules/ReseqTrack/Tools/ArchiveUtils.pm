@@ -123,9 +123,8 @@ sub cleanup_archive{
       }
       $new_file->history($history);
       $new_file->dbID($old_file->dbID);
-      my $change_name = 0;
-      $change_name = 1 if($new_file->filename ne $old_file->filename);
-      my $return = $fa->update($new_file, 0, $change_name);
+      $new_file->created($old_file->created);
+      my $return = $fa->fast_update($new_file);
       if($return){
         $aa->remove($archive);
       }else{

@@ -106,7 +106,7 @@ foreach my $file(keys(%$md5_hash)){
       -comment => "Updating md5 value",
         );
     $object->history($history);
-    $fa->update($object);
+    $fa->fast_update($object);
   }
 }
 

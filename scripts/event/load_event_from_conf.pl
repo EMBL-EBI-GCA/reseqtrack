@@ -12,8 +12,7 @@ my $dbpass;
 my $dbport;
 my $dbname;
 
-my $infile;
-my $outfile = "event_table.dat";    #default name of output file
+my $file;
 my $run;
 
 my ($read, $write, $update, $load, $help, $verbose,);
@@ -24,13 +23,12 @@ my ($read, $write, $update, $load, $help, $verbose,);
     'dbuser=s'  => \$dbuser,
     'dbpass=s'  => \$dbpass,
     'dbport=s'  => \$dbport,
-    'file=s'    => \$infile,
+    'file=s'    => \$file,
     'read!'     => \$read,
     'write!'    => \$write,
     'help!'     => \$help,
     'run!'      => \$run,
     'verbose!'  => \$verbose,
-    'outfile=s' => \$outfile,
 );
 
 if ($help) {
@@ -48,8 +46,8 @@ if (!$read && !$write) {
     perldocs();
 }
 
-if ($read && !$infile) {
-    throw "Must specify file (-file) with list of events when in read mode";
+if (!$file) {
+    throw "Must specify file (-file) to read from or write to";
 }
 
 my $db = ReseqTrack::DBSQL::DBAdaptor->new(
@@ -61,12 +59,12 @@ my $db = ReseqTrack::DBSQL::DBAdaptor->new(
 );
 
 if ($read) {
-    my $events_list = parse_events_list($infile, $verbose);
+    my $events_list = parse_files([$file]);
     process_event_from_file($events_list, $verbose);
 }
 
 if ($write) {
-    dump_event_table_contents($outfile, $verbose);
+    dump_event_table_contents($file, $verbose);
 }
 
 #######################################################
@@ -80,7 +78,7 @@ sub dump_event_table_contents {
     my $ea     = $db->get_EventAdaptor;
     my $events = $ea->fetch_all;
 
-    open(my OUT, '>', "event_table.dat") or die "File open error: $!";
+    open(OUT, '>', $outfile) or die "File open error $outfile: $!";
 
     printf "Event data entries:%d \n", scalar @$events;
 
@@ -123,23 +121,9 @@ sub process_event_from_file {
 
     my $ea = $db->get_EventAdaptor;
 
-    foreach my $ievent (@$events) {
-
-        print "Processing: " . $ievent->{name} . "\n" if $verbose;
-
-        print Dumper ($ievent) if $verbose;
-
-        my %params;
-        foreach my $key (keys(%$ievent)) {
-            my $new = "-" . $key;
-            $params{$new} = $ievent->{$key};
-        }
-
-        my $jevent = ReseqTrack::Event->new(%params,);
-
-        print Dumper ($jevent) if $verbose;
-
-        my $stored_event = $ea->fetch_by_name($jevent->name);
+    foreach my $jevent (@$events) {
+      
+      my $stored_event = $ea->fetch_by_name($jevent->name);
 
         if ($stored_event) {
             $jevent->dbID($stored_event->dbID);
@@ -156,91 +140,105 @@ sub process_event_from_file {
     print "Events updated: $updated\n";
 }
 
-sub parse_events_list {
 
-    # assumming properly formatted file.
-    # Parse file and create an array of hashes containing file event
-    # information
 
-    my $filename = shift;    #formatted list of event data
-    my $verbose  = shift;
+sub parse_files {
 
-    my $this_file = ();
-    my $ctr       = 0;
-    my $name      = "name";
-    my @array_events;
+  my $files = shift;
 
-    open(my INFILE, "<", $filename) or die "File designation error: $!";
+  my %headers;     # will store names of headers and number of keys for each
+  
+  my $hcounter = 0;
+  my %horder; # stores order in which entries were read
 
-    while (<INFILE>) {
 
-        $ctr++;
-        chomp($_);
+  my $config = {};
+  # read each file
 
-        #if blank line should be at end of event data
-        if ($_ =~ /^$/) {
+  foreach my $file (@$files) {
 
-            if ($this_file && $this_file->{$name}) {
-                print "Storing $this_file->{$name}\n" if $verbose;
-                push(@array_events, $this_file);
-            }
-
-            $this_file = {};
-            next;    #blank line
-        }
-
-        #extract filename from between []
-        if ($_ =~ /\[(.*?)\]/) {
-            my $header = $1;    # file name
-            $this_file->{$name} = $header;
-            print "\[$this_file->{$name}\]\n" if $verbose;
-            next;
-        }
-
-        #should not have data with no file name associated
-        if (!($_ =~ /^$/) && !$this_file->{name}) {
-            warning("Unassociated data line $ctr.Ignoring");
-            next;
-        }
-
-        if ($_ =~ /\=/) {
-            (my $key, my $value) = split /\=/, $_;
-
-            if (!exists $this_file->{$key}) {
-                $this_file->{$key} = $value;
-                print $key. "=" . $this_file->{$key} . "\n" if $verbose;
-            } else {
-                warning("Duplicate key data. line $ctr.Ignoring");
-            }
-        }
-
+    if (! -e $file) {
+      throw("analysis file $file not found\n");
     }
+    my $header = "";
 
-    #store last entry
-    if ($this_file && $this_file->{$name}) {
-        print "Storing $this_file->{$name}\n" if $verbose;
-        push(@array_events, $this_file);
-        $this_file = ();
+    open (FILE, $file) or throw "Couldn't open file $file";
+    while (<FILE>) {
+      chomp();
+
+      # Comment or blank line
+      next if (/^\s$/ || /^\#/);
+
+      # [HEADER]
+      if (/^\[(.*)\]\s*$/) {         # $1 will be the header name, without the [] 
+	$header = $1;
+	$headers{$header} = 0;
+        $horder{$header} = $hcounter++;
+	#print "Reading stanza $header\n";
+      } 
+
+      # key=value
+      if (/^([^=\s]+)\s*=\s*(.+?)\s*$/) {   # $1 = key, $2 = value
+
+	my $key = lc($1);           # keys stored as all lowercase, values have case preserved
+	my $value = $2;
+	if (length($header) == 0) {
+	  throw("Found key/value pair $key/$value outside stanza");
+	}
+	#print "Key: $key Value: $value\n"; 
+      	
+	# Check if this header/key is already defined
+	if (exists($config->{$header}->{$key})) {
+	  throw("$key is already defined for [$header]; cannot be redefined");
+	} else {
+	  # store them in the config hash
+	  $config->{$header}->{$key} = $value;
+	  #print "$header:$key=$value\n";
+	  $headers{$header}++;  # will be used to check for headers with no keys
+	}
+
+      }
+
+    } # while <FILE>
+
+    close FILE;
+  }
+
+  my @analyses;
+  # add a blank key/value for any headers that have no keys
+  foreach my $h (sort { $horder{$a} <=> $horder{$b} }  keys (%headers)) {
+    if (!$config->{$h}->{'type'}) {
+      throw("you seem to have no type for $h can't ".
+            "create a an event object without an type");
     }
-
-    #if last entry is corrupt
-    if ($this_file && !$this_file->{$name}) {
-
-        #warning ("Residual data at fileend.Ignoring\n");
-        $this_file = ();
+    if (!$config->{$h}->{'output_path'}) {
+      throw("you seem to have no output_path for $h can't ".
+            "create a an event object without an output_dir");
     }
-
-    if (scalar @array_events == 0) {
-        throw("No events loaded from $filename. Cannot continue.");
+    if (!$config->{$h}->{'table_name'}) {
+      throw("you seem to have no table name for $h can't ".
+            "create a an event object without an table name");
     }
+    
+    my $analysis = ReseqTrack::Event->new
+      (
+       -program         => $config->{$h}->{program},
+       -program_version => $config->{$h}->{program_version},
+       -options      => $config->{$h}->{options},
+       -name      => $h,
+       -input_flag => $config->{$h}->{input_flag},
+       -farm_options => $config->{$h}->{farm_options},
+       -batch_size => $config->{$h}->{batch_size},
+       -output_path => $config->{$h}->{output_path},
+       -type => $config->{$h}->{type},
+       -table_name => $config->{$h}->{table_name},
+      );
+    push(@analyses, $analysis);
+  }
 
-    printf "Files to process:%d \n", scalar @array_events if $verbose;
+  return \@analyses;
 
-    close(INFILE);
-
-    return \@array_events;
 }
-
 sub perldocs {
     exec('perldoc', $0);
     exit(0);

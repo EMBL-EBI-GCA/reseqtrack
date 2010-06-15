@@ -79,7 +79,7 @@ foreach my $file(@$files){
   next if($filename && $file->name ne $filename);
   if($run){
     my $md5 = run_md5($file->name);
-    exit(0) if($file->md5 && ($md5 eq $file->md5));
+    next if($file->md5 && ($md5 eq $file->md5));
     $file->md5($md5);
     my $history = ReseqTrack::History->new(
       -other_id => $file->dbID,

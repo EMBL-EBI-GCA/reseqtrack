@@ -27,7 +27,8 @@ use vars qw (@ISA  @EXPORT);
 
 @ISA = qw(Exporter);
 @EXPORT = qw(current_time parse_movelist get_input_arg create_lock_string
-             delete_lock_string is_locked useage convert_to_giga current_date);
+             delete_lock_string is_locked useage convert_to_giga current_date 
+	     create_filename);
 
 
 
@@ -196,8 +197,24 @@ sub convert_to_giga{
   my ($base_count) = @_;
   $base_count = 0 unless($base_count);
   my $gigabase = $base_count/1000000000;
-  my $rounded = sprintf("%2.f", $gigabase);
+  my $rounded = sprintf("%4.f", $gigabase);
   return $rounded;
+}
+
+sub create_filename{
+  my ($dir, $stem, $ext) = @_;
+  my $rand = int(rand(10000));
+  my $name = $stem.".".$$.".".$rand;
+  $name .= $ext if($ext);
+  my $path = $dir."/".$name;
+  while(-e $path){
+    $rand = int(rand(10000));
+    my $name = $stem.".".$$.".".$rand;
+    $name .= $ext if($ext);
+    $path = $dir."/".$name;
+  }
+  $path =~ s/\/\//\//g;
+  return $path;
 }
 
 1;

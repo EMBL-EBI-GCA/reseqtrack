@@ -78,13 +78,14 @@ sub new {
     throw("Can't create ReseqTrack::File without a name") unless ($name);
     throw("Can't create ReseqTrack::File without a type") unless ($type);
     throw("Can't create ReseqTrack::File without a host object ")
-      unless ( $host || $host->isa("ReseqTrack::Host") );
+      unless ( ($host && $host->isa("ReseqTrack::Host")) || $host_id );
     ######
     $self->md5($md5);
     $self->type($type);
     $self->size($size);
     $self->name($name);
     $self->host($host);
+    $self->host_id($host_id);
     $self->withdrawn($withdrawn);
     $self->created($created);
     $self->updated($updated);
@@ -149,6 +150,13 @@ sub updated {
     return $self->{updated};
 }
 
+sub host_id {
+    my ( $self, $arg ) = @_;
+    if ($arg) {
+        $self->{host_id} = $arg;
+    }
+    return $self->{host_id};
+}
 =head2 name
 
   Arg [1]   : ReseqTrack::File
@@ -213,6 +221,12 @@ sub host {
         throw("ReseqTrack::File::host must be a ReseqTrack::Host object")
           unless ( $host->isa("ReseqTrack::Host") );
         $self->{host} = $host;
+    }
+    if(!$self->{host}){
+      if($self->adaptor && $self->host_id){
+	my $ha = $self->adaptor->db->get_HostAdaptor;
+	$self->{host} = $ha->fetch_by_dbID($self->host_id);
+      }
     }
     return $self->{host};
 }

@@ -498,6 +498,7 @@ sub move_file_in_db_and_dir {
     }
     #### If the file object does not exist in db, store it and create a history object for it
     else{
+      throw("Can't store ".$f_obj->dbID." ".$f_obj->name) unless(-e $f_obj->name);
       $fa->store($f_obj);	
       $history = ReseqTrack::History->new(
 					  -other_id => $f_obj->dbID,

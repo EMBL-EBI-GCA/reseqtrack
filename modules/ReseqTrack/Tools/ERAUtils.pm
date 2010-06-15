@@ -340,16 +340,23 @@ sub date_hash{
 }
 
 sub convert_population{
-  my ($string, $run_id, $throw) = @_;
-  $throw = 1 unless(defined($throw));
+  my ($string, $run_id, $study_id) = @_;
   my $pop;
   if($string =~ /yri/i){
     $pop = 'YRI';
   }elsif($string =~ /yoruba/i){
     $pop = 'YRI';
+  }elsif($string =~ /southern\s+han\s+chinese/i){
+    $pop = 'CHS';
+  }elsif($string =~ /CHS/i){
+    $pop = 'CHS';
   }elsif($string =~ /han chinese/i){
     $pop = 'CHB';
+  }elsif($string =~ /CHB/i){
+    $pop = 'CHB';
   }elsif($string =~ /japan/i){
+    $pop = 'JPT';
+  }elsif($string =~ /JPT/i){
     $pop = 'JPT';
   }elsif($string =~ /CEU/i){
     $pop = 'CEU'; 
@@ -357,9 +364,15 @@ sub convert_population{
     $pop = 'CEU';
   }elsif($string =~ /tuscan/i){
     $pop = 'TSI';
+  }elsif($string =~ /TSI/i){
+    $pop = 'TSI';
   }elsif($string =~ /denver/i){
     $pop = 'CHD';
+  }elsif($string =~ /CHD/i){
+    $pop = 'CHD';
   }elsif($string =~ /Luhya/i){
+    $pop = 'LWK';
+  }elsif($string =~ /LWK/i){
     $pop = 'LWK';
   }elsif($string =~ /UTAH/i){
     $pop = 'CEU';
@@ -373,11 +386,29 @@ sub convert_population{
     $pop = 'MXL';
   }elsif($string =~ /UK/){
     $pop = 'GBR';	
+  }elsif($string =~ /British/){
+    $pop = 'GBR';
+  }elsif($string =~ /British\s+\(GBR\)/){
+    $pop = 'GBR';
+  }elsif($string =~ /GBR/i){
+    $pop = 'GBR';
+  }elsif($string =~ /FIN/i){
+    $pop = 'FIN';
+  }elsif($string =~ /SHC/){
+    $pop = 'CHS';
+  }elsif($string =~ /Puerto\s+Rican/i){
+    $pop = 'PUR';
+  }elsif($string =~ /Colombian/){
+    $pop = 'CLM';
+  }elsif($string =~ /Gujarati/){
+    $pop = 'GIH';
+  }elsif($string =~ /Maasai/){
+    $pop = 'MKK';
   }else{
-    throw("Failed to find pop for ".$string) if($throw);
+    throw("Failed to find pop for ".$string." ".$run_id." ".$study_id);
    }
-  $pop = $string unless($pop);
   return $pop;
 }
+
 
 1;

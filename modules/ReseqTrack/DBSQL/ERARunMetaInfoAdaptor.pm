@@ -207,6 +207,8 @@ sub convert_population{
     $pop = 'YRI';
   }elsif($string =~ /yoruba/i){
     $pop = 'YRI';
+  }elsif($string =~ /southern\s+han\s+chinese/i){
+    $pop = 'CHS';
   }elsif($string =~ /han chinese/i){
     $pop = 'CHB';
   }elsif($string =~ /japan/i){
@@ -233,10 +235,14 @@ sub convert_population{
     $pop = 'MXL';
   }elsif($string =~ /UK/){
     $pop = 'GBR';	
+  }elsif($string =~ /British\s+\(GBR\)/){
+    $pop = 'GBR';
   }elsif($string =~ /FIN/i){
     $pop = 'FIN';
   }elsif($string =~ /SHC/){
     $pop = 'CHS';
+  }elsif($string =~ /Puerto\s+Rican/i){
+    $pop = 'PUR';
   }else{
     throw("Failed to find pop for ".$string." ".$run_id." ".$study_id);
    }

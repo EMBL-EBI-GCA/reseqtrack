@@ -372,31 +372,64 @@ sub update{
   return $file;
 }
 
-
+sub fast_update{
+  my ($self, $file) = @_;
+  if(!$file->dbID){
+    throw("Can't call ReseqTrack::DBSQL::FileAdaptor->fast_update without an dbID ".
+	  "already associated with your ".$file);
+  }
+  throw("Can't update a file if created isn't already already defined")
+    unless($file->created);
+  #removing any double slashes
+  if($file->name =~ /\/\//){
+    my $tmp = $file->name;
+    $tmp =~ s/\/\//\//g;
+    $file->name($tmp);
+  }
+  my $sql = "update file ".
+      "set md5 = ?, ".
+      "name = ?, ".
+      "type = ?, ".
+      "size = ?, ".
+      "host_id = ?, ".
+      "withdrawn = ?, ".
+      "created = ?, ".
+      "updated = now() ".
+      "where file_id = ? ";
+  my $sth = $self->prepare($sql);
+  
+  $sth->bind_param(1, $file->md5);
+  $sth->bind_param(2, $file->name);
+  $sth->bind_param(3, $file->type);
+  $sth->bind_param(4, $file->size);
+  $sth->bind_param(5, $file->host->dbID);
+  $sth->bind_param(6, $file->withdrawn);
+  $sth->bind_param(7, $file->created);
+  $sth->bind_param(8, $file->dbID);
+  $sth->execute;
+  $sth->finish;
+  #storing any attached histories
+  $self->store_history($file);
+  $self->store_statistics($file, 1);
+  return $file;
+}
 
 sub object_from_hashref{
   my ($self, $hashref) = @_;
   throw("Can't create a ReseqTrack::File from an undefined hashref") if(!$hashref);
-  my $ha = $self->db->get_HostAdaptor;
-  
-  my $host = $ha->fetch_by_dbID($hashref->{host_id});
-  if(!$host){
-    throw("Failed to fetch host for file ".$hashref->{file_id}." ".
-          $hashref->{host_id}." does not exist in ".$self->dbc->dbname);
-  }
   my $file = ReseqTrack::File->new(
-    -dbID => $hashref->{file_id},
-    -adaptor => $self,
-    -name => $hashref->{name},
-    -md5 => $hashref->{md5},
-    -type => $hashref->{type},
-    -size => $hashref->{size},
-    -path => $hashref->{path},
-    -host => $host,
-    -withdrawn => $hashref->{withdrawn},
-    -created => $hashref->{created},
-    -updated => $hashref->{updated}
-      );
+				   -host_id => $hashref->{host_id},
+				   -dbID => $hashref->{file_id},
+				   -adaptor => $self,
+				   -name => $hashref->{name},
+				   -md5 => $hashref->{md5},
+				   -type => $hashref->{type},
+				   -size => $hashref->{size},
+				   -path => $hashref->{path},
+				   -withdrawn => $hashref->{withdrawn},
+				   -created => $hashref->{created},
+				   -updated => $hashref->{updated}
+				  );
   return $file;
 }
 
