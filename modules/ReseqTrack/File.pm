@@ -70,8 +70,8 @@ sub new {
         @args
       );
     if ( $host_id && $self->adaptor ) {
-        my $ha = $self->get_HostAdaptor;
-        $host = $ha->fetch_by_dbID;
+      my $ha = $self->adaptor->db->get_HostAdaptor;
+      $host = $ha->fetch_by_dbID;
     }
 
     #ERROR CHECKING
