@@ -413,6 +413,7 @@ sub standard_type_hash{
   $hash{'PILOT3_BAI'} = 1;
   $hash{'REFERENCE'} = 1;
   $hash{'PILOT_INDEX'} = 1;
+  $hash{'PILOT_MISC'} = 1;
   $hash{'FILTERED_FASTQ'} = 1;
   $hash{'PILOT3_FASTQ'} = 1;
   $hash{'ARCHIVE_FASTQ'} = 1;
