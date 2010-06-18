@@ -76,31 +76,42 @@ sub history {
     if ($arg) {
         $self->populate_history;
         if ( ref($arg) eq 'ARRAY' ) {
-            throw(
+	  throw(
 "Must pass ReseqTrack::HasHistory::history an arrayref of history objects"
-            ) if ( $arg->[0] && ( !$arg->[0]->isa("ReseqTrack::History") ) );
-            unless ( $arg->[0] ) {
-                throw( $arg . " appears to contain an undefined entry" );
-            }
-            push( @{ $self->{history} }, @$arg );
+	       ) if ( $arg->[0] && ( !$arg->[0]->isa("ReseqTrack::History") ) );
+	  unless ( $arg->[0] ) {
+	    throw( $arg . " appears to contain an undefined entry" );
+	  }    $self->{history} = $self->uniquify_histories( $self->{history} );
+	  push( @{ $self->{history} }, @$arg );
         }
         elsif ( $arg->isa("ReseqTrack::History") ) {
-            push( @{ $self->{history} }, $arg );
+	  push( @{ $self->{history} }, $arg );
         }
         else {
-            throw(
-"Must give ReqseqTrack::File::history either a ReseqTrack::History "
-                  . "object or an arrayref of History objects not "
-                  . $arg );
+	  throw(
+		"Must give ReqseqTrack::File::history either a ReseqTrack::History "
+		. "object or an arrayref of History objects not "
+		. $arg );
         }
-        $self->{history} = $self->uniquify_histories( $self->{history} );
-    }
+      }
 
     if ( !$self->{history} || @{ $self->{history} } == 0 ) {
         $self->populate_history;
     }
 
     return $self->{history};
+}
+
+
+sub fast_add_history{
+  my ($self, $arg) = @_;
+  if($arg){
+    throw("Can't fast add an array must be ReseqTrack::History not ".
+	  $arg) unless($arg->isa("ReseqTrack::History"));
+    push(@{$self->{history}}, $arg);
+    $self->{history} = $self->uniquify_histories($self->{history});
+  }
+  return $self->{history};
 }
 
 =head2 populate_history

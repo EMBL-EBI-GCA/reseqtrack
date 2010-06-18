@@ -48,12 +48,10 @@ sub fetch_by_run_id{
   $sth->bind_param(1, $run_id);
   $sth->execute;
   my $rowHashref = $sth->fetchrow_hashref;
-  print $sql."\n";
   if(!$rowHashref || keys(%$rowHashref) == 0){
     #print "Failed to find anything for ".$run_id."\n";
     return undef;
   }
-  print "Have run id ".$rowHashref->{RUN_ID}." submission date ".$rowHashref->{SUBMISSION_DATE}."\n";
   my $object = $self->object_from_hashref($rowHashref);
   $sth->finish;
   return $object;
@@ -94,11 +92,11 @@ sub fetch_all_between_dates{
   $sql .= $after_clause." " if($after_clause);
   $sql .= "and " if($after_clause && $before_clause);
   $sql .= $before_clause if($before_clause);
-  print $sql."\n";
+#  print $sql."\n";
   my $sth = $self->prepare($sql);
-  print "Have statement ".$sth."\n";
+#  print "Have statement ".$sth."\n";
   $sth->execute;
-  print "Have executed statement\n";
+#  print "Have executed statement\n";
   my @index;
   while(my ($rowHashref) = $sth->fetchrow_hashref){
     my $index = $self->object_from_hashref($rowHashref);
@@ -151,7 +149,6 @@ sub convert_date{
   my ($self, $old_date, $run_id) = @_;
   #2009-NOV-16  21:39:50
   my $verbose = 0;
-  $verbose = 1 if($run_id eq 'SRR015450');
   print "Converting ".$old_date."\n" if($verbose);
   return undef unless($old_date);
   my ($date, $time) = split /\s+/, $old_date;

@@ -46,10 +46,26 @@ use FileHandle;
   Arg [-type] : what type of variation are these, defaults to SNV (single nucleotide
   variant)
   Arg [-species] : what species is the ensembl data base, defauls to human
-  Function  : 
-  Returntype: 
-  Exceptions: 
-  Example   : 
+  Arg [-buffer] : how many variation features to get consequences for at once 
+  this defaults to 500
+  Function  : create a ReseqTrack::Tools::Annotation::SNPAnnotation object
+  Returntype: ReseqTrack::Tools::Annotation::SNPAnnotation
+  Exceptions: throws if strict gvf is requested but source data is also requested as
+  this two things aren't compatible
+  Example   : my $annotate = ReseqTrack::Tools::Annotation::SNPAnnotation->new
+  (
+   -input_file => $input_file,
+   -output_file => $output_file,
+   -working_dir => $working_dir,
+   -vcftools => $vcftools,
+   -source_vcf => \@source_vcfs,
+   -check_ensembl => $check_ensembl_sources,
+   -registry => $registry_file,
+   -source => $source,
+   -strict_gvf => $strict_gvf,
+   -type => $type,
+   -species => $species,
+  );
 
 =cut
 
@@ -67,12 +83,12 @@ sub new {
 		      BUFFER)], @args);
   #setting defaults
   $self->vcftools("vcftools");
-  $self->working_dir("/tmp/");
+  $self->working_dir("/tmp");
   $self->species("human");
   $self->type('SNV');
   $self->buffer(500);
   ###
-
+  $working_dir =~ s/\/$//;
   $self->input_file($input_file);
   $self->output_file($output_file);
   $self->working_dir($working_dir);
@@ -82,7 +98,7 @@ sub new {
   $self->source_vcf($source_vcf);
   $self->type($type);
   $self->check_ensembl_sources($check_ensembl_sources);
-  $self->ensembl_registry_file($ensembl_registry);
+  $self->ensembl_registry($ensembl_registry);
   $self->strict_gvf($strict_gvf);
   $self->species($species);
   $self->buffer($buffer);
@@ -95,6 +111,19 @@ sub new {
 }
 
 #accessor methods
+
+=head2 accessor methods
+
+  Arg [1]   : ReseqTrack::Tools::Annotation::SNPAnnotation
+  Arg [2]   : string/int/arrayref/hashref
+  Function  : getter/setter method for a given variable
+  Returntype: string/int
+  Exceptions: n/a
+  Example   : my $vcftools = $self->vcftools
+
+=cut
+
+
 
 sub vcftools{
   my ($self, $vcftools) = @_;
@@ -181,6 +210,27 @@ sub total_reads{
   return $self->{total_reads};
 }
 
+sub source_hash{
+  my ($self, $source_hash) = @_;
+  if($source_hash){
+    $self->{source_hash} = $source_hash;
+  }
+  return $self->{source_hash};
+}
+
+=head2 input_file
+
+  Arg [1]   : ReseqTrack::Tools::Annotation::SNPAnnotation
+  Arg [2]   : string, file path
+  Function  : container for input file path
+  Returntype: string
+  Exceptions: throws if file doesn't exist
+  Example   : $self->input_file("/path/to/file");
+
+=cut
+
+
+
 sub input_file{
   my ($self, $input_file) = @_;
   if($input_file){
@@ -189,6 +239,20 @@ sub input_file{
   }
   return $self->{input_file};
 }
+
+
+=head2 output_file
+
+  Arg [1]   : ReseqTrack::Tools::Annotation::SNPAnnotation
+  Arg [2]   : string, filepath
+  Function  : store output file path and open file if not already openned
+  Returntype: string, filepath
+  Exceptions: throws if fails to open file
+  Example   : my $output_file = $self->output_file;
+
+=cut
+
+
 
 sub output_file{
   my ($self, $output_file) = @_;
@@ -205,6 +269,20 @@ sub output_file{
   return $self->{output_file};
 }
 
+
+=head2 output_fh
+
+  Arg [1]   : ReseqTrack::Tools::Annotation::SNPAnnotation
+  Arg [2]   : FileHandle object
+  Function  : container for output file handle
+  Returntype: FileHandle
+  Exceptions: n/a
+  Example   : my $fh = $self->output_fh();
+
+=cut
+
+
+
 sub output_fh{
   my ($self, $output_fh) = @_;
   if($output_fh){
@@ -212,6 +290,21 @@ sub output_fh{
   }
   return $self->{output_fh};
 }
+
+
+=head2 files_to_cleanup
+
+  Arg [1]   : ReseqTrack::Tools::Annotation::SNPAnnotation
+  Arg [2]   : string/arrayref
+  Function  : to hold a list of files which need to be deleted
+  Returntype: arrayref
+  Exceptions: n/a
+  Example   : foreach my $file(@{$self->files_to_cleanup){
+               unlink $file;
+              }
+
+=cut
+
 
 sub files_to_cleanup{
   my ($self, $file) = @_;
@@ -228,6 +321,20 @@ sub files_to_cleanup{
   return $self->{'files_to_cleanup'};
 }
 
+
+
+=head2 working_dir
+
+  Arg [1]   : ReseqTrack::Tools::Annotation::SNPAnnotation
+  Arg [2]   : string, path to working dir
+  Function  : container for working dir
+  Returntype: string
+  Exceptions: throw if not an directory or doesn't exist
+  Example   : my $working_dir = $self->working_dir;
+
+=cut
+
+
 sub working_dir{
   my ($self, $working_dir) = @_;
   if($working_dir){
@@ -239,6 +346,20 @@ sub working_dir{
   }
   return $self->{working_dir};
 }
+
+
+
+=head2 variation_features
+
+  Arg [1]   : ReseqTrack::Tools::Annotation::SNPAnnotation
+  Arg [2]   : arrayref of Bio::EnsEMBL::Variation::VariationFeature objects
+  Function  : container for variation feature objects
+  Returntype: arrayref
+  Exceptions: throws if not passed variation feature objects
+  Example   : my $vfs = $self->variation_features;
+
+=cut
+
 
 sub variation_features{
   my ($self, $vfs) = @_;
@@ -257,27 +378,40 @@ sub variation_features{
   return $self->{variation_features};
 }
 
-sub ensembl_registry_file{
-  my ($self, $ensembl_registry) = @_;
-  if($ensembl_registry){
-    throw($ensembl_registry." does not exist") unless(-e $ensembl_registry);
-    $self->{ensembl_registry} = $ensembl_registry;
-  }
-  return $self->{ensembl_registry};
-}
+
+=head2 ensembl_registry
+
+  Arg [1]   : ReseqTrack::Tools::Annotation::SNPAnnotation
+  Arg [2]   : Bio::EnsEMBL::Registry
+  Function  : container for a registry object
+  Returntype: 
+  Exceptions: 
+  Example   : 
+
+=cut
+
+
 
 sub ensembl_registry{
   my ($self, $registry) = @_;
   if($registry){
     $self->{registry} = $registry;
   }
-  unless($self->{registry}){
-    my $reg = 'Bio::EnsEMBL::Registry';
-    $reg->load_all($self->ensembl_registry_file);
-    $self->{registry} = $reg;
-  }
   return $self->{registry};
 }
+
+
+=head2 get_XXX_adaptor
+
+  Arg [1]   : ReseqTrack::Tools::Annotation::SNPAnnotation
+  Function  : get a specific adaptor from the registry object
+  Returntype: an ensembl adaptor object
+  Exceptions: n/a
+  Example   : my $vfa = $self->get_variation_feature_adaptor;
+
+=cut
+
+
 
 sub get_variation_feature_adaptor{
   my ($self) = @_;
@@ -299,21 +433,39 @@ sub get_slice_adaptor{
     $self->ensembl_registry->get_adaptor($self->species, 'core', 'slice');
 }
 
-sub get_gene_adaptor{
-  my ($self) = @_;
-  return
-    $self->ensembl_registry->get_adaptor($self->species, 'core', 
-					 'gene');
-}
+
+
+=head2 process_input
+
+  Arg [1]   : ReseqTrack::Tools::Annotation::SNPAnnotation
+  Function  : parse the input file
+  Returntype: arrayref of lines, in the format needed to create VariationFeatures
+  and two hashrefs, one mapping name to score and one mapping name to total read 
+  depth, both stats are available from vcf files. These are also stored in the
+  objects container methods for these variables
+  Exceptions: throws if can't open the input file
+  Example   : my ($input_lines, $score_hash, $total_reads) = $self->process_input;
+
+=cut
+
+
 
 sub process_input{
   my ($self) = @_;
-  open(IN, "<", $self->input_file) or 
-    throw("Failed to open ".$self->input_file." $!");
+  my $in;
+  if($self->input_file =~ /\.gz/){
+    open(IN, "gunzip -c ".$self->input_file." | ") or
+      throw("Failed to open ".$self->input_file." $!");
+    $in = \*IN;
+  }else{
+    open(IN, "<", $self->input_file) or
+      throw("Failed to open ".$self->input_file." $!");
+    $in = \*IN;
+  }
   my @input_lines;
   my %score_hash;
   my %total_reads;
-  while(<IN>){
+  while(<$in>){
     chomp;
     next if(/^\#/);
     my ($string, $name, $score, $depth) = $self->parse_line($_);
@@ -337,13 +489,56 @@ sub process_input{
   return ($self->input_lines, $self->score_hash, $self->total_reads);
 }
 
+
+=head2 calculate_consequences
+
+  Arg [1]   : ReseqTrack::Tools::Annotation::SNPAnnotation
+  Function  : uses the transcript variation adaptor to work out consequences for
+  the given snps, as the consequences are attached to the variation features which
+  go in we can just keep the processed features
+  Returntype: n/a
+  Exceptions: n/a
+  Example   : $self->calculate_consequences
+
+=cut
+
+
 sub calculate_consequences{
   my ($self) = @_;
   my @vfs = @{$self->create_variation_features};
   my $tva = $self->get_transcript_variation_adaptor;
-  $tva->fetch_all_by_VariationFeatures(\@vfs);
-  $self->variation_features(\@vfs);
+  my @temp;
+  my @new_vfs;
+  while(@vfs){
+    my $vf = shift @vfs;
+    push(@temp, $vf);
+    if(@temp >= $self->buffer){
+      my $new = $tva->fetch_all_by_VariationFeatures(\@temp);
+      push(@new_vfs, @temp);
+      @temp = ();
+    }
+  }
+  if(@temp >= 1){
+    my $new = $tva->fetch_all_by_VariationFeatures(\@temp);
+    push(@new_vfs, @temp);
+  }
+  $self->variation_features(\@new_vfs);
 }
+
+
+=head2 generate_unique_vcf_name
+
+  Arg [1]   : ReseqTrack::Tools::Annotation::SNPAnnotation
+  Arg [2]   : string, name
+  Function  : the function generates a unique name for each line of the gvf file
+  it is a recursive method as it calls itself if the name it creates is not unique
+  it adds sequential numbers to the end of the name in the form name:001
+  Returntype: string, name
+  Exceptions: n/a
+  Example   : my $unique_name = $self->generate_unique_gvf_name($name);
+
+=cut
+
 
 
 sub generate_unique_gvf_name{
@@ -351,12 +546,12 @@ sub generate_unique_gvf_name{
   if($self->{'gvf_unique_name'}->{$name}){
     my @values = split /\:/, $name;
     unless($values[1]){
-      $name .= ":01";
+      $name .= ":001";
       return $self->generate_unique_gvf_name($name);
     }else{
       my $num =~ s/^0*//;
       $num++;
-      $num = sprintf("%01d", $num);
+      $num = sprintf("%02d", $num);
       $name .= ":".$num;
       return $self->generate_unique_gvf_name($name);
     }
@@ -366,26 +561,91 @@ sub generate_unique_gvf_name{
   }
 }
 
+
+=head2 find_in_vcf
+
+  Arg [1]   : ReseqTrack::Tools::Annotation::SNPAnnotation
+  Function  : find the given snps in the given vcf files using the vcftools
+  --positions filter
+  Returntype: hashref of sources, the hashref key is a source and each value is a
+  hash keyed on variation name
+  Exceptions: throws if a gzipped vcf is provided or if the recode vcf file can't 
+  be found or the command line fails
+  Example   : my $source_hash = $self->find_in_vcf;
+
+=cut
+
+
+
 sub find_in_vcf{
   my ($self) = @_;
   my %hash;
   return undef unless($self->source_vcf && scalar(@{$self->source_vcf}) >= 1);
-  my $tmp_file = $self->vcf_positional_input_generator;
+  #needs to generate appropriate positional file as input to vcf
+  #also returns a map of position to name
+  my ($tmp_file, $positions_hash) = $self->vcf_positional_input_generator;
+  my %source_hash;
   foreach my $in_vcf(@{$self->source_vcf}){
+    if($in_vcf =~ /\.gz/){
+      throw("Can't give vcftools a gzipped vcf file ".$in_vcf);
+    }
     my $basename = basename($in_vcf);
     my $out_stem = create_filename($self->working_dir, $self->source."_".$basename);
-    my $vcf_cmd = $self->vcftools." --vcf ".$in_vcf." --positions ".$tmp_file.
-      " --recode --out ".$out_stem;
+    my $vcf_cmd = $self->vcftools;
+    $vcf_cmd .= " --vcf ".$in_vcf if($in_vcf =~ /\.vcf$/);
+    $vcf_cmd .= " --positions ".$tmp_file." --recode --out ".$out_stem;
+    my $exit;
     eval{
-      my $exit = system($vcf_cmd);
+      $exit = system($vcf_cmd);
     };
     if($@ || $exit >= 1){
       throw("Failed to run ".$vcf_cmd." $exit $!");
     }
-    my $files = 
-
- }
+    my ($file_list, $hash) = list_files_in_dir($self->working_dir, 1);
+    my $working_files = $hash->{$self->working_dir};
+    my @out_files;
+    my $vcf_file = $out_stem.".recode.vcf";
+    #ensuring all the output files can be cleaned up
+    foreach my $file(@$file_list){
+      next unless(basename($file) =~ /$out_stem/);
+      push(@out_files, $file);
+      $self->files_to_cleanup($file);
+    }
+    unless(-e $vcf_file){
+      print STDERR $vcf_file."\n";
+      throw("Failed to find a vcf file from ".$self->working_dir." ".$vcf_cmd);
+    }
+    #uses position to name map to actually generate source hash
+    open(VCF, "<", $vcf_file) or throw("Failed to open ".$vcf_file." $!");
+    while(<VCF>){
+      chomp;
+      next if(/^\#/);
+      my @values = split /\t/, $_;
+      my $position = $values[0]."\t".$values[1];
+      my $name = $positions_hash->{$position};
+      throw("Failed to find a name for ".$position) unless($name);
+      $source_hash{basename($in_vcf)}{$name} = 1;
+    }
+  }
+  return(\%source_hash);
 }
+
+
+=head2 vcf_positional_input_generator
+
+  Arg [1]   : ReseqTrack::Tools::Annotation::SNPAnnotation
+  Arg [2]   : arrayref of Bio::EnsEMBL::Variation::VariationFeatures, if not passed
+  in it will take what is in the variation_features array from the object
+  Function  : to turn the variation features into a file suitable to be used 
+  as a positional filter in vcftools and a hashref mapping position string to name
+  Returntype: file and hashref of position to name
+  Exceptions: throws if it can't open the tmp file
+  Example   : my ($position_file, $position_hash) = 
+                    $self->vcf_positional_input_generator()
+
+=cut
+
+
 
 sub vcf_positional_input_generator{
   my ($self, $vfs) = @_;
@@ -399,7 +659,7 @@ sub vcf_positional_input_generator{
     unless($position_hash{$string}){
       $position_hash{$string} = $vf->variation_name;
     }else{
-      throw($string." is not unique it is associated with ".$postion_hash{$string}.
+      throw($string." is not unique it is associated with ".$position_hash{$string}.
 	    " as well as ".$vf->variation_name);
     }
   }
@@ -408,11 +668,83 @@ sub vcf_positional_input_generator{
   return $tmp_file, \%position_hash;
 }
 
+
+=head2 find_in_ensembl
+
+  Arg [1]   : ReseqTrack::Tools::Annotation::SNPAnnotation
+  Arg [2]   : arrayref of Bio::EnsEMBL::Variation::VariationFeatures, if not
+  used the object array is used
+  Function  : find what sources in the ensembl variation database your
+  snps can be found in
+  Returntype: hashref key source, value hashref for each name which is found in that
+  source
+  Exceptions: n/a
+  Example   : my $source_hash = $self->find_in_ensembl();
+
+=cut
+
+
+
+sub find_in_ensembl{
+  my ($self, $vfs) = @_;
+  my %source_hash;
+  $vfs = $self->variation_features unless($vfs);
+  foreach my $vf(@$vfs){
+    my $ensembl_sources = $vf->get_all_sources if($vf->variation);
+    foreach my $source(@$ensembl_sources){
+      $source_hash{$source}{$vf->variation_name} = 1;
+    }
+  }
+  return \%source_hash;
+}
+
+
+=head2 produce_output
+
+  Arg [1]   : ReseqTrack::Tools::Annotation::SNPAnnotation
+  Function  : define consequences for the variation feature and create source hash 
+  if requested
+  Returntype: n/a
+  Exceptions: n/a
+  Example   : n/a
+
+=cut
+
+
+
+sub produce_output{
+  my ($self) = @_;
+  $self->calculate_consequences();
+  my $source_hash;
+  if($self->source_vcf){
+    $source_hash = $self->find_in_vcf();
+  }
+  if($self->check_ensembl_sources){
+    my $tmp_hash = $self->find_in_ensembl();
+    foreach my $key(keys(%$tmp_hash)){
+      $source_hash->{$key} = $tmp_hash->{$key};
+    }
+  }
+  $self->source_hash($source_hash);
+}
+
+
+=head2 print_output
+
+  Arg [1]   : ReseqTrack::Tools::Annotation::SNPAnnotation
+  Function  : prints the consequence and source information in gvf format
+  Returntype: n/a
+  Exceptions: n/a
+  Example   : $self->print_output
+
+=cut
+
+
+
 sub print_output{
   my ($self) = @_;
   my $fh = $self->output_fh;
- # print STDERR "Calculating consequences\n";
-  $self->calculate_consequences();
+  my $source_hash = $self->source_hash;
   my $score_hash = $self->score_hash;
  # print STDERR "Printing vf info\n";
   my $count = 1;
@@ -430,9 +762,10 @@ sub print_output{
 		$score, $strand, ".");
     my $attrib_strings = $self->create_gvf_attribute_strings($vf);
     my @sources;
-    if($self->check_ensembl_sources){
-      my $ensembl_sources = $vf->get_all_sources if($vf->variation);
-      push(@sources, @$ensembl_sources) if($ensembl_sources);
+    foreach my $source(keys(%$source_hash)){
+      if($source_hash->{$source}->{$vf->variation_name}){
+	push(@sources, $source);
+      }
     }
     foreach my $attrib_string(@$attrib_strings){
       my $output_string = $gff3."\t".$attrib_string."\t";
@@ -441,6 +774,22 @@ sub print_output{
     }
   }
 }
+
+
+=head2 create_gvf_attribute_string
+
+  Arg [1]   : ReseqTrack::Tools::Annotation::SNPAnnotation
+  Arg [2]   : Bio::EnsEMBL::Variation::VariationFeature
+  Function  : the 9th column of gvf format is a series of attributes in key=value
+  pairs. This method creates such a string for every consequence a given variant
+  has
+  Returntype: string
+  Exceptions: n/a
+  Example   : my $attributes = $self->create_gvf_attribute_strings($vf);
+
+=cut
+
+
 
 sub create_gvf_attribute_strings{
   my ($self, $vf) = @_;
@@ -478,6 +827,19 @@ sub create_gvf_attribute_strings{
 }
 
 
+
+=head2 feature_type
+
+  Function  : This simple returns a hard coded hash mapping consequence type to
+  feature type
+  Returntype: hashref 
+  Exceptions: n/a
+  Example   : n/a
+
+=cut
+
+
+
 sub feature_type{
   return ('ESSENTIAL_SPLICE_SITE' => 'mRNA',
 	  'STOP_GAINED' => 'mRNA',
@@ -502,6 +864,21 @@ sub feature_type{
 	  'HGMD_MUTATION' => 'mRNA',
 	 );
 }
+
+
+=head2 find_colocated_variation_features
+
+  Arg [1]   : ReseqTrack::Tools::Annotation::SNPAnnotation
+  Arg [2]   : Bio::EnsEMBL::Variation::VariationFeature
+  Function  : finds an existing variation features which has exactly the
+  same coordinates as the passed in feature if present. This means that
+  existing info can be attached to the give feature like sources or names
+  Returntype: name, internal dbID, Bio::EnsEMBL::Variation::Variation, string
+  Exceptions: n/a
+  Example   : n/a
+
+=cut
+
 
 
 sub find_colocated_variation_feature{
@@ -529,15 +906,30 @@ sub find_colocated_variation_feature{
   }
 }
 
+
+=head2 create_variation_features
+
+  Arg [1]   : ReseqTrack::Tools::Annotation::SNPAnnotation
+  Function  : creates variation features given the input lines in the tab delimited 
+  format with the order chr start end allele_string strand name
+  Returntype: Bio::EnsEMBL::Variation::VariationFeature
+  Exceptions: warns if it can't find a suitable slice in the give core database for
+  the chromosome name specified, this line is then skipped
+  Example   :
+
+=cut
+
+
+
 sub create_variation_features{
-  my ($self) = @_;
+  my ($self, $input_lines) = @_;
   my $sa = $self->get_slice_adaptor;
   throw("Failed to connect to ensembl database ") unless($sa);
   my %slices;
   my @vfs;
   my $vfa = $self->get_variation_feature_adaptor;
-
-  LINE:foreach my $input(@{$self->input_lines}){
+  $input_lines = $self->input_lines unless($input_lines && @$input_lines >= 1);
+  LINE:foreach my $input(@$input_lines){
     my ($chr, $start, $end, $allele_string, $strand, $var_name) = split /\t/, $input;
     $chr =~ s/chr//ig;
     $strand = ($strand =~ /\-/ ? "-1" : "1");
@@ -587,6 +979,20 @@ sub create_variation_features{
   $self->variation_features(\@vfs);
   return \@vfs;
 }
+
+
+=head2 parse_line
+
+  Arg [1]   : ReseqTrack::Tools::Annotation::SNPAnnotation
+  Arg [2]   : string, line from input file
+  Function  : parse line and produce format needed to create variation feature
+  Returntype: string, name, int (score), int (total depth of reads)
+  Exceptions: n/a
+  Example   : n/a
+
+=cut
+
+
 
 sub parse_line{
   my ($self, $line) = @_;
@@ -643,13 +1049,29 @@ sub parse_line{
   return ($string, $name, $score, $total_reads);
 }
 
+
+=head2 create_variant_name
+
+  Arg [1]   : ReseqTrack::Tools::Annotation::SNPAnnotation
+  Arg [2]   : string, chromosome name
+  Arg [3]   : int, start
+  Arg [4]   : int, end
+  Arg [5]   : string, allele string N/N
+  Function  : create a name from the given values
+  Returntype: string, name
+  Exceptions: n/a
+  Example   : n/a
+
+=cut
+
+
 sub create_variant_name{
   my ($self, $seq_name, $start, $end, $allele_string) = @_;
   my $name = join("_", ($seq_name, $start, $end, $allele_string));
   return $name
 }
 
-sub DESTROY{
+sub cleanup_output{
   my ($self) = @_;
   foreach my $file(@{$self->files_to_cleanup}){
     unlink $file;

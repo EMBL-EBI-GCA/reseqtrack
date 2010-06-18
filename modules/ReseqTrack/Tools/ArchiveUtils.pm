@@ -121,7 +121,7 @@ sub cleanup_archive{
       }else{
         $history = create_history(undef, $old_file, "name changed from ".$old_file->name." to ".$new_file->name);
       }
-      $new_file->history($history);
+      $new_file->fast_add_history($history);
       $new_file->dbID($old_file->dbID);
       $new_file->created($old_file->created);
       my $return = $fa->fast_update($new_file);

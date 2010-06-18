@@ -25,7 +25,7 @@ my $descend = 1;
 my $from_db;
 my $type;
 my $path_like;
-my $action_string;
+my $action_string = 'archive';
 my $action_location_name;
 my $sleep = 240;
 my $skip_cleanup = 0;
@@ -103,13 +103,18 @@ if($action_string){
     throw("Don't know what to do with action ".$action_string.
           " should be archive or dearchive");
   }
+}else{
+  throw("Failed to pass in an action string");
 }
 
 
 
-
-my $archive_location = $archive_location_adaptor->fetch_by_archive_location_name($action_location_name);
-my $other_location = $archive_location_adaptor->fetch_by_archive_location_name($other_location_name);
+my $archive_locations = $archive_location_adaptor->fetch_all;
+my ($archive_location, $other_location);
+foreach my $location(@$archive_locations){
+  $archive_location = $location if($location->location_name eq $action_location_name);
+  $other_location = $location if($location->location_name eq $other_location_name);
+}
 my $location_root = $archive_location->location;
 my $new_root = $other_location->location;
 if($new_root =~ /\/nfs\/1000g-archive/){
