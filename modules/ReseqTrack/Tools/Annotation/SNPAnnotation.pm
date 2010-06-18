@@ -469,6 +469,7 @@ sub process_input{
     chomp;
     next if(/^\#/);
     my ($string, $name, $score, $depth) = $self->parse_line($_);
+    next unless($string);
     push(@input_lines, $string);
     unless($score_hash{$name}){
       $score_hash{$name} = $score;
@@ -1014,7 +1015,10 @@ sub parse_line{
   }
   
   # VCF: 20      14370   rs6054257 G     A      29    0       NS=58;DP=258;AF=0.786;DB;H2          GT:GQ:DP:HQ
-  elsif($data[0] =~ /(chr)?\w+/ && $data[1] =~ /\d+/ && $data[3] =~ /[ACGTN-]+/ && $data[4] =~ /([ACGTN-]+\,?)+/) {
+  elsif($data[0] =~ /(chr)?\w+/ && $data[1] =~ /\d+/ && $data[3] =~ /[ACGTN-]+/ && $data[4] =~ /([\.ACGTN-]+\,?)+/) {
+    if($data[4] eq '.'){
+      return undef;
+    }
     my $alt = $data[4];
     $alt =~ s/\,/\//g;
     my $allele_string = $data[3]."/".$alt;
