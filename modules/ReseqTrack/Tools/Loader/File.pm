@@ -1,4 +1,4 @@
-package ReseqTrack::Tools::Loader::FileInherit;
+package ReseqTrack::Tools::Loader::File;
 use strict;
 use warnings;
 use ReseqTrack::Tools::Exception qw(throw warning stack_trace_dump);
@@ -56,8 +56,12 @@ sub new {
  $self->check_md5($check_md5);
 
  if ( !$self->{md5_file} && !$self->{check_md5} ) {
-  warning "check_md5  OFF. Not loading from an md5 list. No md5s. You sure??";
-  sleep(3);
+  warning "check_md5  OFF. Not loading from an md5 list. No md5 wil be loaded. You sure??";
+  
+  print "Do you want to continue ? y or n\n";
+  my $go_ahead = <STDIN>;
+  $go_ahead = uc $go_ahead;
+  exit if ( $go_ahead ne 'N' || $go_ahead ne "NO" );
  }
 
  $self->assign_host_object();
