@@ -1,101 +1,123 @@
-package ReseqTrack::Tools::Loader::File;
+package ReseqTrack::Tools::Loader::FileInherit;
 use strict;
 use warnings;
 use ReseqTrack::Tools::Exception qw(throw warning stack_trace_dump);
 use ReseqTrack::Tools::FileUtils qw(create_objects_from_path_list );
-use ReseqTrack::Tools::FileUtils qw(create_history assign_type check_type);
+use ReseqTrack::Tools::FileUtils qw(create_history assign_type check_type );
+use ReseqTrack::Tools::FileSystemUtils
+  qw( get_lines_from_file run_md5 get_md5hash);
 use ReseqTrack::Tools::HostUtils qw(get_host_object);
 use ReseqTrack::Tools::Argument qw(rearrange);
-use ReseqTrack::Tools::FileSystemUtils;
 use ReseqTrack::DBSQL::DBAdaptor;
 use Data::Dumper;
+use File::Basename;
 
-
+use vars qw(@ISA);
+@ISA = qw(ReseqTrack::Tools::Loader);
 
 sub new {
-  my ($class, @args) = @_;
-  my $self = $class->SUPER::new(@args);
- 
- 
+ my ( $class, @args ) = @_;
+ my $self = $class->SUPER::new(@args);
+
  my (
-      $db,          $dbhost,           $dbname,
-      $dbuser,      $dbpass,           $dbport,
-      $dir,         $use_dir,          $file,
-      $list_file,   $md5_file,         $type,
-      $host,        $run,              $verbose,
-      $descend,     $die_for_problems, $update_existing,
-      $store_new,   $help,             $assign_types,
-      $check_types, $input,
+      $md5_file,         $type,            $hostname,
+      $die_for_problems, $update_existing, $store_new,
+      $assign_types,     $check_types,     $check_md5,
+      $md5_program,      $remote,
    )
    = rearrange(
   [
    qw(
-     DB     DBHOST DBNAME DBUSER
-     DBPASS DBPORT DIR
-     USE_DIR FILE LIST_FILE
-     MD5_FILE
-     TYPE HOST RUN
-     VERBOSE DESCEND DIE_FOR_PROBLEMS
-     UPDATE_EXISTING STORE_NEW
-     HELP  ASSIGN_TYPES
-     CHECK_TYPES INPUT)
+     MD5_FILE     TYPE
+     HOSTNAME     DIE_FOR_PROBLEMS    UPDATE_EXISTING
+     STORE_NEW      ASSIGN_TYPES
+     CHECK_TYPES     CHECK_MD5
+     MD5_PROGRAM REMOTE
+     )
   ],
   @args
    );
- $self->dbhost($dbhost);
- $self->dbname($dbname);
- $self->dbuser($dbuser);
- $self->dbpass($dbpass);
- $self->dbport($dbport);
- $self->dir($dir);
- $self->use_dir($use_dir);
- $self->file($file);
- $self->list_file($list_file);
+
+ #Defaults
+ $self->assign_types('1')     unless ( defined $assign_types );
+ $self->check_types('1')      unless ( defined $check_types );
+ $self->md5_program("md5sum") unless ( defined $md5_program );
+
+ $self->assign_types($assign_types) if ( !defined $self->assign_types );
+ $self->check_types($check_types)   if ( !defined $self->check_types );
+ $self->md5_program("md5sum")       if ( !defined $self->md5_program );
  $self->md5_file($md5_file);
- $self->type($type);
- $self->host($host);
- $self->run($run);
- $self->verbose($verbose);
- $self->descend($descend);
+ $self->type($type) if ( !defined $self->type );
+ $self->hostname($hostname);
  $self->die_for_problems($die_for_problems);
  $self->update_existing($update_existing);
  $self->store_new($store_new);
+ $self->remote($remote);
+ $self->check_md5($check_md5);
 
- $self->help($help);
- $self->assign_types($assign_types);
- $self->check_types($check_types);
+ if ( !$self->{md5_file} && !$self->{check_md5} ) {
+  warning "check_md5  OFF. Not loading from an md5 list. No md5s. You sure??";
+  sleep(3);
+ }
 
- $self->create_db_adaptor;    #ReseqTrack::DBSQL::DBAdaptor
-                              #$self->assign_host_object;
-
+ $self->assign_host_object();
+ print Dumper($self) if $self->debug;
  return $self;
 }
 
-###############################################################
+###############################################################################
 sub process_input {
 
- my $self    = shift;
- my $use_dir = $self->use_dir;
- my $dir     = $self->dir;
- my @paths
- ;
+ my $self = shift;
+ my @paths;
+
+ if ( !$self->isa("ReseqTrack::Tools::Loader") ) {
+  throw "Must pass: process_input : method a \"ReseqTrack::Tools::Loader\"";
+ }
+
+ my $inputs = 0;
+
+ #only allowing one input mode at the moment.
+ $inputs++ if ( scalar( @{ $self->file } ) );
+ $inputs++ if ( $self->list_file );
+ $inputs++ if ( $self->dir );
+ $inputs++ if ( $self->md5_file );
+
+=pod
+ if ( $inputs > 1 ) {
+  print '=' x 45;
+  print "\nYou are using:\n";
+  print " -file\n"      if ( scalar( @{ $self->file } > 0 ) );
+  print " -list_file\n"    if ( $self->list_file );
+  print " -dir\n"           if ( $self->dir );
+  print " -md5_file\n"  if ( $self->md5_file );
+  throw("Only allowing one type of input mode. You have $inputs");
+ }
+=cut
+
+ if ( $inputs == 1 && $self->md5_file ) {
+  $self->load_md5_only('1');
+  print "Loading from md5 file only\n";
+ }
+ else {
+  $self->load_md5_only('0');
+ }
+
  if ( scalar( @{ $self->file } ) ) {
   print "Load files from command line\n";
-  push( @paths, $self->add_files_from_var );
+  push( @paths, $self->add_files_from_cmd_line );
  }
- elsif ( $self->list_file ) {
+ if ( $self->list_file ) {
   print "Loading from list\n";
   push( @paths, $self->add_files_from_list_file )    # -list_file
  }
-
- elsif ( $self->dir ) {
+ if ( $self->dir ) {
   print "Load from dir\n";
   push( @paths, $self->add_files_from_dir );         # -dir
  }
-
- elsif ( $self->md5_file ) {
-  push( @paths, $self->add_full_paths_to_md5 );
- }    # -md5 file
+ if ( $self->md5_file ) {
+  push( @paths, $self->load_md5_file );              # -md5 file
+ }
 
  throw
 "Found 0 files specifed using standard options: -file -dir -md5_file -list_file"
@@ -105,381 +127,237 @@ sub process_input {
 
  print "Have " . @paths . " file paths to sanity check\n";
  $self->file_sanity_check;
-
- print "Have " . @paths . " file paths to load\n";
+ print "Have " . @paths . " files to load\n";
 
 }
-#################################################################
-sub create_file_obj_array {
- my $self  = shift;
- my $paths = $self->file_paths;
- my $type  = $self->type;
- my $host  = $self->host;
-
- my $files = create_objects_from_path_list( $paths, $type, $host );
-
- print Dumper ($files);
-}
-
-#################################################################
-sub assign_host_object {
- my $self      = shift;
- my $host_name = $self->host;
- my $db        = $self->db;
-
- my $host = get_host_object( $host_name, $db );
-
- if ( !$host ) {
-  throw "Failed to create host object";
- }
-
- $self->host_obj = $host;
- print "Have host object\n";
- print Dumper ($self);
-}
-
-sub create_db_adaptor {
+####
+sub load_md5_file {
  my $self = shift;
- my $db   = $self->db;
-
- if ( !$db ) {
-  $db =
-    ReseqTrack::DBSQL::DBAdaptor->new(
-                                       -host   => $self->dbhost,
-                                       -user   => $self->dbuser,
-                                       -port   => $self->dbport,
-                                       -dbname => $self->dbname,
-                                       -pass   => $self->dbpass,
-    );
- }
-
- $self->db($db);
- throw("Failed to create db adaptor") unless $self->db;
-print "Have db adaptor\n";
-}
-
-#retrieve entries and correct if necessary for full paths;
-sub add_full_paths_to_md5 {
- my $self    = shift;
- my $use_dir = $self->use_dir;
- my $dir     = $self->dir;
- my $file    = $self->md5_file;
  my @paths;
+ my $path_warnings = 0;
+ my $new_hash      = {};
 
- my $hash = get_md5hash($file);
+ my $hash = get_md5hash( $self->md5_file );
 
- foreach my $key ( keys(%$hash) ) {
-  #print $key, "\n";
-  my $md5       = $hash->{$key};
-  my $full_path = $key;
-  if ( $use_dir && $dir ) {
-   $full_path = $dir . "/" . $key;
-   $full_path =~ s/\/\//\//g;
+ #load from md5 file only .
+ if ( $self->load_md5_only ) {
+  foreach my $key ( keys(%$hash) ) {
+   my $md5       = $hash->{$key};
+   my $full_path = $key;
+   $hash->{$full_path} = $md5;
+   push( @paths, $full_path );
   }
-  $hash->{$full_path} = $md5;
-  push( @paths, $full_path );
+
+  $self->md5_hash($hash);
+  return @paths;
  }
 
- $self->md5_hash($hash);
+ # check md5 from file, but give file list elsewhere.
+ # use only basename as reference. No duplicates in hash.
+ if ( !$self->load_md5_only ) {
 
- return @paths;
-}
-
-#########################
-######################################################
-######################################################
-
-#  extract to base class
-
-# if -dir option is involked .... get files in that dir.
-sub add_files_from_dir {
- my $self    = shift;
- my $dir     = $self->dir;
- my $descend = $self->descend;
- my @paths;
-
- return if ( !$dir );
-
- #get files from dir
- if ($dir) {
-  my ( $paths, $hash ) = list_files_in_dir( $dir, 1 );
-  unless ($descend) {
-   $paths = $hash->{$dir};
+  foreach my $key ( keys(%$hash) ) {
+   my $md5  = $hash->{$key};
+   my $path = $key;
+   if ( !-e $path ) {
+    print "Using basename for file $key\n";
+    $path = basename($key);
+   }
+   if ( !exists $new_hash->{$path} ) {
+    $new_hash->{$path} = $md5;
+   }
+   else {
+    throw
+      "Got duplicate basenames $key in md5_file for files that do not exist ";
+   }
   }
-  warning( "No paths were found in " . $dir ) if ( !$paths || @$paths == 0 );
-  push( @paths, @$paths ) if ( $paths && @$paths >= 1 );
+  $self->md5_hash($new_hash);
+  return;
  }
-
- return @paths;
 
 }
 
-sub add_files_from_list_file {
- my $self      = shift;
- my $list_file = $self->list_file;
- my $use_dir   = $self->use_dir;
- my $dir       = $self->dir;
- my $full_path;
- my @paths;
+sub create_files {
+ my $self = shift;
 
- return if ( !$list_file );
+ throw "No type specified ( -type ) and assign_types = 0"
+   if ( $self->type eq "MUST_FIX" && $self->assign_types == 0 );
 
- my $lines = get_lines_from_file($list_file);
+ my $file_objs =
+   create_objects_from_path_list( $self->file_paths, $self->type, $self->host );
 
- foreach my $line (@$lines) {
-  my $full_path = $line;
-  if ( $use_dir && $dir ) {
-   $full_path = $dir . "/" . $line;
-   $full_path =~ s/\/\//\//g;
+ if ( $self->assign_types ) {
+  print "Assigning types\n";
+  $file_objs = assign_type($file_objs);
+ }
+ else {
+  print "Skipping assign_types\n";
+ }
+
+ if ( $self->check_types ) {
+  print "Checking types\n";
+  my @wrong;
+  foreach my $file (@$file_objs) {
+   push( @wrong, $file ) unless ( check_type($file) );
   }
-  next if ( -d $full_path );
-  push( @paths, $full_path );
+
+  print STDERR "There are " . @wrong . " files with the wrong type\n"
+    if ( $self->verbose );
+
+  foreach my $file (@wrong) {
+   print $file->name . " " . $file->type . " is wrong\n";
+  }
+  throw("There are problems with the file types") if ( @wrong >= 1 );
  }
 
- return @paths;
+ my $objs = scalar(@$file_objs);
+ print "Created $objs file objects\n";
+
+ $self->files($file_objs);
 
 }
 
-sub add_files_from_var {
- my $self    = shift;
- my $files   = $self->file;
- my $use_dir = $self->use_dir;
- my $dir     = $self->dir;
- my $full_path;
- my @paths;
+sub load_files {
+ my ( $self, $run ) = @_;
+ my $md5_hash = $self->md5_hash;
+ my $files    = $self->files;
 
- return if ( !$files );
+ print "Starting Load process\n";
+ print "Not running ... really\n" unless ($run);
 
+ #sanity checks not sure if there should be any but check for existance if
+ #remote isn't specified
+ my @problems;
  foreach my $file (@$files) {
 
-  #print $file,"\n";
-  my $full_path = $file;
-  if ( $use_dir && $dir ) {
-   $full_path = $dir . "/" . $file;
-   $full_path =~ s/\/\//\//g;
-
-   #print $full_path,"\n";
-
+  #print $file->full_path,"\n";
+  my $string = $file->full_path . " doesn't exist"
+    unless ( $self->remote || -e $file->full_path );
+  if ( !$self->remote && -d $file->full_path ) {
+   $string = $file->full_path . " is a directory ";
   }
-  push( @paths, $full_path );
+  push( @problems, $string ) if ($string);
  }
 
- return @paths;
-}
-
-#################################################################
-
-sub file_sanity_check {
- my $self = shift;
-
- my $files = $self->file_paths;
-
- throw "No files specifed" unless $files;
-
- foreach my $f (@$files) {
-  my @a = split /\//, $f;
-
-  #should never happen ..  if you have any '.' directories
-  foreach (@a) {
-   print("Have \. type file or dir entry\:$f\n") if ( $_ =~ /^\./ );
+ if (@problems) {
+  foreach my $problem (@problems) {
+   print STDERR $problem;
   }
-
-  # better be there
-  if ( !-e $f ) {
-   throw "$f does not exist\n";
-   next;
+  if ( $self->die_for_problems ) {
+   throw( @problems . " problems identified with input set dying" );
   }
-  throw "$f does not have full path\n" unless ( $f =~ /^\// );
-
-  #better have size > 0
-  my $size = -s $f;
-  print "$f has 0 size \n" unless ( $size > 0 );
  }
 
- #better be unique.
- my %unique;
- my %dups;
- my $tot_dups =0;
+ if ( $self->check_md5 ) {
+  warning(
+   "You are going to run md5s for " . @$files . " files this may take a while" )
+    if ( @$files >= 50 );
+ }
+
+ my $fa = $self->db->get_FileAdaptor;
+
+ $md5_hash = $self->md5_hash;
  
- foreach my $f (@$files) {
- 
-   if (defined $unique{$f}){
-      $tot_dups++;
-    $dups{$f} = 1;
-    next;
+
+ my @storage_problems;
+FILE: foreach my $file (@$files) {
+  print "Loading:", $file->full_path, "\n" if ($self->verbose);
+
+  if ( $self->check_md5 ) {
+   my $md5 = run_md5( $file->full_path, $self->md5_program );    # if ($run);
+   $file->md5($md5);
+  }
+
+  if ( $md5_hash && keys %$md5_hash ) {
+   my $md5 = $md5_hash->{ $file->full_path };
+
+   if ( !$md5 ) {
+    my $bname = basename( $file->full_path );    # from foreign md5 file
+    $md5 = $md5_hash->{$bname};
+   }
+   if ( $file->md5 ) {
+    unless ( $file->md5 eq $md5 ) {
+     print $file->full_path
+       . " has a different md5 to the once specified in "
+       . "input Skipping the file\n";
+     next FILE;
+    }
+   }
+   $file->md5($md5);
+  }
+  eval {
+   if ( $self->update_existing )
+   {
+    my $existing = $fa->fetch_by_name( $file->name );
+    if ($existing) {
+     $file->dbID( $existing->dbID );
+     my $history = create_history( $file, $existing );
+     $file->history($history) if ($history);
+     unless ($history) {
+      next FILE;
      }
-     $unique{$f} = 1;
- }
-
-
-
-if ($tot_dups){
- print "Duplicate file names:\n";
- foreach my $i (keys %dups){
-  print $i,"\n";  
+    }
+    else {
+     my $possible_existing = $fa->fetch_by_filename( $file->filename );
+     if ($possible_existing) {
+      if ( @$possible_existing == 1 ) {
+       my $existing = $possible_existing->[0];
+       $file->dbID( $existing->dbID );
+       my $history = create_history( $file, $existing );
+       next FILE unless ($history);
+       $file->history($history) if ($history);
+      }
+      elsif ( @$possible_existing >= 2 ) {
+       my $for_update;
+       foreach my $existing (@$possible_existing) {
+        if ( $existing->type eq $file->type ) {
+         if ($for_update) {
+          warning(   "Can't update "
+                   . $file->filename
+                   . " there are multiple files "
+                   . "which share its name and type" );
+         }
+         $for_update = $existing;
+        }
+       }
+       $file->dbID( $for_update->dbID ) if ($for_update);
+       my $history = create_history( $file, $for_update ) if ($for_update);
+       next FILE unless ($history);
+       $file->history($history) if ($history);
+       unless ($for_update) {
+        print STDERR "There are "
+          . @$possible_existing
+          . " possible existing files\n";
+        foreach my $file (@$possible_existing) {
+         print STDERR $file->dbID . " " . $file->name . "\n";
+        }
+        throw(   "Have multiple files linked to "
+               . $file->filename
+               . " not sure how "
+               . "to update the file" );
+       }
+      }
+     }
+    }
+   }
+   $fa->store( $file, $self->update_existing, $self->store_new ) if ($run);
+  };
+  if ($@) {
+   throw( "Problem storing " . $file . " " . $file->full_path . " $@" )
+     if ( $self->die_for_problems );
+   push( @storage_problems, $file->full_path . " " . $@ );
   }
-throw "Have $tot_dups duplicate file names.Please correct";
-}
- 
- 
-}
-
-sub file_paths {
- my ( $self, $arg ) = @_;
- if ($arg) {
-  $self->{file_paths} = $arg;
- }
- return $self->{file_paths};
-}
-
-sub db {
- my ( $self, $arg ) = @_;
- if ($arg) {
-  $self->{db} = $arg;
- }
- return $self->{db};
-}
-
-sub md5_hash {
- my ( $self, $arg ) = @_;
- if ($arg) {
-  $self->{md5_hash} = $arg;
- }
- return $self->{md5_hash};
-}
-
-sub check_types {
- my ( $self, $arg ) = @_;
- if ($arg) {
-  $self->{check_types} = $arg;
- }
- return $self->{check_types};
-}
-
-sub dbhost {
- my ( $self, $arg ) = @_;
- if ($arg) {
-  $self->{dbhost} = $arg;
- }
- return $self->{dbhost};
-}
-
-sub dbname {
- my ( $self, $arg ) = @_;
- if ($arg) {
-  $self->{dbname} = $arg;
- }
- return $self->{dbname};
-}
-
-sub dbuser {
- my ( $self, $arg ) = @_;
- if ($arg) {
-  $self->{dbuser} = $arg;
- }
- return $self->{dbuser};
-}
-
-sub dbpass {
- my ( $self, $arg ) = @_;
- if ($arg) {
-  $self->{dbpass} = $arg;
- }
- return $self->{dbpass};
-}
-
-sub dbport {
- my ( $self, $arg ) = @_;
- if ($arg) {
-  $self->{dbport} = $arg;
- }
- return $self->{dbport};
-}
-
-sub dir {
- my ( $self, $arg ) = @_;
- if ($arg) {
-  $self->{dir} = $arg;
- }
- return $self->{dir};
-}
-
-sub use_dir {
- my ( $self, $arg ) = @_;
- if ($arg) {
-  $self->{use_dir} = $arg;
- }
- return $self->{use_dir};
-}
-
-sub file {
- my ( $self, $arg ) = @_;
- if ($arg) {
-  $self->{file} = $arg;
- }
- return $self->{file};
-}
-
-sub list_file {
- my ( $self, $arg ) = @_;
- if ($arg) {
-  $self->{list_file} = $arg;
- }
- return $self->{list_file};
-}
-
-sub md5_file {
- my ( $self, $arg ) = @_;
- if ($arg) {
-  $self->{md5_file} = $arg;
  }
 
- return $self->{md5_file};
-}
-
-sub type {
- my ( $self, $arg ) = @_;
- if ($arg) {
-  $self->{type} = $arg;
+ foreach my $problem (@storage_problems) {
+  print STDERR $problem . "\n";
  }
- return $self->{type};
-}
 
-sub host {
- my ( $self, $arg ) = @_;
- if ($arg) {
-  $self->{host} = $arg;
- }
- return $self->{host};
 }
-
-sub run {
- my ( $self, $arg ) = @_;
- if ($arg) {
-  $self->{run} = $arg;
- }
- return $self->{run};
-}
-
-sub verbose {
- my ( $self, $arg ) = @_;
- if ($arg) {
-  $self->{verbose} = $arg;
- }
- return $self->{verbose};
-}
-
-sub descend {
- my ( $self, $arg ) = @_;
- if ($arg) {
-  $self->{descend} = $arg;
- }
- return $self->{descend};
-}
-
+####
 sub die_for_problems {
  my ( $self, $arg ) = @_;
- if ($arg) {
+ if ( defined $arg ) {
   $self->{die_for_problems} = $arg;
  }
  return $self->{die_for_problems};
@@ -487,7 +365,7 @@ sub die_for_problems {
 
 sub update_existing {
  my ( $self, $arg ) = @_;
- if ($arg) {
+ if ( defined $arg ) {
   $self->{update_existing} = $arg;
  }
  return $self->{update_existing};
@@ -495,26 +373,176 @@ sub update_existing {
 
 sub store_new {
  my ( $self, $arg ) = @_;
- if ($arg) {
+ if ( defined $arg ) {
   $self->{store_new} = $arg;
  }
  return $self->{store_new};
 }
 
-sub help {
+sub check_md5 {
  my ( $self, $arg ) = @_;
- if ($arg) {
-  $self->{help} = $arg;
+ if ( defined $arg ) {
+  $self->{check_md5} = $arg;
  }
- return $self->{help};
+ return $self->{check_md5};
+}
+
+sub load_md5_only {
+ my ( $self, $arg ) = @_;
+ if ( defined $arg ) {
+  $self->{load_md5_only} = $arg;
+ }
+ return $self->{load_md5_only};
+}
+
+sub md5_program {
+ my ( $self, $arg ) = @_;
+ if ( defined $arg ) {
+  $self->{md5_program} = $arg;
+ }
+ return $self->{md5_program};
 }
 
 sub assign_types {
  my ( $self, $arg ) = @_;
- if ($arg) {
+
+ if ( defined $arg ) {
   $self->{assign_types} = $arg;
  }
+
  return $self->{assign_types};
+}
+
+sub check_types {
+ my ( $self, $arg ) = @_;
+
+ if ( defined $arg ) {
+  $self->{check_types} = $arg;
+ }
+ return $self->{check_types};
+}
+
+sub remote {
+ my ( $self, $arg ) = @_;
+ if ( defined $arg ) {
+  $self->{remote} = $arg;
+ }
+ return $self->{remote};
+}
+
+sub assign_host_object {
+ my $self = shift;
+
+ my $host = get_host_object( $self->hostname, $self->db );
+
+ if ( !$host ) {
+  throw "Failed to create host object";
+ }
+
+ $self->host($host);
+ print Dumper ( $self->host ) if ( $self->debug );
+
+}
+
+sub file_sanity_check {
+ my $self  = shift;
+ my $files = $self->file_paths;
+ my %bad;
+
+ throw "No files specifed" unless $files;
+
+ foreach my $f (@$files) {
+  my @a = split /\//, $f;
+
+  #should never happen ..  if you have any '.' directories
+  foreach my $j (@a) {
+
+   #print $j,"\n";
+   throw "Have \. type file: $f    $_" if ( $j =~ /^\./ );
+  }
+
+  if ( !-e $f ) {
+   $bad{$f} = "Does not exist    :";
+   print "Does not exist:$f\n";
+   next;
+  }
+
+  if ( -d $f ) {
+   $bad{$f} = "Is directory        :";
+   print "Is directory:$f\n";
+   next;
+  }
+  
+  if ( !   ($f  =~  /^\//)   ) {
+   print "Not full path $f\n";
+   $bad{$f} = "Full path bad      :";
+   next;
+  }
+  #my $size = -s $f;
+  #$bad{$f} = "File has 0 size:" unless ( $size > 0 );
+ }
+
+ #better be unique.
+ my %unique;
+ my %dups;
+ my $tot_dups = 0;
+
+ foreach my $f (@$files) {
+  $dups{$f}++;
+ }
+
+ foreach my $i ( keys %dups ) {
+  if ( $dups{$i} > 1 ) {
+   $bad{$i} = "Duplicate file name:";
+  }
+ }
+ if ( keys %bad ) {
+  print STDERR "Found the following problems:\n";
+  foreach my $i ( keys %bad ) {
+   print STDERR $bad{$i}, $i, "\n";
+  }
+  throw "Fix file path problems";
+ }
+}
+
+sub files {
+ my ( $self, $arg ) = @_;
+ if ( defined $arg ) {
+  $self->{file_objs} = $arg;
+ }
+ return $self->{file_objs};
+}
+
+sub host {
+ my ( $self, $arg ) = @_;
+ if ( defined $arg ) {
+  $self->{host} = $arg;
+ }
+ return $self->{host};
+}
+###
+sub hostname {
+ my ( $self, $arg ) = @_;
+ if ( defined $arg ) {
+  $self->{hostname} = $arg;
+ }
+ return $self->{hostname};
+}
+###
+sub md5_file {
+ my ( $self, $arg ) = @_;
+ if (defined $arg) {
+  $self->{md5_file} = $arg;
+ }
+ return $self->{md5_file};
+}
+###
+sub md5_hash {
+ my ( $self, $arg ) = @_;
+ if (defined $arg) {
+  $self->{md5_hash} = $arg;
+ }
+ return $self->{md5_hash};
 }
 1;
 
