@@ -4,7 +4,7 @@ use strict;
 use Getopt::Long;
 use File::Basename;
 use ReseqTrack::Tools::Loader;
-use ReseqTrack::Tools::Loader::FileInherit;
+use ReseqTrack::Tools::Loader::File;
 
 use ReseqTrack::Tools::Exception qw(throw warning stack_trace_dump);
 use ReseqTrack::Tools::FileUtils qw(create_objects_from_path_list create_history assign_type check_type);
