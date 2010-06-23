@@ -88,7 +88,7 @@ sub new {
   $self->type('SNV');
   $self->buffer(500);
   ###
-  $working_dir =~ s/\/$//;
+  $working_dir =~ s/\/$// if($working_dir);
   $self->input_file($input_file);
   $self->output_file($output_file);
   $self->working_dir($working_dir);
@@ -435,6 +435,37 @@ sub get_slice_adaptor{
 
 
 
+=head2 slice_hash
+
+  Arg [1]   : ReseqTrack::Tools::Annotation::SNPAnnotation
+  Arg [2]   : hashref or Bio::EnsEMBL::Slice
+  Function  : container for hashref of slice objects
+  Returntype: hashref
+  Exceptions: throws if it doesn't recognised the given arguement
+  Example   : $self->slice_hash($slice);
+
+=cut
+
+
+
+sub slice_hash{
+  my ($self, $arg) = @_;
+  if(!$self->{slice_hash}){
+    $self->{slice_hash} = {};
+  }
+  if($arg){
+    if(ref($arg) eq 'HASH'){
+      $self->{slice_hash} = $arg;
+    }elsif($arg->isa("Bio::EnsEMBL::Slice")){
+      $self->{slice_hash}->{$arg->seq_region_name} = $arg;
+    }else{
+      throw("Don't know how to deal with ".$arg);
+    }
+  }
+  return $self->{slice_hash};
+}
+
+
 =head2 process_input
 
   Arg [1]   : ReseqTrack::Tools::Annotation::SNPAnnotation
@@ -462,7 +493,7 @@ sub process_input{
       throw("Failed to open ".$self->input_file." $!");
     $in = \*IN;
   }
-  my @input_lines;
+  my @vfs;
   my %score_hash;
   my %total_reads;
   while(<$in>){
@@ -470,24 +501,25 @@ sub process_input{
     next if(/^\#/);
     my ($string, $name, $score, $depth) = $self->parse_line($_);
     next unless($string);
-    push(@input_lines, $string);
+    my $vf = $self->create_variation_feature($string);
+    push(@vfs, $vf);
     unless($score_hash{$name}){
       $score_hash{$name} = $score;
     }else{
-      throw("Have none unique variant name for ".$self->input_file." ".$name.
-	    " ".$_);
+       #throw("Have none unique variant name for ".$self->input_file." ".$name.
+#	    " ".$_);
     }
      unless($total_reads{$name}){
       $total_reads{$name} = $depth;
     }else{
-      throw("Have none unique variant name for ".$self->input_file." ".$name);
+      #throw("Have none unique variant name for ".$self->input_file." ".$name);
     }
   }
   close(IN);
-  $self->input_lines(\@input_lines);
+  $self->variation_features(\@vfs);
   $self->score_hash(\%score_hash);
   $self->total_reads(\%total_reads);
-  return ($self->input_lines, $self->score_hash, $self->total_reads);
+  return ($self->variation_features, $self->score_hash, $self->total_reads);
 }
 
 
@@ -506,10 +538,11 @@ sub process_input{
 
 sub calculate_consequences{
   my ($self) = @_;
-  my @vfs = @{$self->create_variation_features};
+  #my @vfs = @{$self->create_variation_features};
   my $tva = $self->get_transcript_variation_adaptor;
   my @temp;
   my @new_vfs;
+  my @vfs = @{$self->variation_features};
   while(@vfs){
     my $vf = shift @vfs;
     push(@temp, $vf);
@@ -920,6 +953,59 @@ sub find_colocated_variation_feature{
 
 =cut
 
+
+sub create_variation_feature{
+  my ($self, $line) = @_;
+  my $sa = $self->get_slice_adaptor;
+  $sa->dbc->disconnect_when_inactive(1);
+  throw("Failed to connect to ensembl database ") unless($sa);
+  my $vfa = $self->get_variation_feature_adaptor;
+  my ($chr, $start, $end, $allele_string, $strand, $var_name) = split /\t/, $line;
+    $chr =~ s/chr//ig;
+    $strand = ($strand =~ /\-/ ? "-1" : "1");
+    unless($start =~ /^\d+$/ && $end =~ /^\d+$/) {
+      warn("WARNING: Start $start or end $end coordinate invalid on line".
+	  $line);
+      next;
+    }
+
+    unless($allele_string =~ /([ACGT-]+\/*)+/) {
+      warn("WARNING: Invalid allele string $allele_string on line ".
+	  $line);
+      next;
+    }
+  my $slice;
+  if($self->slice_hash->{$chr}){
+    $slice = $self->slice_hash->{$chr};
+    }else{
+      $slice = $sa->fetch_by_region('chromosome', $chr);
+      unless($slice){
+	$slice = $sa->fetch_by_region(undef, $chr);
+      }
+      unless($slice){
+	warning("Failed to find slice for ".$chr." in ".$sa->dbc->dbname);
+	print STDERR "Skipping ".$line."\n";
+	next LINE;
+      }
+      $self->slice_hash($slice);
+    }
+  my $vf = Bio::EnsEMBL::Variation::VariationFeature->new
+    (
+     -start => $start,
+     -end => $end,
+     -slice => $slice,           # the variation must be attached to a slice
+     -allele_string => $allele_string,
+     -strand => $strand,
+     -map_weight => 1,
+     -adaptor => $vfa,           # we must attach a variation feature adaptor
+     -variation_name => $var_name,
+    );
+  my ($name, $dbID, $variation, $source) = $self->find_colocated_variation_feature($vf);
+  $vf->dbID($dbID);
+  $vf->variation($variation) if($variation);
+  $vf->source($source);
+  return $vf;
+}
 
 
 sub create_variation_features{
