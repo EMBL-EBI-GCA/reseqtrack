@@ -853,7 +853,8 @@ sub create_gvf_attribute_strings{
       my $effect_string = "Variant_effect=".$consequence.":".$feature_type;
       if($con->transcript){
 	my $transcript_name = $con->transcript->stable_id;
-	":ensembl:".$transcript_name.";";
+	$effect_string .= ":ensembl:".$transcript_name.";";
+	
       }else{
 	$effect_string .= ";";
       }
