@@ -172,6 +172,7 @@ throw("Need more than zero froms in file array from either the -file, ".
 my @files_to_archive;
 my %which_action_hash;
 my %changelog_hash;
+print "Have ".@files." file objects to consider\n";
 foreach my $file(@files){
   warning("Can't archive a file ".$file." which doesn't exist") unless(-e $file);
   unless($file =~ /$location_root/){
@@ -220,7 +221,7 @@ foreach my $file_path(@files_to_archive){
   my $archive = create_archive_from_objects($file, $action, $archive_location);
   $archive->priority($priority);
   if($run){
-    has_to_many_archive_lines($max_number, $sleep, $aa);
+    has_to_many_archive_lines($max_number, $sleep, $db);
     $aa->store($archive);
   }
 }
