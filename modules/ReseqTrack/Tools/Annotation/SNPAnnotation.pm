@@ -850,9 +850,13 @@ sub create_gvf_attribute_strings{
 	($con->{'translation_start'}, $con->{'translation_end'}) = ($con->{'translation_end'}, $con->{'translation_start'});
       }
       my $feature_type = $feature_type_hash{$consequence};
-      my $transcript_name = $con->transcript->stable_id;
-      my $effect_string = "Variant_effect=".$consequence.":".$feature_type.
+      my $effect_string = "Variant_effect=".$consequence.":".$feature_type;
+      if($con->transcript){
+	my $transcript_name = $con->transcript->stable_id;
 	":ensembl:".$transcript_name.";";
+      }else{
+	$effect_string .= ";";
+      }
       my $string = $attribute_string.$effect_string;
       push(@strings, $string);
     }
