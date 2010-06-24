@@ -70,60 +70,6 @@ sub new {
  return $self;
 }
 ###
-sub process_input {
-
- my $self    = shift;
-  my @paths;
-
- if ( !$self->isa("ReseqTrack::Tools::Loader") ) {
-  throw "Must pass: process_input : method a \"ReseqTrack::Tools::Loader\"";
- }
-
- my $inputs = 0;
- #only allowing one input mode at the moment.
- $inputs++ if ( scalar( @{ $self->file } ) );
- $inputs++ if ( $self->list_file );
- $inputs++ if ( $self->dir );
- $inputs++ if ( $self->md5_file );
-
- if ( $inputs > 1 ) {
-  print '=' x 45;
-  print "\nYou are using:\n";
-  print " -file\n"          if ( scalar( @{ $self->file } > 0 ) );
-  print " -list_file\n"    if ( $self->list_file );
-  print " -dir\n"           if ( $self->dir );
-  print " -md5_file\n"  if ( $self->md5_file );
-  throw("Only allowing one type of input mode. You have $inputs");
- }
-
- if ( scalar( @{ $self->file } ) ) {
-  print "Load files from command line\n";
-  push( @paths, $self->add_files_from_cmd_line );
- }
- elsif ( $self->list_file ) {
-  print "Loading from list\n";
-  push( @paths, $self->add_files_from_list_file )    # -list_file
- }
- elsif ( $self->dir ) {
-  print "Load from dir\n";
-  push( @paths, $self->add_files_from_dir );         # -dir
- }
- elsif ( $self->md5_file ) {
-  push( @paths, $self->add_full_paths_to_md5 ); # -md5 file
- }   
-
- throw
-"Found 0 files specifed using standard options: -file -dir -md5_file -list_file"
-   unless (@paths);
-
- $self->file_paths( \@paths );
-
- print "Have " . @paths . " file paths to sanity check\n";
- $self->file_sanity_check;
- print "Have " . @paths . " files to load\n";
-
-}
-####
 sub create_DBAdaptor {
  my $self = shift;
  my $db;
