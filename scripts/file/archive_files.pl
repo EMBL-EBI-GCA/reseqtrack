@@ -37,32 +37,34 @@ my $update_changelog = 1;
 my $original_changelog = '/nfs/1000g-archive/vol1/ftp/CHANGELOG';
 my $new_changelog = '/nfs/1000g-work/G1K/archive_staging/ftp/CHANGELOG';
 my $priority = 50;
+my $max_number = 1000;
 
 &GetOptions( 
-  'dbhost=s'      => \$dbhost,
-  'dbname=s'      => \$dbname,
-  'dbuser=s'      => \$dbuser,
-  'dbpass=s'      => \$dbpass,
-  'dbport=s'      => \$dbport,
-  'file=s@' => \@files,
-  'file_list=s' => \$file_list,
-  'dir=s' => \$dir,
-  'descend!' => \$descend,
-  'run!' => \$run,
-  'from_db!' => \$from_db,
-  'type=s' => \$type,
-  'path_like=s' => \$path_like,
-  'action=s' => \$action_string,
-  'sleep=s' => \$sleep,
-  'skip_cleanup!' => \$skip_cleanup,
-  'verbose!' => \$verbose,
-  'create_changelog!' => \$create_changelog_detailed,
-  'changelog_path=s' => \$changelog_path,
-  'changelog_name=s' => \$changelog_name,
-  'update_changelog!' => \$update_changelog,
-  'original_changelog=s' => \$original_changelog,
-  'new_changelog=s' => \$new_changelog,
-  'priority=s' => \$priority,
+	    'dbhost=s'      => \$dbhost,
+	    'dbname=s'      => \$dbname,
+	    'dbuser=s'      => \$dbuser,
+	    'dbpass=s'      => \$dbpass,
+	    'dbport=s'      => \$dbport,
+	    'file=s@' => \@files,
+	    'file_list=s' => \$file_list,
+	    'dir=s' => \$dir,
+	    'descend!' => \$descend,
+	    'run!' => \$run,
+	    'from_db!' => \$from_db,
+	    'type=s' => \$type,
+	    'path_like=s' => \$path_like,
+	    'action=s' => \$action_string,
+	    'sleep=s' => \$sleep,
+	    'skip_cleanup!' => \$skip_cleanup,
+	    'verbose!' => \$verbose,
+	    'create_changelog!' => \$create_changelog_detailed,
+	    'changelog_path=s' => \$changelog_path,
+	    'changelog_name=s' => \$changelog_name,
+	    'update_changelog!' => \$update_changelog,
+	    'original_changelog=s' => \$original_changelog,
+	    'new_changelog=s' => \$new_changelog,
+	    'priority=s' => \$priority,
+	    'max_number_of_archives=s' => \$max_number,
     );
 
 my $date = current_time;
@@ -217,7 +219,10 @@ foreach my $file_path(@files_to_archive){
   $changelog_name = lc($file->type) unless($changelog_name);
   my $archive = create_archive_from_objects($file, $action, $archive_location);
   $archive->priority($priority);
-  $aa->store($archive) if($run);
+  if($run){
+    has_to_many_archive_lines($max_number, $sleep, $aa);
+    $aa->store($archive);
+  }
 }
 
 

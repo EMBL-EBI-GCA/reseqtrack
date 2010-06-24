@@ -149,6 +149,16 @@ sub fetch_by_column_name{
   return \@objects;
 }
 
+sub number_of_lines{
+  my ($self) = @_;
+  my $sql = "select count(*) from ".$self->table_name;
+  my $sth = $self->prepare($sql);
+  $sth->execute;
+  my ($count) = $sth->fetchrow;
+  $sth->finish;
+  return $count;
+}
+
 sub store_history{
   my ($self, $object) = @_;
   throw("Can't store history for ".$object." that isnt a ReseqTrack::HasHistory")

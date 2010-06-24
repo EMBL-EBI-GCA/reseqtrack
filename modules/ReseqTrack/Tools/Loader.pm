@@ -45,11 +45,10 @@ sub new {
 
 
  print "Inheriting from Loader\n" if $debug;
-  #defaults
-  $self->type("MUST_FIX")              unless( defined $type  ) ;
-   $self->descend('1')                      unless (defined $descend);
-  
-   
+ #defaults
+ $self->type("MUST_FIX")              unless( defined $type  ) ;
+ $self->descend('1')                      unless (defined $descend);
+
  $self->dbhost($dbhost);
  $self->dbname($dbname);
  $self->dbuser($dbuser);
@@ -62,13 +61,12 @@ sub new {
  $self->verbose($verbose);
  $self->descend($descend);
  $self->debug($debug);
- 
 
- 
  $self->create_DBAdaptor;    #ReseqTrack::DBSQL::DBAdaptor
 
  return $self;
 }
+
 ###
 sub create_DBAdaptor {
  my $self = shift;

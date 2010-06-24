@@ -13,7 +13,8 @@ use ReseqTrack::File;
 use vars qw (@ISA  @EXPORT);
 
 @ISA = qw(Exporter);
-@EXPORT = qw(create_archive_from_objects create_file_from_archive cleanup_archive);
+@EXPORT = qw(create_archive_from_objects create_file_from_archive cleanup_archive
+             has_to_many_archive_lines);
 
 
 sub create_archive_from_objects{
@@ -134,5 +135,21 @@ sub cleanup_archive{
       print STDERR $new_file->full_path."\n";
       print STDERR "***PROBLEMS WITH ABOVE PATH, it doesn't exist****\n";
     }
+  }
+}
+
+sub has_to_many_archive_lines{
+  my ($max_number, $sleep, $db, $verbose) = @_;
+  my $aa = $db->get_ArchiveAdaptor;
+  my $count = $aa->number_of_lines();
+  return 0 unless($count >= $max_number);
+  my $archives = $aa->fetch_all;
+  cleanup_archive($archives, $db, $verbose);
+  $count = $aa->number_of_lines();
+  if($count >= $max_number){
+    sleep($sleep);
+    return has_to_many_archive_lines($max_number, $sleep, $db, $verbose);
+  }else{
+    return 0;
   }
 }

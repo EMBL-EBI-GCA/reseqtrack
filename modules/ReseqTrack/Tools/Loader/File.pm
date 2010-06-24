@@ -101,7 +101,6 @@ sub process_input {
 
  if ( $inputs == 1 && $self->md5_file ) {
   $self->load_md5_only('1');
-  print "Loading from md5 file only\n";
  }
  else {
   $self->load_md5_only('0');
@@ -241,15 +240,15 @@ sub load_files {
    $string = $file->full_path . " is a directory ";
   }
   push( @problems, $string ) if ($string);
- }
+}
 
  if (@problems) {
-  foreach my $problem (@problems) {
-   print STDERR $problem;
-  }
-  if ( $self->die_for_problems ) {
-   throw( @problems . " problems identified with input set dying" );
-  }
+   foreach my $problem (@problems) {
+     print STDERR $problem;
+   }
+   if ( $self->die_for_problems ) {
+     throw( @problems . " problems identified with input set dying" );
+   }
  }
 
  if ( $self->check_md5 ) {
