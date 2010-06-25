@@ -85,7 +85,7 @@ if(!$dbhost || !$dbname || !$dbuser){
 }
 
 
-my $loader = ReseqTrack::Tools::Loader::FileInherit->new(
+my $loader = ReseqTrack::Tools::Loader::File->new(
  -dir       => $dir,
  -file      => \@files,
  -list_file => $list_file,
