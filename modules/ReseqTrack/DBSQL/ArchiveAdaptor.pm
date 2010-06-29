@@ -83,6 +83,15 @@ sub store{
   return $archive;
 }
 
+sub number_of_active_archive_actions{
+  my ($self) = @_;
+  my $sql = "select count(*) from archive where archive_action_id is not NULL";
+  my $sth = $self->prepare($sql);
+  $sth->execute();
+  my ($count) = $sth->fetchrow;
+  $sth->finish;
+  return $count;
+}
 
 
 sub remove{

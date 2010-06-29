@@ -141,10 +141,9 @@ sub cleanup_archive{
 sub has_to_many_archive_lines{
   my ($max_number, $sleep, $db, $verbose) = @_;
   my $aa = $db->get_ArchiveAdaptor;
-  my $count = $aa->number_of_lines();
+  my $count = $aa->number_of_active_archive_actions();
   return 0 unless($count >= $max_number);
   my $archives = $aa->fetch_all;
-  cleanup_archive($archives, $db, $verbose);
   $count = $aa->number_of_lines();
   if($count >= $max_number){
     sleep($sleep);
