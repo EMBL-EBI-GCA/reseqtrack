@@ -28,7 +28,7 @@ sub new {
   my ($class, @args) = @_;
   my $self ={};
   bless $self,$class;
-  my ($db, $skip_p2, $skip_p3) = 
+  my ($db, $new_index, $old_index, $skip_p2, $skip_p3) = 
     rearrange([qw(DB NEW_INDEX OLD_INDEX SKIP_P2 SKIP_P3)], @args);
 
   # setting defaults
@@ -37,11 +37,47 @@ sub new {
   #####
 
   $self->db($db);
+  $self->new_index($new_index);
+  $self->old_index($old_index);
   $self->skip_p2($skip_p2);
   $self->skip_p3($skip_p3);
 
   return $self;
 }
+
+=head2 new/old_index
+
+  Arg [1]   : ReseqTrack::Tools::Statistics
+  Arg [2]   : string, filepath
+  Function  : accessor method for index file paths
+  Returntype: string
+  Exceptions: throws if file doesn't exist 
+  Example   :
+
+=cut
+
+
+
+sub new_index{
+  my ($self, $new_index) = @_;
+  if($new_index){
+    throw("SequenceIndexStatistics:new_index ".$new_index." should exist")
+      unless(-e $new_index);
+    $self->{new_index} = $new_index;
+  }
+  return $self->{new_index};
+}
+
+sub old_index{
+  my ($self, $old_index) = @_;
+  if($old_index){
+    throw("SequenceIndexStatistics:old_index ".$old_index." should exist")
+      unless(-e $old_index);
+    $self->{old_index} = $old_index;
+  }
+  return $self->{old_index};
+}
+
 
 =head2 db
 

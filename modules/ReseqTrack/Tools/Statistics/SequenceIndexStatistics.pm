@@ -61,11 +61,6 @@ sub new {
   my ($class, @args) = @_;
   my $self = $class->SUPER::new(@args);
 
-  my ($new_index, $old_index) = rearrange([qw(NEW_INDEX OLD_INDEX)], @args);
-
-  $self->new_index($new_index);
-  $self->old_index($old_index);
-
   unless($self->new_index && $self->old_index){
     $self->fetch_index_files();
   }
