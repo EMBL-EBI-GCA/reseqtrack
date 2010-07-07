@@ -466,7 +466,7 @@ sub tooManyNsFullLenSolid {
 			
 	my @characters = split (//, $seq); #split string into characters
 	foreach my $char (@characters) {
-		$N_cnt++ if ($char eq "\.");
+		$N_cnt++ if ($char eq "\." || $char eq "N");
 	}
 
 	if ($N_cnt/$read_length > 0.5) {
@@ -562,7 +562,7 @@ sub checkSolidSeq {
 	}
 	
 	######### test if the sequence in the first 25bp contains any N or are a single type of base such as AAAAAAAAAAA #####
-	if ($seq =~ /\./) {
+	if ($seq =~ /\./ || $seq =~ /N/i ) { #BGI solid fastq have N as ambiguous base
 		$tag = "Bad";
 		print $log_fh "ERROR: The colorspace string contains Ns in the first $len bp\n";
 	}
