@@ -46,7 +46,7 @@ my $max_number = 1000;
 	    'dbpass=s'      => \$dbpass,
 	    'dbport=s'      => \$dbport,
 	    'file=s@' => \@files,
-	    'file_list=s' => \$file_list,
+	    'list_file|file_list=s' => \$file_list,
 	    'dir=s' => \$dir,
 	    'descend!' => \$descend,
 	    'run!' => \$run,

@@ -49,7 +49,7 @@ my $debug = 0;
   'dbport=s'       => \$dbport,
   'dir=s' => \$dir,
   'file=s@' => \@files,
-  'list_file=s' => \$list_file,
+  'list_file|file_list=s' => \$list_file,
   'md5_file=s' => \$md5_file,
   'type|file_type=s' => \$type,
   'host=s' => \$host_name,

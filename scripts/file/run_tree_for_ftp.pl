@@ -91,7 +91,11 @@ if($new_tree->md5 ne $old_tree->md5){
   my $true = 1;
   while($true){
     my $archives = $aa->fetch_all;
-    $true = 0 if(!$archives || @$archives == 0);
+    my @archives;
+    foreach my $archive(@$archives){
+      push(@archives, $archive) unless($archive->fire_exit_code);
+    }
+    $true = 0 if(@archives == 0);
     cleanup_archive($archives, $db, 0);
     sleep(10);
   }
