@@ -398,6 +398,8 @@ sub convert_population{
     $pop = 'CHS';
   }elsif($string =~ /Puerto\s+Rican/i){
     $pop = 'PUR';
+  }elsif($string =~ /pur/i){
+    $pop = 'PUR';
   }elsif($string =~ /Colombian/){
     $pop = 'CLM';
   }elsif($string =~ /Gujarati/){
