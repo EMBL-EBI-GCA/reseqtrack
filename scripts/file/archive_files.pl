@@ -38,6 +38,7 @@ my $original_changelog = '/nfs/1000g-archive/vol1/ftp/CHANGELOG';
 my $new_changelog = '/nfs/1000g-work/G1K/archive_staging/ftp/CHANGELOG';
 my $priority = 50;
 my $max_number = 1000;
+my $lines_check = 1;
 
 &GetOptions( 
 	    'dbhost=s'      => \$dbhost,
@@ -65,6 +66,7 @@ my $max_number = 1000;
 	    'new_changelog=s' => \$new_changelog,
 	    'priority=s' => \$priority,
 	    'max_number_of_archives=s' => \$max_number,
+	    'lines_check!' => \$lines_check,
     );
 
 my $date = current_time;
@@ -221,7 +223,7 @@ foreach my $file_path(@files_to_archive){
   my $archive = create_archive_from_objects($file, $action, $archive_location);
   $archive->priority($priority);
   if($run){
-    has_to_many_archive_lines($max_number, $sleep, $db);
+    has_to_many_archive_lines($max_number, $sleep, $db) if($lines_check);
     $aa->store($archive);
   }
 }

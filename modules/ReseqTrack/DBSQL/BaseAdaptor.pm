@@ -103,7 +103,12 @@ sub fetch_all{
   $sql .= " where ".$self->where if($self->where);
   my @objects;
   my $sth = $self->prepare($sql);
-  $sth->execute;
+  eval{
+    $sth->execute;
+  };
+  if($@){
+    throw("Problem running $sql $@");
+  }
   while(my $rowHashref = $sth->fetchrow_hashref){
     my $object = $self->object_from_hashref($rowHashref) if($rowHashref);
     push(@objects, $object);

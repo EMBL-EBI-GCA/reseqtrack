@@ -55,25 +55,6 @@ sub new {
  $self->remote($remote);
  $self->check_md5($check_md5);
 
- if ( !$self->{md5_file} && !$self->{check_md5} ) {
-  warning "check_md5  OFF. Not loading from an md5 list. No md5 wil be loaded. You sure??";
-
-  print "Do you want to continue ? y or n\n";
-  my $go_ahead = <STDIN>;
-  chomp ($go_ahead);
-
-  $go_ahead = uc $go_ahead;
-
-  if ( $go_ahead eq 'N' || $go_ahead eq "NO" ){
-    print "Stopping here\n";
-    exit;
-  }
-
-  else{
-    print "Carrying on\n";
-  }
-  
-}
  $self->assign_host_object();
  print Dumper($self) if $self->debug;
  return $self;

@@ -197,8 +197,8 @@ sub convert_to_giga{
   my ($base_count) = @_;
   $base_count = 0 unless($base_count);
   my $gigabase = $base_count/1000000000;
-  my $rounded = sprintf("%4.f", $gigabase);
-  return $rounded;
+  #my $rounded = sprintf("%4.f", $gigabase);
+  return $gigabase;
 }
 
 sub create_filename{
