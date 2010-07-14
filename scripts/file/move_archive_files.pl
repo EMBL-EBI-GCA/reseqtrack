@@ -20,16 +20,20 @@ my $move_list;
 my $clobber = 0;
 my $run = 0;
 my $priority = 90;
+my $from;
+my $to;
 
 &GetOptions( 
-  'dbhost=s'      => \$dbhost,
-  'dbname=s'      => \$dbname,
-  'dbuser=s'      => \$dbuser,
-  'dbpass=s'      => \$dbpass,
-  'dbport=s'      => \$dbport,
-  'move_list=s' => \$move_list,
-  'priority=s' => \$priority,
-  'clobber!' => \$clobber,
+	    'dbhost=s'      => \$dbhost,
+	    'dbname=s'      => \$dbname,
+	    'dbuser=s'      => \$dbuser,
+	    'dbpass=s'      => \$dbpass,
+	    'dbport=s'      => \$dbport,
+	    'move_list=s' => \$move_list,
+	    'from=s' => \$from,
+	    'to=s' => \$to,
+	    'priority=s' => \$priority,
+	    'clobber!' => \$clobber,
   'run!' => \$run,
     );
 
@@ -49,8 +53,15 @@ my $action = $archive_action_adaptor->fetch_by_action('move_within_volume');
 throw("Failed to get action for move_within_volume") unless($action);
 my $location = $archive_location_adaptor->fetch_by_archive_location_name('archive');
 
-my $hash = parse_movelist($move_list);
-
+my $hash;
+if($move_list){
+  $hash = parse_movelist($move_list);
+}elsif($from && $to){
+  $hash->{$from} = $to;
+}else{
+  throw("Need to give move_archive_files.pl either a -move_list or a -from and ".
+	"a -to value");
+}
 my $fa = $db->get_FileAdaptor;
 
 my @file_objects;
