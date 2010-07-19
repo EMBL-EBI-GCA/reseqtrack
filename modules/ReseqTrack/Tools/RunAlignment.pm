@@ -23,8 +23,8 @@ use warnings;
 use ReseqTrack::Tools::Exception qw(throw warning stack_trace_dump);
 use ReseqTrack::Tools::Argument qw(rearrange);
 use ReseqTrack::Tools::SequenceIndexUtils;
-
-
+use Data::Dumper;
+use File::Temp qw/ tempfile tempdir /;
 =head2 new
 
   Arg [1]   : ReseqTrack::Tools::RunAlignment
@@ -64,9 +64,13 @@ sub new {
   $self->options($options);
   $self->samtools($samtools);
   $self->working_dir($working_dir);
+  
+ 
+  
   $self->name($name);
   #setting defaults
   $self->working_dir("/tmp/") unless($self->working_dir);
+  
   unless($self->name){
     my $string = $self->mate1_file;
     $string = $self->fragment_file unless($string);
@@ -77,6 +81,8 @@ sub new {
   }
   #
   throw("Have no working directory") unless($self->working_dir && -d $self->working_dir);
+  
+ 
   return $self
 }
 
@@ -244,8 +250,7 @@ sub output_files{
     }else{
       push(@{$self->{'output'}}, $arg);
     }
-  }
-      
+  }  
   return $self->{'output'};
 }
 
@@ -292,9 +297,11 @@ sub input{
       $self->fragment_file($frag);
       $self->mate1_file($mate1);
       $self->mate2_file($mate2);
-    }elsif($input->isa("ReseqTrack::File")){
+    }
+    elsif($input->isa("ReseqTrack::File")){
       $self->fragment_file($input->name);
-    }elsif($input->isa('ReseqTrack::Collection')){
+    }
+    elsif($input->isa('ReseqTrack::Collection')){
       throw("ReseqTrack::Tools::RunAlignment::input Can only handle file ".
             "collections not ".$input->table_name." collections")
           unless($input->table_name eq 'file');
@@ -412,6 +419,25 @@ sub delete_files{
 sub assign_fastq_files{
   my ($self, $files) = @_;
   return assign_files($files);
+}
+
+
+sub create_tmp_process_dir{
+  my ($self) = shift;
+  my $tmp;
+  
+  my $process_dir = $self->working_dir;
+  
+  throw "No process directory specified" if (! defined $process_dir);
+    my $temp_dir = $process_dir ;
+   $temp_dir =  tempdir ( DIR =>$process_dir );
+  
+  print "processing in would be $temp_dir \n";
+ 
+ `chmod 775 $temp_dir`;
+ 
+ $self->working_dir($temp_dir);
+
 }
 
 
