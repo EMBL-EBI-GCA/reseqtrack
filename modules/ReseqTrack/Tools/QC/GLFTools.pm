@@ -7,6 +7,7 @@ use Data::Dumper;
 use ReseqTrack::Tools::Exception qw(throw warning);
 use ReseqTrack::Tools::Argument qw(rearrange);
 use ReseqTrack::Tools::RunAlignment;
+use ReseqTrack::Tools::RunAlignment qw ( create_tmp_process_dir working_dir);
 
 sub new {
   my ( $class, @args ) = @_;
@@ -16,7 +17,7 @@ sub new {
   my (
       $reference,      $program, $snp_list, $snp_bin,
       $bam,            $sam,     $samtools, $glf_file,
-      $claimed_sample, $verbose, $build,
+      $claimed_sample, $verbose, $build, $working_dir
      )
     = rearrange(
 		[
@@ -31,7 +32,8 @@ sub new {
      GLF_FILE
      CLAIMED_SAMPLE
      VERBOSE
-     BUILD)
+     BUILD
+     WORKING_DIR)
 		],
 		@args
 	       );
@@ -48,8 +50,10 @@ sub new {
   $self->claimed_sample($claimed_sample);
   $self->verbose($verbose);
   $self->build($build);
-
-  #print Dumper ($self);
+  $self->ReseqTrack::Tools::RunAlignment::working_dir ($working_dir);
+  $self->ReseqTrack::Tools::RunAlignment::create_tmp_process_dir();
+  print Dumper ($self);
+  exit;
   return $self;
 }
 ######################
@@ -392,23 +396,8 @@ sub verbose {
 }
 
 
-sub create_tmp_process_dir{
-  my ($self) = shift;
-  my $tmp;
-  
-  my $process_dir = $self->working_dir;
-  
-  throw "No process directory specified" if (! defined $process_dir);
-    my $temp_dir = $process_dir ;
-   $temp_dir =  tempdir ( DIR =>$process_dir );
-  
-  print "processing in would be $temp_dir \n";
- 
- `chmod 775 $temp_dir`;
- 
- $self->working_dir($temp_dir);
 
-}
+
 
 1;
 
