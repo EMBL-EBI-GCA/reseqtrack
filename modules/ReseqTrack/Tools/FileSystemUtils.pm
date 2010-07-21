@@ -22,7 +22,8 @@ use vars qw (@ISA  @EXPORT);
              run_md5
              find_file
              check_md5
-             dump_dirtree_summary);
+             dump_dirtree_summary
+             delete_directory );
 
 
 
@@ -365,5 +366,35 @@ sub dump_dirtree_summary{
   }
   close($fh);
 }
+
+sub delete_directory {
+ my $dir = shift;
+ 
+ my $failed_unlink = 0;
+ my $ok = 0; 
+ 
+ die "$dir is not a directory\n" if (! -d $dir);
+ die "$dir does not exist\n"     if (! -e $dir);
+ die "Not full path to $dir\n\n" if ( ! ( $dir =~/^\//));
+
+ #remove all files first
+ my @files = <$dir/*>;
+ foreach my $file (@files) {
+   $ok = unlink ($file);
+   if ($ok == 0){
+     print "Failed unlink: $file\n";
+     $failed_unlink = 1;
+   } 
+ } 
+
+ if ($failed_unlink == 0){
+    $ok = rmdir ($dir);
+    print "Deleted $dir\n" if ($ok);
+ }
+
+}
+
+
+
 
 1;
