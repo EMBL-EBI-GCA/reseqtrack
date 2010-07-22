@@ -12,12 +12,12 @@ Misguided attempt to get Loader stuff to work
 =cut
 
 package ReseqTrack::Tools::Loader;
+use strict;
+use warnings;
 use ReseqTrack::Tools::Exception qw(throw warning stack_trace_dump);
 use ReseqTrack::Tools::FileUtils
   qw(create_objects_from_path_list create_history assign_type check_type);
 use ReseqTrack::Tools::HostUtils qw(get_host_object);
-use ReseqTrack::Tools::Argument qw(rearrange);
-use ReseqTrack::Tools::Exception qw(throw warning stack_trace_dump);
 use ReseqTrack::Tools::Argument qw(rearrange);
 use ReseqTrack::Tools::FileSystemUtils qw( get_lines_from_file get_md5hash list_files_in_dir);
 use Data::Dumper;
@@ -42,13 +42,11 @@ sub new {
   @args
    );
 
-
-
- print "Inheriting from Loader\n" if $debug;
- #defaults
- $self->type("MUST_FIX")              unless( defined $type  ) ;
- $self->descend('1')                      unless (defined $descend);
-
+  #defaults
+  $self->type("MUST_FIX")  ;
+   $self->descend('1') ;
+  
+   
  $self->dbhost($dbhost);
  $self->dbname($dbname);
  $self->dbuser($dbuser);
@@ -62,51 +60,68 @@ sub new {
  $self->descend($descend);
  $self->debug($debug);
 
- $self->create_DBAdaptor;    #ReseqTrack::DBSQL::DBAdaptor
 
- return $self;
+  return $self;
+}
+###
+
+sub create_objects{
+  my ($self) = @_;
+  throw("Must implement a 'create_objects method' in ".$self);
 }
 
-###
+sub load_objects{
+  my ($self) = @_;
+  throw("Must implement a 'load_objects method' in ".$self);
+}
+
+sub sanity_check_objects{
+   my ($self) = @_;
+   throw("Must implement a 'sanity_check_objects' in ".$self);
+}
+
+sub process_input{
+   my ($self) = @_;
+   throw("Must implement a 'process_input' in ".$self);
+}
+
+####
 sub create_DBAdaptor {
  my $self = shift;
- my $db;
+ my $db =
+   ReseqTrack::DBSQL::DBAdaptor->new(
+				     -host   => $self->dbhost,
+				     -user   => $self->dbuser,
+				     -port   => $self->dbport,
+				     -dbname => $self->dbname,
+				     -pass   => $self->dbpass,
+				    );
+ throw("Failed to create a database adaptor using ".$self->dbhost." ".$self->dbname)
+   unless($db);
+ return $db;
 
- if (  ! $self->db) {
-  $db =
-    ReseqTrack::DBSQL::DBAdaptor->new(
-                                       -host   => $self->dbhost,
-                                       -user   => $self->dbuser,
-                                       -port   => $self->dbport,
-                                       -dbname => $self->dbname,
-                                       -pass   => $self->dbpass,
-    );
- }
-
- $self->db($db);
- throw("Failed to create db adaptor") unless $self->db;
- print Dumper ( $self->db($db) ) if $self->debug;
 }
-###
-# if -dir option is involked .... get files in that dir.
+
 sub add_files_from_dir {
- my $self    = shift;
+ my $self         = shift;
  my $descend = $self->descend;
  my @paths;
 
  return if ( !$self->dir );
-###
- #get files from dir
+ 
  if ($self->dir) {
   my ( $paths, $hash ) = list_files_in_dir( $self->dir, 1 );
   unless ($descend) {
    $paths = $hash->{$self->dir};
   }
-  warning( "No paths were found in " . $self->dir ) if ( !$paths || @$paths == 0 );
+  throw( "No paths were found in " . $self->dir ) if ( !$paths || @$paths == 0 );
   push( @paths, @$paths ) if ( $paths && @$paths >= 1 );
  }
- return @paths;
-}
+ 
+ #my $exist_paths = $self->file_paths();
+ #push (@$exist_paths, @paths);
+ $self->file_paths( @paths ) ;
+ }
 ###
 sub add_files_from_list_file {
  my $self      = shift;
@@ -122,7 +137,10 @@ sub add_files_from_list_file {
    next if ( -d $full_path );
   push( @paths, $full_path );
  }
- return @paths;
+ 
+#my $exist_paths = $self->file_paths();
+ #push (@$exist_paths, @paths);
+ $self->file_paths( @paths ) ;
 }
 ###
 sub add_files_from_cmd_line {
@@ -136,69 +154,83 @@ sub add_files_from_cmd_line {
   my $full_path = $file;
    push( @paths, $full_path );
  }
- return @paths;
+ 
+ #my $exist_paths = $self->file_paths();
+ #push (@$exist_paths, @paths);
+ $self->file_paths( @paths ) ;
 }
 ####
 
-sub file_paths {
- my ( $self, $arg ) = @_;
-  $self->{file_paths} = $arg  if (defined $arg);
- return $self->{file_paths};
+ 
+ sub file_paths{
+  my ($self, $arg) = @_;
+  if($arg){
+    if(ref($arg) eq 'ARRAY'){
+      push(@{$self->{file_paths}}, @$arg);
+    }else{
+      push(@{$self->{file_paths}}, $arg);
+    }
+  }
+  return $self->{file_paths}
 }
+ 
 ###
 sub db {
  my ( $self, $arg ) = @_;
-  $self->{db} = $arg if (defined $arg) ;
+  $self->{db} = $arg if ( $arg) ;
+  
+   if(!$self->{db}){
+    $self->{db} = $self->create_DBAdaptor();
+  }
  return $self->{db};
 }
 ###
 sub dbhost {
  my ( $self, $arg ) = @_;
-   $self->{dbhost} = $arg if (defined $arg);
+   $self->{dbhost} = $arg if ( $arg);
  return $self->{dbhost};
 }
 ###
 sub dbname {
  my ( $self, $arg ) = @_;
-   $self->{dbname} = $arg if (defined $arg);
+   $self->{dbname} = $arg if ( $arg);
   return $self->{dbname};
 }
 ###
 sub dbuser {
  my ( $self, $arg ) = @_;
-   $self->{dbuser} = $arg if (defined $arg);
+   $self->{dbuser} = $arg if ( $arg);
   return $self->{dbuser};
 }
 ###
 sub dbpass {
  my ( $self, $arg ) = @_;
-  $self->{dbpass} = $arg if (defined $arg);
+  $self->{dbpass} = $arg if ( $arg);
  return $self->{dbpass};
 }
 ###
 sub dbport {
  my ( $self, $arg ) = @_;
-  $self->{dbport} = $arg if (defined $arg);
+  $self->{dbport} = $arg if ($arg);
  return $self->{dbport};
 }
 ###
 sub dir {
  my ( $self, $arg ) = @_;
-  $self->{dir} = $arg if (defined $arg);
+  $self->{dir} = $arg if ( $arg);
  return $self->{dir};
 }
 ###
 sub file {
  my ( $self, $arg ) = @_;
- $self->{file} = $arg if (defined $arg);
+ $self->{file} = $arg if ( $arg);
  
  return $self->{file};
 }
 ###
 sub type {
  my ( $self, $arg ) = @_;
-  $self->{type} = $arg if (defined $arg);
- 
+  $self->{type} = $arg if ( $arg);
  return $self->{type};
 }
 ###
@@ -224,15 +256,14 @@ sub debug {
 ###
 sub use_dir {
  my ( $self, $arg ) = @_;
-  $self->{use_dir} = $arg if (defined $arg);
-
+  $self->{use_dir} = $arg if ( $arg);
  return $self->{use_dir};
 }
 ###
 
 sub list_file {
  my ( $self, $arg ) = @_;
-  $self->{list_file} = $arg if (defined $arg);
+  $self->{list_file} = $arg if ( $arg);
  return $self->{list_file};
 }
 
