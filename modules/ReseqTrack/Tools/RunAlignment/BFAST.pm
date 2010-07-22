@@ -7,7 +7,7 @@ use Data::Dumper;
 use ReseqTrack::Tools::Exception qw(throw warning);
 use ReseqTrack::Tools::Argument qw(rearrange);
 use ReseqTrack::Tools::RunAlignment;
-use ReseqTrack::Tools::FileSystemUtils qw(delete_directory);
+use ReseqTrack::Tools::FileSystemUtils qw(delete_directory check_files_exists);
 
 @ISA = qw(ReseqTrack::Tools::RunAlignment);
 
@@ -15,20 +15,31 @@ sub new {
  my ( $class, @args ) = @_;
  my $self = $class->SUPER::new(@args);
 
- my $bfast = "/nfs/1000g-work/G1K/work/bin/bfast-0.6.4d/bin/bfast";
- my $prebfast =
-"/nfs/1000g-work/G1K/work/bin/bfast-0.6.4d/bin/1kg2bfastfastq/1kg_2_bfast_fastq";
+ my ( $read_length, $short_reference, $long_reference, $snpbin, $samtools,
+      $program, $preprocess_exe, )
+   = rearrange(
+  [
+   qw(
+     READ_LENGTH
+     SHORT_REFERENCE
+     LONG_REFERENCE
+     SNPBIN
+     SAMTOOLS
+     PROGRAM
+     PREPROCESS_EXE
+     )
+  ],
+  @args
+   );
 
- my ( $build, $space, $aln_options, $preprocess_exe, $read_length ) =
-   rearrange( [qw(BUILD SPACE  ALN_OPTIONS PREPROCESS_EXE READ_LENGTH)],
-              @args );
-
- $self->build("grc37");
- $self->program($bfast) if ( !$self->program );
- $self->preprocess_exe($prebfast) if ( !$preprocess_exe );
- $self->build($build) if ($build);    # only have GRC37 indexes at moment
+ $self->program($program) if ( !$self->program );
+ $self->preprocess_exe($preprocess_exe);
  $self->read_length($read_length);
  $self->create_tmp_process_dir();
+ $self->short_reference($short_reference);
+ $self->long_reference($long_reference);
+ $self->snpbin($snpbin);
+ $self->samtools($samtools);
 
  return $self;
 }
@@ -37,7 +48,7 @@ sub create_cmds {
  my $self = shift;
  $self->set_options();
  $self->set_read_length() if ( !$self->read_length );
- $self->set_indexes();
+ $self->set_reference();
  $self->create_fastq_cmd_line();
  $self->create_match_cmd_line();
  $self->create_localalign_cmd_line();
@@ -49,46 +60,66 @@ sub run {
  my $exit;
 
  $self->create_cmds();
-
+ $self->create_bam();
  $self->change_dir();
 
  print "Working in ", $self->working_dir(), "\n";
 
  # 'match procedure, incorporates preprocess pipe
- $exit = system( $self->match_cmd );
- if ( $exit && $exit >= 1 ) {
-  throw( "Failed to run " . $self->match_cmd );
+ eval {
+  $exit = system( $self->match_cmd );
+  if ( $exit && $exit >= 1 ) {
+   throw( "Failed to run " . $self->match_cmd );
+  }
+ };
+ if ($@) {
+  throw("Failed to run bfast match: $@");
  }
 
  #localalign
  eval {
   $exit = system( $self->localalign_cmd );
   if ( $exit && $exit >= 1 ) {
-   throw( "Failed to run " . $self->localalign_cmd );
+   print STDERR ( "Failed to run " . $self->localalign_cmd );
   }
  };
- if ($@) {
-  throw("Failed to run bwa sampe alignment $@");
+ if ($@ ||  $exit >= 1) {
+  throw("Failed to run bfast localalign: $@");
  }
 
  #postprocess
  eval {
   $exit = system( $self->postprocess_cmd );
   if ( $exit && $exit >= 1 ) {
-   throw( "Failed to run " . $self->postprocess_cmd );
+   print STDERR( "Failed to run " . $self->postprocess_cmd );
   }
  };
- if ($@) {
-  throw("Failed to run bwa sampe alignment $@");
+ if ($@ || $exit > 1) {
+  throw("Failed to bfast postprocess:  $@");
  }
+
+$self->create_bam();
 
  print "REALLY ??????? I made it to here . Wow";
 
  print "Delete tmp dir\n";
- delete_directory( $self->working_dir() );
+ #delete_directory( $self->working_dir() );
 
 }
 
+
+############
+sub create_bam {
+ my $self = shift;
+ 
+ my $sam = $self->sam();
+ 
+ my $make_bam = $self->samtools . "  import " . $self->reference  . " $sam  $$.bam ";
+ 
+ print "$make_bam\n";
+ $self->bam("$$.bam");
+ print $self->bam,"\n";
+}
 
 
 
@@ -102,10 +133,6 @@ sub set_read_length {
  }
 
  # Assuming all reads are about the same length.
-
- # $self->fragment_file("/home/smithre/bobo.gz");
- #print  $self->fragment_file,"\n";
-
  if ( $self->fragment_file ) {
 
   my $frag = $self->fragment_file();
@@ -227,39 +254,21 @@ sub set_options {
  #throw "No read length given" if ( !defined( $self->read_length() ) );
  $self->ali_options('-A 1 -K 8 -M 384 -n 4 -Q 25000 ');
 }
+######################
 
-sub set_indexes {
+sub set_reference {
  my $self = shift;
 
  throw "No read length given" if ( !defined( $self->read_length() ) );
 
- if ( $self->build() eq "grc37" ) {
-
-  if ( $self->read_length() < 40 ) {
-   $self->bfast_indexes('/nfs/1000g-work/G1K/work/reference/BFAST/short');
-   $self->reference(
-             '/nfs/1000g-work/G1K/work/reference/BFAST/short/human_g1k_v37.fa');
-  }
-  else {
-   $self->bfast_indexes('/nfs/1000g-work/G1K/work/reference/BFAST/long/');
-   $self->reference(
-              '/nfs/1000g-work/G1K/work/reference/BFAST/long/human_g1k_v37.fa');
-  }
+ if ( $self->read_length() < 40 ) {
+  my $ref = $self->short_reference;
+  $self->reference($ref);
  }
  else {
-  throw "Do not have color space ref file for ncbi36";
+  my $ref = $self->long_reference;
+  $self->reference($ref);
  }
-
-}
-
-sub bfast_indexes {
- my ( $self, $arg ) = @_;
-
- if ($arg) {
-  $self->{bfast_indexes} = $arg;
- }
- return $self->{bfast_indexes};
-
 }
 
 sub ali_options {
@@ -287,15 +296,6 @@ sub read_length {
   $self->{read_length} = $arg;
  }
  return $self->{read_length};
-}
-
-sub build {
- my ( $self, $arg ) = @_;
-
- if ($arg) {
-  $self->{build} = $arg;
- }
- return $self->{build};
 }
 
 sub fastq_cmd {
@@ -350,7 +350,6 @@ sub sam {
  }
  return $self->{sam};
 }
-
 sub bam {
  my ( $self, $arg ) = @_;
 
@@ -359,6 +358,56 @@ sub bam {
  }
  return $self->{bam};
 }
+
+sub reference {
+ my ( $self, $arg ) = @_;
+ if ($arg) {
+  $self->{reference} = $arg;
+ }
+ return $self->{reference};
+}
+
+sub short_reference {
+ my ( $self, $arg ) = @_;
+ if ($arg) {
+  $self->{short_reference} = $arg;
+ }
+ return $self->{short_reference};
+}
+
+sub long_reference {
+ my ( $self, $arg ) = @_;
+ if ($arg) {
+  $self->{long_reference} = $arg;
+ }
+ return $self->{long_reference};
+}
+
+sub samtools {
+ my ( $self, $arg ) = @_;
+ if ($arg) {
+  $self->{samtools} = $arg;
+ }
+ return $self->{samtools};
+}
+
+sub snpbin {
+ my ( $self, $arg ) = @_;
+ if ($arg) {
+  $self->{snpbin} = $arg;
+ }
+ return $self->{snpbin};
+}
+
+sub program {
+ my ( $self, $arg ) = @_;
+ if ($arg) {
+  $self->{program} = $arg;
+ }
+ return $self->{program};
+}
+
+1;
 
 1;
 
