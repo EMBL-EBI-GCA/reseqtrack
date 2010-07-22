@@ -15,7 +15,7 @@ sub new {
  my ( $class, @args ) = @_;
  my $self = $class->SUPER::new(@args);
 
- my ( $read_length, $short_reference, $long_reference, $snpbin, $samtools,
+ my ( $read_length, $short_reference, $long_reference,$samtools,
       $program, $preprocess_exe, )
    = rearrange(
   [
@@ -23,7 +23,6 @@ sub new {
      READ_LENGTH
      SHORT_REFERENCE
      LONG_REFERENCE
-     SNPBIN
      SAMTOOLS
      PROGRAM
      PREPROCESS_EXE
