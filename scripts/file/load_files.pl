@@ -35,7 +35,7 @@ my $descend = 1;
 my $die_for_problems = 1;
 my $update_existing;
 my $store_new;
-my $check_md5;
+my $do_md5;
 my $md5_program = 'md5sum';
 my $help;
 my $assign_types = 1;
@@ -49,7 +49,7 @@ my $debug = 0;
   'dbport=s'       => \$dbport,
   'dir=s' => \$dir,
   'file=s@' => \@files,
-  'list_file|file_list=s' => \$list_file,
+  'list_file=s' => \$list_file,
   'md5_file=s' => \$md5_file,
   'type|file_type=s' => \$type,
   'host=s' => \$host_name,
@@ -59,7 +59,7 @@ my $debug = 0;
   'die_for_problems!' => \$die_for_problems,
   'update_existing!' => \$update_existing,
   'store_new!' => \$store_new,
-  'check_md5!' => \$check_md5,
+  'do_md5!' => \$do_md5,
   'md5_program=s' => \$md5_program,
   'help!' => \$help,
   'assign_types!' => \$assign_types,
@@ -69,19 +69,6 @@ my $debug = 0;
 
 if($help){
   useage();
-}
-
-if(!$type && !$assign_types){
-  throw("Must give load_files.pl a file type with -type");
-}
-
-if(!$host_name){
-  throw("Must give load_files a host name with -host");
-}
-
-if(!$dbhost || !$dbname || !$dbuser){
-  throw("Must provide database connection details with -dbhost -dbuser -dbpass ".
-        "-dbport -dbname");
 }
 
 
@@ -101,15 +88,17 @@ my $loader = ReseqTrack::Tools::Loader::File->new(
  -debug => $debug,
   -assign_types => $assign_types,
   -check_types=>$check_types,
-  -check_md5  => $check_md5,
+  -do_md5  => $do_md5,
   -update_existing=>$update_existing,
   -store_new=>$store_new,
   -debug=>$debug,
+  -verbose=>$verbose,
 );
 
 $loader->process_input();
-$loader->create_files();
-$loader->load_files($run);
+$loader->create_objects();
+$loader->sanity_check_objects();
+$loader->load_objects($run);
 
 
 
