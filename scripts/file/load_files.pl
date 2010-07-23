@@ -1,4 +1,4 @@
-#!/usr/local/bin/perl -w
+#!/sw/arch/bin/perl -w
 
 use strict;
 use Getopt::Long;
