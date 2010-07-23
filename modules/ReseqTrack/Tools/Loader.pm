@@ -117,10 +117,8 @@ sub add_files_from_dir {
   throw( "No paths were found in " . $self->dir ) if ( !$paths || @$paths == 0 );
   push( @paths, @$paths ) if ( $paths && @$paths >= 1 );
  }
- 
- #my $exist_paths = $self->file_paths();
- #push (@$exist_paths, @paths);
- $self->file_paths( @paths ) ;
+
+ $self->file_paths( \@paths ) ;
  }
 ###
 sub add_files_from_list_file {
@@ -138,9 +136,7 @@ sub add_files_from_list_file {
   push( @paths, $full_path );
  }
  
-#my $exist_paths = $self->file_paths();
- #push (@$exist_paths, @paths);
- $self->file_paths( @paths ) ;
+ $self->file_paths( \@paths ) ;
 }
 ###
 sub add_files_from_cmd_line {
@@ -150,20 +146,21 @@ sub add_files_from_cmd_line {
 
  return if ( !$self->file);
 
+
  foreach my $file (@{$self->file} ) {
   my $full_path = $file;
    push( @paths, $full_path );
  }
- 
- #my $exist_paths = $self->file_paths();
- #push (@$exist_paths, @paths);
- $self->file_paths( @paths ) ;
+ $self->file_paths( \@paths ) ;
+
 }
 ####
 
  
  sub file_paths{
   my ($self, $arg) = @_;
+ 
+  
   if($arg){
     if(ref($arg) eq 'ARRAY'){
       push(@{$self->{file_paths}}, @$arg);
