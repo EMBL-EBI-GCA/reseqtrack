@@ -43,7 +43,7 @@ use Data::Dumper;
 $| = 1;
 
 my $GRC37      = "/nfs/1000g-work/G1K/work/reference/BWA/GRC37/human_g1k_v37";
-my $GRC37_SNPS ="/nfs/1000g-work/G1K/work/reference/BWA/GRC37/main_project/snps/snps-v37.bin";
+my $GRC37_SNPS = "/nfs/1000g-work/G1K/work/reference/BWA/GRC37/main_project/snps/snps-v37.june10.bin";
 my $g1k_work        = '/nfs/1000g-work/G1K/work';
 my $samtools        =  '/nfs/1000g-work/G1K/work/bin/samtools/samtools';
 my $bwa_exe         = '/nfs/1000g-work/G1K/work/bin/bwa-0.5.7/bwa';
@@ -53,9 +53,9 @@ my $bwafemaleref    =  '/nfs/1000g-work/G1K/work/reference/BWA/NCBI36/human_b36_
 
 my $ncbimaleref     = '/nfs/1000g-work/G1K/work/reference/BWA/NCBI36/human_b36_male.fa';
 my $ncbifemaleref   = '/nfs/1000g-work/G1K/work/reference/BWA/NCBI36/human_b36_female.fa';
-
-my $glf             = "/nfs/1000g-work/G1K/work/bin/glftools/glfv3/glf";
-my $NCBI36_SNPS     = "/nfs/1000g-work/G1K/work/bin/ref/snps/hapmap3.snps.bin";
+my $glf             = '/nfs/1000g-work/G1K/work/bin/glftools/glfv3/glf';
+#my $glf             = "/nfs/1000g-work/G1K/work/bin/glftools/glfv3/glf";
+my $NCBI36_SNPS     = "/nfs/1000g-work/G1K/work/bin/ref/snps/hapmap3_1309_snps.bin";
 
 
 my $gender_file     = "/nfs/1000g-work/G1K/work/reference/BWA/NCBI36/sample_genders.csv";
@@ -88,13 +88,20 @@ my $bwaref;
 
 my @in_files;
 my $subseq_files;
-my $sub_size = (100 * 1000000); 
+my $sub_sample = 0;
+#my $sub_size = (100 * 1000000)
+my $sub_size = 0; 
 my @process_files;
 my $grc37;
 my $db;
 my $paired= "NOT WORKING";
 my $clean = 1;
 my $single = 0;
+my $si_file;
+my $insert_size=0;
+my $dump_base_count;
+my %file_stats;
+
 &GetOptions( 
 	    'staging_root=s'   => \$staging_root,
 	    'internal_dir=s'   => \$internal_dir,
@@ -115,8 +122,15 @@ my $single = 0;
 	    'sub_size=s'       => \$sub_size,
 	    'grc37'            => \$grc37,
 	    'clean!'           => \$clean,
+            'subsample!'       => \$sub_sample,  
 	    'single!'     => \$single,
+	    'si_file=s'   =>\$si_file,
+	    'base_count'  => \$dump_base_count,
 	   );
+
+
+#throw "CORRECT snp lcation  glf path";
+
 
 #print "single $single\n";
 print "RUN_ID :$run_id\n";
@@ -129,13 +143,20 @@ $snp_bin         = $NCBI36_SNPS;
     $snp_bin         = $GRC37_SNPS;
     $ncbiref         = "/nfs/1000g-work/G1K/work/reference/BWA/GRC37/human_g1k_v37.fa";
     $bwaref          = "/nfs/1000g-work/G1K/work/reference/BWA/GRC37/human_g1k_v37.fa";
+    #check if snps exist from this list(1264) . Cannot run without snps.
+    $gender_file     = "/nfs/1000g-work/G1K/work/reference/BWA/GRC37/main_project/snps/hapmap3_grc37.sample_genders";
   }
+else{
+   #check if snps exist from this list(1309) . Cannot run without snps.
+   $gender_file       = "/nfs/1000g-work/G1K/work/reference/BWA/NCBI36/hapmap_ncbi36_1309.sample_genders";
+   $snp_bin          = $NCBI36_SNPS;
+}
 
 
-
+print "SNP bin file = $snp_bin\n" if $verbose;
 
 $run=1;
-#$verbose =1;
+$verbose =1;
 
 
 
@@ -145,7 +166,8 @@ my $CPAN    = '/homes/smithre/bin/perl/modules/:';
 
 my $newperl5 =  $G1K . $RESEQ . $CPAN;
 
-
+#print "Sequence index file = $si_file\n";
+#my $si_data =  si_hash ($si_file);
 
 
 
@@ -195,8 +217,8 @@ if ($run_id) {
   # query information from Collection table
   my $ca         = $db->get_CollectionAdaptor;
   my $collection = $ca->fetch_by_name_and_type($run_id, $type);
-  #print Dumper ($collection);
-  if ( !defined ($collection)  ) {
+  
+if ( !defined ($collection)  ) {
     throw "Could not pull collection info for run_id = $run_id" ;
   }
  
@@ -204,6 +226,11 @@ if ($run_id) {
 
   $rmi_a      = $db->get_RunMetaInfoAdaptor;
   $meta_info  = $rmi_a->fetch_by_run_id ($run_id);
+
+ if ( !defined ($meta_info)  ) {
+    throw "Could not pull runmeta_info object for run_id = $run_id" ;
+  }
+ 
 
 
   if ($meta_info->{instrument_platform} eq "ABI_SOLID"){
@@ -220,12 +247,16 @@ if ($run_id) {
 
   print "run_meta_info  SAMPLE =  $meta_info->{sample_name}\n" if $verbose;
   $claimed_sample =  $meta_info->{sample_name};
+  $insert_size    =  $meta_info->{paired_length};
 
 #  print  ref ($collection) if $verbose;
 
   throw("No collection object is found; please check the run_id and type\n") if (!$collection);
 
   my $others = $collection->others;
+
+# print Dumper ($others);
+# exit;
   #return a reference of an array of FileAdaptor objects.
   # A FileAdaptor object contains all info in a row in the File table
 
@@ -249,7 +280,62 @@ if ($run_id) {
 #  }
 #  print "$frag->{name}   by lonesome\n"   if ( $verbose && $frag->{name});
 
+# print "dumping statistics\n";
 
+my $max_sub_size=0;
+
+ my $fred =  $frag->{statistics};
+ my $name =  $frag->{name};
+#  $file_stats{$name}{paired_length} =$meta_info->{paired_length};
+
+  foreach my $r (@$fred){    
+        if ($r->{attribute_name} eq "base_count"){
+        
+        $file_stats{$name}{base_count} =  $r->{attribute_value};
+        $max_sub_size =  $r->{attribute_value} if (  $max_sub_size <  $r->{attribute_value});
+     }
+  }
+
+  $fred =  $pe1->{statistics};
+  $name =  $pe1->{name};
+# $file_stats{$name}{paired_length} = $meta_info->{paired_length};
+
+  $fred = $pe1->{statistics}; 
+ 
+  foreach my $x (@$fred){    
+   
+     if ($x->{attribute_name} eq "base_count"){
+      $file_stats{$name}{base_count} =  $x->{attribute_value};
+      $max_sub_size =  $x->{attribute_value} if (  $max_sub_size <  $x->{attribute_value});
+     }
+  }
+
+
+
+   $fred =  $pe2->{statistics};
+   $name =  $pe2->{name};
+ #  $file_stats{$name}{paired_length} =$meta_info->{paired_length};
+
+  foreach my $r (@$fred){   
+     if ($r->{attribute_name} eq "base_count"){
+         $file_stats{$name}{base_count} =  $r->{attribute_value};
+        $max_sub_size =  $r->{attribute_value} if (  $max_sub_size <  $r->{attribute_value});
+     }
+  }
+
+  if ( $dump_base_count){
+    print "Dumping stats\n";
+    print Dumper (%file_stats);
+    exit;
+  }
+
+
+#  if ( !$sub_sample){
+#   $sub_size =  $max_sub_size;
+#  }
+
+# print "sub_size =  $sub_size\n";
+# exit;
   $file1 = $pe1->{name}  if  $pe1->{name};
   $file2 = $pe2->{name}  if  $pe2->{name};
   $file  = $frag->{name} if  $frag->{name};
@@ -308,7 +394,7 @@ if (! $run_id) {		# giving file off command line
 }
 
 
-my $snps = load_list_of_sample_snps ($snp_list); 
+my $snps = load_list_of_sample_snps ($gender_file); 
 
 #print ref ($snps),"\n";
 
@@ -318,8 +404,7 @@ if ( ! @check){
   throw "Failed   $run_id      $claimed_sample NO SNPS";
 }
 
-#print  "OK       $run_id      $claimed_sample    SNPS TO CHECK AGAINST\n";
-
+print  "OK       $run_id      $claimed_sample    @check SNPS TO CHECK AGAINST\n";
 
 
 
@@ -328,6 +413,8 @@ if ( ! @check){
 if (! $grc37){
   create_gender_hash ($gender_file,$meta_info->{instrument_platform} ); 
 }
+
+
 my $process_dir = '';
 
 
@@ -372,7 +459,8 @@ foreach my $r (@in_files) {
 
   my $outsam     = from_fastq_to_sam   ($subseq_files,
 					$bwaref, $process_dir,$run,
-					$meta_info->{instrument_platform},$verbose);
+					$meta_info->{instrument_platform},
+					$verbose);
 
   my $glf_output = run_glf_sample_check ( $outsam, $ncbiref,$glf ,$run , $verbose );
 
@@ -388,17 +476,49 @@ foreach my $r (@in_files) {
 
 #  }
   
-  print "========================= Done =========================\n";
+  print "\n========================= Done =========================\n";
   if ($passed == 1){
     `echo $process_dir >> /homes/smithre/CLEAN_NOBACK`;
   }
 }
 ##### ## ## ##                         END            ## ##  ##  ######
 #######################################################################
+sub si_hash{
+ my $file = shift;
+ my %hash;
+
+ open my $IN,'<', $file || die "Failed sequence.index load:$file";
+
+ my $ctr=0;
+ while (<$IN>){
+   $ctr++;
+   chomp;
+   next if (/^FASTQ/);
+
+   my @a = split /\t/;
+   my $name    = $a[0];
+   my $insert  = $a[17];
+   my $layout  = $a[18];
+   my $bases   = $a[24];
+
+   #throw ( "No bases:$ctr")        if (!$bases);
+   #throw ( "No inseert size:$ctr") if (!$insert);
+   $hash{$name}->{'insert'} = $insert;
+   $hash{$name}->{'bases'}  = $bases; 
+ }
+   
+
+ close ($IN);
+ 
+
+ return \%hash;
+}
+
+
 sub clean_up {
 
  
-   return if ($clean == 0);
+  return if ($clean == 0);
 
 
   my $pro_dir = shift;
@@ -408,11 +528,13 @@ sub clean_up {
 
   foreach my $file (@files){
     next if ($file =~ /out$/);
-    next if ($file =~/sorted.bam$/);
+   # next if ($file =~/sorted.bam$/);
+    next if ($file =~/stats$/);
     print"unlink $file\n" if $DEBUG;
     unlink ($file);
   }
-
+ #unlink ($pro_dir);
+  
 }
 
 
@@ -435,13 +557,13 @@ sub check_glf_output {
   my $i    = 0;
   my @all_scores; 
 
-  print "Processing: $file\n" if $verbose;
+ # print "Processing: $file\n" if $verbose;
 
   open (IN, '<', $file) || die "No glf output file to read";
 
   while (<IN>) {
     chomp;
-
+    s/,//g;
     next if (m/^entropy/);	#skip first line
 
     my @line = split (/ /,$_);
@@ -449,15 +571,16 @@ sub check_glf_output {
     $line[1] =~ s/.snp// ;      #extract sample number
 
     my $samp   = $line[1];
-    my $score  = $line[3];
+    my $score  = $line[8];
 
-    $all_scores [$i] = $line[3];
+    $all_scores [$i] = $line[8];
     $i++;
 
     if (! exists  $glf_scores{$samp}) {
       $glf_scores{$samp} = $score;
     } else {
-      die "duplicate sample number in file";
+      warn "duplicate $samp  sample number in $file. Skipping second\n";
+      next;
     }
 
     if (! exists  $glf_rank{$samp}) {
@@ -470,16 +593,20 @@ sub check_glf_output {
     $top_score = $score        if ($ctr==0);
     $top_sample = $line[1]     if ($ctr==0);
 
+ #   print "Top score $line[8] sites $line[5]\n"      if ($ctr==0);
+
+ 
+
     $sec_score  = $score    if ($ctr==1);
     $sec_sample = $line[1]  if ($ctr==1);
 
     $ctr++;
   }
 
-  if ( $top_score <= 0.0001) {
+  if ( $top_score <= 0.0001 && $sec_score < 0.0001) {
     print "Top score has likelihood of $top_score. Test probably failed\n"; 
     clean_up ($process_dir);
-    throw "Test failed";
+    throw "Test failed glf likelihoods:  all 0.0000";
     return;
   }
 
@@ -502,23 +629,16 @@ sub check_glf_output {
   my $ratio21 = $all_scores[1]/$all_scores[0];
 
   $ratio21 *= 10;
-  $ratio21 = int ($ratio21);
+  $ratio21  = int ($ratio21);
   $ratio21 /= 10.0;
 
   printf "r(2:1)= %3.1f\:\:", $ratio21;
 
   if (exists  $glf_scores{$sample}) {   
-
     my $ratio = $glf_scores{$sample}/$top_score;
-
     print "Claimed $sample  r($glf_rank{$sample}:1)";
-    printf "%6.3f", $ratio;
-   
-  #  if ($glf_rank{$sample} ne "1"){
-  #    print "\nClaimed Sample:: ";
-  #    print "$glf_rank{$sample} :: $sample  $glf_scores{$sample}  Ratio = ";
-  #    printf "%6.4f\n", $ratio;
-  #  }
+    printf "%6.3f ", $ratio;
+    printf "%6.3f ", $glf_scores{$sample};
   }
 
   
@@ -549,7 +669,9 @@ sub check_glf_output {
   
   if ( $ratio21 < 1.0 || !$sample_match ) {
     print "\:\:DATA DOES NOT PASS\n";
-    return 0;
+    clean_up($process_dir);
+    throw ("$run_id:DATA DOES NOT PASS");
+    #return 0;
   }
 
 }
@@ -562,11 +684,11 @@ sub run_glf_sample_check {
   my $glf     = shift;
   my $run     = shift;
   my $verbose = shift;
-  print "sam file= $insam\n"   if $verbose;
-  print "ncbiref  = $ncbiref\n" if $verbose;
+  print "sam file= $insam\n"   if $DEBUG;
+  print "ncbiref  = $ncbiref\n" if $DEBUG;
 
 
-  print "Creating bam:\n" if $verbose;
+  print "Creating bam:\n" if $DEBUG;
   print "samtools import $ncbiref  $insam $$.bam\n" if $verbose;
   my $make_bam = "samtools import $ncbiref  $insam $$.bam";
   eval {
@@ -596,21 +718,23 @@ sub run_glf_sample_check {
 
 
   my $sort_bam=  "samtools sort  $$.bam  $$.sorted";
-  print  "Running: $sort_bam\n" if $verbose;
+  print  "Running: $sort_bam\n" if $DEBUG;
 
   eval {
     `$sort_bam` if $run;
   };
   throw "$sort_bam failed:$@" if ($@);
 
-
+ 
 
  # print "\nsorted = $$.sorted\n";
 
   my $sorted  = $$ . ".sorted.bam";
 
+  `samtools flagstat $sorted >> sorted.stats`;
+
   my $index_bam = " samtools index  $sorted ";
-  print "\nRunning: $index_bam" if $verbose;
+  print "\nRunning: $index_bam" if $DEBUG;
 
   eval {
     `$index_bam` if $run;
@@ -648,7 +772,7 @@ sub run_glf_sample_check {
 sub create_subsequence_sample {
   my $infiles         = shift;
   my $process_dir     = shift;
-  my $size            =shift;
+  my $size            = shift;
   my $run             = shift if (@_);
   my @new_subsample_files;
   my $seq_list;
@@ -658,6 +782,20 @@ sub create_subsequence_sample {
     my $outfile      = $$ . basename($file);
 
     print "sampling: #$file#\n" if $verbose;
+
+    if ( !$size &&  (! $file_stats{$file}->{base_count})){
+      print "No base count info. Setting sample size = 100000000000\n";
+       $size = 100000000000;
+    }
+
+    if (!$size){
+     # print $file_stats{$file}->{base_count},"\n";
+      $size = $file_stats{$file}->{base_count} * 1.1;
+      printf "bases (100MB) %.3f\n", $size/100000000.0;
+    }
+
+    throw ("Did not allocate sample size") if (!$size);
+
     my $tmp_size1 = stat($file )->size ;
     $tmp_size1 /= (1024*1000);
      printf "Size of org  ~ %6.3f Mb (bytes)\n", $tmp_size1 if $verbose;
@@ -726,6 +864,12 @@ sub from_fastq_to_sam {
 
  # print "$refseq\n";
 
+  my $tmp_insert_size =2000;
+
+  $tmp_insert_size = $insert_size if ($insert_size);
+
+  print "insert size = $tmp_insert_size\n";
+
 
   foreach my $i (@$fastq_files) {
     print "processing: $i\n" if $DEBUG;
@@ -738,7 +882,7 @@ sub from_fastq_to_sam {
   }
 
   if ( $num_fq ==2) {		# paired ends
-    $make_sam = "$bwa_exe sampe -a 2000 $refseq ";  
+    $make_sam = "$bwa_exe sampe -a $tmp_insert_size $refseq ";  
   }
 
 
@@ -755,11 +899,11 @@ sub from_fastq_to_sam {
     my $OPTS = '' ;
 
     $OPTS = " -cn  0.01 "   if (    $platform =~/SOLID/);
-    $OPTS = " -q 20 -l 32 " if ( ! ($platform =~/SOLID/));
+    $OPTS = " -q 15 -l 32 " if ( ! ($platform =~/SOLID/));
 
 
     push (@sai_files, $j);
-    push (@create_sai_cmds, "$bwa_exe aln $OPTS $refseq $i 2>> ./log  >  $j ");
+    push (@create_sai_cmds, "$bwa_exe aln $OPTS $refseq $i 2>> $process_dir/log  >  $j ");
   }
 
   #create .sai files
