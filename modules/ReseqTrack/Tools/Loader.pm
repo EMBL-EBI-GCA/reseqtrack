@@ -1,6 +1,5 @@
 
 =head1 NAME
-
 ReseqTrack::Tools::Loader
 
 =head1 SYNOPSIS
@@ -59,6 +58,8 @@ sub new {
  $self->verbose($verbose);
  $self->descend($descend);
  $self->debug($debug);
+
+
 
 
   return $self;
@@ -263,5 +264,7 @@ sub list_file {
   $self->{list_file} = $arg if ( $arg);
  return $self->{list_file};
 }
+
+
 
 1;
