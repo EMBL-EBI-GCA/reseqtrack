@@ -233,7 +233,7 @@ if ( !defined ($collection)  ) {
  
 
 
-  if ($meta_info->{instrument_platform} eq "ABI_SOLID"){
+  if ($meta_info->{instrument_platform} =~ /SOLID/){
     throw "SOLID PLATFORM SKIPPING";
   }
 
@@ -401,7 +401,13 @@ my $snps = load_list_of_sample_snps ($gender_file);
 my @check = grep (/$claimed_sample/ ,@$snps);
 
 if ( ! @check){
-  throw "Failed   $run_id      $claimed_sample NO SNPS";
+  warning("Failed   $run_id      $claimed_sample NO SNPS");
+  exit(0);
+}
+
+if($meta_info->{instument_platform} eq 'ABI_SOLID'){
+  print "Cant run on solid\n";
+  exit(0);
 }
 
 print  "OK       $run_id      $claimed_sample    @check SNPS TO CHECK AGAINST\n";
@@ -689,8 +695,8 @@ sub run_glf_sample_check {
 
 
   print "Creating bam:\n" if $DEBUG;
-  print "samtools import $ncbiref  $insam $$.bam\n" if $verbose;
-  my $make_bam = "samtools import $ncbiref  $insam $$.bam";
+  print $samtools." import $ncbiref  $insam $$.bam\n" if $verbose;
+  my $make_bam = $samtools." import $ncbiref  $insam $$.bam";
   eval {
     `$make_bam` if $run;
   };
@@ -717,7 +723,7 @@ sub run_glf_sample_check {
 
 
 
-  my $sort_bam=  "samtools sort  $$.bam  $$.sorted";
+  my $sort_bam=  $samtools." sort  $$.bam  $$.sorted";
   print  "Running: $sort_bam\n" if $DEBUG;
 
   eval {
@@ -731,9 +737,9 @@ sub run_glf_sample_check {
 
   my $sorted  = $$ . ".sorted.bam";
 
-  `samtools flagstat $sorted >> sorted.stats`;
+  `$samtools flagstat $sorted >> sorted.stats`;
 
-  my $index_bam = " samtools index  $sorted ";
+  my $index_bam = $samtools." index  $sorted ";
   print "\nRunning: $index_bam" if $DEBUG;
 
   eval {
@@ -744,7 +750,7 @@ sub run_glf_sample_check {
 
 
 
-  my $make_glf="samtools pileup -g -f $ncbiref $$.sorted.bam > $$.glf"; 
+  my $make_glf= $samtools." pileup -g -f $ncbiref $$.sorted.bam > $$.glf"; 
   print    "\n$make_glf\n" if $verbose;
 
   eval {
@@ -777,6 +783,7 @@ sub create_subsequence_sample {
   my @new_subsample_files;
   my $seq_list;
 
+  return $infiles;
   foreach my $file (@$infiles) {
 
     my $outfile      = $$ . basename($file);
@@ -893,17 +900,17 @@ sub from_fastq_to_sam {
   foreach my $i (@$fastq_files) {
 
     my $tmp_base = basename($i);
-    my  $j = $i;
+    my  $j = basename($i);
     $j =~ s/$fastqgz/$sai/;
-
+   
     my $OPTS = '' ;
 
     $OPTS = " -cn  0.01 "   if (    $platform =~/SOLID/);
     $OPTS = " -q 15 -l 32 " if ( ! ($platform =~/SOLID/));
 
 
-    push (@sai_files, $j);
-    push (@create_sai_cmds, "$bwa_exe aln $OPTS $refseq $i 2>> $process_dir/log  >  $j ");
+    push (@sai_files, $process_dir."/".$j);
+    push (@create_sai_cmds, "$bwa_exe aln $OPTS $refseq $i 2>> $process_dir/log  >  $process_dir/$j ");
   }
 
   #create .sai files
@@ -918,7 +925,7 @@ sub from_fastq_to_sam {
     };
     throw "$i failed:$ok" if ($ok);
   }
-
+  print "Finished running bwa\n";
   #create cmd to produce .sam file
   foreach my $i (@sai_files) {
     $make_sam .=  "$i ";
@@ -929,7 +936,7 @@ sub from_fastq_to_sam {
     $make_sam .=  "$i ";
   }
   my $outsam = $$ .".sam";
-  $make_sam = $make_sam .  " 2> ./log  >  $outsam";
+  $make_sam = $make_sam .  " 2> ./log  >  $process_dir/$outsam";
 
 
   print "Creating sam file \n" if $verbose;
