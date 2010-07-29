@@ -403,6 +403,7 @@ sub standard_type_hash{
   $hash{'INTERNAL'} = 1;
   $hash{'PILOT_REFERENCE'} = 1;
   $hash{'PILOT_INTERNAL'} = 1;
+  $hash{'PILOT_TECHNICAL'} = 1;
   $hash{'PILOT_BAS'} = 1;
   $hash{'PILOT_BAM'} = 1;
   $hash{'PILOT_BAI'} = 1;
