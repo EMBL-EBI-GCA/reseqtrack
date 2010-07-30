@@ -319,38 +319,60 @@ sub check_md5 {
  print STDERR "Shouldn't of reached this point in FileUtils check_md5\n";
 }
 
-sub dump_dirtree_summary {
- my ( $dir, $output_file, $skip_regex ) = @_;
- $skip_regex = 'current.tree';
- my ( $files, $hash ) = list_files_in_dir( $dir, 1 );
- my $fh;
- if ($output_file) {
-  open( FH, ">" . $output_file )
-    or throw( "Failed to open " . $output_file . " $!" );
-  $fh = \*FH;
- }
- else {
-  $fh = \*STDOUT;
- }
- my %dirs;
- foreach my $file (@$files) {
-  next if ( $file =~ /$skip_regex/ );
-  my $dir = dirname($file);
-  my $label;
-  unless ( $dirs{$dir} ) {
-   my $dir_size  = -s $dir;
-   my $dir_stamp = ctime( stat($dir)->mtime );
-   $label = 'directory';
-   print $fh join( "\t", $dir, $label, $dir_size, $dir_stamp ) . "\n";
-   $dirs{$dir} = 1;
+sub dump_dirtree_summary{
+  my ($input_dir, $output_file, $skip_regex, $fa) = @_;
+  $skip_regex = 'current.tree';
+  my ($files, $hash) = list_files_in_dir($input_dir, 1);
+  my $fh;
+  if($output_file){
+    open(FH, ">".$output_file) or throw("Failed to open ".$output_file." $!");
+    $fh = \*FH;
+  }else{
+    $fh = \*STDOUT;
   }
-  my $size        = -s $file;
-  my $date_string = ctime( stat($file)->mtime );
-  $label = 'file';
-  print $fh join( "\t", $file, $label, $size, $date_string ) . "\n";
- }
- close($fh);
+  my %dirs;
+  my %file_md5s;
+  if($fa){
+    my $file_objects = $fa->fetch_all_like_path($input_dir);
+    foreach my $file_object(@$file_objects){
+      my $md5 = $file_object->md5;
+      $md5 = "................................" unless($md5);
+      $file_md5s{$file_object->name} = $md5;
+    }
+  }
+  foreach my $file(@$files){
+    next if($file =~ /$skip_regex/);
+    my $dir = dirname($file);
+    my $label;
+    my $md5;
+    if($fa){
+      $md5 = $file_md5s{$files};
+    }
+    my $mod_dir = $dir;
+    $mod_dir =~ s/$input_dir//;
+    unless($dirs{$mod_dir}){
+      my $dir_size = -s $dir;
+      my $dir_stamp = ctime(stat($dir)->mtime);
+      $label = 'directory';
+      $dir =~ s/$input_dir//;   
+      print $fh join("\t", $dir, $label, $dir_size, $dir_stamp);
+      print $fh "\t " if($fa);
+      print $fh "\n";
+      $dirs{$dir} = 1;
+    }
+    my $md5sum = '';
+    $md5sum = $file_md5s{$file};
+    my $size = -s $file;
+    my $date_string = ctime(stat($file)->mtime);
+    $label = 'file';
+    $file =~ s/$input_dir//;
+    print $fh join("\t", $file, $label, $size, $date_string);
+    print $fh "\t".$md5sum if($fa);
+    print $fh "\n";
+  }
+  close($fh);
 }
+
 
 sub delete_directory {
  my $dir = shift;

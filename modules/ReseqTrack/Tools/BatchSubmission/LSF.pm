@@ -89,6 +89,7 @@ sub construct_command_line{
   }
   my $cmd = $self->program." ".$options." -oo ".$job->stdout_file." -eo ".$job->stderr_file.
       " ".$to_run;
+  #print "LSF cmd ".$cmd."\n";
   return $cmd;
 }
 

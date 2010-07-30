@@ -261,7 +261,7 @@ sub check_paired_fastq {
 		}
 		else {
 			# case where mate1 pass and mate 2 failed, move mate1 to fragment file
-		  	if ( QA(\$line_a, \$line_b, \$line_c, \$line_d, \$unflt_read_cnt2,  $instrument, $len_limit, $run_id, $log_fh) eq "Fail") {
+		  if ( QA(\$line_a, \$line_b, \$line_c, \$line_d, \$unflt_read_cnt2,  $instrument, $len_limit, $run_id, $log_fh) eq "Fail") {
 		  	    print  $FH_frag "$line1\n$line2\n$line3\n$line4\n";
 			    print $log_fh "ERROR: mate1 passed mate2 failed, moved mate1 to fragment file\n\n";
 			    $frag_read_cnt++;
@@ -383,9 +383,9 @@ sub QA {
 		warning("read name does not contain run_id\n");
 		print $log_fh "ERROR: in Block $read_num, the read name $line_1 does not contain run id $run_id\n";
 		$flag = "Fail";
-		goto END_OF_QA;
+		return $flag;
 	}	
-		
+	throw("Flag is undefined\n") unless($flag);
 	##### check if the read id on line1 and line_3 agree; if line_3 has a read id. ######
 	$line_1 =~ s/^@//;
 	$line_1 =~ s/^\s+|\s+$//;
@@ -409,7 +409,7 @@ sub QA {
 		$flag = "Fail";
 		print $log_fh "ERROR: in Block $read_num, the sequence length is not equal to the quality length\n";
 	}	
-		
+	throw("Flag is undefined\n") unless($flag);	
 	##### If a read pass all above check, go on checking more below ######
 	##### check if the seq length is > 35bp for Solexa, 25bp for solid, 30bp for 454 #######
 	##### check to see if the first 25,30 or 35 bp contain no Ns and are not single type of base #####	
@@ -442,7 +442,7 @@ sub QA {
 			}
 		}	
 	}	
-	
+	throw("Flag is undefined\n") unless($flag);
 	##### If the seq passes QA so far, check % of Ns in the whole length of the read ######
 	if ($flag eq "Pass") {	
 		if ($$instrument eq "ABI_SOLID") {
@@ -452,15 +452,18 @@ sub QA {
 			$flag = tooManyNsFullLen_OddChar($line_2, $read_num, $log_fh);
 		}
 	}
-				
+	throw("Flag is undefined\n") unless($flag);			
 	END_OF_QA:
+	if(!$flag){
+	  throw("Failed to define a return flag\n");
+	}
 	return $flag;
 }	
 
 sub tooManyNsFullLenSolid {
 	
 	my ($seq, $read_num, $log_fh) = @_;
-	my $flag;
+	my $flag = 'Pass';
 	my $N_cnt = 0;
 	my $read_length = length($seq) -1;
 			
@@ -478,7 +481,7 @@ sub tooManyNsFullLenSolid {
 
 sub tooManyNsFullLen_OddChar {
 	my ($seq,  $read_num, $log_fh) = @_;
-	my $flag;
+	my $flag = 'Pass';
 	my $N_cnt = 0;
 	my $read_length = length($seq);
 	
