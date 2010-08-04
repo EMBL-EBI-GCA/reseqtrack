@@ -415,7 +415,7 @@ sub calculate_summary_stats{
   #date
   #number of accessions
   #number of samples
-  #number of samples > 4x
+  #number of samples > 10Gb ...    was number of samples > 4x
   #total gb
   #gb per population
   #gb per platform
@@ -426,9 +426,10 @@ sub calculate_summary_stats{
   $stats_hash{new}{'# Accessions'} = keys(%$new_run);
   $stats_hash{new}{'# Samples'} = keys(%$new_sample);
   foreach my $sample(keys(%$new_sample)){
-    #samples which are greater than 4x have more than 12Gb of sequence
-    $stats_hash{new}{'# Samples greater than 4x'}++ 
-      if($new_sample->{$sample} > 12000000000);
+    ####samples which are greater than 4x have more than 12Gb of sequence
+    #res: now doing 10Gb not 4x
+    $stats_hash{new}{'# Samples greater than 10Gb'}++ 
+      if($new_sample->{$sample} > 10000000000);
   }
   foreach my $pop(keys(%$new_population)){
     $stats_hash{new}{'Population in Gb'}{$pop} = convert_to_giga($new_population->{$pop});
@@ -446,8 +447,8 @@ sub calculate_summary_stats{
     $stats_hash{old}{'# Accessions'} = keys(%$old_run);
     $stats_hash{old}{'# Samples'} = keys(%$old_sample);
     foreach my $sample(keys(%$old_sample)){
-      $stats_hash{old}{'# Samples greater than 4x'}++ 
-	if($old_sample->{$sample} > 12000000000);
+      $stats_hash{old}{'# Samples greater than 10Gb'}++ 
+	if($old_sample->{$sample} > 10000000000);
     }
     foreach my $pop(keys(%$old_population)){
       $stats_hash{old}{'Population in Gb'}{$pop} = convert_to_giga($old_population->{$pop});
@@ -466,9 +467,9 @@ sub calculate_summary_stats{
       ($stats_hash{new}{'# Accessions'} - $stats_hash{old}{'# Accessions'});
     $stats_hash{diff}{'# Samples'} =
       ($stats_hash{new}{'# Samples'} - $stats_hash{old}{'# Samples'});
-    $stats_hash{diff}{'# Samples greater than 4x'} =
-      ($stats_hash{new}{'# Samples greater than 4x'} - 
-       $stats_hash{old}{'# Samples greater than 4x'});
+    $stats_hash{diff}{'# Samples greater than 10Gb'} =
+      ($stats_hash{new}{'# Samples greater than 10Gb'} - 
+       $stats_hash{old}{'# Samples greater than 10Gb'});
     foreach my $pop(keys(%$new_population)){
       my $new_pop = $stats_hash{new}{'Population in Gb'}{$pop};
       my $old_pop = $stats_hash{old}{'Population in Gb'}{$pop};
@@ -513,7 +514,7 @@ sub print_stats{
   $stats_hash = $self->calculate_summary_stats() unless($stats_hash);
 
   my @headers = ('old', 'new', 'diff');
-  my @rows = ('Date', '# Accessions', '# Samples', '# Samples greater than 4x', 
+  my @rows = ('Date', '# Accessions', '# Samples', '# Samples greater than 10Gb', 
 	      'Population in Gb', 'Platform in Gb', 'Center in Gb');
   my $type_hash = $self->row_type;
   print join(", ", "Category", @headers)."\n";;
@@ -577,7 +578,7 @@ sub row_type{
   $hash{Date} = 'SCALAR';
   $hash{'# Accessions'} = 'SCALAR';
   $hash{'# Samples'} = 'SCALAR';
-  $hash{'# Samples greater than 4x'} = 'SCALAR';
+  $hash{'# Samples greater than 10Gb'} = 'SCALAR';
   $hash{'Population in Gb'} = 'HASH';
   $hash{'Platform in Gb'} = 'HASH';
   $hash{'Center in Gb'} = 'HASH';
