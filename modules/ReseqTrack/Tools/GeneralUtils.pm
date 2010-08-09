@@ -201,6 +201,12 @@ sub convert_to_giga{
   return $gigabase;
 }
 
+sub calculate_coverage{
+  my ($base_count, $genome_size) = @_;
+  $genome_size = 2850000000 unless($genome_size);
+  return $base_count/$genome_size;
+}
+
 sub create_filename{
   my ($dir, $stem, $ext) = @_;
   my $rand = int(rand(10000));

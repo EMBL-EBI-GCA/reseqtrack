@@ -86,7 +86,11 @@ foreach my $dbID (@ARGV) {
     my $hostname = [split(/\./, hostname())];
     my $host = shift(@$hostname);
     $job->host($host);
-    $job->submission_id($ENV{'LSB_JOBID'});
+    my $id = $ENV{'LSB_JOBID'};
+    unless($id){
+      throw("Failed to get lsf job id");
+    }
+    $job->submission_id($id);
     $ja->update($job);
     $job->current_status('WAITING');
     $ja->set_status($job);

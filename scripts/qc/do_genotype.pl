@@ -539,7 +539,7 @@ sub clean_up {
     print"unlink $file\n" if $DEBUG;
     unlink ($file);
   }
- #unlink ($pro_dir);
+ unlink ($pro_dir);
   
 }
 
