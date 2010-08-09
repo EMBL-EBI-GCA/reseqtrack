@@ -9,7 +9,7 @@ use ReseqTrack::RunMetaInfo;
 use ReseqTrack::Tools::Exception qw(throw warning);
 use ReseqTrack::Tools::Argument qw(rearrange);
 use ReseqTrack::Tools::RunMetaInfoUtils qw (are_run_meta_infos_identical);
-#use ReseqTrack::Tools::ERAUtils qw (convert_population convert_center_name);
+use ReseqTrack::Tools::ERAUtils;
 
 use File::Basename;
 
@@ -55,6 +55,20 @@ sub fetch_by_run_id{
   my $object = $self->object_from_hashref($rowHashref);
   $sth->finish;
   return $object;
+}
+
+sub is_fastq_available{
+  my ($self, $run_id) = @_;
+  my $sql = "select err_fastq_available from era.g1k_sequence_index ".
+    "where run_id = ?";
+  my $sth = $self->prepare($sql);
+  $sth->bind_param(1, $run_id);
+  $sth->execute;
+  my ($has_fastq) = $sth->fetchrow;
+  return 1 if($has_fastq eq 'Y');
+  return 0 if($has_fastq eq 'N');
+  throw("Have ".$has_fastq." from ".$sql." with ".$run_id.
+	" not sure how to interpret");
 }
 
 sub fetch_by_run_file_name{
@@ -206,9 +220,15 @@ sub convert_population{
     $pop = 'YRI';
   }elsif($string =~ /southern\s+han\s+chinese/i){
     $pop = 'CHS';
+  }elsif($string =~ /CHS/i){
+    $pop = 'CHS';
   }elsif($string =~ /han chinese/i){
     $pop = 'CHB';
+  }elsif($string =~ /CHB/i){
+    $pop = 'CHB';
   }elsif($string =~ /japan/i){
+    $pop = 'JPT';
+  }elsif($string =~ /JPT/i){
     $pop = 'JPT';
   }elsif($string =~ /CEU/i){
     $pop = 'CEU'; 
@@ -216,9 +236,15 @@ sub convert_population{
     $pop = 'CEU';
   }elsif($string =~ /tuscan/i){
     $pop = 'TSI';
+  }elsif($string =~ /TSI/i){
+    $pop = 'TSI';
   }elsif($string =~ /denver/i){
     $pop = 'CHD';
+  }elsif($string =~ /CHD/i){
+    $pop = 'CHD';
   }elsif($string =~ /Luhya/i){
+    $pop = 'LWK';
+  }elsif($string =~ /LWK/i){
     $pop = 'LWK';
   }elsif($string =~ /UTAH/i){
     $pop = 'CEU';
@@ -232,7 +258,11 @@ sub convert_population{
     $pop = 'MXL';
   }elsif($string =~ /UK/){
     $pop = 'GBR';	
+  }elsif($string =~ /British/){
+    $pop = 'GBR';
   }elsif($string =~ /British\s+\(GBR\)/){
+    $pop = 'GBR';
+  }elsif($string =~ /GBR/i){
     $pop = 'GBR';
   }elsif($string =~ /FIN/i){
     $pop = 'FIN';
@@ -240,6 +270,16 @@ sub convert_population{
     $pop = 'CHS';
   }elsif($string =~ /Puerto\s+Rican/i){
     $pop = 'PUR';
+  }elsif($string =~ /pur/i){
+    $pop = 'PUR';
+  }elsif($string =~ /Colombian/){
+    $pop = 'CLM';
+  }elsif($string =~ /Gujarati/){
+    $pop = 'GIH';
+  }elsif($string =~ /Maasai/){
+    $pop = 'MKK';
+  }elsif($string =~ /Spanish/i){
+    $pop = 'IBS';
   }else{
     throw("Failed to find pop for ".$string." ".$run_id." ".$study_id);
    }
