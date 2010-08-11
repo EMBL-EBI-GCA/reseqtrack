@@ -417,6 +417,7 @@ sub standard_type_hash{
   $hash{'PILOT_MISC'} = 1;
   $hash{'FILTERED_FASTQ'} = 1;
   $hash{'PILOT3_FASTQ'} = 1;
+  $hash{'PILOT_FASTQ'} = 1;
   $hash{'ARCHIVE_FASTQ'} = 1;
   $hash{'WITHDRAWN_FILTERED_FASTQ'} = 1;
   $hash{'WITHDRAWN_PILOT_INTERNAL'} = 1;
