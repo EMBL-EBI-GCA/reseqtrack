@@ -1,3 +1,4 @@
+#!/sw/arch/bin/perl -w
 #RES cvs check
 
 use warnings;

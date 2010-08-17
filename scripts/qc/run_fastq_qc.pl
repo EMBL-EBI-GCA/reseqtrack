@@ -87,7 +87,7 @@ my $db = ReseqTrack::DBSQL::DBAdaptor->new(
 # query information from Collection table    
 my $ca = $db->get_CollectionAdaptor;
 my $collection = $ca->fetch_by_name_and_type($run_id, $type);
-throw("No collection object is found; please check the run_id and type\n") if (!$collection);
+throw("No collection object is found; please check the run_id and type ".$run_id." ".$type." ".$db->dbc->dbname." ".$db->dbc->host."\n") if (!$collection);
 my $others = $collection->others; #return a reference of an array of FileAdaptor objects. a FileAdaptor object contains all info in a row in the File table
 throw("No File object is found for run_id $run_id\n") if (!$others);
 my $new_collection = $ca->fetch_by_name_and_type($run_id, $new_type);

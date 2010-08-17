@@ -88,9 +88,30 @@ foreach my $dbID (@ARGV) {
     $job->host($host);
     my $id = $ENV{'LSB_JOBID'};
     unless($id){
+      job_failed(
+            $job,
+            "Can't run " 
+              . $job . " "
+              . $job->dbID . " "
+              . $job->input_string
+              . " without an submission id",
+            $ja
+        );
       throw("Failed to get lsf job id");
     }
     $job->submission_id($id);
+    unless($job->submission_id){
+      job_failed(
+            $job,
+            "Can't run " 
+              . $job . " "
+              . $job->dbID . " "
+              . $job->input_string
+              . " without an submission id",
+            $ja
+        );
+      throw("Don't have a submission id associated with ".$job->dbID);
+    }
     $ja->update($job);
     $job->current_status('WAITING');
     $ja->set_status($job);

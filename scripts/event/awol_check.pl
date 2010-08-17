@@ -43,27 +43,32 @@ my $jobs = $ja->fetch_all;
 
 my $hash  = run_bjobs($user);
 my $count = 0;
+print "There are ".@$jobs."\n";
 foreach my $job (@$jobs) {
-    next if ($job->current_status =~ /^FAIL/);
-    next if ($job->current_status =~ /AWOL/);
-    next if ($job->current_status eq 'CREATED');
-    next
-      if (!$job->submission_id || $job->submission_id == 0);
-    unless ($hash->{$job->submission_id}) {
-        $job->current_status("AWOL");
-        $ja->set_status($job);
-    } else {
-
-#print $job->dbID." ".$job->submission_id." ".$hash->{$job->submission_id}."\n";
-    }
+  print "Looking at ".$job->dbID." ".$job->current_status."\n";
+  next if ($job->current_status =~ /^FAIL/);
+  print "Not failed\n";
+  next if ($job->current_status =~ /AWOL/);
+  print "Not awol\n";
+  next if ($job->current_status eq 'CREATED');
+  print "Not created\n";
+  next if (!$job->submission_id || $job->submission_id == 0);
+  print "Have submission id\n";
+  unless ($hash->{$job->submission_id}) {
+    print "Lost ".$job." ".$job->job_id." ".$job->current_status."\n";
+    $job->current_status("AWOL");
+    $ja->set_status($job);
+  } else {
+    print $job->dbID." ".$job->submission_id." ".$hash->{$job->submission_id}."\n";
+  }
 }
 
 sub run_bjobs {
     my ($user) = @_;
     my $cmd = "bjobs -w -u $user";
     print $cmd. "\n";
-    open(my FH, "<", $cmd . " |")
-      or throw("Failed to run " . $cmd);
+    open(FH,  $cmd . " |")
+      or throw("Failed to run " . $cmd." $!");
     my %hash;
     while (<FH>) {
 

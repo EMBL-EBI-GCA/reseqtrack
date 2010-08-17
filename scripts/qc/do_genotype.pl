@@ -1,3 +1,4 @@
+#!/sw/arch/bin/perl
 use warnings;
 
 use strict;
@@ -21,6 +22,10 @@ use File::Temp qw/ tempfile tempdir /;
 use Data::Dumper;
 
 
+#             WARNING
+#This is very messy code.  And I mean MESSY
+#
+#
 
 
 
@@ -61,30 +66,9 @@ my $NCBI36_SNPS     = "/nfs/1000g-work/G1K/work/bin/ref/snps/hapmap3_1309_snps.b
 my $gender_file     = "/nfs/1000g-work/G1K/work/reference/BWA/NCBI36/sample_genders.csv";
 my $snp_list        = "/homes/smithre/bin/hapmap3_release2_sb10.list";
 
-my $staging_root = "/nfs/nobackup/resequencing_informatics/rseqpipe/genotype_check/STAGING/"; #process directory 
-my $internal_dir;		#process bam , create .bas in here
-my $host_name;
-my $file_type;
-my $file;                       # unpaired fastq file
-my $file1;			# assign_files = mate1
-my $file2;			# assign_files = mate2
-my $frag;
-my $run_id;
-my $type;
-my $dbhost = "mysql-g1kdcc.ebi.ac.uk";
-my $dbname ;
-my $dbuser = "g1krw";
-my $dbport = 4197;
-my $dbpass = "thousandgenomes";
-my $verbose;
-my $run;
-my $remote;
-my $claimed_sample;
-my $sample_label;
-my $DEBUG = 0;
-my $gender_hash;
-my $ncbiref;
-my $bwaref;
+
+my $staging_root;# = "/nfs/nobackup/resequencing_informatics/rseqpipe/genotype_check/STAGING/"; #process directory 
+my $log_dir;# = "/nfs/nobackup/resequencing_informatics/rseqpipe/genotype_check/log_dir";
 
 my @in_files;
 my $subseq_files;
@@ -113,6 +97,7 @@ my %file_stats;
 	    'host_name=s'      => \$host_name,
 	    'run'              => \$run,
 	    'claimed_sample=s' => \$claimed_sample,
+	    'log_dir=s' => \$log_dir,
 	    'verbose'          => \$verbose,
 	    'dbhost=s'         => \$dbhost,
 	    'dbname=s'         => \$dbname,
@@ -181,7 +166,9 @@ needed_files_check  ($samtools, $ncbimaleref, $ncbifemaleref,
 if (! $run) {
   print "\n\n** NOTE: Not in run mode. No important processing set to occur**\n\n";
 }
-
+if(!$staging_root || !$log_dir){
+  throw("Can't run without a staging root or a log dir");
+}
 
 #throw   "File names (-file1 -file2) not set"                           if (! $file1 && !$file2);
 if (!$run_id) {
@@ -234,8 +221,10 @@ if ( !defined ($collection)  ) {
 
 
   if ($meta_info->{instrument_platform} =~ /SOLID/){
-    throw "SOLID PLATFORM SKIPPING";
+    print "SOLID PLATFORM SKIPPING\n";
+    exit(0);
   }
+
 
   if (!defined ( $meta_info) ) {
     throw "Could not pull meta info for run_id = $run_id" ;
@@ -400,6 +389,7 @@ my $snps = load_list_of_sample_snps ($gender_file);
 
 my @check = grep (/$claimed_sample/ ,@$snps);
 
+
 if ( ! @check){
   warning("Failed   $run_id      $claimed_sample NO SNPS");
   exit(0);
@@ -411,6 +401,7 @@ if($meta_info->{instument_platform} eq 'ABI_SOLID'){
 }
 
 print  "OK       $run_id      $claimed_sample    @check SNPS TO CHECK AGAINST\n";
+
 
 
 
@@ -450,8 +441,10 @@ foreach my $r (@in_files) {
   }
 
   #where to create to genotype 
-   $process_dir = create_process_dir ($staging_root, $run);
+
+   $process_dir = create_process_dir($staging_root, $log_dir, $run);
    print "Process directory =  $process_dir\n" if $verbose;
+
 
 
   chdir($process_dir) if $run;
@@ -468,7 +461,7 @@ foreach my $r (@in_files) {
 					$meta_info->{instrument_platform},
 					$verbose);
 
-  my $glf_output = run_glf_sample_check ( $outsam, $ncbiref,$glf ,$run , $verbose );
+  my $glf_output = run_glf_sample_check ( $outsam, $ncbiref,$glf ,$run , $samtools, $verbose );
 
   my $passed     = check_glf_output ($glf_output, $claimed_sample, $verbose);
 
@@ -484,7 +477,12 @@ foreach my $r (@in_files) {
   
   print "\n========================= Done =========================\n";
   if ($passed == 1){
-    `echo $process_dir >> /homes/smithre/CLEAN_NOBACK`;
+    #echo $process_dir >> /homes/smithre/CLEAN_NOBACK`;
+    my ($files) = list_files_in_dir($process_dir);
+    foreach my $file(@$files){
+      unlink $file;
+    }
+    unlink($dir);
   }
 }
 ##### ## ## ##                         END            ## ##  ##  ######
@@ -689,6 +687,8 @@ sub run_glf_sample_check {
   my $ncbiref = shift;
   my $glf     = shift;
   my $run     = shift;
+  my $samtools = shift;
+
   my $verbose = shift;
   print "sam file= $insam\n"   if $DEBUG;
   print "ncbiref  = $ncbiref\n" if $DEBUG;
@@ -786,8 +786,8 @@ sub create_subsequence_sample {
   return $infiles;
   foreach my $file (@$infiles) {
 
-    my $outfile      = $$ . basename($file);
-
+    my $tmp_file      = $$ . basename($file);
+    my $outfile = $process_dir."/".$tmp_file;
     print "sampling: #$file#\n" if $verbose;
 
     if ( !$size &&  (! $file_stats{$file}->{base_count})){
@@ -809,7 +809,7 @@ sub create_subsequence_sample {
 
     $seq_list = FastQ::sample( $file, $outfile,  $size)  if $run;
     #    FastQ::sample( $copy_fastq, $outfile, $size,  $seq_list)  if $run;
-
+    
 
      if ($meta_info->{instrument_platform} =~ /.SOLID/i){
        print "HAVE TO DO SNEAKY CONVERSION\n";
@@ -817,12 +817,15 @@ sub create_subsequence_sample {
 
      }
 
+    if( -l $outfile){
+      $outfile = $file;
+    }
 
-
-
+    print "Adding ".$outfile." to subsample array\n";
     push (@new_subsample_files, $outfile);
 
     if ($run) {
+      print "Looking at ".$new_subsample_files[-1]."\n";
       my $tmp_size = stat($new_subsample_files[-1] )->size ;
       $tmp_size /= (1024*1000);
       printf "Size of $new_subsample_files[-1]  ~ %6.3f Mb (bytes)\n", $tmp_size if $verbose;
@@ -845,7 +848,9 @@ sub create_subsequence_sample {
     $paired = "single";
   }
   
-
+  foreach my $file(@new_subsample_files){
+    print "Returning ".$file."\n";
+  }
   return \@new_subsample_files;
 }
 
@@ -859,7 +864,12 @@ sub from_fastq_to_sam {
   my $run            = shift;
   my $platform       =shift;
   my $verbose         = shift if (@_);
-
+  my $log_dir = shift;
+  unless(-d $log_dir){
+    mkpath($log_dir);
+    throw($log_dir." doesn't exist") unless(-d $log_dir);
+  }
+  my $log_path = $log_dir."/".$run_id.".log";
   my @sai_files;
   my @create_sai_cmds;
   my $fastqgz      = '.fastq.gz';
@@ -1102,10 +1112,18 @@ sub set_environ_vars {
 sub  create_process_dir {
   my $root_dir  = shift;
   my $temp_dir  = "";
+  my $log_dir = shift;
   my $run       = 0; 
   $run          = shift if (@_);
 
-
+  unless(-d $root_dir){
+    mkpath($root_dir);
+    throw("Failed to make ".$root_dir." $!") unless(-d $root_dir);
+  }
+  unless(-d $log_dir){
+    mkpath($log_dir);
+    throw("Failed to make ".$log_dir." $!") unless(-d $log_dir);
+  }
   return ""  if (! $run);
 
   my $tmp;

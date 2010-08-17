@@ -99,7 +99,9 @@ if($new_tree->md5 ne $old_tree->md5){
     cleanup_archive($archives, $db, 0);
     sleep(10);
   }
+ $aa->delete_archive_lock;	
 }else{
+  print STDERR "The tree files are the same\n";
   unlink $new_tree->full_path;
 }
 

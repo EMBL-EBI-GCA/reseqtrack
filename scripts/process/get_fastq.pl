@@ -15,7 +15,7 @@ use File::Path;
 $| = 1;
 
 my $run_id;
-my $ftp_server = 'ftp://ftp.sra.ebi.ac.uk/';
+my $ftp_server = 'ftp://ftp.sra.ebi.ac.uk';
 my $program = 'wget';
 my $options = '-t 1 --ignore-length';
 my $root_dir;
@@ -81,7 +81,12 @@ unless(-d $full_output_dir){
   mkpath($full_output_dir);
 }
 
+my $era_rmia = $era_db->get_ERARunMetaInfoAdaptor;
 
+unless($era_rmia->is_fastq_available($run_id)){
+  print STDERR "There are no fastq files available for ".$run_id."\n";
+  exit(20);
+}
 
 my $hash = get_era_fastq($run_id, $full_output_dir, $ftp_server, $clobber, $program, $options, $era_db);
 
