@@ -20,7 +20,7 @@ my $type;
 my $table_name;
 my $help;
 my $output_file;
-my $trim_paths;
+my $trim_paths = 1;
 my $root_trim = '/nfs/1000g-archive/vol1/ftp/';
 my $single_run_id;
 my @skip_study_ids;
@@ -66,6 +66,16 @@ foreach my $study_id(@skip_study_ids){
 my $rmi_a = $db->get_RunMetaInfoAdaptor;
 my $meta_infos = $rmi_a->fetch_all;
 my @sorted = sort{$a->run_id cmp $b->run_id} @$meta_infos;
+
+my $fa = $db->get_FileAdaptor;
+my %file_hash;
+if($table_name eq 'file'){
+  my $files = $fa->fetch_by_type($type);
+  foreach my $file(@$files){
+    my ($run_id) = $file->filename =~ /([E|S]RR\d+)/;
+    push(@{$file_hash{$run_id}}, $file);
+  }
+}
 my %index_lines;
  META_INFO:foreach my $meta_info(@sorted){
    print "Have ".$meta_info->run_id."\n";
@@ -86,8 +96,9 @@ my %index_lines;
    }elsif($meta_info->status eq 'public'){
      my $files;
       if($table_name eq 'file'){
-       $files = get_files_associated_with_run($meta_info, $type);
+       $files = $file_hash{$meta_info->run_id};
      }elsif($table_name eq 'collection'){
+       throw("Why are you using collections, this is a bad idea");
        my $collections = get_file_collections_associated_with_run($meta_info, $type);
        foreach my $collection(@$collections){
          push(@$files, @{$collection->others});

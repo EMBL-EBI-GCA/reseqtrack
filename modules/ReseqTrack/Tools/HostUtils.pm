@@ -30,7 +30,7 @@ use ReseqTrack::Tools::GeneralUtils;
 use vars qw (@ISA  @EXPORT);
 
 @ISA = qw(Exporter);
-@EXPORT = qw(get_host_object);
+@EXPORT = qw(get_host_object check_name);
 
 
 

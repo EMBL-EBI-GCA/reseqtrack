@@ -9,7 +9,6 @@ use ReseqTrack::RunMetaInfo;
 use ReseqTrack::Tools::Exception qw(throw warning);
 use ReseqTrack::Tools::Argument qw(rearrange);
 use ReseqTrack::Tools::RunMetaInfoUtils qw (are_run_meta_infos_identical);
-use ReseqTrack::Tools::ERAUtils;
 
 use File::Basename;
 
@@ -273,6 +272,8 @@ sub convert_population{
   }elsif($string =~ /pur/i){
     $pop = 'PUR';
   }elsif($string =~ /Colombian/){
+    $pop = 'CLM';
+  }elsif($string =~ /CLM/){
     $pop = 'CLM';
   }elsif($string =~ /Gujarati/){
     $pop = 'GIH';

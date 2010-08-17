@@ -426,16 +426,9 @@ sub calculate_summary_stats{
   $stats_hash{new}{'# Accessions'} = keys(%$new_run);
   $stats_hash{new}{'# Samples'} = keys(%$new_sample);
   foreach my $sample(keys(%$new_sample)){
-<<<<<<< .mine
     #samples which are greater than 4x have more than 12Gb of sequence
     $stats_hash{new}{'# Samples greater than 10Gb'}++ 
       if($new_sample->{$sample} > 10000000000);
-=======
-    ####samples which are greater than 4x have more than 12Gb of sequence
-    #res: now doing 10Gb not 4x
-    $stats_hash{new}{'# Samples greater than 10Gb'}++ 
-      if($new_sample->{$sample} > 10000000000);
->>>>>>> .r81
   }
   foreach my $pop(keys(%$new_population)){
     $stats_hash{new}{'Population in Gb'}{$pop} = convert_to_giga($new_population->{$pop});

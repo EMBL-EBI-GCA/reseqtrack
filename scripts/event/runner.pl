@@ -181,7 +181,7 @@ JOB: foreach my $job (@jobs) {
     }
 
     if ($job->current_status eq 'SUCCESSFUL') {
-        eval { $ja->remove($job); };
+        #eval { #$ja->remove($job); };
         throw("Failed to remove " . $job . " from " . $dbname . " $@")
           if ($@);
     }

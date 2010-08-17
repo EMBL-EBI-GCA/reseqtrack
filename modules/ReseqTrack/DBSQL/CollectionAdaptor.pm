@@ -107,7 +107,7 @@ sub fetch_by_other_id_and_type{
   $sth->bind_param(1, $type);
   $sth->bind_param(2, $other_id);
   $sth->execute;
-  while(my $hashref = $sth->fetchrow_hashref){
+ while(my $hashref = $sth->fetchrow_hashref){
     my $collection = $self->object_from_hashref($hashref) if($hashref);
     push(@collections, $collection);
   }
