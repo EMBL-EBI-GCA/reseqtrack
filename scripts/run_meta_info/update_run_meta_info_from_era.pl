@@ -323,7 +323,7 @@ if($check_individual){
       $file->name =~ /(NA\d+)/;
       my $old_sample = $1;
       my $new_sample = $name_to_individual{$file->name};
-      fix_sample_swap($run_id, $old_sample, $new_sample, $db, $run);
+      #fix_sample_swap($run_id, $old_sample, $new_sample, $db, $run);
     }
   }
 }

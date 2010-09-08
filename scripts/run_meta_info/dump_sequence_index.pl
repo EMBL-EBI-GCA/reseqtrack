@@ -55,6 +55,7 @@ my $db = ReseqTrack::DBSQL::DBAdaptor->new(
 
 
 my %skip_study_id;
+my %staging_area;
 foreach my $study_id(@skip_study_ids){
   $skip_study_id{$study_id} = 1;
 }
@@ -97,6 +98,15 @@ my %index_lines;
      my $files;
       if($table_name eq 'file'){
        $files = $file_hash{$meta_info->run_id};
+       my @tmp;
+       foreach my $file(@$files){
+	 if($file->name =~ /$root_trim/){
+	   push(@tmp, $file);
+	 }else{
+	   $staging_area{$meta_info->run_id} = 1;
+	 }
+       }
+       $files = \@tmp;
      }elsif($table_name eq 'collection'){
        throw("Why are you using collections, this is a bad idea");
        my $collections = get_file_collections_associated_with_run($meta_info, $type);
@@ -128,6 +138,8 @@ my %index_lines;
          $line = create_suppressed_index_line($meta_info, 'NOT YET AVAILABLE FROM ARCHIVE', $analysis_group);
        }elsif(@$all_collections == 1 && (!$complete || @$complete == 0)){
          $line = create_suppressed_index_line($meta_info, 'NOT YET AVAILABLE FROM ARCHIVE', $analysis_group);
+       }elsif($staging_area{$meta_info->run_id}){
+	 $line = create_suppressed_index_line($meta_info, 'NOT YET AVAILABLE FROM ARCHIVE', $analysis_group);
        }elsif(@$all_collections >= 2 && (!$complete || @$complete == 0)){
          $line = create_suppressed_index_line($meta_info, 'FAILED ONE OF THE DCC PROCESSES', $analysis_group);
        }elsif(@$all_collections >= 2 && @$complete == 1){
