@@ -38,7 +38,7 @@ sub new {
 $self->lines_check (1);  # default 'on';
 
 
-
+$self->lines_check($lines_check);
  $self->list_file($list_file);
  $self->path_like($path_like);
  $self->action_string($action);
