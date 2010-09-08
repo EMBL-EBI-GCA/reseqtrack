@@ -24,17 +24,20 @@ sub new {
 
  my (
   $list_file, $path_like, $action, $action_location_name, $archive_sleep,
-  $priority,  $from_db,
-
+  $priority,  $from_db,  $lines_check , $max_number,
    ) = rearrange(
   [
    qw(
      LIST_FILE PATH_LIKE ACTION ACTION_LOCATION_NAME  ARCHIVE_SLEEP
-     PRIORITY FROM_DB
+     PRIORITY FROM_DB LINES_CHECK MAX_NUMBER
      )
   ],
   @args
    );
+   
+$self->lines_check (1);  # default 'on';
+
+
 
  $self->list_file($list_file);
  $self->path_like($path_like);
@@ -139,6 +142,7 @@ sub archive_objects {
   my $archive =
     create_archive_from_objects( $file, $action, $self->archive_location );
   $archive->priority( $self->priority );
+   has_to_many_archive_lines($self->max_number, $self->archive_sleep, $self->db) if($self->lines_check);
   $aa->store($archive) if ($run);
  }
 
@@ -464,6 +468,20 @@ sub archive_location {
  $self->{archive_location} = $arg if ($arg);
  return $self->{archive_location};
 }
+
+
+sub lines_check{
+   my ( $self, $arg ) = @_;
+  $self->{lines_check} = $arg if (defined $arg);
+ return $self->{lines_check};
+}
+
+sub max_number{
+   my ( $self, $arg ) = @_;
+  $self->{max_number} = $arg if (defined $arg);
+ return $self->{max_number};
+}
+
 
 #sub archive_action_adaptor {
 # my ( $self, $arg ) = @_;
