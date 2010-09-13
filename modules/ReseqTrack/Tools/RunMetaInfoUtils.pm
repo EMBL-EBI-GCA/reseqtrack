@@ -11,7 +11,7 @@ use File::Basename;
 use vars qw (@ISA  @EXPORT);
 
 @ISA = qw(Exporter);
-@EXPORT = qw(are_run_meta_infos_identical create_object_from_index_line index_to_name_hash get_meta_info_hash create_history_for_run_meta_info create_suppressed_index_line create_index_line get_files_associated_with_run get_file_collections_associated_with_run copy_run_meta_info get_analysis_group get_sequence_index_stats get_withdrawn_summary get_study_descriptions get_index_group_stats calculate_gigabase calculate_coverage get_run_id_from_filename);
+@EXPORT = qw(are_run_meta_infos_identical create_object_from_index_line index_to_name_hash get_meta_info_hash create_history_for_run_meta_info create_suppressed_index_line create_index_line get_files_associated_with_run get_file_collections_associated_with_run copy_run_meta_info get_analysis_group get_sequence_index_stats get_withdrawn_summary get_study_descriptions get_index_group_stats get_run_id_from_filename);
 
 
 
@@ -505,22 +505,9 @@ sub convert_center_name{
   }
 }
 
-sub calculate_gigabase{
-  my ($base_pair, $dont_round) = @_;
-  my $gigabase = $base_pair/1000000000;
-  my $rounded = sprintf("%2.f", $gigabase);
-  $gigabase = $rounded unless($dont_round);
-  return $gigabase;
-}
 
 
-sub calculate_coverage{
-  my ($bp, $dont_round) = @_;
-  my $coverage = $bp/3000000000;
-  my $rounded_coverage = sprintf("%.2f", $coverage);
-  $coverage = $rounded_coverage unless($dont_round);
-  return $coverage;
-}
+
 
 sub get_run_id_from_filename{
   my ($name) = @_;

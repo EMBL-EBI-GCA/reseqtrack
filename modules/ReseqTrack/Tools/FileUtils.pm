@@ -46,7 +46,8 @@ use vars qw (@ISA  @EXPORT);
              assign_type
              check_type
 	     move_file_in_db_and_dir
-             get_count_stats);
+             get_count_stats
+	     get_run_id_to_file_hash);
 
 =head2 are_files_identical
 
@@ -526,6 +527,17 @@ sub get_count_stats{
     $base_count = $stat->attribute_value if($stat->attribute_name eq 'base_count');
   }
   return ($read_count, $base_count);
+}
+
+sub get_run_id_to_file_hash{
+  my ($files) = @_;
+  my %hash;
+  foreach my $file(@$files){
+    my ($run_id) = $file->filename =~ /^([E|S]RR\d+)/;
+    throw("Failed to parse a run id from ".$file->name) unless($run_id);
+    push(@{$hash{$run_id}}, $file);
+  }
+  return \%hash;
 }
 
 1;

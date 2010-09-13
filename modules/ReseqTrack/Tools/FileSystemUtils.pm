@@ -365,6 +365,7 @@ sub dump_dirtree_summary{
     }
     my $md5sum = '';
     $md5sum = $file_md5s{$file};
+    warning($file." has no md5") unless($md5sum);
     my $size = -s $file;
     my $date_string = ctime(stat($file)->mtime);
     $label = 'file';

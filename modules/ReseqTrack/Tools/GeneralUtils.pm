@@ -28,7 +28,7 @@ use vars qw (@ISA  @EXPORT);
 @ISA = qw(Exporter);
 @EXPORT = qw(current_time parse_movelist get_input_arg create_lock_string
              delete_lock_string is_locked useage convert_to_giga current_date 
-	     create_filename);
+	     create_filename calculate_coverage);
 
 
 
@@ -197,7 +197,6 @@ sub convert_to_giga{
   my ($base_count) = @_;
   $base_count = 0 unless($base_count);
   my $gigabase = $base_count/1000000000;
-  #my $rounded = sprintf("%4.f", $gigabase);
   return $gigabase;
 }
 
