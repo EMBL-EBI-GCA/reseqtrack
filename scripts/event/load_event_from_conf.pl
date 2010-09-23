@@ -151,7 +151,6 @@ sub parse_files {
   my $hcounter = 0;
   my %horder; # stores order in which entries were read
 
-
   my $config = {};
   # read each file
 
