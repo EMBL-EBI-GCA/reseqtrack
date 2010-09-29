@@ -101,3 +101,7 @@ foreach my $archive(@archives){
 
 
 $aa->delete_archive_lock;
+
+
+print "\nMessage: move_archive_files.pl does not automatically\n";
+print "           running cleanup on archive table\n.";
