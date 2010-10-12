@@ -34,7 +34,7 @@ my $to;
 	    'to=s' => \$to,
 	    'priority=s' => \$priority,
 	    'clobber!' => \$clobber,
-  'run!' => \$run,
+	    'run!' => \$run,
     );
 
 my $db = ReseqTrack::DBSQL::DBAdaptor->new(
@@ -103,5 +103,6 @@ foreach my $archive(@archives){
 $aa->delete_archive_lock;
 
 
-print "\nMessage: move_archive_files.pl does not automatically\n";
-print "           running cleanup on archive table\n.";
+print "\nMessage:\n";
+print " move_archive_files.pl does not automatically\n";
+print " run 'cleanup_archive' on archive table.\n";
