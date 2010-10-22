@@ -29,7 +29,8 @@ my $verbose = 0;
 my $mctr     = 0;
 my $errors   = 0;
 my $help    = 0;
-
+my $expected_cols = 20;
+my $count_cols = 1;
 &GetOptions(
 	    'dbhost=s'      => \$dbhost,
 	    'dbname=s'      => \$dbname,
@@ -41,6 +42,7 @@ my $help    = 0;
 	    'verbose'         => \$verbose,
 	    'help'              => \$help,
 	    'run'               => \$run,
+	    'count_cols!'               => \$count_cols, 
 	   );
 if ($help) {
   useage();
@@ -70,7 +72,7 @@ my $db = ReseqTrack::DBSQL::DBAdaptor->new(
 					   -port   => $dbport,
 					   -dbname => $dbname,
 					   -pass   => $dbpass,
-      );
+					  );
 
 
 my $rmi_a = $db->get_RunMetaInfoAdaptor;
@@ -81,9 +83,16 @@ my $rmi_a = $db->get_RunMetaInfoAdaptor;
 foreach my $inf (@bas_file) {
  
   chomp $inf;
-  print "\n",$inf,"\n" if ($verbose);
-  $mctr   = 0; # just a line counter
+  #  print $inf,"\n" ;
+  $mctr   = 0;			# just a line counter
   $errors = 0;
+
+  my $inf_name .= $inf;
+  $inf_name = basename($inf_name);
+  $inf_name =~ s/\.bam\.bas$//;
+  # print "Col 1 name should be: $inf_name\n";
+
+
 
   open (FH,'<',$inf) || die "Failed to open: $file";
 
@@ -93,10 +102,26 @@ foreach my $inf (@bas_file) {
 
     my @data = split /\t/;
 
+    my $cols_found =  scalar (@data);
+
+     if ( ($cols_found != $expected_cols) && $count_cols){
+       print "$mctr:Wrong number of columns: $cols_found should be 20\n"
+
+    } 
+
+    if ( $data[0] ne $inf_name) {
+      print "$mctr:Name mismatch: $inf_name :  $data[0]\n";
+    }
+
+
+
     my @sample_name = split /\./, $data[0]; #extract NAxxxxxx from col 1
 
     my  $meta_info = $rmi_a->fetch_by_run_id ( $data[6]);
-    throw "Could not pull meta info for run_id = $data[6]" if ( ! -exists $meta_info->{run_id} );
+    if ( ! -exists $meta_info->{run_id} ){
+      print "$inf:Could not pull meta info for run_id = $data[6]\n";
+      next;
+    }
 
     $mctr++;
 
@@ -110,20 +135,20 @@ foreach my $inf (@bas_file) {
     #do sample names match?
     if ($meta_info->{sample_name} ne  $sample_name[0] ) {
       print "Error: ($mctr): sample  names bad ";
-      print "for runid =    $meta_info->{run_id}::   bas file:  $sample_name[0]    run_meta_info: $meta_info->{sample_name}\n";
+      print "for runid =    $meta_info->{run_id}::   bas file:  $sample_name[0]    run_meta_info: $meta_info->{sample_name}    $meta_info->{sample_name}\n";
       $errors++;
     }
        
     #do library names match ?
     if ($meta_info->{library_name} ne  $data[5] ) {
       print "Error: ($mctr): library names bad ";
-      print "for runid =    $meta_info->{run_id}::   bas file:  $data[5]   run_meta_info: $meta_info->{library_name}\n";
+      print "for runid =    $meta_info->{run_id}::   bas file:  $data[5]   run_meta_info: $meta_info->{library_name}    $meta_info->{sample_name}\n";
       $errors++;
     }
    
 
-    foreach my $i (0 .. $#data){
-      if ( $data[$i] =~/unknown/){
+    foreach my $i (0 .. $#data) {
+      if ( $data[$i] =~/unknown/) {
 	print "Error 'unknown' entry in column $i: $data[$i]\n";
 	$errors++;
 
@@ -134,7 +159,7 @@ foreach my $inf (@bas_file) {
   }
   close (FH);
 
-  print "\nErrors in this file = $errors\n\n" if ($errors);
+  print "$inf Errors in this file = $errors\n" if ($errors);
   # print "$inf OK\n" if (! $errors);
      
 }
