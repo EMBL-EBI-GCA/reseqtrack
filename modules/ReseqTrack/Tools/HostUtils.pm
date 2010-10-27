@@ -86,7 +86,9 @@ sub check_name{
   my ($name) = @_;
   my %valid_hash;
   $valid_hash{"1000genomes.ebi.ac.uk"} = 1;
-  $valid_hash{"sanger.ac.uk"} = 1;
+  #$valid_hash{"sanger.ac.uk"} = 1;
+  $valid_hash{"sanger"} = 1;
+  $valid_hash{"tgen"} = 1;
   return $valid_hash{$name};
 }
 

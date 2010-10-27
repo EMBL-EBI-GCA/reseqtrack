@@ -381,6 +381,11 @@ sub assign_type{
       $type = "WITHDRAWN_".$type;
       $file->type($type);
     }
+    if ($file->name =~ /mosaik/i ){
+      my $type = $file->type;
+      $type = "NCBI_".$type;
+      $file->type($type);
+    }
   }
   return $files;
 }
@@ -425,6 +430,9 @@ sub standard_type_hash{
   $hash{'BAM'} = 1;
   $hash{'BAI'} = 1;
   $hash{'BAS'} = 1;
+  $hash{'NCBI_BAM'} = 1;
+  $hash{'NCBI_BAI'} = 1;
+  $hash{'NCBI_BAS'} = 1;
   return \%hash;
 }
 
