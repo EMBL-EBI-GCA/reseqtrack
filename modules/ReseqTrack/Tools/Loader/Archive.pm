@@ -1,4 +1,4 @@
-package Archive;
+package ReseqTrack::Tools::Loader::Archive;
 
 use strict;
 use warnings;
@@ -144,7 +144,7 @@ sub archive_objects {
   print "Starting archive of $total objects\n";
 
   foreach my $file_path (@{$files_to_archive}) {
-
+    print  "$file_path\n" if ($total > 20);
     
     next unless ( -e $file_path );
     my $action = $self->{which_action_hash}{$file_path};
