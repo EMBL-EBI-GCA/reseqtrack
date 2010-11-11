@@ -29,28 +29,39 @@ sub new {
  my (
       $db,     $dbhost,  $dbname,  $dbuser, $dbpass,
       $dbport, $dir,     $file,    $type, $list_file,
-      $verbose, $descend,   $debug,
+      $verbose, $descend,   $debug
    )
    = rearrange(
   [
    qw(
      DB     DBHOST     DBNAME     DBUSER     DBPASS
      DBPORT     DIR     FILE     TYPE  LIST_FILE
-     VERBOSE     DESCEND     DEBUG)
+     VERBOSE     DESCEND     DEBUG )
   ],
   @args
    );
 
+
+
+
   #defaults
-  $self->type("MUST_FIX")  ;
-   $self->descend('1') ;
-  
-   
+ $self->type("MUST_FIX")  ;
+ $self->descend('1') ;
+
+ 
+ 
+
  $self->dbhost($dbhost);
  $self->dbname($dbname);
  $self->dbuser($dbuser);
  $self->dbpass($dbpass);
  $self->dbport($dbport);
+# $self->hostname($hostname);
+
+ if ($db) {
+   $self->db($db);
+ }
+
  $self->dir($dir);
  $self->file($file);
  $self->type($type);
@@ -58,10 +69,6 @@ sub new {
  $self->verbose($verbose);
  $self->descend($descend);
  $self->debug($debug);
-
-
-
-
   return $self;
 }
 ###
@@ -175,9 +182,11 @@ sub add_files_from_cmd_line {
 ###
 sub db {
  my ( $self, $arg ) = @_;
+
   $self->{db} = $arg if ( $arg) ;
   
    if(!$self->{db}){
+    # print "Have to create DBAdaptor\n";
     $self->{db} = $self->create_DBAdaptor();
   }
  return $self->{db};
@@ -212,6 +221,14 @@ sub dbport {
   $self->{dbport} = $arg if ($arg);
  return $self->{dbport};
 }
+###
+
+#May move from Loader/File.pm to here. RES. 
+#sub hostname {
+# my ( $self, $arg ) = @_;
+#  $self->{hostname} = $arg if ($arg);
+# return $self->{hostname};
+#}
 ###
 sub dir {
  my ( $self, $arg ) = @_;
@@ -264,7 +281,6 @@ sub list_file {
   $self->{list_file} = $arg if ( $arg);
  return $self->{list_file};
 }
-
 
 
 1;
