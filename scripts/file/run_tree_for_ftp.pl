@@ -78,24 +78,28 @@ $aa->delete_archive_lock;
 
 if($new_tree->md5 ne $old_tree->md5){
   #store new object
+  my $changelogs = generate_changelog($new_tree, $old_tree, $db);
   throw("Don't have dbID for ".$old_tree->name) unless($old_tree->dbID);
+  
   my $history = create_history($new_tree, $old_tree);
   $new_tree->history($history);
-  $fa->store($new_tree, 1);
+  foreach my $file(@$changelog, $new_tree);
+   $fa->store($file, 1);
   #create archive
   my $archive_root = $archive_location->location;
-  throw("Can't archive ".$new_tree->full_path." it doesn't live in ".$archive_location->location) unless($new_tree->full_path =~ /$archive_root/);
-  my $archive = create_archive_from_objects($new_tree, $action, $archive_location);
+  throw("Can't archive ".$$file->full_path." it doesn't live in ".$archive_location->location) unless($file->full_path =~ /$archive_root/);
+  my $archive = create_archive_from_objects($file, $action, $archive_location);
   $archive->priority(90);
   $aa->store($archive);
-  my $true = 1;
-  while($true){
+}
+  my $true = 0;
+  while($true <= 5){
     my $archives = $aa->fetch_all;
     my @archives;
     foreach my $archive(@$archives){
       push(@archives, $archive) unless($archive->fire_exit_code);
     }
-    $true = 0 if(@archives == 0);
+    $true++;
     cleanup_archive($archives, $db, 0);
     sleep(10);
   }
