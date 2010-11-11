@@ -91,8 +91,10 @@ sub process_input {
  throw
 "Found 0 files specifed using standard options: -file -dir -md5_file -list_file"
    unless ( scalar @{ $self->file_paths } );
+ return;
 
 }
+
 sub sanity_check_objects {
  my $self  = shift;
  my $files = $self->file_paths;
@@ -164,6 +166,7 @@ print "Sanity check\n" if $self->verbose;
  }
 
  print "Have " . @$files . " files to load\n" if $self->verbose;
+ return;
 }
  
 ####
@@ -184,6 +187,7 @@ sub get_paths_from_md5_file {
 
  $self->md5_hash($hash);
  $self->file_paths( \@paths );
+ return;
 
 }
 
@@ -239,7 +243,10 @@ sub create_objects {
   print "Not  assigning types\n";
  }
  $self->objects($objects);
+ return;
 }
+
+
 
 sub load_objects {
  my ( $self, $run ) = @_;
@@ -379,6 +386,8 @@ FILE: foreach my $file (@$files) {
   print STDERR $problem . "\n";
  }
 
+ return (1);
+
 }
 
 sub die_for_problems {
@@ -439,6 +448,7 @@ sub assign_host_object {
  }
 
  $self->host($host);
+ return;
 }
 
 #######################
