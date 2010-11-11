@@ -90,7 +90,7 @@ my %index_lines;
      next META_INFO if($skip_study_id{$meta_info->study_id});
    }
    $index_lines{$meta_info->run_id} = [] unless($index_lines{$meta_info->run_id});
-   if($meta_info->status eq 'suppressed'){
+   if($meta_info->status eq 'suppressed' || $meta_info->status eq 'cancelled'){
       my $line = create_suppressed_index_line($meta_info, undef, $analysis_group);
      #print $line."\n";
      push(@{$index_lines{$meta_info->run_id}}, $line);
