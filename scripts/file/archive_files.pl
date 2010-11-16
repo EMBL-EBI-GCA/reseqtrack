@@ -84,7 +84,7 @@ my $archiver = ReseqTrack::Tools::Loader::Archive->new(
 $archiver->process_input();
 $archiver->cleanup_archive_table($verbose);
 $archiver->sanity_check_objects();
-$archiver->archive_objects($run);
+$archiver->archive_objects() if $run;
 
 if  (!$skip_cleanup && $run){
  print "Starting final cleanup of archive table\n";
