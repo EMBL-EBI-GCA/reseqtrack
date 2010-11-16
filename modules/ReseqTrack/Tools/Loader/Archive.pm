@@ -123,7 +123,7 @@ sub archive_adaptor{
 
 ###################################
 sub archive_objects {
-  my ( $self, $run ) = @_;
+  my ( $self ) = @_;
   my $tmp  = $self->file_paths;
   my $files_to_archive;
   my %file_objects;
@@ -144,7 +144,7 @@ sub archive_objects {
   print "Starting archive of $total objects\n";
 
   foreach my $file_path (@{$files_to_archive}) {
-    print  "$file_path\n" if ($total > 20);
+    print  "$file_path\n" if ($total < 10);
     
     next unless ( -e $file_path );
     my $action = $self->{which_action_hash}{$file_path};
@@ -165,10 +165,10 @@ sub archive_objects {
       create_archive_from_objects( $file, $action, $self->archive_location );
     $archive->priority( $self->priority );
  
-    if ($run) {
+    
       has_to_many_archive_lines($self->max_number, $self->archive_sleep, $self->db) if($self->lines_check);
       $aa->store($archive);
-    }
+   
    
   }
 
