@@ -173,9 +173,11 @@ if ($new_tree_md5 ne $old_tree_md5) {
 				 );
 
   $tree_diffs->create_log_files;
+ 
 
-  my $files_to_process = $tree_diffs->files_to_archive_hash_to_array();
+  my $files_to_process = $tree_diffs->files_to_archive_array();
 
+ 
   if (! $files_to_process ) {
     print "No changelog files to process. current.tree should not have changed\n";
     exit;
@@ -187,7 +189,8 @@ if ($new_tree_md5 ne $old_tree_md5) {
     print "process: $i\n";
   }
  
-
+ 
+  
   my $loader = ReseqTrack::Tools::Loader::File->new( 
 						    -file      => $files_to_process ,
 						    -hostname  => $host,
