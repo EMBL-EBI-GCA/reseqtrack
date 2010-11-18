@@ -48,16 +48,11 @@ sub new {
   
 	
   $self->flag_moved_replaced_withdrawn();
-  $self->flag_new();
-      
-
+  $self->flag_new();      
+ 
 
   die "staging_dir not set" if ( ! $self->staging_dir);
   
-
-  print $self->staging_dir,"\n";
- 
-
   return ($self);
 }
 
@@ -109,7 +104,7 @@ sub create_log_files {
   $self->output_changelog_files( $old, "replacement" );
   $self->output_moved_changelog_files();
   $self->amend_CHANGELOG;
-
+  $self->files_to_archive_hash_to_array();
   print "Finished creating log files\n";
 
   return;
@@ -919,12 +914,14 @@ sub files_to_archive_hash_to_array{
   my  $self =shift;
 
   my $hash = $self->files_to_archive;
-  my $files;
+  my $files= ();
 
   foreach my $key (keys %$hash) {
-   
+    print $key,"\n";
     push (@$files,$key);
   }
+
+
 
   $self->files_to_archive_array($files);
   return;
@@ -936,6 +933,7 @@ sub files_to_archive_array{
   if ($arg) {
     $self->{files_to_archive_array}= $arg;
   }
+ 
   return $self->{files_to_archive_array};
 }
 
