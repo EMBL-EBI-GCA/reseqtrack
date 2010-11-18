@@ -44,7 +44,7 @@ my $new_tree_md5;
 my $old_tree_file;
 my $new_tree_file;
 
-my $file_list;
+
 my $test_mode;
 my $skip_cleanup=0;
 my $archive_sleep=240;
@@ -63,7 +63,6 @@ my $test=0;
 	    'check_old=s' =>\$check_old,
 	    'check_new=s' =>\$check_new,
 	    'staging_dir=s'   => \$STAGING_DIR,
-	    'file_list=s'   => \$file_list,
 	    'skip!'=>\$skip_cleanup,
 	    'archive_sleep=s' => \$archive_sleep,
 	    'debug!' => \$debug,
@@ -72,8 +71,8 @@ my $test=0;
 
 die "\n\nhostname not specified (-host). Required for Loader.pm\n\n" if (!$host);
 
-print "Starting tree dump\n";
-print "Not running\n" if (!$run);
+print "Starting tree dump to:";
+
 
 if ( !$output_path) {
   $new_tree_file = $STAGING_DIR . '/' . "current.tree";
@@ -126,7 +125,7 @@ if ( ! ($check_old)  && ! ($check_new) ) {
 
   
  
-  dump_dirtree_summary($dir_to_tree,  $new_tree_file, undef, $fa, $file_list);
+  dump_dirtree_summary($dir_to_tree,  $new_tree_file, undef, $fa);
 
 
  
@@ -188,8 +187,7 @@ if ($new_tree_md5 ne $old_tree_md5) {
     print "process: $i\n";
   }
  
-  die "In test mode. Have finished, not trying load/archive" if $test;
- 
+
   my $loader = ReseqTrack::Tools::Loader::File->new( 
 						    -file      => $files_to_process ,
 						    -hostname  => $host,
