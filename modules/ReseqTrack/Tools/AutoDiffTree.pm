@@ -103,7 +103,13 @@ sub create_log_files {
   $self->output_changelog_files( $old, "withdrawn" );
   $self->output_changelog_files( $old, "replacement" );
   $self->output_moved_changelog_files();
-  $self->amend_CHANGELOG;
+  if ($self->files_to_archive){
+     $self->amend_CHANGELOG;
+  }
+  else{
+    print "No obvious changes detected , not amending CHANGELOG\n";
+  }
+  
   $self->files_to_archive_hash_to_array();
   print "Finished creating log files\n";
 
@@ -632,7 +638,7 @@ sub delete_identical {
       }
 
       if ( $$old{$f}{md5} =~/NO_MD5_IN_DB/) {
-	print "$f has no md5 but is same size. Ignoring for changelogs\n";
+#	print "$f has no md5 but is same size. Ignoring for changelogs\n";
       }
 
     }
@@ -654,7 +660,7 @@ sub delete_identical {
 
   if ( $old_keys == 0 && $new_keys == 0 ) {
     print "No changes to tree files occurred\n";
-    exit;
+   # exit;
   }
 
   print "\n\n";
