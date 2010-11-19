@@ -80,7 +80,25 @@ sub fetch_by_event{
   }
   return \@complete;
 }
-
+sub fetch_by_event_name{
+  my ($self, $event_name) = @_;
+  my $event = $self->db->get_EventAdaptor->fetch_by_name($event_name);
+  throw("Failed to find event with ".$event_name." from ".$self->dbc->dbname) unless($event);
+  my $sql = "select ".$self->columns." ".
+      "from ".$self->table_name.", ".$event->table_name." ".
+      "where ".$self->table_name.".event_id = ? ".
+      "and ".$self->table_name.".other_id = ".
+      $event->table_name.".".$event->table_name."_id ";
+  my $sth = $self->prepare($sql);
+  $sth->bind_param(1, $event->dbID);
+  $sth->execute;
+  my @complete;
+  while(my $rowhashref = $sth->fetchrow_hashref){
+    my $eventcomplete = $self->object_from_hashref($rowhashref) if($rowhashref);
+    push(@complete, $eventcomplete);
+  }
+  return \@complete;
+}
 
 sub fetch_by_other_id{
   my ($self, $other_id, $table_name) = @_;

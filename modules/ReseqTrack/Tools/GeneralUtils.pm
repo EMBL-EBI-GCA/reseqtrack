@@ -28,7 +28,7 @@ use vars qw (@ISA  @EXPORT);
 @ISA = qw(Exporter);
 @EXPORT = qw(current_time parse_movelist get_input_arg create_lock_string
              delete_lock_string is_locked useage convert_to_giga current_date 
-	     create_filename calculate_coverage);
+	     create_filename calculate_coverage trim_spaces);
 
 
 
@@ -221,5 +221,13 @@ sub create_filename{
   $path =~ s/\/\//\//g;
   return $path;
 }
+
+sub trim_spaces{
+  my $string = shift;
+  $string =~ s/^\s+//;
+  $string =~ s/\s+$//;
+  return $string;
+}
+
 
 1;

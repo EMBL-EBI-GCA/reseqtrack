@@ -46,7 +46,6 @@ sub fetch_by_name{
   my $sth = $self->prepare($sql);
   $sth->bind_param(1, $name);
   $sth->execute;
-
   my ($rowHashref) = $sth->fetchrow_hashref;
   my $event = $self->object_from_hashref($rowHashref) if($rowHashref);
   $sth->finish;

@@ -2,13 +2,11 @@
 
 =head1 NAME
 
-ReseqTrack::Tools::RunAlignment
+ReseqTrack::Tools::Statistics
 
 =head1 SYNOPSIS
 
-This is a base class for RunAlignment objects and provides some standard
-accessor methods and throws exceptions when vital methods aren't implemented in
-the child classes. The Child classes should wrap specific alignment algorithms
+Base class for generating statistics on the basis of sequence or alignment indexes
 
 =head1 Example
 

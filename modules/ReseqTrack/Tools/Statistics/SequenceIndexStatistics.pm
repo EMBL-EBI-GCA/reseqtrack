@@ -368,7 +368,6 @@ sub parse_index{
     }
     $per_run{$values[2]} += $values[24];
     $per_sample{$values[9]} += $values[24];
-    $per_sample{total} += $values[24];
     $per_population{$pop} += $values[24];
     $per_population{'total'} += $values[24];
     $per_platform{$values[12]} += $values[24];

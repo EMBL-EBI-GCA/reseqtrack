@@ -101,6 +101,7 @@ sub fetch_all{
   my ($self) = @_;
   my $sql = "select ".$self->columns." from ".$self->table_name;
   $sql .= " where ".$self->where if($self->where);
+  print STDERR "FETCH ALL SQL ".$sql."\n";
   my @objects;
   my $sth = $self->prepare($sql);
   eval{

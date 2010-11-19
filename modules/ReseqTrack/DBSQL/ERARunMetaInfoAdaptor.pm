@@ -9,6 +9,8 @@ use ReseqTrack::RunMetaInfo;
 use ReseqTrack::Tools::Exception qw(throw warning);
 use ReseqTrack::Tools::Argument qw(rearrange);
 use ReseqTrack::Tools::RunMetaInfoUtils qw (are_run_meta_infos_identical);
+use ReseqTrack::Tools::ERAUtils;
+use ReseqTrack::Tools::ERARunMetaInfoWhere;
 
 use File::Basename;
 
@@ -23,7 +25,7 @@ sub new {
 }
 
 sub table_name{
-  return "era.g1k_sequence_index";
+  return "era.g1k_sequence_index_all";
 }
 
 sub columns{
@@ -32,6 +34,11 @@ sub columns{
       "instrument_model, library_name, run_name, run_block_name, paired_length, ".
       "library_layout, run_file_name, status, read_count, base_count,err_fastq_available";
 }
+
+sub where{
+  return era_run_meta_info_where;
+}
+
 
 sub fetch_by_dbID{
   my ($self) = @_;
@@ -288,6 +295,7 @@ sub convert_population{
    }
   return $pop;
 }
+
 
 
 sub store{
