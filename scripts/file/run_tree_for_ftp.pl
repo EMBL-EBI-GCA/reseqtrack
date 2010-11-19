@@ -94,7 +94,7 @@ my $dbA = ReseqTrack::DBSQL::DBAdaptor->new(
   -pass => $dbpass,
     );
 
-
+throw "No DB connection established\n" if (! $dbA);
 
 
 if ( ! ($check_old)  && ! ($check_new) ) {
@@ -189,7 +189,7 @@ if ($new_tree_md5 ne $old_tree_md5) {
     print "process: $i\n";
   }
  
- 
+  exit; 
   
   my $loader = ReseqTrack::Tools::Loader::File->new( 
 						    -file      => $files_to_process ,
@@ -208,9 +208,6 @@ if ($new_tree_md5 ne $old_tree_md5) {
   $loader->create_objects();
   $loader->sanity_check_objects();
   $loader->load_objects("1");
-
-   
-
 
   my $archiver = ReseqTrack::Tools::Loader::Archive->new(
 							 -db=>$dbA,
