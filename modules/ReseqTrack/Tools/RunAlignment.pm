@@ -20,11 +20,22 @@ package ReseqTrack::Tools::RunAlignment;
 use strict;
 use warnings;
 
+
+
+use lib  "/nfs/1000g-work/G1K/work/bin/SangerVertRes/modules";
+use FastQ;
 use ReseqTrack::Tools::Exception qw(throw warning stack_trace_dump);
 use ReseqTrack::Tools::Argument qw(rearrange);
 use ReseqTrack::Tools::SequenceIndexUtils;
 use Data::Dumper;
 use File::Temp qw/ tempfile tempdir /;
+use File::Basename;
+
+use Exporter;
+use vars qw (@EXPORT);
+
+@EXPORT = qw (create_tmp_process_dir working_dir);
+
 =head2 new
 
   Arg [1]   : ReseqTrack::Tools::RunAlignment
@@ -54,9 +65,30 @@ sub new {
   # or a collection object with associated sequence
   #program
   #commandline options
-  my ($reference, $input, $program, $options, $samtools, $working_dir, $name) = 
-      rearrange([qw(REFERENCE INPUT PROGRAM OPTIONS SAMTOOLS WORKING_DIR NAME)], 
-                @args);
+  my ($reference,
+      $input,
+      $program,
+      $options, 
+      $samtools, 
+      $working_dir, 
+      $name, 
+      $file_info, 
+      $subsample_size) = 
+   
+ rearrange([qw(
+              REFERENCE
+              INPUT 
+              PROGRAM 
+              OPTIONS 
+              SAMTOOLS 
+              WORKING_DIR 
+              NAME 
+              FILE_INFO 
+              SUBSAMPLE_SIZE)], 
+	      @args);
+
+   $self->subsample_size ("1200000000");
+
 
   $self->reference($reference);
   $self->input($input);
@@ -64,9 +96,9 @@ sub new {
   $self->options($options);
   $self->samtools($samtools);
   $self->working_dir($working_dir);
-  
  
-  
+  $self->subsample_size ($subsample_size);
+  $self->file_info ($file_info);
   $self->name($name);
   #setting defaults
   $self->working_dir("/tmp/") unless($self->working_dir);
@@ -86,8 +118,121 @@ sub new {
   return $self
 }
 
+sub subsample_fastq {
+ my ($self) = shift;
+ my $base_counts =  $self->base_counts;
+ my $base;
+ my $max = $self->subsample_size;
+
+ my $tmp_dir = $self->working_dir;
+
+ 
+
+ if ($self->fragment_file){
+   
+     print "Sampling ",$self->fragment_file,"\n";
+     my $base = basename($self->fragment_file);
+     my $tmp_frag = $tmp_dir ."/". "$$\_". $base;
+    
+     $tmp_frag =~ s/\/\//\//;
+     #print $tmp_frag,"\n";
+     my   $seq_list = FastQ::sample( $self->fragment_file, $tmp_frag,  $max) ;
+     if ($$base_counts{$self->fragment_file} >  $max){
+	FastQ::sample( $self->fragment_file, $tmp_frag, $max,  $seq_list);
+	$self->fragment_file($tmp_frag);
+	$self->files_to_delete($tmp_frag);
+      }
+    
+   
+   
+ }
+
+ if ($self->mate1_file){
+  
+   print "Sampling ",$self->mate1_file,"\n";
+   my $base = basename($self->mate1_file);
+   my $tmp_frag = $tmp_dir ."/". "$$\_".  $base ;
+   $tmp_frag =~ s/\/\//\//;
+   #print $tmp_frag,"\n";
+     my   $seq_list = FastQ::sample( $self->mate1_file, $tmp_frag,  $max) ;  
+      if ($$base_counts{$self->mate1_file} >  $max){
+	FastQ::sample( $self->mate1_file, $tmp_frag, $max,  $seq_list);
+      
+     $self->mate1_file($tmp_frag);
+     $self->files_to_delete($tmp_frag);
+      }
+ }
+
+ if ($self->mate2_file){  
+	 print "Sampling ",$self->mate2_file,"\n";
+	 my $base = basename($self->mate2_file);
+	 my $tmp_frag = $tmp_dir ."/". "$$\_".  $base ;
+	# print $tmp_frag,"\n";
+	 $tmp_frag =~ s/\/\//\//;
+	 my   $seq_list = FastQ::sample( $self->mate2_file, $tmp_frag,  $max) ; 
+	 if ($$base_counts{$self->mate2_file} >  $max){   
+	   FastQ::sample( $self->mate2_file, $tmp_frag, $max,  $seq_list);
+	 
+	$self->mate2_file($tmp_frag);
+	$self->files_to_delete($tmp_frag); 
+	 }
+ }
+
+ # add tmp to delete files.
+
+  return;
+}
 
 
+
+sub get_base_counts{
+  my $self = shift;
+  my $files = $self->file_info;
+  my$bases  = 0;
+  my $reads = 1;
+  my %base_counts;
+
+ 
+  foreach my $f (@$files){
+    my $check = $f->statistics;
+    foreach my $r (@$check) {    
+    if ($r->{attribute_name} eq "base_count") {
+     # print $r->{attribute_name}," ", $r->{attribute_value},"\n";
+      $bases =  $r->{attribute_value};
+    }
+
+    if ($r->{attribute_name} eq "read_count") {
+      #print $r->{attribute_name}," ", $r->{attribute_value},"\n"; 
+      $reads =  $r->{attribute_value};
+    }
+
+  }
+ 
+    $base_counts{$f->name} = $bases;
+  }
+ # print Dumper (%base_counts);
+  $self->base_counts (\%base_counts);
+ 
+  return;
+}
+
+sub base_counts{
+  my ($self, $arg) = @_;
+  if ($arg) {
+    $self->{'base_counts'} = $arg;
+  }
+  return $self->{'base_counts'};
+}
+
+sub file_info{
+  my ($self, $arg) = @_;
+  if ($arg) {
+    $self->{'file_info'} = $arg;
+  }else{
+  
+  }
+  return $self->{'file_info'};
+}
 =head2 accessor methods
 
   Arg [1]   : ReseqTrack::Tools::RunAlignment
@@ -101,9 +246,13 @@ sub new {
 =cut
 
 
+
+
+
+
 sub reference{
   my ($self, $arg) = @_;
-  if($arg){
+  if ($arg) {
     $self->{'reference'} = $arg;
   }
   return $self->{'reference'};
@@ -111,7 +260,7 @@ sub reference{
 
 sub program{
   my ($self, $arg) = @_;
-  if($arg){
+  if ($arg) {
     $self->{'program'} = $arg;
   }
   return $self->{'program'};
@@ -119,7 +268,7 @@ sub program{
 
 sub options{
   my ($self, $arg) = @_;
-  if($arg){
+  if ($arg) {
     $self->{'options'} = $arg;
   }
   return $self->{'options'};
@@ -127,7 +276,7 @@ sub options{
 
 sub samtools{
   my ($self, $arg) = @_;
-  if($arg){
+  if ($arg) {
     $self->{'samtools'} = $arg;
   }
   return $self->{'samtools'};
@@ -135,40 +284,49 @@ sub samtools{
 
 sub fragment_file{
   my ($self, $arg) = @_;
-  if($arg){
+  if ($arg) {
     $self->{'fragment_file'} = $arg;
   }
   return $self->{'fragment_file'};
 }
 sub mate1_file{
   my ($self, $arg) = @_;
-  if($arg){
+  if ($arg) {
     $self->{'mate1_file'} = $arg;
   }
   return $self->{'mate1_file'};
 }
 sub mate2_file{
   my ($self, $arg) = @_;
-  if($arg){
+  if ($arg) {
     $self->{'mate2_file'} = $arg;
   }
   return $self->{'mate2_file'};
 }
 sub name{
   my ($self, $arg) = @_;
-  if($arg){
+  if ($arg) {
     $self->{'name'} = $arg;
   }
   return $self->{'name'};
 }
+
+sub subsample_size{
+  my ($self, $arg) = @_;
+  if ($arg) {
+    $self->{'subsample_size'} = $arg;
+  }
+  return $self->{'subsample_size'};
+}
+
 sub files_to_delete{
   my ($self, $file) = @_;
-  if($file){
-    if(ref($file) eq 'ARRAY'){
-      foreach my $path(@$file){
+  if ($file) {
+    if (ref($file) eq 'ARRAY') {
+      foreach my $path (@$file) {
         $self->{'files_to_delete'}->{$path} = 1;
       }
-    }else{
+    } else {
       $self->{'files_to_delete'}->{$file} = 1;
     }
   }
@@ -191,15 +349,17 @@ sub files_to_delete{
 
 sub working_dir{
   my ($self, $arg) = @_;
-  if($arg){
+
+  if ($arg) {
     $self->{'working_dir'} = $arg;
   }
-  if($self->{'working_dir'}){
-    unless(-d $self->{'working_dir'}){
+
+  if ($self->{'working_dir'}) {
+    unless (-d $self->{'working_dir'}) {
       mkdir($self->{'working_dir'}, 775);
     }
-    unless(-d $self->{'working_dir'}){
-      throw("ReseqTrack::Tools::RunAlignment can run when ".$self->{'working_dir'}.
+    unless (-d $self->{'working_dir'}) {
+      throw("ReseqTrack::Tools::RunAlignment cannot run when ".$self->{'working_dir'}.
             " does not exist ");
     }
   }
@@ -244,10 +404,10 @@ sub change_dir{
 sub output_files{
   my ($self, $arg) = @_;
   $self->{'output'} = [] unless($self->{'output'});
-  if($arg){
-    if(ref($arg) eq 'ARRAY'){
+  if ($arg) {
+    if (ref($arg) eq 'ARRAY') {
       push(@{$self->{'output'}}, @$arg);
-    }else{
+    } else {
       push(@{$self->{'output'}}, $arg);
     }
   }  
@@ -274,22 +434,22 @@ sub output_files{
 sub input{
   my ($self, $input) = @_;
   #need to work out if we have filepaths, file objects or a collection object
-  if($input){
-    if(-e $input){
+  if ($input) {
+    if (-e $input) {
       $self->fragment_file($input);
-    }elsif(ref($input) eq 'ARRAY'){
+    } elsif (ref($input) eq 'ARRAY') {
       my ($mate1, $mate2, $frag);
-      if(-e $input->[0]){
+      if (-e $input->[0]) {
         ($mate1, $mate2, $frag) = $self->assign_fastq_files($input);
-      }elsif($input->[0]->isa("ReseqTrack::File")){
+      } elsif ($input->[0]->isa("ReseqTrack::File")) {
         my @names;
-        foreach my $file(@$input){
+        foreach my $file (@$input) {
           push(@names, $file->name);
         }
         ($mate1, $mate2, $frag) = $self->assign_fastq_files(\@names);
-      }else{
+      } else {
         print STDERR "Not sure how to deal with the contents of ".$input."\n";
-        foreach my $element(@$input){
+        foreach my $element (@$input) {
           print STDERR $element."\n";
         }
         throw("ReseqTrack::Tools::RunAlignment::input Failed to process ".$input);
@@ -297,24 +457,22 @@ sub input{
       $self->fragment_file($frag);
       $self->mate1_file($mate1);
       $self->mate2_file($mate2);
-    }
-    elsif($input->isa("ReseqTrack::File")){
+    } elsif ($input->isa("ReseqTrack::File")) {
       $self->fragment_file($input->name);
-    }
-    elsif($input->isa('ReseqTrack::Collection')){
+    } elsif ($input->isa('ReseqTrack::Collection')) {
       throw("ReseqTrack::Tools::RunAlignment::input Can only handle file ".
             "collections not ".$input->table_name." collections")
-          unless($input->table_name eq 'file');
+	unless($input->table_name eq 'file');
       my $others = $input->others;
       my @names;
-      foreach my $other(@$others){
+      foreach my $other (@$others) {
         push(@names, $other->name);
       }
       my ($mate1, $mate2, $frag) = $self->assign_fastq_files(\@names);
       $self->fragment_file($frag);
       $self->mate1_file($mate1);
       $self->mate2_file($mate2);
-    }else{
+    } else {
       throw("ReseqTrack::Tools::RunAlignment::input not sure how to handle input ".
             $input." what type is it?");
     }
@@ -369,14 +527,14 @@ sub create_bam_from_sam{
   print $cmd."\n";
   eval{
     my $exit = system($cmd);
-    if($exit && $exit >= 1){
+    if ($exit && $exit >= 1) {
       throw("Failed to run ".$cmd);
     }
   };
-  if($@){
+  if ($@) {
     throw("Failed to run samtools import $@");
   }
-  if($delete_sam){
+  if ($delete_sam) {
     $self->files_to_delete($sam);
   }
   return $bam;
@@ -397,7 +555,7 @@ sub create_bam_from_sam{
 sub delete_files{
   my ($self, $files) = @_;
   $files = $self->files_to_delete unless($files);
-  foreach my $file(@$files){
+  foreach my $file (@$files) {
     print "Deleting ".$file."\n";
     unlink $file;
   }
@@ -423,22 +581,25 @@ sub assign_fastq_files{
 
 
 sub create_tmp_process_dir{
-  my ($self) = shift;
+  my ($self) = @_;
   my $tmp;
   
   my $process_dir = $self->working_dir;
   
   throw "No process directory specified" if (! defined $process_dir);
-    my $temp_dir = $process_dir ;
-   $temp_dir =  tempdir ( DIR =>$process_dir );
+  my $temp_dir = $process_dir ;
+  $temp_dir =  tempdir ( DIR =>$process_dir );
   
   print "processing in would be $temp_dir \n";
  
- `chmod 775 $temp_dir`;
+  `chmod -R  775 $temp_dir`;
  
- $self->working_dir($temp_dir);
-
+  $self->working_dir($temp_dir);
+  
+  return;
 }
+
+
 
 
 1;
