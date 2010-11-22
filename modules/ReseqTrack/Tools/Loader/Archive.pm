@@ -167,7 +167,8 @@ sub archive_objects {
  
     
       has_to_many_archive_lines($self->max_number, $self->archive_sleep, $self->db) if($self->lines_check);
-      $aa->store($archive);
+     print Dumper ($archive);
+     # $aa->store($archive);
    
    
   }
@@ -545,7 +546,7 @@ sub from_db {
 sub priority {
   my ( $self, $arg ) = @_;
   $self->{priority} = $arg if ($arg);
-  return;
+  return $self->{priority};
 }
 
 sub archive_location {
