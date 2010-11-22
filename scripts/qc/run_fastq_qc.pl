@@ -363,7 +363,8 @@ sub load_files {
 	  }
 	} # the end of foreach path loop
 	if(!@objects || @objects == 0){
-          throw("Failed to produce any fastq files of ".$new_file_type." for ".$run_id);
+          warning("Failed to produce any fastq files of ".$new_file_type." for ".$run_id);
+	  return;
         }
 	my $collection =  ReseqTrack::Collection->new(
 	  -name => $run_id,

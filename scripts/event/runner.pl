@@ -188,10 +188,10 @@ JOB: foreach my $job (@jobs) {
 }
 
 sub job_failed {
-    my ($job, $warning, $ja, $status) = @_;
-    $status = 'FAILED' if (!$status);
-    print STDERR $warning . "\n";
-    $job->current_status($status);
-    $ja->set_status($job);
-    $ja->unset_submission_id();
+  my ($job, $warning, $ja, $status) = @_;
+  $status = 'FAILED' if (!$status);
+  print STDERR $warning . "\n";
+  $job->current_status($status);
+  $ja->set_status($job);
+  $ja->unset_submission_id();
 }

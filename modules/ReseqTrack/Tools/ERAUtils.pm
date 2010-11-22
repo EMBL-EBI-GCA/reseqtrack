@@ -25,7 +25,6 @@ use vars qw (@ISA  @EXPORT);
              fix_sample_swap
              get_fastq_details
 	     convert_population
-	     get_era_where
 	   );
 
 
@@ -342,25 +341,6 @@ sub date_hash{
   return \%hash;
 }
 
-sub get_era_where{
-  my ($db, $table_name) = @_;
-  $table_name = 'era.g1k_sequence_index' unless($table_name);
-  my $sql = "select id_string, column_name from era_meta_info";
-  my $sth = $db->dbc->prepare($sql);
-  $sth->execute;
-  my %hash;
-  while(my ($id, $name) = $sth->fetchrow){
-    push(@{$hash{$name}}, $id);
-  }
-  $sth->finish;
-  my $where = undef;
-  foreach my $column_name(keys(%hash)){
-    my @ids = @{$hash{$column_name}};
-    my $string = "'".join("', ", @ids)."'";
-    $where .= " ".$table_name.".".$column_name." in (".$string.")";
-  }
-  return $where;
-}
 
 sub convert_population{
   my ($string, $run_id, $study_id) = @_;

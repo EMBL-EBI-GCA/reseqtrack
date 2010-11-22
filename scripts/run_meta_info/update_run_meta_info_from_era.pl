@@ -7,6 +7,7 @@ use ReseqTrack::DBSQL::ERADBAdaptor;
 use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::RunMetaInfoUtils;
 use ReseqTrack::Tools::GeneralUtils;
+use ReseqTrack::Tools::Intersection;
 use Getopt::Long;
 
 $| = 1;
@@ -29,25 +30,31 @@ my $all_checks;
 my $summary = 1;
 my $verbose;
 my $public_type = 'FILTERED_FASTQ';
+my $collection_type = 'STUDY_TYPE';
+my $study_id_list;
+my $update_collections;
+
 &GetOptions( 
-  'dbhost=s'      => \$dbhost,
-  'dbname=s'      => \$dbname,
-  'dbuser=s'      => \$dbuser,
-  'dbpass=s'      => \$dbpass,
-  'dbport=s'      => \$dbport,
-  'era_dbuser=s' =>\$era_dbuser,
-  'era_dbpass=s' => \$era_dbpass,
-  'run!' => \$run,
-  'all_checks!' => \$all_checks,
-  'store_new!' => \$store_new,
-  'update_existing!' => \$update_existing,
-  'fix_sample!' => \$fix_sample,
-  'withdraw_suppressed!' => \$withdraw_suppressed,
-  'check_individual!' => \$check_individual,
-  'summary!' => \$summary,
-  'verbose!' => \$verbose,
-  'public_type=s' => \$public_type,
-  'help!' => \$help,
+	    'dbhost=s'      => \$dbhost,
+	    'dbname=s'      => \$dbname,
+	    'dbuser=s'      => \$dbuser,
+	    'dbpass=s'      => \$dbpass,
+	    'dbport=s'      => \$dbport,
+	    'era_dbuser=s' =>\$era_dbuser,
+	    'era_dbpass=s' => \$era_dbpass,
+	    'run!' => \$run,
+	    'all_checks!' => \$all_checks,
+	    'store_new!' => \$store_new,
+	    'update_existing!' => \$update_existing,
+	    'fix_sample!' => \$fix_sample,
+	    'withdraw_suppressed!' => \$withdraw_suppressed,
+	    'check_individual!' => \$check_individual,
+	    'summary!' => \$summary,
+	    'verbose!' => \$verbose,
+	    'public_type=s' => \$public_type,
+	    'help!' => \$help,
+	    'collection_type:s' => \$collection_type,
+	    'study_id_list:s' => \$study_id_list,
     );
 
 if($help){
@@ -61,6 +68,11 @@ if($all_checks){
   $fix_sample = 1;
   $withdraw_suppressed = 1;
   $check_individual = 1;
+  $update_collections = 1;
+}
+
+if($update_existing || $store_new){
+  $update_collections = 1;
 }
 
 if(($store_new + $update_existing + $fix_sample + $withdraw_suppressed + $check_individual) == 0){
@@ -83,6 +95,7 @@ my $reseq_db = ReseqTrack::DBSQL::DBAdaptor->new(
 
 #Fetching meta info
 my $era_rmi_a = $db->get_ERARunMetaInfoAdaptor;
+print "FETCHING ALL FROM ERAPRO\n";
 my $era_meta_info = $era_rmi_a->fetch_all if($store_new || $update_existing ||
 					     $fix_sample);
 my $era_hash = get_meta_info_hash($era_meta_info);
@@ -195,6 +208,11 @@ if($update_existing){
       $dcc_rmi_a->update($era);
     }
   }
+}
+$run = $original_run;
+
+if($update_collections){
+
 }
 $run = $original_run;
 #fix sample swaps
@@ -344,6 +362,38 @@ sub useage{
   exit(0);
 }
 
+sub parse_study_id_list{
+  my ($study_id_list) = @_;
+  open(FH, "<", $study_id_list) or throw("Failed to open ".$study_id_list." $!");
+  my %config;
+  my %seen;
+  my $header;
+  while(<FH>){
+    chomp;
+    next if (/^\s$/ || /^\#/);
+    if (/^\[(.*)\]\s*$/) {    # $1 will be the header name, without the []
+      $header = $1;
+      if ($config{$header}) {
+	throw("Shouldn't have duplicate headers in ".$study_id_list." ".$header);
+      }
+      $config{$header} = {};
+    }else{
+      my $line = trim_spaces($_);
+      if($line){
+	if($seen{$line}){
+	  throw($line." seems to be duplicated in ".$study_id_list);
+	}else{
+	  $seen{$line} = 1;
+	}
+	$config{$header}{$line} = 1;
+      }else{
+	warning($header." has blank lines");
+      }
+    }
+  }
+  return \%config;
+}
+
 =pod
 
 =head1 NAME
@@ -405,6 +455,11 @@ if there are associated public files, if there are they are withdrawn
 
 -public_type, this is the type from the filesystem which is considered when checking
               for public fastqs for suppressed runs. It defaults to FILTERED_FASTQ
+
+-collection_type, this is the type of collection object the runs should be grouped
+                  into
+
+-study_id_list, this is the study id list which defined what makes up a collection
 
 -help, this is a binary flag to print out the help
 

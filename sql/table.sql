@@ -226,6 +226,11 @@ CREATE TABLE archive_location(
 );
 
 
+CREATE TABLE era_meta_info( 
+       id_string VARCHAR(50),  
+       column_name VARCHAR(50)
+       );
+
 CREATE TABLE meta (
 
   meta_id                     INT NOT NULL AUTO_INCREMENT,
