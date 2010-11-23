@@ -167,8 +167,7 @@ sub archive_objects {
  
     
       has_to_many_archive_lines($self->max_number, $self->archive_sleep, $self->db) if($self->lines_check);
-     print Dumper ($archive);
-     # $aa->store($archive);
+      $aa->store($archive);
    
    
   }
