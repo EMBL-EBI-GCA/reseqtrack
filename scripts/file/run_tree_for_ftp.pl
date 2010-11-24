@@ -189,7 +189,7 @@ if ($new_tree_md5 ne $old_tree_md5) {
     print "process: $i\n";
   }
  
-  exit; 
+  
   
   my $loader = ReseqTrack::Tools::Loader::File->new( 
 						    -file      => $files_to_process ,
