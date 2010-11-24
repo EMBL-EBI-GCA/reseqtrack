@@ -60,12 +60,21 @@ foreach my $rmi(@$rmis){
   foreach my $problem(@problems){
     my $name = $problem->name;
     my $new_name = $problem->name;
-    $name =~ /([NA|HG]\d+)/;
+    $name =~ /(NA\d+)/;
     my $old_sample = $1;
-
+    unless($old_sample){
+      $name =~ /(HG\d+)/;
+      $old_sample = $1;
+    }
+    if(!$old_sample){
+      throw("Failed to get a sample name form ".$name);
+    }
+    #print STDERR "Changing ".$old_sample." for ".$sample_name."\n";
     $new_name =~ s/$old_sample/$sample_name/;
-    if($problem->type =~ /^WITHDRAWN/){
-      $new_name =~ s/withdrawn/ftp/;
+    #print STDERR $name."\t".$new_name."\n";
+    $new_name =~ s/withdrawn/ftp/g;
+    if($new_name =~ /withdrawn/){
+      throw("Still have withdrawn in new name");
     }
     print $name."\t".$new_name."\n";
   }
