@@ -65,8 +65,8 @@ sub fetch_by_run_id{
 
 sub is_fastq_available{
   my ($self, $run_id) = @_;
-  my $sql = "select err_fastq_available from era.g1k_sequence_index ".
-    "where run_id = ?";
+  my $sql = "select err_fastq_available from ".$self->table_name.
+    " where run_id = ?";
   my $sth = $self->prepare($sql);
   $sth->bind_param(1, $run_id);
   $sth->execute;
