@@ -66,6 +66,7 @@ my $test=0;
 	    'skip!'=>\$skip_cleanup,
 	    'archive_sleep=s' => \$archive_sleep,
 	    'debug!' => \$debug,
+	    'run!' => \$run,
 	   );
 
 
