@@ -67,14 +67,13 @@ my $test=0;
 	    'archive_sleep=s' => \$archive_sleep,
 	    'debug!' => \$debug,
 	    'run!' => \$run,
+	    'test!' => \$test,
 	   );
 
 
 die "\n\nhostname not specified (-host). Required for Loader.pm\n\n" if (!$host);
 
 print "Starting tree dump to:";
-
-
 if ( !$output_path) {
   $new_tree_file = $STAGING_DIR . '/' . "current.tree";
   $new_tree_file =~ s/\/\//\//;
@@ -82,6 +81,8 @@ if ( !$output_path) {
 } else {
   $new_tree_file  = $output_path;
 }
+sleep(3);
+
 
 
 
@@ -142,7 +143,7 @@ if ( ! ($check_old)  && ! ($check_new) ) {
 
 } 
 else {
-  warning "Running in test mode, just comparing files\n";
+ # warning "Running in test mode, just comparing files\n";
   $test = 1;
   print "check_new: $check_new\n";
   print "check_old: $check_old\n";
@@ -175,6 +176,11 @@ if ($new_tree_md5 ne $old_tree_md5) {
 
   $tree_diffs->create_log_files;
  
+  if ( $test_mode){
+    print "In test mode comparing files. No database loading/archiving occurring\n";
+    exit;
+
+  }
 
   my $files_to_process = $tree_diffs->files_to_archive_array();
 
@@ -338,6 +344,9 @@ Standard options other than db paramters
 
  -archive_sleep  wait period between each archive clean cycle.
 
+ -test           create current.tree and changelogs but do not load/archive.
+                 For testing purposes
+
  -verbose        usual what is going on output.
  -debug          more output
 
@@ -351,8 +360,13 @@ Standard options other than db paramters
 
  $DB_OPTS= '-dbhost a_dbhost -dbport 4197 -dbuser a_user -dbpass ???? -dbname a_db -host a_host'
  
- perl $Reseqtrack/scripts/file/run_tree_for_ftp.pl $DB_OPTS -staging_dir $PWD 
+ Standard implementation
+ perl  $Reseqtrack/scripts/file/run_tree_for_ftp.pl $DB_OPTS
 
+ Test in tmp directory
+ perl $Reseqtrack/scripts/file/run_tree_for_ftp.pl $DB_OPTS -staging_dir $PWD -host 1000genomes.ebi.ac.uk -test
+
+ Compare tree files only
  perl $Reseqtrack/scripts/file/run_tree_for_ftp.pl $DB_OPTS  -check_old nov9_1212.tree -check_new $PWD/current.tree -staging_dir $PWD -host a_host 
 
 
