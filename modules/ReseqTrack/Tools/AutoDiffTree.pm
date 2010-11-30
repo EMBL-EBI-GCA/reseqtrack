@@ -50,7 +50,7 @@ sub new {
   $self->flag_moved_replaced_withdrawn();
   $self->flag_new();      
  
-
+  
   die "staging_dir not set" if ( ! $self->staging_dir);
   
   return ($self);
@@ -62,30 +62,58 @@ sub check_no_md5_files{
 
   my $bad_md5 ="NO_MD5_IN_DB";
   my $something_wrong = 0;
+  my @bad_old;
+  my @bad_new;
 
   print "==========================================\n";
-  print "List of files on ftp with no md5 in database\n";
+  print "There can be files on ftp site that are not in database\n";
+  print "as long as there is a matching entry in both tree files\n";
+  print "they can be ignored.\n";
+
+  print "\nList of files in old/new tree files with no md5\n";
   print "that script cannot account for\n";
 
   foreach my $f ( keys %$old) {
     if ( $$old{$f}{md5} eq $bad_md5   ){
-      print $f,"\n";
+      print "$f\n";
       $something_wrong++;
+      push (@bad_old, $f);
     }
   }
 
   foreach my $f ( keys %$new) {
     if ( $$new{$f}{md5} eq $bad_md5   ){
-      print $f,"\n";
+      print "$f\n";
       $something_wrong++;
+      push (@bad_new, $f);
     }
   }
 
-  if ($something_wrong){
-    throw "Have files $something_wrong with no md5 in db that have changed. Very bad\n";
-  }
-  print  "Found $something_wrong unaccounted files with no md5\n";
+
+
+  return if (!$something_wrong);
+
+  print STDERR "\nFound $something_wrong file(s) on ftp\n";
+  print STDERR " with no explainable reason for existence \n";
+  
+  print STDERR "Will proceed but will ignore these files\n";
+  print STDERR "=============================\n";
+  #to prevent confusion downstream. 
+  #Totally skip bad entries via the "delte em" route.
+  print STDERR "File(s) from old tree file\n" if (@bad_old);
+   foreach my $of (@bad_old) {
+     print STDERR  "Ignoring:$of\n";
+     delete $$old{$of};
+   }
+   print STDERR "\nFile(s) from new tree file\n" if (@bad_new);
+    foreach my $nf (@bad_new) {
+      print STDERR "Ignoring $nf\n";
+     delete $$new{$nf};
+   }
+  
   print "==========================================\n";
+
+
   return;
 
 }
@@ -219,7 +247,7 @@ sub output_changelog_files {
 
   foreach my $key ( keys %$altered_types ) {
      if ( ($key =~ /CHANGELOG/) && (defined $$altered_types{$key}{$action}) ){
-       warning "Skipping change for $key $action";
+       print "Skipping change for $key $action\n";
        next;
     }
 
@@ -783,18 +811,13 @@ sub get_tree_hash {
     }
     else{
        $hash{ $a[0] }{md5} = "NO_MD5_IN_DB";
+       print "missing md5: $a[0] in tree file\n";
     }
-
-
-
-
-
   }
   my $k = keys(%hash);
 
   if ( $k == 0 ) {
-
-    die "ERROR:No keys in hash for $file\n";
+    throw "ERROR:No keys in hash for $file\n";
   }
 
   print "Have $k keys in $file hash\n";
@@ -802,13 +825,6 @@ sub get_tree_hash {
   return \%hash;
 }
 
-#sub verbose {
-#  my ( $self, $arg ) = @_;
-#  if ($arg) {
-#    $self->{verbose} = $arg;
-#  }
-#  return $self->{verbose};
-#}
 
 sub old_tree_file {
   my ( $self, $arg ) = @_;
