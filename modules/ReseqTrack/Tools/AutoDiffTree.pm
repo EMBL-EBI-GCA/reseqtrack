@@ -13,6 +13,7 @@ our ($VERSION);
 $VERSION = 1.00;
 
 sub new {
+
   my ( $class, @args ) = @_;
   my $self = {};
   bless $self, $class;
@@ -51,7 +52,7 @@ sub new {
   $self->flag_new();      
  
   
-  die "staging_dir not set" if ( ! $self->staging_dir);
+  throw "staging_dir not set" if ( ! $self->staging_dir);
   
   return ($self);
 }
@@ -65,13 +66,6 @@ sub check_no_md5_files{
   my @bad_old;
   my @bad_new;
 
-  print "==========================================\n";
-  print "There can be files on ftp site that are not in database\n";
-  print "as long as there is a matching entry in both tree files\n";
-  print "they can be ignored.\n";
-
-  print "\nList of files in old/new tree files with no md5\n";
-  print "that script cannot account for\n";
 
   foreach my $f ( keys %$old) {
     if ( $$old{$f}{md5} eq $bad_md5   ){
@@ -93,18 +87,29 @@ sub check_no_md5_files{
 
   return if (!$something_wrong);
 
+  print "==========================================\n";
+  print "There can be files on ftp site that are not in database\n";
+  print "as long as there is a matching entry in both tree files\n";
+  print "they can be ignored.\n";
+
+  print "\nList of files in old/new tree files with no md5\n";
+  print "that script cannot account for\n";
+
   print STDERR "\nFound $something_wrong file(s) on ftp\n";
   print STDERR " with no explainable reason for existence \n";
   
   print STDERR "Will proceed but will ignore these files\n";
   print STDERR "=============================\n";
+
   #to prevent confusion downstream. 
-  #Totally skip bad entries via the "delte em" route.
+  #Totally skip bad entries via the "delete em" route.
+
   print STDERR "File(s) from old tree file\n" if (@bad_old);
    foreach my $of (@bad_old) {
      print STDERR  "Ignoring:$of\n";
      delete $$old{$of};
    }
+
    print STDERR "\nFile(s) from new tree file\n" if (@bad_new);
     foreach my $nf (@bad_new) {
       print STDERR "Ignoring $nf\n";
@@ -112,8 +117,6 @@ sub check_no_md5_files{
    }
   
   print "==========================================\n";
-
-
   return;
 
 }
@@ -139,10 +142,26 @@ sub create_log_files {
   }
   
   $self->files_to_archive_hash_to_array();
+  $self->change_permissions(); 
   print "Finished creating log files\n";
 
   return;
 }
+
+sub change_permissions {
+
+  my $self = shift;
+  my $log_files         = $self->files_to_archive_array();
+  
+  foreach my $i ( @$log_files){
+    chmod ( 0775, $i);
+  }
+  
+
+  return;
+}
+
+
 
 
 sub amend_CHANGELOG {
@@ -180,13 +199,13 @@ sub amend_CHANGELOG {
   }
    
 
-  open my $IN, '<', $self->changelog || die "open CHANGELOG failed";
+  open my $IN, '<', $self->changelog || throw "open CHANGELOG failed";
   my @bot = <$IN>;
   close($IN);
  
   my $amended_changelog = $self->staging_dir . "CHANGELOG";
   $self->files_to_archive($amended_changelog);
-  open my $OUT, '>', "$amended_changelog" || die "no out";
+  open my $OUT, '>', "$amended_changelog" || throw "no out";
   print $OUT @changes;
   print $OUT @bot;
   close($OUT);
@@ -212,25 +231,6 @@ sub flag_new {
 
   return;
 }
-
-#sub flag_new {
-#  my $self = shift;
-#  my $new  = $self->new_tree();
-
-  #anything left in %new without {change} defined = "new"
-#  foreach my $f ( keys %$new ) {
-
-    #print "++" ,$f ," " ,$$new{$f}{change}, "\n";
-#    next if ( defined $$new{$f}{change} );
-    
-#    $$new{$f}{change} = "new";
-#    $self->modified_type_hash( $$new{$f}{g1k_type}, "new" );
-
-#    return;
-
-#  }
-
-#}
 
 
 sub output_changelog_files {
@@ -264,7 +264,7 @@ sub output_changelog_files {
       
       #    $$log_files{$key}{$action} = $out;
       $$log_files{$action} = $out;
-      open my $OUT, '>>', $out || die "Nope on $out";
+      open my $OUT, '>>', $out || throw "No on open $out";
 
       $self->files_to_archive($out);
 
@@ -275,11 +275,9 @@ sub output_changelog_files {
 
 	my $change = $$hash{$f}{change};
 	if ( !defined($change) ) {
-	  # print $f, "\n";
-	  print "BANG BANG no change\n";
 	  print $f, "\n";
 	  print Dumper($h);
-	  exit;
+	  throw "ERROR. Residual file in tree hash with no change\n";
 	}
 				#print $change, "\n";
 	next if ( $change ne "$action" );
@@ -298,7 +296,7 @@ sub output_changelog_files {
 	       $$hash{$f}{g1k_type} );
 	}
 	$f =~ s/^ftp\///;
-#	print $f,"\n";
+
 	print $OUT $f, "\n";
       }
 
@@ -349,7 +347,7 @@ sub output_moved_changelog_files {
       print "\t$out\n";
       #     $$log_files{$key}{log} = $out;
       $$log_files{moved} = $out;
-      open my $OUT, '>>', $out || die "Nope on $out";
+      open my $OUT, '>>', $out || throw "No on open $out";
       $self->files_to_archive($out);
  
       foreach my $f ( keys %$new ) {
@@ -492,8 +490,6 @@ sub was_moved {
 	my $y = $$new_hash{$key};
 	print Dumper($y) if $verbose;
 	return 1;
-
-				# exit;
       }
 
     }
@@ -519,7 +515,7 @@ sub modified_type_hash {
   print "--$action --$type\n" if $debug;
 
   if ( !($action) || !($type) ) {
-    die("Failed action $action or type $type");
+    throw("Failed action $action or type $type");
 
   }
 
@@ -629,13 +625,13 @@ sub was_replaced {
       return 1;
     }
   } else {
-    #print "not in new hash\n" if $verbose;
+
     return 0;
   }
 
   return 0;
 
-  #die " sub was_replace failed on\n $f_name";
+
 }
 
 sub delete_identical {
@@ -688,7 +684,6 @@ sub delete_identical {
 
   if ( $old_keys == 0 && $new_keys == 0 ) {
     print "No changes to tree files occurred\n";
-   # exit;
   }
 
   print "\n\n";
@@ -768,14 +763,11 @@ sub assign_type {
 sub get_tree_hash {
   my ( $self, $file, $verbose ) = @_;
 
-  #	my $file    = shift;
-  #	my $verbose = shift;
-
   my %hash        = ();
   my $bad_entries = 0;
   my $line        = 0;
   print "Processing $file\n";
-  open( my $IN, "<", "$file" ) || die "\n\nNo open :bad filehandle $file\n\n";
+  open( my $IN, "<", "$file" ) || throw "\n\nNo open :bad filehandle $file\n\n";
 
   while (<$IN>) {
     $line++;
@@ -794,9 +786,7 @@ sub get_tree_hash {
 	print "$a[0]:Wrong values ($cols) expected 5. line $line\n";
       }
 
-      #print $_,"\n";
       $bad_entries++;
-    #  next;
     }
 
     $a[0] =~ s/\/ftp\///g;
@@ -878,12 +868,12 @@ sub create_timestamps {
   my ($self) = shift;
 
   my $date = current_date;
-  #print $date, "\n";
+
   $self->details_date($date);
 
 
   my $time = current_time;
-  #print $time,"\n";
+
  
   my @aa = split /:|\s+/,$time;
  
