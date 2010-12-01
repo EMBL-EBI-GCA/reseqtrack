@@ -27,7 +27,7 @@ my $dbpass;
 my $dbport = 4175;
 my $dbname;
 my $host;
-my $run = 0;
+
 
 my $output_path;
 my $verbose;
@@ -66,7 +66,6 @@ my $test=0;
 	    'skip!'=>\$skip_cleanup,
 	    'archive_sleep=s' => \$archive_sleep,
 	    'debug!' => \$debug,
-	    'run!' => \$run,
 	    'test!' => \$test,
 	   );
 
@@ -187,10 +186,11 @@ if ($new_tree_md5 ne $old_tree_md5) {
  
   if (! $files_to_process ) {
     print "No changelog files to process. current.tree should not have changed\n";
+    unlink ( $new_tree_file);
     exit;
   }
 
-  push (@$files_to_process , $new_tree_file, );
+  push (@$files_to_process , $new_tree_file );
 
   foreach my $i (@$files_to_process) {
     print "process: $i\n";
@@ -232,11 +232,10 @@ if ($new_tree_md5 ne $old_tree_md5) {
 
 
   my $max_tries = 10;
-
-  if (!$skip_cleanup && $run ) {
-    print "Starting final cleanup of archive table\n";
-
-    sleep(90); # give chance to move.
+ 
+  if (!$skip_cleanup ) {
+    print "Starting final cleanup of archive table in $archive_sleep\n";
+    sleep($archive_sleep);
 
     my $tries = 0;
     my $clean_archive_table = 1;
