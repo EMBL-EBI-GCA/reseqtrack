@@ -686,6 +686,11 @@ sub delete_identical {
     print "No changes to tree files occurred\n";
   }
 
+  
+  print Dumper ($old) if ( $old_keys < 11) ;
+  print Dumper ($new) if ( $new_keys < 11) ;
+
+
   print "\n\n";
   return 0;
 }
