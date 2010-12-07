@@ -31,7 +31,7 @@ my $verbose = 0;
 my $priority = 50;
 my $max_number = 1000;
 my $lines_check = 1;
-
+my $no_lock;
 
 
 
@@ -48,15 +48,17 @@ my $lines_check = 1;
 	    'run!'                   => \$run,
 	    'verbose!'               => \$verbose,
 	    'descend!'               => \$descend,
-	    'debug!'                =>\$debug,
-	    'action=s' => \$action_string,
-	    'priority=s' =>\$priority,
-	    'skip!' =>\$skip_cleanup,
+	    'debug!'                 => \$debug,
+	    'action=s'               => \$action_string,
+	    'priority=s'             =>\$priority,
+	    'skip!'                  =>\$skip_cleanup,
 	    'max_number_of_archives=s' => \$max_number,
-	    'lines_check!' => \$lines_check,	    
-	    'from_db!' => \$from_db,
-	    'type:s' => \$type,
-	    'path_like:s' => \$path_like,
+	    'lines_check!'    => \$lines_check,	    
+	    'from_db!'        => \$from_db,
+	    'type:s'          => \$type,
+	    'path_like:s'     => \$path_like,
+	    'archive_sleep=s' => \$sleep, 
+	    'no_lock!'        => \$no_lock,
 	   );
 
 my $archiver = ReseqTrack::Tools::Loader::Archive->new(
@@ -65,33 +67,40 @@ my $archiver = ReseqTrack::Tools::Loader::Archive->new(
 						       -list_file => $list_file,
 						       -type      => $type,
 						       -descend   => $descend,
-						       -dbhost => $dbhost,
-						       -dbname => $dbname,
-						       -dbuser  => $dbuser,
-						       -dbpass  => $dbpass,
-						       -dbport  => $dbport,
-						       -debug => $debug,
-						       -action => $action_string,
-						       -verbose => $verbose,
-						       -priority=>$priority,
-						       -max_number=>$max_number,
-						       -from_db => $from_db,
-						       -type => $type,
+						       -dbhost    => $dbhost,
+						       -dbname    => $dbname,
+						       -dbuser    => $dbuser,
+						       -dbpass    => $dbpass,
+						       -dbport    => $dbport,
+						       -debug     => $debug,
+						       -action    => $action_string,
+						       -verbose   => $verbose,
+						       -priority  => $priority,
+						       -max_number=> $max_number,
+						       -from_db   => $from_db,
+						       -type      => $type,
 						       -path_like => $path_like,
+						       -archive_sleep => $sleep,
+						       -no_lock   =>$no_lock,
 						      );
-
-
 $archiver->process_input();
 $archiver->cleanup_archive_table($verbose);
 $archiver->sanity_check_objects();
 $archiver->archive_objects() if $run;
 
-if  (!$skip_cleanup && $run){
- print "Starting final cleanup of archive table\n";
+
+my $max_tries = 10;
+my $tries     =  0;
+if (!$skip_cleanup && $run) {
+  print "Attempting cleanup of archive table in 60 seconds\n";
+  sleep (60);
   my $clean_archive_table = 1;
   while ($clean_archive_table) {
+    $tries++;
     my $obs_remaining = $archiver->cleanup_archive_table($verbose);
     if ($obs_remaining) {
+     
+      print "Found $obs_remaining. Waiting for $sleep\n";
       sleep($sleep);
     } else {
       $clean_archive_table = 0;
