@@ -346,7 +346,7 @@ sub assign_type{
       $file->type("INTERNAL");
     }elsif($file->name =~ /changelog/i){
       $file->type("CHANGELOG");
-    }elsif($file->name =~ /\/technical\//i){
+    }elsif($file->name =~ /\/technical\//i && $file->name !~ /\/ncbi_varpipe_data\//i ){
       $file->type("TECHNICAL");
     }elsif($file->name =~ /\/release/i){
       $file->type("RELEASE");

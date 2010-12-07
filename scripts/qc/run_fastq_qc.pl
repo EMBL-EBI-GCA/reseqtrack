@@ -460,6 +460,7 @@ Sequence Checks:
 	-Quality values are all 2 or higher in the first 25bp, 30bp or 35bp
 	-The reads contain more than one type of base in the first 25, 30, or 35bp
 	-Read does not contain more than 50% Ns in its whole length
+	-Read does not contain characters other than ATGCN (this rule does not apply to SOLID reads)
 
 The output of the script are the followings:
 
