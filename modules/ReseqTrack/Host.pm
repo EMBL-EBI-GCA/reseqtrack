@@ -17,6 +17,7 @@ if that machine is local or remote
 my $host = ReseqTrack::Host->new(
                -name => '1000genomes.ebi.ac.uk', 
                -remote => 0,
+	       -dropbox_dir => '/nfs/1000g-work/G1K/archive_staging',
              );
 
 =cut
@@ -53,13 +54,14 @@ sub new {
     my ( $class, @args ) = @_;
     my $self = $class->SUPER::new(@args);
 
-    my ( $name, $remote ) = rearrange( [qw( NAME REMOTE )], @args );
+    my (  $name, $remote, $dropbox_dir ) = rearrange( [qw( NAME REMOTE DROPBOX_DIR )], @args );
 
     #setting default
     $self->remote(0);
     ##########
     $self->name($name);
     $self->remote($remote);
+    $self->dropbox_dir($dropbox_dir);
     throw("Must have a name for a ReseqTrack::Host") unless ($name);
     return $self;
 }
@@ -77,8 +79,6 @@ sub new {
 
 =cut
 
-
-
 sub name {
     my ( $self, $arg ) = @_;
     if ($arg) {
@@ -95,4 +95,10 @@ sub remote {
     return $self->{remote};
 }
 
-1;
+sub dropbox_dir {
+    my ( $self, $arg ) = @_;
+    if ( defined($arg) ) {
+        $self->{dropbox_dir} = $arg;
+    }
+    return $self->{dropbox_dir};
+}

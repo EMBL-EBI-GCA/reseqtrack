@@ -153,6 +153,22 @@ sub fetch_all_like_path{
   return \@files;
 }
 
+sub fetch_by_host {
+	my ($self, $host_id) = @_;
+	my $sql = "select " .$self->columns. " from file ".
+		"where host_id = ? ";
+	my $sth = $self->prepare($sql);
+	$sth->bind_param(1, $host_id);
+	$sth->execute; 
+	my @files;
+	while(my $rowHashref = $sth->fetchrow_hashref){
+    	my $file = $self->object_from_hashref($rowHashref);
+    	push(@files, $file);
+	}
+	$sth->finish;
+	return \@files;
+}	
+
 
 sub store{
   my ($self, $file, $update, $dont) = @_;
@@ -310,7 +326,7 @@ sub update{
   }
   unless($original->filename ne $file->filename){
     if(are_files_identical($original, $file)){
-      throw("Not updating ".$file->dBID." ".$file->name." it is exactly the same as ".
+      throw("Not updating ".$file->dbID." ".$file->name." it is exactly the same as ".
             "the original");
     }
   }

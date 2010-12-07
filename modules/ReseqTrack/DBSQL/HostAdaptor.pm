@@ -24,7 +24,7 @@ sub new {
 #update
 
 sub columns{
-  return "host.host_id, host.name, host.remote";
+  return "host.host_id, host.name, host.remote, host.dropbox_dir";
 }
 
 sub table_name{
@@ -38,7 +38,7 @@ sub fetch_all_local{
   my @hosts;
   my $sth = $self->prepare($sql);
   $sth->execute;
-  while(my ($rowHashref) = $sth->fetchrow_hashref){
+  while(my $rowHashref = $sth->fetchrow_hashref){
     my $host = $self->object_from_hashref($rowHashref);
     push(@hosts, $host);
   }
@@ -50,11 +50,13 @@ sub fetch_all_local{
 sub fetch_all_remote{
   my ($self) = @_;
   my $sql = "select ".$self->columns." from host where remote = 1";
+  #print "sql is: $sql\n";
   my $sth = $self->prepare($sql);
   $sth->execute;
   my @hosts;
-  while(my ($rowHashref) = $sth->fetchrow_hashref){
+  while(my $rowHashref = $sth->fetchrow_hashref){
     my $host = $self->object_from_hashref($rowHashref) ;
+#    print "host is " .$host->name . "\t host id is " . $host->dbID . "\n";
     push(@hosts, $host);
   }
   $sth->finish;
@@ -68,7 +70,7 @@ sub fetch_by_name{
   my $sth = $self->prepare($sql);
   $sth->bind_param(1, $name);
   $sth->execute;
-  my ($rowHashref) = $sth->fetchrow_hashref;
+  my $rowHashref = $sth->fetchrow_hashref;
   my $host = $self->object_from_hashref($rowHashref) if($rowHashref);
   $sth->finish;
   return $host;
@@ -101,7 +103,7 @@ sub update{
   my $sql = "update host ".
       "set name = ?, ".
       "remote = ?".
-      " where host_id = ?";
+     " where host_id = ?";
   my $sth = $self->prepare($sql);
   $sth->bind_param(1, $host->name);
   $sth->bind_param(2, $host->remote);
@@ -121,6 +123,7 @@ sub object_from_hashref{
        -adaptor => $self,
        -dbID => $hashref->{host_id},
        -remote => $hashref->{remote},
+       -dropbox_dir => $hashref->{dropbox_dir},
       );
   return $host;
 }

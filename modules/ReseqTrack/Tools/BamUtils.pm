@@ -12,9 +12,7 @@ use File::Find ();
 use vars qw (@ISA  @EXPORT);
 
 @ISA    = qw(Exporter);
-@EXPORT = qw(sum_bam_reads male_female_check );
-
-
+@EXPORT = qw(sum_bam_reads male_female_check move_bam_to_trash CHECK_AND_PARSE_FILE_NAME get_collection_name_from_file_name check_bas);
 
 
 =head2 sum_bam_reads
@@ -123,6 +121,189 @@ return  \%chrom_reads, $sex  ;
 
 }##
 
+sub  move_bam_to_trash {
+	my ($db2, $file, $run) = @_;
+	
+	my $full_name = $file->name;
+	my $filen = basename($full_name);
+
+	##### If a BAM file, remove it from collection
+	
+	if ($file->type eq "BAM" || $file->type eq "NCBI_BAM") {
+		my ($collection_name) = get_collection_name_from_file_name($full_name);
+		
+		if ($collection_name) {
+			my $ca = $db2->get_CollectionAdaptor;
+			my $exist_collection = $ca->fetch_by_name_and_type($collection_name, $file->type);
+			my @bams_to_remove;
+			push @bams_to_remove, $file;
+			$ca->remove_others($exist_collection, \@bams_to_remove) if ($exist_collection && $run);
+		}	
+	}	
+
+	##### Move the file to reject bin
+	my $reject_dir = "/nfs/1000g-work/G1K/drop/reject/";
+		
+	unless (-e $reject_dir) {
+		mkpath($reject_dir);
+	}
+				
+	my $new_file_path = $reject_dir . $filen;
+
+	print "old file path is $full_name and file path in reject bin is $new_file_path\n";					
+	`mv $full_name $new_file_path` if ($run);	 	
+	my $exit = $?>>8;
+	throw("mv failed\n") if ($exit >=1);
+	
+	
+	##### Make the change in the database, change type to REJECTED_BAM, BAS, or BAI, host_id will be 1, history will be changed	
+	my $ha = $db2->get_HostAdaptor;
+	my $fa = $db2->get_FileAdaptor;
+	my $new_host = $ha->fetch_by_name("1000genomes.ebi.ac.uk");
+	my $new_type = "REJECTED_" . $file->type;				
+	my $new_file_object = ReseqTrack::File->new
+ 	   (
+	      -adaptor => $fa,
+	      -dbID => $file->dbID,
+	      -name => $new_file_path,
+	      -md5 => $file->md5,
+	      -host => $new_host,
+	      -type => $new_type,
+	      -created => $file->created
+	   );
+			     
+	my $history_ref = $file->history;
+	my $history;
+	
+	if (!$history_ref || @$history_ref == 0) {     	  
+		$history = ReseqTrack::History->new(
+			-other_id => $file->dbID,
+			-table_name => 'file',
+			-comment => "Move file to reject bin while keep md5 unchanged", 
+		);
+		$new_file_object->history($history);
+	}
+	else {
+		my $comment = ReseqTrack::Tools::FileUtils::calculate_comment($file, $new_file_object); 
+		$history = ReseqTrack::History->new(
+			-other_id => $file->dbID,
+			-table_name => 'file',
+			-comment => $comment,
+		);
+		$new_file_object->history($history);
+	}
+	
+	$fa->update($new_file_object, 1) if($run);
+	            	
+	return 1;
+}
+
+sub get_collection_name_from_file_name {
+	my ($file_path) = @_;
+	
+	my ($sample, $platform, $algorithm, $project, $analysis, $chrom, $date) = CHECK_AND_PARSE_FILE_NAME($file_path);
+			
+	my $collection_name;
+	if ($sample && $platform && $algorithm && $project) {
+		$collection_name = join ('.', $sample, $platform, $algorithm, $project); ### date does not have to be the same for files in the same collection
+	}
+	elsif ($sample && $platform && $algorithm && $analysis) {
+		$collection_name = join ('.', $sample, $platform, $algorithm, $analysis); 
+	}
+	
+	return ($collection_name, $sample, $platform, $algorithm, $project, $analysis, $chrom, $date);			
+}
 
 
+#	EXAMPLES of BAM file names in pilots:
+#	NA19240.SLX.maq.SRP000031.2009_08.bam
+#	NA19238.chrom22.SLX.maq.SRP000032.2009_07.bam
+#	NA12004.SLX.maq.SRP000031.2009_09.unmapped.bam
+#	NA10851.SOLID.SRP000031.2009_08.unmapped.bam  - does not have algorithm; not worry  since it is not going to be in BAM collection
+	
+#	NA12878.chrom1.LS454.ssaha.CEU.high_coverage.20091216.bam  - newest convention that includes the analysis group concept 
+		
+#	In index files, platform formats are:	
+#	ABI_SOLID
+#	ILLUMINA
+#	LS454
 
+sub CHECK_AND_PARSE_FILE_NAME {
+	my ($file_path) = @_;
+	
+	my $file_name = basename($file_path);
+	my @segments = split (/\./, $file_name);
+	
+	#print "file name is $file_name\n" if ($verbose);
+	my $chr = 0;  ## this is to take care of BAMs that have all chromosomes merged
+	my ($sample, $platform, $algorithm, $project, $date, $pop, $analysis_grp);
+	if ( $file_path =~ /\/pilot_data\/data\// ) {  
+				
+		if ( $file_name =~ /chr/i  && @segments == 7 ) {
+			($sample, $chr, $platform, $algorithm, $project, $date) = split(/\./, $file_name);
+		}
+		elsif ( $file_name =~ /unmapped/  &&  @segments == 7) {	
+			($sample, $platform, $algorithm, $project, $date) = split(/\./, $file_name);
+		}
+		elsif (  $file_name =~ /unmapped/ &&  @segments == 6 ) {
+			($sample, $platform, $project, $date) = split(/\./, $file_name);
+		}	
+		elsif ( @segments == 6 ) {
+			($sample, $platform, $algorithm, $project, $date) = split(/\./, $file_name);
+		}	
+	}	
+	else {  
+		if (@segments == 7 && $file_name =~ /SRP/i) { ## main project naming convention, first version
+			($sample, $chr, $platform, $algorithm, $project, $date) = split(/\./, $file_name);
+		}
+		elsif (@segments == 7) { ## main project convention, all chromosomes merged, NCBI bams
+			($sample, $platform, $algorithm, $pop, $analysis_grp, $date) = split(/\./, $file_name);
+		}	
+		elsif (@segments == 8) { ## main project naming convention, latest version
+			unless ($file_name =~ /SRP/i)  {
+				($sample, $chr, $platform, $algorithm, $pop, $analysis_grp, $date) = split(/\./, $file_name);
+			}
+		}
+		else {	
+			throw("BAM file name $file_name does not fit naming convention\n");
+		}	
+	}
+	
+	### FIXME: need to do some controled vacabulary checks
+	unless ( ($sample =~ /^NA/ || $sample=~/^HG/) && (!$project || $project =~ /^SRP/) && $date =~ /2009|2010|2011/ ) {
+		if ($project) {
+			print "sample is $sample, project is $project, date is $date\n";
+		}
+		else {
+			print "sample is $sample, date is $date\n";
+		}	 	 
+		throw("BAM file name does not fit naming convention\n");	
+	}
+	
+	return ($sample, $platform, $algorithm, $project, $analysis_grp, $chr);	
+}		 
+
+sub check_bas {
+	
+	my ($bas_path) = @_;
+	
+	my $flag = 0;
+	
+	open (BAS, "<", $bas_path) || throw("Cannot open bas file $bas_path\n");
+
+	my $bas_basename = basename($bas_path);
+	$bas_basename =~ s/\.bam\.bas//;
+		
+	while (<BAS>) {
+		next if ($_ =~ /filename/);
+		
+		my @tmp = split (/\t/, $_);
+		my $bam_file_name = $tmp[0];
+		if ($bam_file_name ne $bas_basename) {
+			$flag = 1;
+		}	
+			
+	}
+	close BAS;
+	return $flag;	 
+}
