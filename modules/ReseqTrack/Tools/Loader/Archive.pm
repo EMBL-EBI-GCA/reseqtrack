@@ -24,12 +24,12 @@ sub new {
 
   my (
       $list_file, $path_like, $action, $action_location_name, $archive_sleep,
-      $priority,  $from_db,  $lines_check , $max_number,
+      $priority,  $from_db,  $lines_check , $max_number, $no_lock
      ) = rearrange(
 		   [
 		    qw(
      LIST_FILE PATH_LIKE ACTION ACTION_LOCATION_NAME  ARCHIVE_SLEEP
-     PRIORITY FROM_DB LINES_CHECK MAX_NUMBER
+     PRIORITY FROM_DB LINES_CHECK MAX_NUMBER NO_LOCK
      )
 		   ],
 		   @args
@@ -37,7 +37,8 @@ sub new {
    
   $self->lines_check (1);	# default 'on';
   $self->archive_sleep ("240");
-
+  
+  $self->no_lock ($no_lock);
   $self->lines_check($lines_check);
   $self->list_file($list_file);
   $self->path_like($path_like);
@@ -64,6 +65,7 @@ sub new {
   $self->set_location_root();
   $self->max_number ( $max_number);
  
+
   return $self;
 }
 
@@ -72,12 +74,13 @@ sub new {
 sub cleanup_archive_table{
   my ($self, $verbose) = @_;
 
+  my $no_lock = $self->no_lock;
   my $db = $self->db;
 
-  my $aa = $db->get_ArchiveAdaptor;
+  my $aa = $db->get_ArchiveAdaptor ($no_lock);
 
   my $archives = $aa->fetch_all;
-  if (!$archives){
+  if (!$archives) {
     print "Archive table is clean\n";
     return;
   }
@@ -91,31 +94,48 @@ sub cleanup_archive_table{
 
 
 sub DESTROY{
- my ( $self, $arg ) = @_;
+  my ( $self, $arg ) = @_;
+
+  # last thing to do is get rid of archive_lock.
+
+ 
+
+  my $aa = $self->archive_adaptor();
+ 
+  if ($aa) {
+    print "Deleting archive table lock\n";
+    $aa->delete_archive_lock();
+    print "Done\n";
+    return;
+  }
 
 
- my $aa = $self->archive_adaptor();
- if ($aa){
-   print "Deleting archive table lock\n";
-   $aa->delete_archive_lock();
- }else{
-   print "Failed to delete archive_lock\n";
- }
+  #if not "-run". Then archive_adaptor not created, so need one.
+  if (!$aa) {
+    print "Creating archive_adaptor\n";
+    my $aa = $self->db->get_ArchiveAdaptor;
+    print "Deleting archive table lock\n";
+    $aa->delete_archive_lock();
+    print "Done\n";
+    return;
+  }
 
- return;
+  print "Failed to delete archive_lock\n";
+
+  return;
 
 }
 
 
 sub archive_adaptor{
   my ( $self, $arg ) = @_;
-  if (defined $arg){
-   if ( ! ($arg->isa("ReseqTrack::DBSQL::ArchiveAdaptor")) ){
-     print ref ($arg), "\n";
-     throw "Passed object other than ArchiveAdaptor\n"       	
-   }
-   $self->{archive_adaptor} = $arg
- }
+  if (defined $arg) {
+    if ( ! ($arg->isa("ReseqTrack::DBSQL::ArchiveAdaptor")) ) {
+      print ref ($arg), "\n";
+      throw "Passed object other than ArchiveAdaptor\n"       	
+    }
+    $self->{archive_adaptor} = $arg
+  }
  
   return $self->{archive_adaptor};
 }
@@ -128,6 +148,8 @@ sub archive_objects {
   my $files_to_archive;
   my %file_objects;
 
+  print "in archive_objects\n";
+
  
   if (ref($tmp) eq 'ARRAY') {
     push(@$files_to_archive, @$tmp);
@@ -139,8 +161,15 @@ sub archive_objects {
    
   
   my $fa = $self->db->get_FileAdaptor;
-  my $aa = $self->db->get_ArchiveAdaptor;
-  
+
+
+  my $no_lock = $self->no_lock;
+  my $db = $self->db;
+  my $aa = $db->get_ArchiveAdaptor($no_lock);
+
+  #my $aa = $self->db->get_ArchiveAdaptor();
+  $self->archive_adaptor($aa);
+
   print "Starting archive of $total objects\n";
 
   foreach my $file_path (@{$files_to_archive}) {
@@ -166,13 +195,14 @@ sub archive_objects {
     $archive->priority( $self->priority );
  
     
-      has_to_many_archive_lines($self->max_number, $self->archive_sleep, $self->db) if($self->lines_check);
-      $aa->store($archive);
+    has_to_many_archive_lines($self->max_number, $self->archive_sleep,
+			      $self->db) if($self->lines_check);
+    $aa->store($archive);
    
    
   }
 
-  $self->archive_adaptor($aa);
+# $self->archive_adaptor($aa); RES move above after creation of $aa
 
   return;
 }
@@ -565,6 +595,12 @@ sub max_number{
   my ( $self, $arg ) = @_;
   $self->{max_number} = $arg if (defined $arg);
   return $self->{max_number};
+}
+
+sub no_lock{
+  my ( $self, $arg ) = @_;
+  $self->{no_lock} = $arg if (defined $arg);
+  return $self->{no_lock};
 }
 
 
