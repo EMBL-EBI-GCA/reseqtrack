@@ -269,12 +269,12 @@ sub sanity_check_objects {
     if ( $self->archive_location->location_name eq 'staging' ) {
 
       if ( -e $new_file ) {
-	print STDERR "Running replace on: ".$file."\n" if ($self->verbose);
+	print  "Running replace on: ".$file."\n" if ($self->verbose);
 	#    unless($action_string eq 'replace');
 	$which_action_hash{$file} = $$action_hash{'replace'};
 	
       } else {
-	print STDERR "Running archive on: ".$file."\n" if ($self->verbose);
+	print  "Running archive on: ".$file."\n" if ($self->verbose);
 	$which_action_hash{$file} = $$action_hash{'archive'};
       }
     } else {
