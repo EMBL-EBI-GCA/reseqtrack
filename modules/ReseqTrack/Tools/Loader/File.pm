@@ -165,6 +165,11 @@ print "Sanity check\n" if $self->verbose;
   throw("There are problems with the file types") if ( @wrong >= 1 );
  }
 
+
+ 
+
+
+
  print "Have " . @$files . " files to load\n" if $self->verbose;
  return;
 }
@@ -315,6 +320,11 @@ FILE: foreach my $file (@$files) {
    $file->md5($md5);
   }
   
+  if ( !$file->size && -e $file->full_path ) {
+    my $size = -s $file->full_path;
+    $file->size($size);
+  }
+
   eval {
    if ( $self->update_existing )
    {
