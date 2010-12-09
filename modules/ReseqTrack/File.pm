@@ -91,10 +91,6 @@ sub new {
     $self->updated($updated);
     #########
 
-    if ( !$self->size && -e $self->full_path ) {
-        my $size = -s $self->full_path;
-        $self->size($size);
-    }
     $self->withdrawn(0) unless ( defined( $self->withdrawn ) );
     return $self;
 }
@@ -122,6 +118,11 @@ sub size {
     my ( $self, $arg ) = @_;
     if ( defined($arg) ) {
         $self->{size} = $arg;
+    }
+    unless($self->{size}){
+      if(-e $self->full_path){
+         $self->{size} = -s $self->full_path;
+      }
     }
     return $self->{size};
 }
