@@ -84,10 +84,11 @@ sub fetch_by_filename{
   my ($self, $name) = @_;
   my $sql = "select ".$self->columns." from file ".
       "where name like ? ";
-  my $name_like = '%/'.$name;
+  my $name_like = '%'.$name;
   my $sth = $self->prepare($sql);
   $sth->bind_param(1, $name_like);
   $sth->execute;
+  #print "sql $sql\n";
   my @files;
   while(my $rowHashref = $sth->fetchrow_hashref){
     #print "Have rowHashref ".$rowHashref."\n";

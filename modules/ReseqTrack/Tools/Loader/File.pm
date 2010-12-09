@@ -140,7 +140,7 @@ print "Sanity check\n" if $self->verbose;
    $bad{$i} = "Duplicate file name:";
   }
  }
- if ( keys %bad ) {
+ if ( keys %bad && $self->hostname eq "1000genomes.ebi.ac.uk") { # don't throw when it is remote host loading
   warning "Found the following problems:\n";
   foreach my $i ( keys %bad ) {
    print STDERR $bad{$i}, $i, "\n";

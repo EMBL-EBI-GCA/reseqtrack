@@ -82,9 +82,10 @@ sub are_files_identical{
     warning("You are going to undefined the md5 of ".$two->name);
     return 0;
   }
-  if($one->size && $two->size){
+  if( ($one->size || $one->size == 0) && ($two->size || $two->size ==0)){
     return 0 unless($one->size eq $two->size);
   }
+  #  print "obj1 " . $one->name . " size " . $one->size . " obj2 " .  $two->name . " size " . $two->size ."\n";  
   return 0 unless($one->type eq $two->type);
   return 0 unless($one->host->name eq $two->host->name);
   return 0 unless($one->withdrawn eq $two->withdrawn);
