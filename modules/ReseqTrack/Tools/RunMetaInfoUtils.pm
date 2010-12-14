@@ -377,7 +377,7 @@ sub get_analysis_group{
 }
 
 sub get_sequence_index_stats{
-  my ($index_file, $summary_column, $stats_column) = @_;
+  my ($index_file, $summary_column, $stats_column, $run_id_hash) = @_;
   open(FH, $index_file) or 
       throw("ReseqTrack::Tools::RunMetaInfoUtils::get_sequence_index_stats ".
             "failed to open ".$index_file." $!");
@@ -386,6 +386,7 @@ sub get_sequence_index_stats{
     next if(/SUBMISSION_ID/);
     chomp;
     my @values = split /\t/;
+    next if($run_id_hash && !($run_id_hash->{$values[2]}));
     $values[10] = convert_population($values[10], $values[2]);
     $values[5] = convert_center_name($values[5]);
     next if($values[20]);
@@ -401,7 +402,7 @@ sub get_sequence_index_stats{
 }
 
 sub get_index_group_stats{
-  my ($index_file, $first_column, $second_column, $stats_column) = @_;
+  my ($index_file, $first_column, $second_column, $stats_column, $run_id_hash) = @_;
    open(FH, $index_file) or 
       throw("ReseqTrack::Tools::RunMetaInfoUtils::get_sequence_index_stats ".
             "failed to open ".$index_file." $!");
@@ -410,6 +411,7 @@ sub get_index_group_stats{
     next if(/SUBMISSION_ID/);
     chomp;
     my @values = split /\t/;
+    next if($run_id_hash && !($run_id_hash->{$values[2]}));
     $values[10] = convert_population($values[10], $values[2]);
     $values[5] = convert_center_name($values[5]);
     next if($values[20]);
@@ -420,7 +422,7 @@ sub get_index_group_stats{
 }
 
 sub get_withdrawn_summary{
-  my ($index_file) = @_;
+  my ($index_file, $run_id_hash) = @_;
   open(FH, $index_file) or 
       throw("ReseqTrack::Tools::RunMetaInfoUtils::get_withdrawn_summary ".
             "failed to open ".$index_file." $!");
@@ -429,6 +431,7 @@ sub get_withdrawn_summary{
     next if(/SUBMISSION_ID/);
     chomp;
     my @values = split /\t/;
+    next if($run_id_hash && !($run_id_hash->{$values[2]}));
     next unless($values[20]);
     my $reason = $values[22];
     $hash{$reason}++;

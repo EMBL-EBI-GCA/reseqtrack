@@ -31,7 +31,7 @@ my $summary = 1;
 my $verbose;
 my $public_type = 'FILTERED_FASTQ';
 my $collection_type = 'STUDY_TYPE';
-my $study_id_list;
+my $study_id_file;
 my $update_collections;
 
 &GetOptions( 
@@ -54,7 +54,8 @@ my $update_collections;
 	    'public_type=s' => \$public_type,
 	    'help!' => \$help,
 	    'collection_type:s' => \$collection_type,
-	    'study_id_list:s' => \$study_id_list,
+	    'study_id_file:s' => \$study_id_file,
+	    'update_collections!' => \$update_collections,
     );
 
 if($help){
@@ -75,7 +76,7 @@ if($update_existing || $store_new){
   $update_collections = 1;
 }
 
-if(($store_new + $update_existing + $fix_sample + $withdraw_suppressed + $check_individual) == 0){
+if(($store_new + $update_existing + $fix_sample + $withdraw_suppressed + $check_individual + $update_collections) == 0){
   print STDERR "There script has nothing to do you need to specify at least ".
       "one of -store_new, -update_existing, -fix_sample, -withdraw_suppressed ".
       " or -all to have everything run\n";
@@ -212,7 +213,86 @@ if($update_existing){
 $run = $original_run;
 
 if($update_collections){
-
+  my $ca = $reseq_db->get_CollectionAdaptor;
+  my $study_id_hash = parse_study_id_list($study_id_file);
+  my $rmis = $dcc_rmi_a->fetch_all;
+  my %study_id_to_rmi;
+  foreach my $rmi(@$rmis){
+    $study_id_to_rmi{$rmi->study_id}{$rmi->run_id} = $rmi;
+  }
+  my $existing_collections = $ca->fetch_by_type($collection_type);
+  my %collection_hash;
+  foreach my $collection(@$existing_collections){
+    $collection_hash{$collection->name} = $collection;
+  }
+  unless($run){
+    print STDERR "\n";
+    print STDERR "Do you want to update the collections on these runs\n";
+    print STDERR "Answer y or n :\n";
+    if(get_input_arg()){
+      $run = 1;
+    }else{
+      exit(0);
+    }
+  }
+  foreach my $name(keys(%$study_id_hash)){
+    my $collection = $collection_hash{$name};
+    my $study_list_hash = $study_id_hash->{$name};
+    my @rmis;
+    my %run_id_to_rmi;
+    foreach my $study_id(keys(%$study_list_hash)){
+      my $rmi_hash = $study_id_to_rmi{$study_id};
+      my @rmis_from_study = values(%$rmi_hash);
+      foreach my $rmi(@rmis_from_study){
+	$run_id_to_rmi{$rmi->run_id} = $rmi;
+      }
+      push(@rmis, @rmis_from_study);
+    }
+    unless($collection){
+      $collection = ReseqTrack::Collection->new(
+						-name => $name,
+						-others => \@rmis,
+						-type => $collection_type,
+						-table_name => 'run_meta_info',
+					       );
+      $collection_hash{$name} = $collection;
+    }else{
+      my $collection_rmis = $collection->others;
+      my @collection_run_ids;
+      my @run_ids = keys(%run_id_to_rmi);
+      foreach my $other(@$collection_rmis){
+	push(@collection_run_ids, $other->run_id);
+      }
+      my $file_set = ReseqTrack::Tools::Intersection->new(
+							  -list => \@run_ids,
+							 );
+      my $db_set = ReseqTrack::Tools::Intersection->new
+	(
+	 -list => \@collection_run_ids,
+	);
+      my $not_in_file = $db_set->not($file_set);
+      my $not_in_db = $file_set->not($db_set);
+      my $db_and_file = $db_set->and($file_set);
+      #add new to collection
+      foreach my $run_id(@{$not_in_db->list}){
+	my $rmi = $run_id_to_rmi{$run_id};
+	throw("Failed to find a rmi for ".$run_id) unless($rmi);
+	$collection->other($collection);
+      }
+      $collection_hash{$name} = $collection;
+      #remove old from collection
+      my @rmis_to_remove;
+      foreach my $run_id(@{$not_in_file->list}){
+	my $rmi = $run_id_to_rmi{$run_id};
+	push(@rmis_to_remove, $rmi);
+      }
+      $ca->remove_others($collection, \@rmis_to_remove) if($run);
+    }
+  }
+  foreach my $name(keys(%collection_hash)){
+    my $collection = $collection_hash{$name};
+    $ca->store($collection, 1);
+  }
 }
 $run = $original_run;
 #fix sample swaps

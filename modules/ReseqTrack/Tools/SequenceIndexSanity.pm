@@ -467,26 +467,41 @@ sub check_analysis_group{
   my ($file) = @_;
   open(FH, $file) or throw("IndexUtils:has_empty_columns failed to open ".
                            $file." $!");
+  my %analysis_group;
+  $analysis_group{'low coverage'} = 1;
+  $analysis_group{'high coverage'} = 1;
+  $analysis_group{'exon targetted'} = 1;
+  $analysis_group{'exome'} = 1;
   my %sanity_hash;
-  my %hash;
-  $hash{'SRP000032'} = 'high coverage';
-  $hash{'SRP000033'} = 'exon targetted';
   while(<FH>){
     chomp;
-    next if(/SUBMISSION_ID/);
+    next if(/SUBMISSION/);
     my @values = split /\t/, $_;
-    my $key = $values[0];
-    if($values[25]){
-      my $analysis_group = $hash{$values[3]};
-      $analysis_group = 'low coverage' unless($analysis_group);
-      my $problem = $key." has the incorrect analysis group ".
-          $values[3]." should have ".$analysis_group." not ".$values[25];
-      unless($analysis_group eq $values[25]){
-        $sanity_hash{$key} = $problem;
-      }
+    my $file = $values[0];
+    my $analysis_group = $values[25];
+    my $study_id = $values[5];
+    if(!$analysis_group){
+       $sanity_hash{$file} = $file." does not have an analysis group defined in column 25 ";
+       next;
+     }
+    unless($analysis_group{$analysis_group}){
+      $sanity_hash{$file} = $file." does not have an correct analysis group defined in column 25 but ".$analysis_group;
     }else{
-      my $problem = $key." has no analysis group defined";
-      $sanity_hash{$key} = $problem;
+      if($study_id eq 'SRP000032'){
+	unless($analysis_group eq 'high coverage'){
+	  $sanity_hash{$file} = $file." has the wrong analysis group ".$analysis_group." when it should have high coverage";
+	}
+      }
+      if($study_id eq 'SRP000033'){
+	unless($analysis_group eq 'exon targetted'){
+	  $sanity_hash{$file} = $file." has the wrong analysis group ".$analysis_group." when it should have exon targetted";
+	}
+      }
+      if($study_id eq 'SRP000031'){
+	unless($analysis_group eq 'low coverage'){
+	  $sanity_hash{$file} = $file." has the wrong analysis group ".$analysis_group." when it should have low coverage";
+	}
+      }
     }
   }
   close(FH);
@@ -746,6 +761,7 @@ sub check_column_25{
   $analysis_group{'low coverage'} = 1;
   $analysis_group{'high coverage'} = 1;
   $analysis_group{'exon targetted'} = 1;
+  $analysis_group{'exome'} = 1;
   return 0 unless($value);
   return 0 unless($analysis_group{$value});
   return 1;

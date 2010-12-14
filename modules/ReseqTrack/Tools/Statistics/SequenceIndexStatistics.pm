@@ -312,7 +312,6 @@ sub fetch_index_files{
 
 sub make_stats{
   my ($self) = @_;
-
   my ($run, $sample,$pop,$platform,$center) = $self->parse_index($self->new_index);
   $self->new_per_sample($sample);
   $self->new_per_population($pop);
@@ -346,8 +345,8 @@ sub make_stats{
 
 
 sub parse_index{
-  my ($self, $index) = @_;
-
+  my ($self, $index, $run_id_hash) = @_;
+  $run_id_hash = $self->get_run_id_hash() unless($run_id_hash);
   my $hash = get_index_hash($index);
   my %per_run;
   my %per_sample;
@@ -361,8 +360,10 @@ sub parse_index{
     if($values[5] eq 'ABHTD'){
       $values[5] = 'ABI';
     }
-    next if($values[3] eq 'SRP000032' && $self->skip_p2);
-    next if($values[3] eq 'SRP000033' && $self->skip_p3);
+    unless($run_id_hash->{$values[2]}){
+      #print STDERR "Skipping ".$values[2]." ".$values[3]."\n";
+      next;
+    }
     unless($values[24] =~ /^\d+$/){
       throw($file." doesn't see to have a base count");
     }
@@ -426,6 +427,7 @@ sub calculate_summary_stats{
   $stats_hash{new}{'# Samples'} = keys(%$new_sample);
   foreach my $sample(keys(%$new_sample)){
     #samples which are greater than 4x have more than 12Gb of sequence
+    print STDERR $sample." ".$new_sample->{$sample}."\n" if($sample eq 'HG00181');
     $stats_hash{new}{'# Samples greater than 10Gb'}++ 
       if($new_sample->{$sample} > 10000000000);
   }

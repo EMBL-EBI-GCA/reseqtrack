@@ -59,7 +59,7 @@ sub current_time{
 =head2 current_date
 
   Arg [1]   : n/a
-  Function  : returns the current time in the from yyyy-mm-dd
+  Function  : returns the current time in the from yyyymmdd
   Returntype: see above
   Exceptions: none
   Example   : my $time = current_time
@@ -203,6 +203,7 @@ sub convert_to_giga{
 sub calculate_coverage{
   my ($base_count, $genome_size) = @_;
   $genome_size = 2850000000 unless($genome_size);
+  return $base_count unless($base_count && $base_count >= 1);
   return $base_count/$genome_size;
 }
 

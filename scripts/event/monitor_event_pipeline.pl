@@ -136,7 +136,9 @@ if ($finished_percent) {
         throw("Don't have an event for " . $logic) unless ($event);
         my $num_complete    = $completed_event->{$logic}->{$event->type};
         my $number_input    = $input_hash->{$event->name};
-        my $percent         = ($num_complete / $number_input) * 100;
+        my $percent         = ($num_complete / $number_input) * 100 
+	  if($num_complete && $number_input);
+	$percent = 0 unless($percent);
         my $rounded_percent = sprintf("%.2f", $percent);
         print $logic. " " . $rounded_percent . "%\n";
     }

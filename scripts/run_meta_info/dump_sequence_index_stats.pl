@@ -5,7 +5,7 @@ use strict;
 use ReseqTrack::Tools::Exception;
 use ReseqTrack::Tools::RunMetaInfoUtils;
 use ReseqTrack::Tools::GeneralUtils;
-
+use ReseqTrack::DBSQL::DBAdaptor;
 use Getopt::Long;
 use File::Basename;
 
@@ -16,13 +16,27 @@ my $output_dir;
 my $output_name;
 my $help;
 my $clobber;
+my $collection_type = 'STUDY_TYPE';
+my $collection_name;
+my $dbhost;
+my $dbuser;
+my $dbpass;
+my $dbport = 4197;
+my $dbname;
 
 &GetOptions( 
-  'index_file=s' => \$index_file,
-  'output_dir=s' => \$output_dir,
-  'output_name=s' => \$output_name,
-  'help!' => \$help,
-  'clobber!' => \$clobber,
+	    'dbhost=s'       => \$dbhost,
+	    'dbname=s'       => \$dbname,
+	    'dbuser=s'       => \$dbuser,
+	    'dbpass=s'       => \$dbpass,
+	    'dbport=s'       => \$dbport,
+	    'index_file=s' => \$index_file,
+	    'output_dir=s' => \$output_dir,
+	    'output_name=s' => \$output_name,
+	    'help!' => \$help,
+	    'collection_type:s' => \$collection_type,
+	    'collection_name:s' => \$collection_name,
+	    'clobber!' => \$clobber,
     );
 
 if($help){
@@ -36,6 +50,15 @@ throw("Can't dump stats without an index file you must pass on in using ".
 throw("Can't output to ".$output_dir." directory it doesn't exist")
     unless($output_dir && -d $output_dir);
 
+my $db = ReseqTrack::DBSQL::DBAdaptor->new(
+  -host   => $dbhost,
+  -user   => $dbuser,
+  -port   => $dbport,
+  -dbname => $dbname,
+  -pass   => $dbpass,
+    );
+
+
 unless($output_name){
   my $index_name = basename($index_file);
   $output_name = $index_name;
@@ -46,12 +69,32 @@ my $full_output_path = $output_dir."/".$output_name;
 if(-e $full_output_path){
   throw("Can't use ".$full_output_path." as it already exists") unless($clobber);
 }
-my $withdrawn_hash = get_withdrawn_summary($index_file);
-my $study_hash = get_sequence_index_stats($index_file, 3, 24);
+
+my @rmis;
+
+
+if($collection_name && $collection_type){
+  my $ca = $db->get_CollectionAdaptor;
+  my $collection =  $ca->fetch_by_name_and_type($collection_name, $collection_type);
+  @rmis = @{$collection->others};
+}else{
+  my $rmia = $db->get_RunMetaInfoAdaptor;
+  @rmis = @{$rmia->fetch_all};
+}
+
+my %run_id_hash;
+
+foreach my $rmi(@rmis){
+  $run_id_hash{$rmi->run_id} = 1;
+}
+
+
+my $withdrawn_hash = get_withdrawn_summary($index_file, \%run_id_hash);
+my $study_hash = get_sequence_index_stats($index_file, 3, 24, \%run_id_hash);
 my $study_desc = get_study_descriptions($index_file);
-my $center_hash = get_index_group_stats($index_file, 5, 3, 24);
-my $pop_hash = get_sequence_index_stats($index_file, 10, 24);
-my $sample_hash = get_sequence_index_stats($index_file, 9, 24);
+my $center_hash = get_index_group_stats($index_file, 5, 3, 24, \%run_id_hash);
+my $pop_hash = get_sequence_index_stats($index_file, 10, 24, \%run_id_hash);
+my $sample_hash = get_sequence_index_stats($index_file, 9, 24, \%run_id_hash);
 
 open(FH, ">".$full_output_path) or throw("Failed to open ".$full_output_path." $!");
 #print withdrawn summary

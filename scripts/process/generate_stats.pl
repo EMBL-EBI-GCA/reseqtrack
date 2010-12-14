@@ -20,6 +20,8 @@ my $sequence;
 my $alignment;
 my $sequence_module = 'ReseqTrack::Tools::Statistics::SequenceIndexStatistics';
 my $alignment_module = 'ReseqTrack::Tools::Statistics::AlignmentIndexStatistics';
+my $collection_type;
+my $collection_name;
 my $help = 0;
 &GetOptions( 
 	    'dbhost=s'       => \$dbhost,
@@ -32,6 +34,8 @@ my $help = 0;
 	    'module=s' => \$module,
 	    'sequence!' => \$sequence,
 	    'alignment!' => \$alignment,
+	    'collection_type:s' => \$collection_type,
+	    'collection_name:s' => \$collection_name,
 	    'help!' => \$help,
 	   );
 
@@ -59,6 +63,12 @@ if($@){
   throw("Couldn't require $file $@");
 }
 
+unless($collection_type && $collection_name){
+  warning("No collection type or collection name defined will give stats on entire ".
+	  "run meta info table");
+  sleep(5);
+}
+
 my $db = ReseqTrack::DBSQL::DBAdaptor->new(
   -host   => $dbhost,
   -user   => $dbuser,
@@ -72,6 +82,8 @@ my $stats = $module->new(
 			 -db => $db,
 			 -new_index => $new_index_file,
 			 -old_index => $old_index_file,
+			 -collection_type => $collection_type,
+			 -collection_name => $collection_name,
 			);
 
 $stats->make_stats;

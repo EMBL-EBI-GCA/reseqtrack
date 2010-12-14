@@ -24,18 +24,20 @@ my $run;
 my $help;
 my $type;
 my $skip_defined;
+my $dir;
 
 &GetOptions(
-  'dbhost=s'       => \$dbhost,
-  'dbname=s'       => \$dbname,
-  'dbuser=s'       => \$dbuser,
-  'dbpass=s'       => \$dbpass,
-  'dbport=s'       => \$dbport,
-  'md5_file=s' => \$md5_file,
-  'skip_defined!' => \$skip_defined,
-  'help!' => \$help,
-  'type=s' => \$type,
-  'run!' => \$run,
+	    'dbhost=s'       => \$dbhost,
+	    'dbname=s'       => \$dbname,
+	    'dbuser=s'       => \$dbuser,
+	    'dbpass=s'       => \$dbpass,
+	    'dbport=s'       => \$dbport,
+	    'md5_file=s' => \$md5_file,
+	    'skip_defined!' => \$skip_defined,
+	    'help!' => \$help,
+	    'type=s' => \$type,
+	    'dir=s' => \$dir,
+	    'run!' => \$run,
     );
 
 if($help){
@@ -65,6 +67,15 @@ my $fa = $db->get_FileAdaptor;
 my $files;
 if($type){
   $files = $fa->fetch_by_type($type);
+}elsif($dir){
+  my ($paths) = list_files_in_dir($dir, 1);
+  foreach my $path(@$paths){
+    my $file = $fa->fetch_by_name($path);
+    unless($file){
+      next;
+    }
+    push(@$files, $file) if($file);
+  }
 }else{
   $files = $fa->fetch_all;
 }
@@ -73,9 +84,6 @@ my %file_hash;
 
 foreach my $file(@$files){
   unless($file_hash{$file->name}){
-    if($file->filename eq 'NA19026.nonchrom.LS454.ssaha2.SRP000033.20091216.bam.bas'){
-      print "Have file ".$file->path."\n";
-    }
     $file_hash{$file->filename} = $file;
   }else{
     print "Have duplicate for ".$file->name." in ".$file_hash{$file->filename}->name

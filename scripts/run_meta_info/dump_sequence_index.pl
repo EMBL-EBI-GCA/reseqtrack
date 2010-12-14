@@ -25,22 +25,24 @@ my $root_trim = '/nfs/1000g-archive/vol1/ftp/';
 my $single_run_id;
 my @skip_study_ids;
 my $test_id;
+my $study_collection_type = 'STUDY_TYPE';
 
-&GetOptions( 
-  'dbhost=s'      => \$dbhost,
-  'dbname=s'      => \$dbname,
-  'dbuser=s'      => \$dbuser,
-  'dbpass=s'      => \$dbpass,
-  'dbport=s'      => \$dbport,
-  'type=s' => \$type,
-  'table_name=s' => \$table_name,
-  'help!' => \$help,
-  'output_file=s' => \$output_file,
-  'trim_paths!' => \$trim_paths,
-  'root_trim=s' => \$root_trim,
-  'skip_study_id=s@' => \@skip_study_ids,
-  'run_id=s' => \$single_run_id,
-    );
+&GetOptions(
+	    'dbhost=s'      => \$dbhost,
+	    'dbname=s'      => \$dbname,
+	    'dbuser=s'      => \$dbuser,
+	    'dbpass=s'      => \$dbpass,
+	    'dbport=s'      => \$dbport,
+	    'type=s' => \$type,
+	    'table_name=s' => \$table_name,
+	    'help!' => \$help,
+	    'output_file=s' => \$output_file,
+	    'trim_paths!' => \$trim_paths,
+	    'root_trim=s' => \$root_trim,
+	    'skip_study_id=s@' => \@skip_study_ids,
+	    'run_id=s' => \$single_run_id,
+	    'study_collection_type:s' => \$study_collection_type,
+	   );
 
 if($help){
   useage();
@@ -58,6 +60,16 @@ my %skip_study_id;
 my %staging_area;
 foreach my $study_id(@skip_study_ids){
   $skip_study_id{$study_id} = 1;
+}
+
+my $ca = $db->get_CollectionAdaptor;
+my $study_collections = $ca->fetch_by_type($study_collection_type);
+my %study_collection_hash;
+foreach my $collection(@$study_collections){
+  my $others = $collection->others;
+  foreach my $other(@$others){
+    $study_collection_hash{$other->run_id} = $collection->name;
+  }
 }
 #get meta info
 #find files or collections based on type
@@ -80,7 +92,7 @@ if($table_name eq 'file'){
 my %index_lines;
  META_INFO:foreach my $meta_info(@sorted){
    print "Have ".$meta_info->run_id."\n";
-   my $analysis_group = get_analysis_group($meta_info);
+   my $analysis_group = $study_collection_hash{$meta_info->run_id};
    if($single_run_id){
      #print STDERR "Comparing ".$meta_info->run_id." to ".$single_run_id."\n";
      next META_INFO unless($meta_info->run_id eq $single_run_id);

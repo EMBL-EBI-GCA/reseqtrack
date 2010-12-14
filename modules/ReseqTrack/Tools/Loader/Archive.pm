@@ -184,7 +184,8 @@ sub archive_objects {
     unless ( $file_objects{$file_path} ) {
       $file = $fa->fetch_by_name($file_path);
       if ( !$file ) {
-	throw( "Failed to fetch file from " . $file_path );
+	warning( "Failed to fetch file from " . $file_path );
+	next;
       }
     } else {
       $file = $file_objects{$file_path};

@@ -415,7 +415,11 @@ sub convert_population{
     $pop = 'IBS';
   }elsif($string =~ /IBS/i){
     $pop = 'IBS';
-  }else{
+ }elsif($string =~ /GIH/){
+   $pop = 'GIH';
+ }elsif($string =~ /MKK/){
+   $pop = 'MKK';
+ }else{
     throw("Failed to find pop for ".$string." ".$run_id." ".$study_id);
    }
   return $pop;

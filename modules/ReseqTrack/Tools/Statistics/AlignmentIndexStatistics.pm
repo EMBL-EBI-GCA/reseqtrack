@@ -35,8 +35,7 @@ use ReseqTrack::Tools::AlignmentIndexUtils;
 use ReseqTrack::Tools::ERAUtils;
 use ReseqTrack::Tools::GeneralUtils;
 use ReseqTrack::Tools::Statistics;
-#use lib '/homes/zheng/reseq-personal/zheng/lib/';
-#use AlignmentIndexUtils;
+
 
 @ISA = qw(ReseqTrack::Tools::Statistics);
 
@@ -319,8 +318,7 @@ sub make_stats{
 sub get_population {
 	my ($self) = @_;	
 
-	my $rmia = $self->db->get_RunMetaInfoAdaptor;
-	my $rmis = $rmia->fetch_all();
+	my $rmis = $self->rmis;
 	
 	my %populations;
 	my %ind_to_pop;
@@ -342,11 +340,6 @@ sub get_population {
   Returntype: array of hashrefs
   Exceptions: throw if a run doesn't have a base count
   Example   : my ($bp_cnt_hash, $bp_cnt_by_pop_hash, $sample_cnt_hash) = $self->parse_bas($self->new_index);
-
-			BAS example:
-			#NA06984.chrom1.LS454.ssaha2.SRP000033.20091216  19681cef2963bbe39ec0fcb91ad97a07
-  			#SRP000033       NA06984 LS454   4NG_TG-P3_063sA SRR006041       49846991
-  			#44182008 150000  150000  0       0       1.10    25.38   0       0       0       0
   			
 =cut
 
@@ -358,17 +351,17 @@ sub parse_bas {
 	my %sample_cnt_hash;
 	my %bp_by_pop_hash;
 	my $individual_to_pop = $self->ind_pop_hash;
-	
+	my $run_id_hash = $self->run_id_hash;
 	foreach my $file (keys(%{$hash})){
 		foreach my $line ( @{$hash->{$file}} ) {
 			next if( $line =~ /bam_filename/i);
 			my @values = split /\t/, $line;
 			#print STDERR "line is $line\n";
 			my $read_group = $values[6];
+                        next unless($run_id_hash{$values[6]});
   			my $individual = $values[3];
   			my $population = $individual_to_pop->{$individual};
   			my $study = $values[2];
-  			next if($study eq 'SRP000032' || $study eq 'SRP000033');
   			my $platform = $values[4];
   			my $mapped_bp = $values[8];
 		    $bp_hash{$platform}->{$individual} += $mapped_bp;

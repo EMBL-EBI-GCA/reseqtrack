@@ -302,6 +302,9 @@ if($syntax){
       my @sorted = sort {$a <=> $b} @indexes;
     INDEX:foreach my $index(@sorted){
       my $name = $name_to_index->{$index};
+      if(!$name){
+	throw("Failed to get name from ".$index);
+      }
       my $value = $column_check_results->{$key}->{$index};
       if(defined($value)){
         print $name." ".$index." has ".$value." rather that the correct form\n";
