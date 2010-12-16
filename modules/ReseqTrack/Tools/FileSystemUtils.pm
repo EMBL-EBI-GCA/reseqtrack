@@ -321,6 +321,7 @@ sub check_md5 {
 
 sub dump_dirtree_summary{
   my ($input_dir, $output_file, $skip_regex, $fa) = @_;
+  my $no_md5s = 0;
   $skip_regex = 'current.tree';
   my ($files, $hash) = list_files_in_dir($input_dir, 1);
   my $fh;
@@ -363,15 +364,31 @@ sub dump_dirtree_summary{
       print $fh "\n";
       $dirs{$mod_dir} = 1;
     }
+
     my $md5sum = '';
     $md5sum = $file_md5s{$file};
-    warning($file." has no md5") unless($md5sum);
+
+    #warning($file." has no md5") unless($md5sum);
+    if (!$md5sum){
+      print STDERR  "$file has no md5\n";
+      $no_md5s++;
+    }
+
     my $size = -s $file;
     my $date_string = ctime(stat($file)->mtime);
     $label = 'file';
     $file =~ s/$trim//;
     print $fh join("\t", $file, $label, $size, $date_string);
-    print $fh "\t".$md5sum if($fa);
+
+   # print $fh "\t".$md5sum if($fa);
+   # print $fh "\n";
+
+    if  ($md5sum){
+      print $fh "\t". $md5sum;
+    }
+    else{
+      print $fh "\t";
+    }
     print $fh "\n";
   }
   close($fh);
