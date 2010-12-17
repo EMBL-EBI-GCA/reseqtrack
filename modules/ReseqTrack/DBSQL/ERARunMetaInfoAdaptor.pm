@@ -135,6 +135,9 @@ sub object_from_hashref{
   if(!$new_date && $hashref->{SUBMISSION_DATE}){
     throw("Failed to convert ".$hashref->{SUBMISSION_DATE});
   }
+  if(!$hashref->{POPULATION}){
+    $hashref->{POPULATION} = $hashref->{STUDY_NAME};
+  }
   my $population = convert_population($hashref->{POPULATION}, $hashref->{RUN_ID}, $hashref->{STUDY_ID});
   my $center_name = convert_center_name($hashref->{CENTER_NAME});
   my $object = ReseqTrack::RunMetaInfo->new(
@@ -219,6 +222,8 @@ sub convert_center_name{
 
 sub convert_population{
   my ($string, $run_id, $study_id) = @_;
+  throw("Can't convert an empty string for ".$run_id." ".$study_id)
+    unless($string);
   my $pop;
   if($string =~ /yri/i){
     $pop = 'YRI';
