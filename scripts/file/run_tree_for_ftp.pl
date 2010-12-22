@@ -80,20 +80,20 @@ if ( !$output_path) {
 } else {
   $new_tree_file  = $output_path;
 }
-sleep(3);
 
 
 
 
-check_destinations($STAGING_DIR );
+
+check_destinations($STAGING_DIR);
 
 my $dbA = ReseqTrack::DBSQL::DBAdaptor->new(
-  -host => $dbhost,
-  -user => $dbuser,
-  -port => $dbport,
-  -dbname => $dbname,
-  -pass => $dbpass,
-    );
+					    -host => $dbhost,
+					    -user => $dbuser,
+					    -port => $dbport,
+					    -dbname => $dbname,
+					    -pass => $dbpass,
+					   );
 
 throw "No DB connection established\n" if (! $dbA);
 
@@ -121,7 +121,7 @@ if ( ! ($check_old)  && ! ($check_new) ) {
   $old_tree_md5 = $old_tree->md5;
 
 
-  die "Failed to get old_tree_md5\n" if (! $old_tree_md5 );
+  throw "Failed to get old_tree_md5\n" if (! $old_tree_md5 );
 
 
   
@@ -129,8 +129,7 @@ if ( ! ($check_old)  && ! ($check_new) ) {
   dump_dirtree_summary($dir_to_tree,  $new_tree_file, undef, $fa);
 
 
- 
-  die "Failed to get new_tree_md5\n" if (! -e  $new_tree_file );
+  throw "Failed to get new_tree_md5\n" if (! -e  $new_tree_file );
   print "Getting md5 of $new_tree_file\n";
   $new_tree_md5 = run_md5( $new_tree_file);
 
@@ -140,9 +139,8 @@ if ( ! ($check_old)  && ! ($check_new) ) {
   print "ftp current.tree md5     = ", $old_tree_md5,"\n";
   print "Todays current.tree file = ", $new_tree_md5,"\n";
 
-} 
-else {
- # warning "Running in test mode, just comparing files\n";
+} else {
+  # warning "Running in test mode, just comparing files\n";
   $test = 1;
   print "check_new: $check_new\n";
   print "check_old: $check_old\n";
@@ -154,6 +152,10 @@ else {
   $test_mode = 1;
 }
 
+
+
+
+
 print "new $new_tree_md5\n";
 print "old $old_tree_md5 \n";
 
@@ -163,7 +165,7 @@ if ($new_tree_md5 ne $old_tree_md5) {
   #create changelog files.
   my $DIFFTREE="ReseqTrack::Tools::AutoDiffTree";
 
-  
+
 
   my $tree_diffs = $DIFFTREE->new(
 				  -verbose       => $verbose,
@@ -175,11 +177,7 @@ if ($new_tree_md5 ne $old_tree_md5) {
 
   $tree_diffs->create_log_files;
  
-  if ( $test_mode){
-    print "In test mode comparing files. No database loading/archiving occurring\n";
-    exit;
 
-  }
 
   my $files_to_process = $tree_diffs->files_to_archive_array();
 
@@ -192,14 +190,54 @@ if ($new_tree_md5 ne $old_tree_md5) {
 
   push (@$files_to_process , $new_tree_file );
 
-  foreach my $i (@$files_to_process) {
-    print "process: $i\n";
-  }
+  foreach my $file (@$files_to_process) {
+    print "process: $file\n";
+    chmod (0755,$file);
+  }  
  
-  
-  
+  my $problem = 0;
+
+  foreach my $file (@$files_to_process) {
+
+    my $fa = $dbA->get_FileAdaptor;
+
+    my $possible_existing = $fa->fetch_by_filename( basename($file) );
+
+    if ( ($file =~ /CHANGELOG/) || ($file =~ /current\.tree/) ){
+
+	 if (scalar (@$possible_existing) !=1){
+	  print "\nProblem:\n";
+	  print "$file should be in db.\n";
+	  print "Cannot find\n";
+  	  $problem++;
+ 	 } 
+
+       }
+	else{
+	 if (scalar (@$possible_existing) > 0){
+  	  print "Problem:\n";
+	  print "$file should not be in db.\n";
+	  print "It is dated changelog file and already exists\n";
+          $problem ++;
+ 	}
+       } 
+
+  }
+
+  if ( $problem ){
+    throw "Have got inconsistent file name problems\n";
+  }
+
+
+  if ( $test_mode) {
+    print "In test mode comparing files. No database loading/archiving occurring\n";
+    exit;
+
+  }
+
+ 
   my $loader = ReseqTrack::Tools::Loader::File->new( 
-						    -file      => $files_to_process ,
+						    -file      => $files_to_process,
 						    -hostname  => $host,
 						    -dbhost => $dbhost,
 						    -dbname => $dbname,
@@ -215,6 +253,8 @@ if ($new_tree_md5 ne $old_tree_md5) {
   $loader->create_objects();
   $loader->sanity_check_objects();
   $loader->load_objects("1");
+
+
 
   my $archiver = ReseqTrack::Tools::Loader::Archive->new(
 							 -db=>$dbA,
@@ -241,11 +281,11 @@ if ($new_tree_md5 ne $old_tree_md5) {
     my $clean_archive_table = 1;
 
     while ($clean_archive_table) {
-
+     
       my $obs_remaining = $archiver->cleanup_archive_table($verbose);
      
       if ($obs_remaining) {
-	
+	 print "Found $obs_remaining in archive table. Waiting $archive_sleep\n";
 	sleep($archive_sleep);
 	$tries++;
 	
@@ -261,7 +301,7 @@ if ($new_tree_md5 ne $old_tree_md5) {
   }
 } else {
   print STDERR "The tree files are exactly the same\n";
-  unlink $output_path;
+  unlink ($new_tree_file);
 }
 
 
