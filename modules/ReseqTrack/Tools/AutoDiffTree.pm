@@ -21,7 +21,8 @@ sub new {
   my ( $old_tree_file, $new_tree_file, $changelog, 
        $staging_dir, $verbose ) = rearrange(
 					    [
-					     qw(OLD_TREE_FILE
+					     qw(
+                          OLD_TREE_FILE
 			  NEW_TREE_FILE
 			  CHANGELOG
 			  STAGING_DIR
@@ -39,7 +40,6 @@ sub new {
 
   $self->new_tree( ( $self->get_tree_hash($new_tree_file) ) );
   $self->old_tree( ( $self->get_tree_hash($old_tree_file) ) );
-
   $self->assign_g1k_types( $self->new_tree() );
   $self->assign_g1k_types( $self->old_tree() );
 
@@ -68,7 +68,7 @@ sub check_no_md5_files{
 
 
   foreach my $f ( keys %$old) {
-    if ( $$old{$f}{md5} eq $bad_md5   ){
+    if ( $$old{$f}{md5} eq $bad_md5   ) {
       print "$f\n";
       $something_wrong++;
       push (@bad_old, $f);
@@ -76,7 +76,7 @@ sub check_no_md5_files{
   }
 
   foreach my $f ( keys %$new) {
-    if ( $$new{$f}{md5} eq $bad_md5   ){
+    if ( $$new{$f}{md5} eq $bad_md5   ) {
       print "$f\n";
       $something_wrong++;
       push (@bad_new, $f);
@@ -105,16 +105,16 @@ sub check_no_md5_files{
   #Totally skip bad entries via the "delete em" route.
 
   print STDERR "File(s) from old tree file\n" if (@bad_old);
-   foreach my $of (@bad_old) {
-     print STDERR  "Ignoring:$of\n";
-     delete $$old{$of};
-   }
+  foreach my $of (@bad_old) {
+    print STDERR  "Ignoring:$of\n";
+    delete $$old{$of};
+  }
 
-   print STDERR "\nFile(s) from new tree file\n" if (@bad_new);
-    foreach my $nf (@bad_new) {
-      print STDERR "Ignoring $nf\n";
-     delete $$new{$nf};
-   }
+  print STDERR "\nFile(s) from new tree file\n" if (@bad_new);
+  foreach my $nf (@bad_new) {
+    print STDERR "Ignoring $nf\n";
+    delete $$new{$nf};
+  }
   
   print "==========================================\n";
   return;
@@ -134,10 +134,9 @@ sub create_log_files {
   $self->output_changelog_files( $old, "withdrawn" );
   $self->output_changelog_files( $old, "replacement" );
   $self->output_moved_changelog_files();
-  if ($self->files_to_archive){
-     $self->amend_CHANGELOG;
-  }
-  else{
+  if ($self->files_to_archive) {
+    $self->amend_CHANGELOG;
+  } else {
     print "No obvious changes detected , not amending CHANGELOG\n";
   }
   
@@ -153,7 +152,7 @@ sub change_permissions {
   my $self = shift;
   my $log_files         = $self->files_to_archive_array();
   
-  foreach my $i ( @$log_files){
+  foreach my $i ( @$log_files) {
     chmod ( 0775, $i);
   }
   
@@ -246,9 +245,9 @@ sub output_changelog_files {
  
 
   foreach my $key ( keys %$altered_types ) {
-     if ( ($key =~ /CHANGELOG/) && (defined $$altered_types{$key}{$action}) ){
-       print "Skipping change for $key $action\n";
-       next;
+    if ( ($key =~ /CHANGELOG/) && (defined $$altered_types{$key}{$action}) ) {
+      print "Skipping change for $key $action\n";
+      next;
     }
 
     if ( defined $$altered_types{$key}{$action} ) {
@@ -657,12 +656,12 @@ sub delete_identical {
       push( @clear, $f );
 
 
-      if ( $date_match == 1  ){
+      if ( $date_match == 1  ) {
 	$dates_md5_same++;
       }
 
       if ( $$old{$f}{md5} =~/NO_MD5_IN_DB/) {
-#	print "$f has no md5 but is same size. Ignoring for changelogs\n";
+	#	print "$f has no md5 but is same size. Ignoring for changelogs\n";
       }
 
     }
@@ -687,8 +686,8 @@ sub delete_identical {
   }
 
   
-  print Dumper ($old) if ( $old_keys < 11) ;
-  print Dumper ($new) if ( $new_keys < 11) ;
+#  print Dumper ($old) if ( $old_keys < 11) ;
+#  print Dumper ($new) if ( $new_keys < 11) ;
 
 
   print "\n\n";
@@ -800,13 +799,12 @@ sub get_tree_hash {
     $hash{ $a[0] }{size} = $a[2];
     $hash{ $a[0] }{date} = $a[3];
 
-    if ($a[4]){
+    if ($a[4]) {
       $a[4] =~ s/\s+//g;
       $hash{ $a[0] }{md5} = $a[4];
-    }
-    else{
-       $hash{ $a[0] }{md5} = "NO_MD5_IN_DB";
-       print "missing md5: $a[0] in tree file\n";
+    } else {
+      $hash{ $a[0] }{md5} = "NO_MD5_IN_DB";
+      print "missing md5: $a[0] in tree file\n";
     }
   }
   my $k = keys(%hash);
