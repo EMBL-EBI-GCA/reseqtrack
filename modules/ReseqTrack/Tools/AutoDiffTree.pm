@@ -685,7 +685,18 @@ sub delete_identical {
     print "No changes to tree files occurred\n";
   }
 
-  
+
+
+  $old_keys = keys(%$old);
+  $new_keys = keys (%$new);
+ foreach my $of ( keys %$old) {
+	print $of,"\n" if ($old_keys < 10);
+ }
+ 
+ foreach my $nf ( keys %$new) {
+        print $nf,"\n"  if ($new_keys < 10);
+ }
+
 #  print Dumper ($old) if ( $old_keys < 11) ;
 #  print Dumper ($new) if ( $new_keys < 11) ;
 
