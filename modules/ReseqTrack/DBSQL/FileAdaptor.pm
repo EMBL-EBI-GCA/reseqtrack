@@ -84,7 +84,7 @@ sub fetch_by_filename{
   my ($self, $name) = @_;
   my $sql = "select ".$self->columns." from file ".
       "where name like ? ";
-  my $name_like = '%'.$name;
+  my $name_like = '%/'.$name;
   my $sth = $self->prepare($sql);
   $sth->bind_param(1, $name_like);
   $sth->execute;
@@ -176,6 +176,7 @@ sub store{
   #check if file object already exists
   #does the exact path exist
   #does something with the same name exist
+
   unless($dont){
     my $existing = $self->fetch_by_name($file->name);
     if($existing){
