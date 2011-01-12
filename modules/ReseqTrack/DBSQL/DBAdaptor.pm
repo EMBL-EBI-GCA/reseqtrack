@@ -226,4 +226,14 @@ sub get_MetaAdaptor{
   }
   return $self->{meta_adaptor};
 }
+
+sub get_GenotypeResultsAdaptor{
+  my ($self) = @_;
+  if(!$self->{genotype_results_adaptor}){
+    $self->{genotype_results_adaptor} = ReseqTrack::DBSQL::GenotypeResultsAdaptor->
+        new($self);
+  }
+  return $self->{genotype_results_adaptor};
+}
+
 1;
