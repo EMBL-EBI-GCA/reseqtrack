@@ -1,13 +1,9 @@
 #!/sw/arch/bin/perl 
 
 use strict;
-use ReseqTrack::Tools::ERAUtils;
 use ReseqTrack::Tools::Exception;
-use ReseqTrack::DBSQL::ERADBAdaptor;
-use ReseqTrack::DBSQL::DBAdaptor;
-use ReseqTrack::Tools::RunMetaInfoUtils;
-use ReseqTrack::Tools::GeneralUtils;
-use ReseqTrack::Tools::Intersection;
+use ReseqTrack::Tools::UpdateRunMetaInfo;
+use ReseqTrack::Tools::ERAUtils;
 use Getopt::Long;
 
 $| = 1;
@@ -33,6 +29,12 @@ my $public_type = 'FILTERED_FASTQ';
 my $collection_type = 'STUDY_TYPE';
 my $study_id_file;
 my $update_collections;
+my $log_dir;
+my $ftp_root = '/nfs/1000g-archive/vol1/';
+my @other_types;
+my $check_status;
+my $check_sample;
+my $check_unidentified;
 
 &GetOptions( 
 	    'dbhost=s'      => \$dbhost,
@@ -46,9 +48,6 @@ my $update_collections;
 	    'all_checks!' => \$all_checks,
 	    'store_new!' => \$store_new,
 	    'update_existing!' => \$update_existing,
-	    'fix_sample!' => \$fix_sample,
-	    'withdraw_suppressed!' => \$withdraw_suppressed,
-	    'check_individual!' => \$check_individual,
 	    'summary!' => \$summary,
 	    'verbose!' => \$verbose,
 	    'public_type=s' => \$public_type,
@@ -56,7 +55,13 @@ my $update_collections;
 	    'collection_type:s' => \$collection_type,
 	    'study_id_file:s' => \$study_id_file,
 	    'update_collections!' => \$update_collections,
-    );
+	    'log_dir:s' => \$log_dir,
+	    'other_types:s@' => \@other_types,
+	    'ftp_root:s' => \$ftp_root,
+	    'check_status!' => \$check_status,
+	    'check_sample!' => \$check_sample,
+	    'check_unidentified!' => \$check_unidentified,
+	   );
 
 if($help){
   useage();
@@ -66,24 +71,24 @@ $summary = 1 if($verbose);
 if($all_checks){
   $store_new = 1;
   $update_existing = 1;
-  $fix_sample = 1;
-  $withdraw_suppressed = 1;
-  $check_individual = 1;
   $update_collections = 1;
+  $check_sample = 1;
+  $check_status = 1;
+  $check_unidentified = 1;
 }
 
 if($update_existing || $store_new){
   $update_collections = 1;
 }
 
-if(($store_new + $update_existing + $fix_sample + $withdraw_suppressed + $check_individual + $update_collections) == 0){
+if(($store_new + $update_existing + $update_collections + $check_sample + 
+    $check_status + $check_unidentified) == 0){
   print STDERR "There script has nothing to do you need to specify at least ".
-      "one of -store_new, -update_existing, -fix_sample, -withdraw_suppressed ".
-      " or -all to have everything run\n";
+    "one of -store_new, -update_existing, -update_collections, -check_sample ".
+      "-check_status or -all to have everything run\n";
   exit(0);
 }
 
-print STDERR "Trying to get a connection with ".$era_dbuser." and ".$era_dbpass."\n";
 my $db = get_erapro_conn($era_dbuser, $era_dbpass);
 
 my $reseq_db = ReseqTrack::DBSQL::DBAdaptor->new(
@@ -94,385 +99,62 @@ my $reseq_db = ReseqTrack::DBSQL::DBAdaptor->new(
   -pass   => $dbpass,
     );
 
-#Fetching meta info
-my $era_rmi_a = $db->get_ERARunMetaInfoAdaptor;
-print "FETCHING ALL FROM ERAPRO\n";
-my $era_meta_info = $era_rmi_a->fetch_all if($store_new || $update_existing ||
-					     $fix_sample);
-my $era_hash = get_meta_info_hash($era_meta_info);
-my $dcc_rmi_a = $reseq_db->get_RunMetaInfoAdaptor;
-my $dcc_meta_info = $dcc_rmi_a->fetch_all;
-my $dcc_hash = get_meta_info_hash($dcc_meta_info);
+my $updater = ReseqTrack::Tools::UpdateRunMetaInfo->new
+  (
+   -era_db => $db,
+   -dcc_db => $reseq_db,
+   -study_id_file => $study_id_file,
+   -log_dir => $log_dir,
+   -verbose => $verbose,
+   -collection_type => $collection_type,
+   -filtered_fastq_type => $public_type,
+   -ftp_root => $ftp_root,
+   -other_types => \@other_types, 
+  );
 
-#Comparing data sets
-my ($era_only, $dcc_only, $diff) = compare_era_and_dcc_meta_info($era_meta_info,
-                                                                 $dcc_meta_info)
-  if($store_new || $update_existing || $fix_sample);
 
-if($summary){
-  print "There are ".keys(%$era_only)." run ids only in the ERA\n";
-  print "There are ".keys(%$dcc_only)." run ids only in the DCC\n";
-  print "There are ".keys(%$diff)." run ids with differences between the two ".
-      "databases\n";
-}
-
-my %suppressed;
-foreach my $run_id(keys(%$era_hash)){
-  $suppressed{$run_id} = $era_hash->{$run_id} 
-  if($era_hash->{$run_id}->status eq 'suppressed');
-}
-
-#store new entries
+$updater->find_differences if($store_new || $update_existing);
 if($store_new){
-  if($summary){
-    print "There are ".keys(%$era_only)." new runs to store in ".$dbname."\n";
-  }
-  
-  foreach my $run_id (keys(%$era_only)){
-    print rmi_summary_string($era_only->{$run_id})."\n" if($verbose);
-  }
-  
-  unless($run){
-      print STDERR "\n";
-      print STDERR "Do you want to store these runs\n";
-      print STDERR "Answer y or n :\n";
-      if(get_input_arg()){
-        $run = 1;
-      }
-    }
-  if($run){
-    foreach my $run_id (keys(%$era_only)){
-      my $object = $era_only->{$run_id};
-      $dcc_rmi_a->store($object);
-    }
-  }
-}
-$run = $original_run;
-
-my %sample_diff;
-my $print_warning;
-foreach my $run_id(keys(%$diff)){
-  my $era = $era_hash->{$run_id};
-  my $dcc = $dcc_hash->{$run_id};
-  if($era->submission_date =~ /[a-z][A-Z]/){
-    throw($run_id." has a submission date ".$era->submission_date.
-          " which contains letters");
-  }
-  if($era->sample_name ne $dcc->sample_name){
-    print STDERR $era->run_id." sample name is changing from ".$dcc->sample_name.
-        " \nYou must run this script with -fix_sample specific \n" unless($print_warning);
-    $print_warning = 1;
-    $sample_diff{$run_id} = 1;
-  }
+  $updater->store_new_entries;
 }
 if($update_existing){
-  if($summary){
-    print "There are ".keys(%$diff)." runs with differences to account for\n";
-  }
-  #if($verbose){
-  foreach my $run_id (keys(%$diff)){
-    print rmi_summary_string($diff->{$run_id})."\n" if($verbose);
-    my $dcc = $dcc_hash->{$run_id};
-    my $era = $era_hash->{$run_id};
-    $era->dbID($dcc->dbID);
-    #if($dcc->archive_read_count >= 1 && $era->archive_read_count <= 0){
-    #  throw("Trying to set ".$run_id." archive_read_count to zero");
-    #}
-    if($dcc->archive_base_count >= 1 && $era->archive_base_count <= 0){
-      #throw("Trying to set ".$run_id." archive_base_count to zero");
-      $era->archive_base_count($dcc->archive_base_count);
-      $era->archive_read_count($dcc->archive_read_count);
-    }
-    my $history = create_history_for_run_meta_info($era, $dcc);
-    if(!$history){
-      throw("Can't find a difference bewteen era and dcc objects for ".$run_id);
-    }else{
-      $era->history($history);
-      print $history->comment."\n" if($verbose);
-    }
-  }
-  #}
-  unless($run){
-      print STDERR "\n";
-      print STDERR "Do you want to update these runs\n";
-      print STDERR "Answer y or n :\n";
-      if(get_input_arg()){
-        $run = 1;
-      }
-  }
-  if($run){
-    foreach my $run_id (keys(%$diff)){
-      my $era = $era_hash->{$run_id};
-      throw("Can't update ".$era->run_id." is has no dbID")
-          unless($era->dbID);
-      #print "Updating ".$era->run_id." setting base count = ".$era->archive_base_count."\n";
-      $dcc_rmi_a->update($era);
-    }
-  }
+  $updater->update_existing_entries;
 }
-$run = $original_run;
-
 if($update_collections){
-  my $ca = $reseq_db->get_CollectionAdaptor;
-  my $study_id_hash = parse_study_id_list($study_id_file);
-  my $rmis = $dcc_rmi_a->fetch_all;
-  my %study_id_to_rmi;
-  foreach my $rmi(@$rmis){
-    $study_id_to_rmi{$rmi->study_id}{$rmi->run_id} = $rmi;
-  }
-  my $existing_collections = $ca->fetch_by_type($collection_type);
-  my %collection_hash;
-  foreach my $collection(@$existing_collections){
-    $collection_hash{$collection->name} = $collection;
-  }
-  unless($run){
-    print STDERR "\n";
-    print STDERR "Do you want to update the collections on these runs\n";
-    print STDERR "Answer y or n :\n";
-    if(get_input_arg()){
-      $run = 1;
-    }else{
-      exit(0);
-    }
-  }
-  foreach my $name(keys(%$study_id_hash)){
-    my $collection = $collection_hash{$name};
-    my $study_list_hash = $study_id_hash->{$name};
-    my @rmis;
-    my %run_id_to_rmi;
-    foreach my $study_id(keys(%$study_list_hash)){
-      my $rmi_hash = $study_id_to_rmi{$study_id};
-      my @rmis_from_study = values(%$rmi_hash);
-      foreach my $rmi(@rmis_from_study){
-	$run_id_to_rmi{$rmi->run_id} = $rmi;
-      }
-      push(@rmis, @rmis_from_study);
-    }
-    unless($collection){
-      $collection = ReseqTrack::Collection->new(
-						-name => $name,
-						-others => \@rmis,
-						-type => $collection_type,
-						-table_name => 'run_meta_info',
-					       );
-      $collection_hash{$name} = $collection;
-    }else{
-      my $collection_rmis = $collection->others;
-      my @collection_run_ids;
-      my @run_ids = keys(%run_id_to_rmi);
-      foreach my $other(@$collection_rmis){
-	push(@collection_run_ids, $other->run_id);
-      }
-      my $file_set = ReseqTrack::Tools::Intersection->new(
-							  -list => \@run_ids,
-							 );
-      my $db_set = ReseqTrack::Tools::Intersection->new
-	(
-	 -list => \@collection_run_ids,
-	);
-      my $not_in_file = $db_set->not($file_set);
-      my $not_in_db = $file_set->not($db_set);
-      my $db_and_file = $db_set->and($file_set);
-      #add new to collection
-      foreach my $run_id(@{$not_in_db->list}){
-	my $rmi = $run_id_to_rmi{$run_id};
-	throw("Failed to find a rmi for ".$run_id) unless($rmi);
-	$collection->other($collection);
-      }
-      $collection_hash{$name} = $collection;
-      #remove old from collection
-      my @rmis_to_remove;
-      foreach my $run_id(@{$not_in_file->list}){
-	my $rmi = $run_id_to_rmi{$run_id};
-	push(@rmis_to_remove, $rmi);
-      }
-      $ca->remove_others($collection, \@rmis_to_remove) if($run);
-    }
-  }
-  foreach my $name(keys(%collection_hash)){
-    my $collection = $collection_hash{$name};
-    $ca->store($collection, 1);
+  $updater->update_collections;
+}
+my $problems;
+if($check_unidentified){
+  $problems = $updater->check_unidentified;
+}
+$updater->close_logging_fh;
+my $log_file = $updater->logging_filepath;
+open(FH, ">>".$log_file) or throw("Failed to open ".$log_file);
+my $sample_count;
+if($check_sample){
+  my $move_hash =  $updater->check_sample_in_path();
+  $sample_count = 0;
+  $sample_count = keys(%$move_hash) if(keys(%$move_hash));
+  foreach my $key(keys(%$move_hash)){
+    print FH $key."\t".$move_hash->{$key}."\n";
   }
 }
-$run = $original_run;
-#fix sample swaps
-if($fix_sample){
-  #print summary
-  #ask if want to fix
-  print STDERR "*****fix sample THIS IS TOTALLY UNTESTED CODE be certain that you want to run it ******\n";
-  if($summary){
-    print "There are ".keys(%sample_diff)." runs with sample differences which ".
-        "need to be fixed\n";
-    if($verbose){
-      my @keys = keys(%sample_diff);
-      foreach my $run_id(keys(%sample_diff)){
-        my $era = $era_hash->{$run_id};
-        my $dcc = $dcc_hash->{$run_id};
-        print $run_id." era sample ".$era->sample_name." dcc sample ".$dcc->sample_name." ".$era->center_name." ".$era->study_id."\n";
-      }
-    }
-  }
-  unless($run){
-      print STDERR "\n";
-      print STDERR "Do you want to fix the sample on these runs\n";
-      print STDERR "Answer y or n :\n";
-      if(get_input_arg()){
-        $run = 1;
-      }else{
-	exit(0);
-      }
-  }
-  if($run){
-    foreach my $run_id(keys(%sample_diff)){
-      my $era = $era_hash->{$run_id};
-      my $dcc = $dcc_hash->{$run_id};
-      fix_sample_swap($run_id, $dcc->sample_name, $era->sample_name, $db, $run);
-    }
+my $status_count;
+if($check_status){
+  my $move_hash = $updater->check_status();
+  $status_count = 0;
+  $status_count = keys(%$move_hash) if(keys(%$move_hash));
+  foreach my $key(keys(%$move_hash)){
+    #print $key."\t".$move_hash->{$key}."\n";
+    print FH $key."\t".$move_hash->{$key}."\n";
   }
 }
-$run = $original_run;
-#withdraw suppressed files
-
-$dcc_meta_info = $dcc_rmi_a->fetch_all;
-my $fa =  $reseq_db->get_FileAdaptor;
-my $ca = $reseq_db->get_CollectionAdaptor;
-if($withdraw_suppressed){
-  print STDERR "***** withdraw suppressed THIS IS TOTALLY UNTESTED CODE be certain that you want to run it ******\n";
-  my @to_withdraw;
-  foreach my $meta_info(@$dcc_meta_info){
-    my $run_id  = $meta_info->run_id;
-    if($meta_info->status eq 'suppressed'){
-      my $files = $fa->fetch_all_like_name($run_id);
-      if($files && @$files >= 1){
-        foreach my$file(@$files){
-          next unless($file->type eq $public_type);
-          next if($file->name =~ /withdrawn/);
-          push(@to_withdraw, $file);
-        }
-      }
-    }
-  }
-  if(@to_withdraw >= 1){
-    print "There are ".@to_withdraw." files which need to be withdrawn\n" if($summary);
-    if($verbose){
-      foreach my $file(@to_withdraw){
-        print $file->name." needs to be withdrawn\n";
-      }
-      print "Need to implement automated withdrawal\n";
-    }
-  }
-}
-$run = $original_run;
-if($check_individual){
-  print STDERR "*****check individual THIS IS TOTALLY UNTESTED CODE be certain that you want to run it ******\n";
-  my %name_to_individual;
-  my @files_to_fix;
-  my $archive_fastq = $fa->fetch_by_type("ARCHIVE_FASTQ");
-  my $filtered_fastq = $fa->fetch_by_type("FILTERED_FASTQ");
-  my @files;
-  push(@files, @$archive_fastq);
-  push(@files, @$filtered_fastq);
-  my %run_to_files;
-  foreach my $file(@files){
-    my $filename = $file->filename;
-    $filename =~ /^([E|S]RR\d+)\./;
-    my $run_id = $1;
-    push(@{$run_to_files{$run_id}}, $file);
-  }
-  foreach my $meta_info(@$dcc_meta_info){
-    next if($meta_info->status eq 'suppressed');
-    my $run_id = $meta_info->run_id;
-    my $sample_name = $meta_info->sample_name;
-    my $files =  $run_to_files{$run_id};
-    if($files && @$files >= 1){
-      foreach my $file(@$files){
-        next unless($file->type eq $public_type);
-        next if($file->name =~ /withdrawn/);
-	if($file->name =~ /$sample_name/){
-	  next;
-	}
-        $name_to_individual{$file->name} = $sample_name;
-        push(@files_to_fix, $file);
-      }
-    }
-  }
-  print "There are ".@files_to_fix." files with the wrong individual in their ".
-      "path\n" if($summary);
-  if($verbose){
-    foreach my $file(@files_to_fix){
-      print $file->name." should be in ".$name_to_individual{$file->name}."'s dir\n";
-    }
-  }
-  unless($run){
-      print STDERR "\n";
-      print STDERR "Do you want to fix the sample directories on these runs\n";
-      print STDERR "Answer y or n :\n";
-      if(get_input_arg()){
-        $run = 1;
-      }
-  }
-  if($run){
-    my %run_ids;
-    foreach my $file(@files_to_fix){
-      $file->name =~ /([E|S]RR\d+)/;
-      my $run_id = $1;
-      next if($run_ids{$run_id});
-      $run_ids{$run_id} = 1;
-      $file->name =~ /(NA\d+)/;
-      my $old_sample = $1;
-      my $new_sample = $name_to_individual{$file->name};
-      #fix_sample_swap($run_id, $old_sample, $new_sample, $db, $run);
-    }
-  }
-}
-
-if(keys(%{$dcc_only}) >= 1){
-  print STDERR "There is a problem there are runs which are only in the dcc ".
-      "database ".$dbname."\n";
-  exit(1);
-}
-
-sub rmi_summary_string{
-  my ($object) = @_;
-  my $string =  $object->run_id." ".$object->submission_id." ".$object->center_name." ".$object->study_id;
-  return $string;
-}
-sub useage{
-  exec('perldoc', $0);
-  exit(0);
-}
-
-sub parse_study_id_list{
-  my ($study_id_list) = @_;
-  open(FH, "<", $study_id_list) or throw("Failed to open ".$study_id_list." $!");
-  my %config;
-  my %seen;
-  my $header;
-  while(<FH>){
-    chomp;
-    next if (/^\s$/ || /^\#/);
-    if (/^\[(.*)\]\s*$/) {    # $1 will be the header name, without the []
-      $header = $1;
-      if ($config{$header}) {
-	throw("Shouldn't have duplicate headers in ".$study_id_list." ".$header);
-      }
-      $config{$header} = {};
-    }else{
-      my $line = trim_spaces($_);
-      if($line){
-	if($seen{$line}){
-	  throw($line." seems to be duplicated in ".$study_id_list);
-	}else{
-	  $seen{$line} = 1;
-	}
-	$config{$header}{$line} = 1;
-      }else{
-	warning($header." has blank lines");
-      }
-    }
-  }
-  return \%config;
-}
+close(FH);
+print "There are ".$sample_count." sample issues to resolve\n" if($sample_count);
+print "There are ".$status_count." status issues to resolve\n" if($status_count);
+print "There are ".$problems." sample name issues\n" if($problems);
+print $updater->logging_filepath."\n" if($sample_count || $status_count || 
+					 $problems);
 
 =pod
 
