@@ -395,13 +395,14 @@ sub check_sample_in_path{
   $files = $self->get_all_fastq unless($files) ;
   my $file_hash = $self->run_hash_from_fastq($files) if($files && @$files);
   my %move_hash;
+  my $verbose = 0;
   foreach my $rmi(@$rmis){
     my @problem_files;
     my $sample_name = $rmi->sample_name;
     my $files = $file_hash->{$rmi->run_id};
     foreach my $file(@$files){
       next if($file->name =~ /$sample_name/);
-      print "Fail to find ".$sample_name." in ".$file->name."\n";
+      #print "Fail to find ".$sample_name." in ".$file->name."\n";
       push(@problem_files, $file);
     }
     foreach my $file(@problem_files){
@@ -500,7 +501,7 @@ sub get_all_fastq{
     my @files;
     push(@files, @{$self->get_filtered_fastq});
     my $fa = $self->dcc_db->get_FileAdaptor;
-    foreach my $type($self->other_types){
+    foreach my $type(@{$self->other_types}){
       push(@files, @{$fa->fetch_by_type($type)});
     }
     $self->{all_fastq} = \@files;

@@ -3,7 +3,6 @@ package ReseqTrack::Tools::ERAUtils;
 use strict;
 use warnings;
 use Exporter;
-use Cwd;
 use File::Basename;
 use File::Copy;
 

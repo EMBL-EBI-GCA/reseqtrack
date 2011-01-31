@@ -142,7 +142,7 @@ sub store{
   #print "Checking in ".$self->dbc->dbname."\n";
   my $exists = $self->fetch_by_name_and_type($collection->name, $collection->type);
   if($exists){
-    warning($exists->name." ".$exists->type." is already in the datbase skipping");
+    #warning($exists->name." ".$exists->type." is already in the datbase skipping");
     $collection->dbID($exists->dbID);
     $collection->adaptor($self);
     $self->store_statistics($collection, $update);

@@ -66,7 +66,8 @@ use vars qw (@ISA  @EXPORT);
 sub are_files_identical{
   my ($one, $two) = @_;
   throw("Must pass are_files_identical two file objects") unless($one && $two);
-  throw("Must have the same filename".$one->filename." ".$two->filename) unless($one->filename eq $two->filename);
+  #throw("Must have the same filename".$one->filename." ".$two->filename) unless($one->filename eq $two->filename);
+  return 0  unless($one->filename eq $two->filename);
   return 0 unless($one->dirname eq $two->dirname);
   return 0 unless($one->path eq $two->path);
   return 0 unless($one->full_path eq $two->full_path);

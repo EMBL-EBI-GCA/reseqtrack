@@ -122,9 +122,9 @@ return  \%chrom_reads, $sex  ;
 }##
 
 sub  move_bam_to_trash {
-	my ($db2, $file, $run) = @_;
+	my ($db2, $file, $full_name, $run) = @_;
 	
-	my $full_name = $file->name;
+	#my $full_name = $file->name;
 	my $filen = basename($full_name);
 
 	##### If a BAM file, remove it from collection
@@ -169,6 +169,7 @@ sub  move_bam_to_trash {
 	      -md5 => $file->md5,
 	      -host => $new_host,
 	      -type => $new_type,
+	      -size => $file->size,
 	      -created => $file->created
 	   );
 			     

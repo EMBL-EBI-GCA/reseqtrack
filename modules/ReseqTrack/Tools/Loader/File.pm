@@ -10,14 +10,18 @@ use ReseqTrack::Tools::FileSystemUtils
 use ReseqTrack::Tools::HostUtils qw(get_host_object);
 use ReseqTrack::Tools::Argument qw(rearrange);
 use ReseqTrack::DBSQL::DBAdaptor;
+use ReseqTrack::Tools::Loader;
 use Data::Dumper;
 use File::Basename;
 
 use vars qw(@ISA);
+
 @ISA = qw(ReseqTrack::Tools::Loader);
 
 sub new {
  my ( $class, @args ) = @_;
+ my ($p, $f, $l) = caller;
+ print $p." ".$f." ".$l."\n";
  my $self = $class->SUPER::new(@args);
 
  my (

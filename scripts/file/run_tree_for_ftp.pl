@@ -5,15 +5,15 @@ use warnings;
 
 use ReseqTrack::Tools::Exception;
 use ReseqTrack::DBSQL::DBAdaptor; 
-use ReseqTrack::File;
 use ReseqTrack::Tools::FileSystemUtils;
 use ReseqTrack::Tools::FileUtils;
+use ReseqTrack::Tools::GeneralUtils;
 use ReseqTrack::Tools::ArchiveUtils;
 use ReseqTrack::Tools::AutoDiffTree;
-use ReseqTrack::Tools::Loader;
 use ReseqTrack::Tools::Loader::File;
 use ReseqTrack::Tools::Loader::Archive;
-
+use FileHandle;
+use File::Path;
 use File::Basename;
 use Getopt::Long;
 
@@ -43,7 +43,7 @@ my $new_tree_md5;
 
 my $old_tree_file;
 my $new_tree_file;
-
+my $log_dir;
 
 my $test_mode;
 my $skip_cleanup=0;
@@ -56,7 +56,7 @@ my $test=0;
 	    'dbuser=s'      => \$dbuser,
 	    'dbpass=s'      => \$dbpass,
 	    'dbport=s'      => \$dbport,
-	    'host=s'        => \$host,
+	    'host_name=s'        => \$host,
 	    'dir_to_tree=s' => \$dir_to_tree,
 	    'output_path=s' => \$output_path,	    
 	    'verbose!'      => \$verbose, 
@@ -67,16 +67,21 @@ my $test=0;
 	    'archive_sleep=s' => \$archive_sleep,
 	    'debug!' => \$debug,
 	    'test!' => \$test,
+	    'log_dir=s' => \$log_dir,
 	   );
 
 
-die "\n\nhostname not specified (-host). Required for Loader.pm\n\n" if (!$host);
+throw("hostname not specified (-host). Required for Loader.pm") if (!$host);
+mkpath($log_dir) unless(-d $log_dir);
+throw("Can't run if ".$log_dir." log dir does not exist") unless(-d $log_dir);
+my $logging_filepath = logging_filepath($log_dir);
+my $log_fh = logging_fh($logging_filepath);
 
-print "Starting tree dump to:";
+print $log_fh "Starting tree dump to:";
 if ( !$output_path) {
   $new_tree_file = $STAGING_DIR . '/' . "current.tree";
   $new_tree_file =~ s/\/\//\//;
-  print $new_tree_file,"\n";	# if $verbose;
+  print $log_fh $new_tree_file,"\n";	# if $verbose;
 } else {
   $new_tree_file  = $output_path;
 }
@@ -85,7 +90,7 @@ if ( !$output_path) {
 
 
 
-check_destinations($STAGING_DIR);
+check_destinations($STAGING_DIR, $log_fh, $verbose);
 
 my $dbA = ReseqTrack::DBSQL::DBAdaptor->new(
 					    -host => $dbhost,
@@ -130,20 +135,20 @@ if ( ! ($check_old)  && ! ($check_new) ) {
 
 
   throw "Failed to get new_tree_md5\n" if (! -e  $new_tree_file );
-  print "Getting md5 of $new_tree_file\n";
+  print $log_fh "Getting md5 of $new_tree_file\n";
   $new_tree_md5 = run_md5( $new_tree_file);
 
   
   $old_tree_file = $old_tree->name;
 
-  print "ftp current.tree md5     = ", $old_tree_md5,"\n";
-  print "Todays current.tree file = ", $new_tree_md5,"\n";
+  print $log_fh "ftp current.tree md5     = ", $old_tree_md5,"\n";
+  print $log_fh "Todays current.tree file = ", $new_tree_md5,"\n";
 
 } else {
   # warning "Running in test mode, just comparing files\n";
   $test = 1;
-  print "check_new: $check_new\n";
-  print "check_old: $check_old\n";
+  print $log_fh "check_new: $check_new\n";
+  print $log_fh "check_old: $check_old\n";
 
   $new_tree_md5 = run_md5($check_new);
   $old_tree_md5 = run_md5($check_old);
@@ -156,9 +161,8 @@ if ( ! ($check_old)  && ! ($check_new) ) {
 
 
 
-print "new $new_tree_md5\n";
-print "old $old_tree_md5 \n";
-
+print $log_fh "new $new_tree_md5\n";
+print $log_fh "old $old_tree_md5 \n";
 
 
 if ($new_tree_md5 ne $old_tree_md5) {
@@ -183,7 +187,7 @@ if ($new_tree_md5 ne $old_tree_md5) {
 
  
   if (! $files_to_process ) {
-    print "No changelog files to process. current.tree should not have changed\n";
+    print $log_fh "No changelog files to process. current.tree should not have changed\n";
     unlink ( $new_tree_file);
     exit;
   }
@@ -191,7 +195,7 @@ if ($new_tree_md5 ne $old_tree_md5) {
   push (@$files_to_process , $new_tree_file );
 
   foreach my $file (@$files_to_process) {
-    print "process: $file\n";
+    print $log_fh "process: $file\n";
     chmod (0755,$file);
   }  
  
@@ -206,26 +210,26 @@ if ($new_tree_md5 ne $old_tree_md5) {
     if ( ($file =~ /CHANGELOG/) || ($file =~ /current\.tree/) ){
 
 	 if (scalar (@$possible_existing) !=1){
-	  print "\nProblem:\n";
-	  print "$file should be in db.\n";
-	  print "Cannot find\n";
+	  print $log_fh "\nProblem:\n";
+	  print $log_fh "$file should be in db.\n";
+	  print $log_fh "Cannot find\n";
   	  $problem++;
  	 } 
 
        }
 	else{
 	 if (scalar (@$possible_existing) > 0){
-  	  print "Problem:\n";
-	  print "$file should not be in db.\n";
-	  print "It is dated changelog file and already exists\n";
-          $problem ++;
+  	  print $log_fh "Problem:\n";
+	  print $log_fh "$file should not be in db.\n";
+	  print $log_fh "It is dated changelog file and already exists\n";
+          $problem++;
  	}
        } 
 
   }
 
   if ( $problem ){
-    throw "Have got inconsistent file name problems\n";
+    throw "Have got inconsistent file name problems output in ".$logging_filepath."\n";
   }
 
 
@@ -274,7 +278,7 @@ if ($new_tree_md5 ne $old_tree_md5) {
   my $max_tries = 10;
  
   if (!$skip_cleanup ) {
-    print "Starting final cleanup of archive table in $archive_sleep\n";
+    print $log_fh "Starting final cleanup of archive table in $archive_sleep\n";
     sleep($archive_sleep);
 
     my $tries = 0;
@@ -285,12 +289,12 @@ if ($new_tree_md5 ne $old_tree_md5) {
       my $obs_remaining = $archiver->cleanup_archive_table($verbose);
      
       if ($obs_remaining) {
-	 print "Found $obs_remaining in archive table. Waiting $archive_sleep\n";
+	print $log_fh "Found $obs_remaining in archive table. Waiting $archive_sleep\n";
 	sleep($archive_sleep);
 	$tries++;
 	
 	if ($tries == $max_tries) {
-	  print "Tries $max_tries to clean up archive table. Giving up\n";
+	  print $log_fh "Tries $max_tries to clean up archive table. Giving up\n";
 	  $clean_archive_table = 0;
 	}
 	
@@ -300,7 +304,7 @@ if ($new_tree_md5 ne $old_tree_md5) {
     }
   }
 } else {
-  print STDERR "The tree files are exactly the same\n";
+  print $log_fh "The tree files are exactly the same\n";
   unlink ($new_tree_file);
 }
 
@@ -308,25 +312,40 @@ if ($new_tree_md5 ne $old_tree_md5) {
 
 
 sub check_destinations {
-  my ($staging_dir,$verbose) = @_;
+  my ($staging_dir,$fh, $verbose) = @_;
 
   my $changelog_dir = $staging_dir . "/changelog_details";
   $changelog_dir =~ s/\/\//\//;
 
-  print $staging_dir,"\n"     if $verbose;
-  print $changelog_dir ,"\n"  if $verbose;
+  print $fh $staging_dir,"\n"     if $verbose;
+  print $fh $changelog_dir ,"\n"  if $verbose;
 
-  throw "No staging_dir set" if (!$staging_dir);
- 
-  if (!-d $changelog_dir) {    
-    throw "$changelog_dir:\nAbove directory does not exist";
-  }
+  throw "No staging_dir set" unless(-d $staging_dir);
+  throw "$changelog_dir:\nAbove directory does not exist" unless(-d $changelog_dir);
 
   return;
 }
 
 
+sub logging_fh{
+  my ($logging_filepath) = @_;
+  my $open_string = ">".$logging_filepath;
+  my $fh = FileHandle->new($open_string);
+  unless($fh){
+    throw("Failed to open ".$logging_filepath." $!");
+  }
+  return $fh;
+}
 
+
+
+sub logging_filepath{
+  my ($log_dir) = @_;
+  my $ident = int(rand(10000));
+  my $date = current_date();
+  my $tmp_name = "update_runmetainfo.".$date.".".$ident.".$$.log";
+  return $log_dir."/".$tmp_name;
+}
 
 =pod
 
@@ -334,7 +353,7 @@ sub check_destinations {
 
 ReseqTrack/scripts/files/run_tree_for_ftp
 
-=head1 SYNOPSIS
+=head1 SYNPOSIS
 
  This script should dump a 'current.tree' file into a staging directory
  then, compare it to the 'current.tree' file object in the database. If there are

@@ -1,16 +1,12 @@
 package ReseqTrack::Tools::AutoDiffTree;
+
 use strict;
-use warnings;
-use Data::Dumper;
+#use warnings;
+#use Data::Dumper;
 use ReseqTrack::Tools::Exception;
 use ReseqTrack::Tools::GeneralUtils;
 use ReseqTrack::Tools::Argument qw(rearrange);
 use File::Basename;
-use Exporter;
-
-our ($VERSION);
-
-$VERSION = 1.00;
 
 sub new {
 
@@ -57,6 +53,13 @@ sub new {
   return ($self);
 }
 
+sub verbose{
+  my ($self, $arg) = @_;
+  if(defined($arg)){
+    $self->{'verbose'} = $arg;
+  }
+  return $self->{'verbose'};
+}
 
 sub check_no_md5_files{
   my ( $self, $new, $old ) = @_;
@@ -69,7 +72,7 @@ sub check_no_md5_files{
 
   foreach my $f ( keys %$old) {
     if ( $$old{$f}{md5} eq $bad_md5   ) {
-      print "$f\n";
+      print "$f\n" if($self->verbose);
       $something_wrong++;
       push (@bad_old, $f);
     }
@@ -77,7 +80,7 @@ sub check_no_md5_files{
 
   foreach my $f ( keys %$new) {
     if ( $$new{$f}{md5} eq $bad_md5   ) {
-      print "$f\n";
+      print "$f\n" if($self->verbose);
       $something_wrong++;
       push (@bad_new, $f);
     }
@@ -87,13 +90,13 @@ sub check_no_md5_files{
 
   return if (!$something_wrong);
 
-  print "==========================================\n";
-  print "There can be files on ftp site that are not in database\n";
-  print "as long as there is a matching entry in both tree files\n";
-  print "they can be ignored.\n";
+  print STDERR "==========================================\n";
+  print STDERR "There can be files on ftp site that are not in database\n";
+  print STDERR "as long as there is a matching entry in both tree files\n";
+  print STDERR "they can be ignored.\n";
 
-  print "\nList of files in old/new tree files with no md5\n";
-  print "that script cannot account for\n";
+  print STDERR "\nList of files in old/new tree files with no md5\n";
+  print STDERR "that script cannot account for\n";
 
   print STDERR "\nFound $something_wrong file(s) on ftp\n";
   print STDERR " with no explainable reason for existence \n";
@@ -116,7 +119,7 @@ sub check_no_md5_files{
     delete $$new{$nf};
   }
   
-  print "==========================================\n";
+  print STDERR "==========================================\n";
   return;
 
 }
@@ -124,7 +127,7 @@ sub check_no_md5_files{
 sub create_log_files {
   my $self = shift;
 
-  print "Creating log files\n\n";
+  print "Creating log files\n\n" if($self->verbose);
 
 
   my $new = $self->new_tree();
@@ -137,12 +140,12 @@ sub create_log_files {
   if ($self->files_to_archive) {
     $self->amend_CHANGELOG;
   } else {
-    print "No obvious changes detected , not amending CHANGELOG\n";
+    #print "No obvious changes detected , not amending CHANGELOG\n";
   }
   
   $self->files_to_archive_hash_to_array();
   $self->change_permissions(); 
-  print "Finished creating log files\n";
+  #print "Finished creating log files\n";
 
   return;
 }
@@ -167,7 +170,7 @@ sub amend_CHANGELOG {
   my $self = shift;
   my @changes;
   
-  print "------------------------\n";
+  # print "------------------------\n";
   push( @changes, $self->changelog_header);
   push( @changes,"\n\n");
 
@@ -246,20 +249,20 @@ sub output_changelog_files {
 
   foreach my $key ( keys %$altered_types ) {
     if ( ($key =~ /CHANGELOG/) && (defined $$altered_types{$key}{$action}) ) {
-      print "Skipping change for $key $action\n";
+      #print "Skipping change for $key $action\n";
       next;
     }
 
     if ( defined $$altered_types{$key}{$action} ) {
-      printf "%-20s", $key;
-      printf "%-15s", "$action: ";
-      printf "%6s",   $$altered_types{$key}{$action};
+      printf "%-20s", $key if($self->verbose);
+      printf "%-15s", "$action: " if($self->verbose);
+      printf "%6s",   $$altered_types{$key}{$action} if($self->verbose);
 
       $out = $self->staging_dir(). "changelog_details/changelog_details_"
 	. $timestamp . '_'  . $action;
     
 
-      print "\n$out\n";
+      print "\n$out\n" if($self->verbose);
       
       #    $$log_files{$key}{$action} = $out;
       $$log_files{$action} = $out;
@@ -274,8 +277,8 @@ sub output_changelog_files {
 
 	my $change = $$hash{$f}{change};
 	if ( !defined($change) ) {
-	  print $f, "\n";
-	  print Dumper($h);
+	  #print $f, "\n";
+	  #print Dumper($h);
 	  throw "ERROR. Residual file in tree hash with no change\n";
 	}
 				#print $change, "\n";
@@ -335,15 +338,15 @@ sub output_moved_changelog_files {
   foreach my $key ( keys %$altered_types ) {
 
     if ( defined $$altered_types{$key}{moved} ) {
-      printf "%-20s\t", $key;
-      printf "%12s",    "moved: " . $$altered_types{$key}{moved};
+      printf "%-20s\t", $key if($self->verbose);
+      printf "%12s",    "moved: " . $$altered_types{$key}{moved} if($self->verbose);
 
       $out = $self->staging_dir() .
 	"/changelog_details/changelog_details_" . $timestamp . "_moved";
 
       $out =~ s/\/\//\//;
 
-      print "\t$out\n";
+      print "\t$out\n" if($self->verbose);
       #     $$log_files{$key}{log} = $out;
       $$log_files{moved} = $out;
       open my $OUT, '>>', $out || throw "No on open $out";
@@ -395,7 +398,7 @@ sub output_moved_changelog_files {
 
 sub flag_moved_replaced_withdrawn {
   my ($self) = shift;
-  print "Starting Comparison\n\n";
+  print "Starting Comparison\n\n" if($self->verbose);
 
   my $new     = $self->new_tree();
   my $old     = $self->old_tree();
@@ -437,7 +440,7 @@ sub was_moved {
 
       if ( $new_base eq $old_base ) {
 
-	print "++ moved:\n:$f_name:\n:$key:\n\n"; # if $verbose;
+	print "++ moved:\n:$f_name:\n:$key:\n\n" if($self->verbose); # if $verbose;
 
 	$$old_hash{$f_name}{change} = "moved";
 	$$new_hash{$key}{change}    = "moved";
@@ -465,7 +468,7 @@ sub was_moved {
 	#   print $f_name ,"\n";
 	#   print $key ,"\n";
 	print
-	  "Same md5 for (flagged as moved):\n$old_base\n$new_base\n";
+	  "Same md5 for (flagged as moved):\n$old_base\n$new_base\n" if($self->verbose);
 
 				# print "Same md5 for\n";
 
@@ -485,9 +488,9 @@ sub was_moved {
 
 				#  print "Do not know for this case\n";
 	my $x = $$old_hash{$f_name};
-	print Dumper ($x) if $verbose;
+	print Dumper ($x) if $self->verbose;
 	my $y = $$new_hash{$key};
-	print Dumper($y) if $verbose;
+	print Dumper($y) if $self->verbose;
 	return 1;
       }
 
@@ -511,7 +514,7 @@ sub modified_type_hash {
 
   my $altered_types = $self->altered_types();
 
-  print "--$action --$type\n" if $debug;
+  print "--$action --$type\n" if $self->verbose;
 
   if ( !($action) || !($type) ) {
     throw("Failed action $action or type $type");
@@ -525,7 +528,7 @@ sub modified_type_hash {
     $$altered_types{$type}{$action} += 1;
   }
 
-  print $$altered_types{$type}{$action}, "\n" if $debug;
+  print $$altered_types{$type}{$action}, "\n" if $self->verbose;
 
   # print "-------\n";
   $self->altered_types($altered_types);
@@ -566,8 +569,8 @@ sub was_withdrawn {
 
     if ( $old_md5 eq $$new_hash{$key}->{md5} ) {
 
-      print "Have matching md5 \n";
-      print $key, "\n$old_md5", $$new_hash{$key}->{md5}, "\n";
+      print "Have matching md5 \n" if($self->verbose);
+      print $key, "\n$old_md5", $$new_hash{$key}->{md5}, "\n" if($self->verbose);
 
       $ignore = 1 if ( $$old_hash{$f_name}{g1k_type} =~ /BAI/ );
       $ignore = 1 if ( $$old_hash{$f_name}{g1k_type} =~ /BAS/ );
@@ -577,7 +580,7 @@ sub was_withdrawn {
 
     if ( $ignore == 0 ) {
       print "withdrawn:\n$f_name   ", $$old_hash{$f_name}{g1k_type},
-	"\n\n";
+	"\n\n" if($self->verbose);
       $$old_hash{$f_name}{change} = "withdrawn";
 
       $self->modified_type_hash( $$old_hash{$f_name}{g1k_type},
@@ -598,17 +601,17 @@ sub was_replaced {
   my $old_hash = shift;
   my $new_hash = shift;
   my $f_name   = shift;
-  my $verbose  = shift;
+  
 
   if ( exists $new_hash->{$f_name} ) {
-    print "$f_name in new hash\n" if $verbose;
+    print "$f_name in new hash\n" if $self->verbose;
 
     if ( $$new_hash{$f_name}->{md5} ne $$old_hash{$f_name}->{md5} ) {
-      print "replaced:$f_name\n"  if $verbose;
+      print "replaced:$f_name\n"  if $self->verbose;
       print "old md5:"
 	. $$new_hash{$f_name}->{md5}
 	  . "\nnew md5:"
-	    . $$old_hash{$f_name}->{md5}, "\n\n" if $verbose;
+	    . $$old_hash{$f_name}->{md5}, "\n\n" if $self->verbose;
 
       $$old_hash{$f_name}{change} = "replacement";
       $$new_hash{$f_name}{change} = "replacement";
@@ -640,7 +643,7 @@ sub delete_identical {
   my $indentical = 0;
   my @clear;
   my $dates_md5_same = 0;
-  print "Deleting identical entries\n";
+  #print "Deleting identical entries\n";
   foreach my $f ( keys %$old) {
     my $m = 0;
     my $date_match = 0;
@@ -672,17 +675,17 @@ sub delete_identical {
     delete $$new{$_};
   }
 
-  print "Total indentical files = $indentical\n";
+  print "Total indentical files = $indentical\n" if($self->verbose);
   my $old_keys = keys(%$old);
-  print "Have $old_keys keys in old tree hash\n";
+  print "Have $old_keys keys in old tree hash\n" if($self->verbose);
   my $new_keys = keys(%$new);
-  print "Have $new_keys keys in new tree hash\n";
+  print "Have $new_keys keys in new tree hash\n" if($self->verbose);
 
-  print "Have $dates_md5_same files with same md5 but diff dates\n";
+  print "Have $dates_md5_same files with same md5 but diff dates\n" if($self->verbose);
 
 
   if ( $old_keys == 0 && $new_keys == 0 ) {
-    print "No changes to tree files occurred\n";
+    print "No changes to tree files occurred\n" if($self->verbose);
   }
 
 
@@ -690,18 +693,18 @@ sub delete_identical {
   $old_keys = keys(%$old);
   $new_keys = keys (%$new);
  foreach my $of ( keys %$old) {
-	print $of,"\n" if ($old_keys < 10);
+	print $of,"\n" if ($old_keys < 10 && $self->verbose);
  }
  
  foreach my $nf ( keys %$new) {
-        print $nf,"\n"  if ($new_keys < 10);
+        print $nf,"\n"  if ($new_keys < 10 && $self->verbose);
  }
 
 #  print Dumper ($old) if ( $old_keys < 11) ;
 #  print Dumper ($new) if ( $new_keys < 11) ;
 
 
-  print "\n\n";
+  print "\n\n" if($self->verbose);
   return 0;
 }
 
@@ -781,7 +784,7 @@ sub get_tree_hash {
   my %hash        = ();
   my $bad_entries = 0;
   my $line        = 0;
-  print "Processing $file\n";
+  print "Processing $file\n" if($self->verbose);
   open( my $IN, "<", "$file" ) || throw "\n\nNo open :bad filehandle $file\n\n";
 
   while (<$IN>) {
@@ -815,7 +818,7 @@ sub get_tree_hash {
       $hash{ $a[0] }{md5} = $a[4];
     } else {
       $hash{ $a[0] }{md5} = "NO_MD5_IN_DB";
-      print "missing md5: $a[0] in tree file\n";
+      print "missing md5: $a[0] in tree file\n" if($self->verbose);
     }
   }
   my $k = keys(%hash);
@@ -824,8 +827,8 @@ sub get_tree_hash {
     throw "ERROR:No keys in hash for $file\n";
   }
 
-  print "Have $k keys in $file hash\n";
-  print "Also have $bad_entries bad _entries\n\n";
+  print "Have $k keys in $file hash\n" if($self->verbose);
+  print "Also have $bad_entries bad _entries\n\n" if($self->verbose);
   return \%hash;
 }
 
@@ -943,7 +946,7 @@ sub files_to_archive_hash_to_array{
   my $files= ();
 
   foreach my $key (keys %$hash) {
-    print $key,"\n";
+    print $key,"\n" if($self->verbose);
     push (@$files,$key);
   }
 

@@ -516,7 +516,15 @@ sub prepare {
 
    #print STDERR  "SQL(".$self->dbname."):" . join(' ', @args) . "\n";
    #print stack_trace_dump(3);
-   my $sth = $self->db_handle->prepare(@args);
+   my $sth;
+   eval{
+    $sth = $self->db_handle->prepare(@args);
+   };
+   if($@){
+     print STDERR  "SQL(".$self->dbname."):" . join(' ', @args) . "\n";
+     print STDERR $ENV{HOST}."\n";
+     throw("$@");
+   }
 
    # return an overridden statement handle that provides us with
    # the means to disconnect inactive statement handles automatically

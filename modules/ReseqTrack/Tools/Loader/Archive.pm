@@ -12,6 +12,7 @@ use ReseqTrack::Tools::Argument qw(rearrange);
 use ReseqTrack::Tools::Exception qw(throw warning stack_trace_dump);
 use ReseqTrack::Tools::FileUtils qw(create_objects_from_path_list );
 use ReseqTrack::Tools::FileUtils qw(create_history assign_type check_type);
+use ReseqTrack::Tools::Loader;
 
 use Data::Dumper;
 
@@ -81,7 +82,7 @@ sub cleanup_archive_table{
 
   my $archives = $aa->fetch_all;
   if (!$archives) {
-    print "Archive table is clean\n";
+    #print "Archive table is clean\n";
     return;
   }
 
@@ -103,24 +104,24 @@ sub DESTROY{
   my $aa = $self->archive_adaptor();
  
   if ($aa) {
-    print "Deleting archive table lock\n";
+    #print "Deleting archive table lock\n";
     $aa->delete_archive_lock();
-    print "Done\n";
+    #print "Done\n";
     return;
   }
 
 
   #if not "-run". Then archive_adaptor not created, so need one.
   if (!$aa) {
-    print "Creating archive_adaptor\n";
+    #print "Creating archive_adaptor\n";
     my $aa = $self->db->get_ArchiveAdaptor;
-    print "Deleting archive table lock\n";
+    #print "Deleting archive table lock\n";
     $aa->delete_archive_lock();
-    print "Done\n";
+    #print "Done\n";
     return;
   }
 
-  print "Failed to delete archive_lock\n";
+  print STDERR "Failed to delete archive_lock\n";
 
   return;
 
@@ -131,7 +132,7 @@ sub archive_adaptor{
   my ( $self, $arg ) = @_;
   if (defined $arg) {
     if ( ! ($arg->isa("ReseqTrack::DBSQL::ArchiveAdaptor")) ) {
-      print ref ($arg), "\n";
+      #print ref ($arg), "\n";
       throw "Passed object other than ArchiveAdaptor\n"       	
     }
     $self->{archive_adaptor} = $arg
@@ -148,7 +149,7 @@ sub archive_objects {
   my $files_to_archive;
   my %file_objects;
 
-  print "in archive_objects\n";
+  #print "in archive_objects\n";
 
  
   if (ref($tmp) eq 'ARRAY') {
@@ -170,10 +171,10 @@ sub archive_objects {
   #my $aa = $self->db->get_ArchiveAdaptor();
   $self->archive_adaptor($aa);
 
-  print "Starting archive of $total objects\n";
+  #print "Starting archive of $total objects\n";
 
   foreach my $file_path (@{$files_to_archive}) {
-    print  "$file_path\n" if ($total < 10);
+    #print  "$file_path\n" if ($total < 10);
     
     next unless ( -e $file_path );
     my $action = $self->{which_action_hash}{$file_path};
@@ -215,7 +216,7 @@ sub archive_objects {
 
 sub sanity_check_objects {
   my ( $self, $arg ) = @_;
-  print "Doing Sanity check\n";
+  #print "Doing Sanity check\n";
 
 
   #sanity check files
@@ -270,12 +271,12 @@ sub sanity_check_objects {
     if ( $self->archive_location->location_name eq 'staging' ) {
 
       if ( -e $new_file ) {
-	print  "Running replace on: ".$file."\n" if ($self->verbose);
+	#print  "Running replace on: ".$file."\n" if ($self->verbose);
 	#    unless($action_string eq 'replace');
 	$which_action_hash{$file} = $$action_hash{'replace'};
 	
       } else {
-	print  "Running archive on: ".$file."\n" if ($self->verbose);
+	#print  "Running archive on: ".$file."\n" if ($self->verbose);
 	$which_action_hash{$file} = $$action_hash{'archive'};
       }
     } else {
@@ -291,7 +292,7 @@ sub sanity_check_objects {
 
   $self->which_action_hash( \%which_action_hash );
 
-  print "Done sanity check\n" if $self->verbose;
+  #print "Done sanity check\n" if $self->verbose;
   return;
 }
 #######
@@ -334,12 +335,12 @@ sub process_input {
 	push( @$list, $temp );
       }
     } else {
-      print
+      print STDERR
 	"When archiving files from the database you must specify a type and/or "
 	  . "a root path for the files to be from\n";
     }
   
-    print "Have " . @$list . " files to check\n" ; #if ( $self->verbose );
+    #print "Have " . @$list . " files to check\n" ; #if ( $self->verbose );
 
     foreach my $file (@$list) {
       my $other_root = $self->other_location->location;
@@ -347,10 +348,10 @@ sub process_input {
       push( @$files, $file->full_path );
       $file_objects{ $file->full_path } = $file;
     }
-    print "Have " . @$list . " file objects  to process\n";
+    #print "Have " . @$list . " file objects  to process\n";
   }
 
-  print "Have " . @$files . " file paths  to process\n";
+  #print "Have " . @$files . " file paths  to process\n";
 
   throw(   "Need more than zero froms in file array from either the -file, "
 	   . "-file_list or -dir" )

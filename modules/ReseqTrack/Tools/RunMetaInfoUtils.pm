@@ -84,9 +84,9 @@ sub are_run_meta_infos_identical{
   }
   return 0 if($one->paired_length != $two->paired_length);
   return 0 if($one->library_layout ne $two->library_layout);
-  print "Comparing archive base count for ".$one->run_id." ".
-      $one->archive_base_count." compared to ".$two->archive_base_count."\n" 
-      if($verbose);
+  #print "Comparing archive base count for ".$one->run_id." ".
+  #    $one->archive_base_count." compared to ".$two->archive_base_count."\n" 
+  #    if($verbose);
   if($one->archive_base_count || $two->archive_read_count){
     if($one->archive_base_count ne $two->archive_base_count){
       unless(!$one->archive_base_count || $one->archive_base_count == 0){

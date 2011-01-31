@@ -196,8 +196,8 @@ sub get_objects {
     foreach my $id ( @{ $self->other_ids } ) {
         my $object = $adaptor->fetch_by_dbID($id);
         throw( "Failed to fetch object using " . $adaptor . " and " . $id )
-          unless ($object);
-        push( @objects, $object );
+          unless ($object );
+	push( @objects, $object );
     }
     $self->{others} = \@objects;
 }
