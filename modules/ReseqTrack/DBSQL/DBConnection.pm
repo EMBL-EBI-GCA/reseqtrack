@@ -144,12 +144,15 @@ sub connect {
   my ($dsn, $dbh);
   if ( $self->driver() eq "Oracle" ) {
     $dsn = "DBI:" . $self->driver . ":";
-    #print $dsn.", ".$self->username."\@".$self->dbname.", ".$self->password."\n";
+    #print STDERR $dsn.", ".$self->username."\@".$self->dbname.", ".$self->password."\n";
     eval { $dbh = DBI->connect($dsn,
                                $self->username . "\@" . $self->dbname,
                                $self->password,
                                {'RaiseError' => 1, 'PrintError' => 0});
     };
+    if($@){
+      print STDERR "GOT ".$@." from attempt to connect\n";
+    }
   } elsif ( $self->driver() eq "ODBC" ) {
     $dsn = "DBI:" . $self->driver() . ":" . $self->dbname();
     eval{ $dbh = DBI->connect($dsn,
@@ -161,6 +164,9 @@ sub connect {
                                'PrintError' => 0,
                                'odbc_cursortype' => 2});
     };
+    if($@){
+      print STDERR "GOT ".$@." from attempt to connect\n";
+    }
   }
   else{ 
     $dsn = "DBI:" . $self->driver() .
@@ -172,6 +178,9 @@ sub connect {
                               $self->password(),
                               {'RaiseError' => 1});
     };
+    if($@){
+      print STDERR "GOT ".$@." from attempt to connect\n";
+    }
   }
   
   if(!$dbh || $@ || !$dbh->ping()) {

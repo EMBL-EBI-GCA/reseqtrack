@@ -2,6 +2,7 @@ package ReseqTrack::Tools::Loader::File;
 use strict;
 use warnings;
 
+use ReseqTrack::Tools::Loader;
 use ReseqTrack::Tools::Exception qw(throw warning stack_trace_dump);
 use ReseqTrack::Tools::FileUtils qw(create_objects_from_path_list );
 use ReseqTrack::Tools::FileUtils qw(create_history assign_type check_type );
@@ -23,7 +24,6 @@ sub new {
  my ($p, $f, $l) = caller;
  print $p." ".$f." ".$l."\n";
  my $self = $class->SUPER::new(@args);
-
  my (
       $md5_file,        $hostname,  $die_for_problems,
       $update_existing, $store_new, $assign_types,
@@ -45,12 +45,12 @@ sub new {
  #Defaults
  $self->assign_types('1');
  $self->check_types('1');
- $self->md5_program("md5sum") unless ($md5_program);
+ $self->md5_program("md5sum");
 #####
 
- $self->assign_types($assign_types) if ( defined $assign_types );
- $self->check_types($check_types)   if ( defined $check_types );
- $self->md5_program($md5_program) if ($md5_program);
+ $self->assign_types($assign_types);
+ $self->check_types($check_types);
+ $self->md5_program($md5_program);
  $self->md5_file($md5_file);
  $self->hostname($hostname);
  $self->die_for_problems($die_for_problems);
@@ -76,7 +76,7 @@ sub new {
 sub process_input {
  my $self = shift;
  
- if ( scalar( @{ $self->file } ) ) {
+ if ($self->file &&  scalar( @{ $self->file } ) ) {
   $self->add_files_from_cmd_line();
  }
  
@@ -94,7 +94,7 @@ sub process_input {
 
  throw
 "Found 0 files specifed using standard options: -file -dir -md5_file -list_file"
-   unless ( scalar @{ $self->file_paths } );
+   unless ( $self->file_paths && scalar @{ $self->file_paths } );
  return;
 
 }
@@ -242,14 +242,11 @@ sub create_objects {
    create_objects_from_path_list( $self->file_paths, $self->type, $self->host );
 
  my $objs = scalar(@$objects);
- print "Created $objs file objects\n";
+ #print "Created $objs file objects\n";
 
  if ( $self->assign_types ) {
-  print "Assigning types\n";
+  #print "Assigning types\n";
   $objects = assign_type($objects);
- }
- else {
-  print "Not  assigning types\n";
  }
  $self->objects($objects);
  return;
@@ -258,38 +255,9 @@ sub create_objects {
 
 
 sub load_objects {
- my ( $self, $run ) = @_;
+ my ( $self ) = @_;
  my $md5_hash = $self->md5_hash;
  my $files    = $self->objects;
-
- print "Starting Load process\n";
- print "Not running\n" unless ($run);
-
- #sanity checks not sure if there should be any but check for existance if
- #remote isn't specified
-# my @problems;
-# foreach my $file (@$files) { 
- #RES I DO NOT THINK THIS NEXT BIT IS NEEDED.
- # existence confirmed in 'sanity_check_objects()'
- 
- 
- 
- # my $string = $file->full_path . " doesn't exist"
-  #  unless ( $self->remote || -e $file->full_path );
- # if ( !$self->remote && -d $file->full_path ) {
-  # $string = $file->full_path . " is a directory ";
-  #}
-  #push( @problems, $string ) if ($string);
- #}
-
- #if (@problems) {
-  #foreach my $problem (@problems) {
-   #print STDERR $problem;
-  #}
-  #if ( $self->die_for_problems ) {
-   #throw( @problems . " problems identified with input set dying" );
- # }
- #}
 
  if ( $self->do_md5 ) {
 
@@ -304,102 +272,99 @@ sub load_objects {
  $md5_hash = $self->md5_hash;
 
  my @storage_problems;
-FILE: foreach my $file (@$files) {
-
-  if ( $self->do_md5 ) {
-   my $md5 = run_md5( $file->full_path, $self->md5_program ) if ($run);
-   $file->md5($md5);
-  }
-
-  if ( $md5_hash && keys %$md5_hash ) {
-   my $md5 = $md5_hash->{ $file->full_path };
-
-   if ( $file->md5 ) {
-    unless ( $file->md5 eq $md5 ) {
-     print STDERR  $file->full_path . " md5 mismatch.Skipping the file\n";
-     print STDERR "\tcalculated = " . $file->md5 . "\n" . "\tmd5hash    = $md5.  \n";
-     next FILE;
-    }
+ FILE: foreach my $file (@$files) {
+   if ( $self->do_md5 ) {
+     my $md5 = run_md5( $file->full_path, $self->md5_program );
+     $file->md5($md5);
    }
-   $file->md5($md5);
-  }
-  
-  if ( !$file->size && -e $file->full_path ) {
-    my $size = -s $file->full_path;
-    $file->size($size);
-  }
-
-  eval {
-   if ( $self->update_existing )
-   {
-    my $existing = $fa->fetch_by_name( $file->name );
-    if ($existing) {
-     $file->dbID( $existing->dbID );
-     my $history = create_history( $file, $existing );
-     $file->history($history) if ($history);
-     unless ($history) {
-      next FILE;
-     }
-    }
-    else {
-     my $possible_existing = $fa->fetch_by_filename( $file->filename );
-     if ($possible_existing) {
-      if ( @$possible_existing == 1 ) {
-       my $existing = $possible_existing->[0];
-       $file->dbID( $existing->dbID );
-       my $history = create_history( $file, $existing );
-       next FILE unless ($history);
-       $file->history($history) if ($history);
-      }
-      elsif ( @$possible_existing >= 2 ) {
-       my $for_update;
-       foreach my $existing (@$possible_existing) {
-        if ( $existing->type eq $file->type ) {
-         if ($for_update) {
-          warning(   "Can't update "
-                   . $file->filename
-                   . " there are multiple files "
-                   . "which share its name and type" );
-         }
-         $for_update = $existing;
-        }
+   
+   if ( $md5_hash && keys %$md5_hash ) {
+     my $md5 = $md5_hash->{ $file->full_path };
+     
+     if ( $file->md5 ) {
+       unless ( $file->md5 eq $md5 ) {
+	 print STDERR  $file->full_path . " md5 mismatch.Skipping the file\n";
+	 print STDERR "\tcalculated = " . $file->md5 . "\n" . "\tmd5hash    = $md5.  \n";
+	 throw();
        }
-       $file->dbID( $for_update->dbID ) if ($for_update);
-       my $history = create_history( $file, $for_update ) if ($for_update);
-       next FILE unless ($history);
-       $file->history($history) if ($history);
-       unless ($for_update) {
-        print STDERR "There are "
-          . @$possible_existing  
-          . " possible existing files\n";
-        
-        foreach my $file (@$possible_existing) {
-         print STDERR $file->dbID . " " . $file->name . "\n";
-        }
-        throw(   "Have multiple files linked to "
-               . $file->filename
-               . " not sure how "
-               . "to update the file" );
-       }
-      }
      }
-    }
+     $file->md5($md5);
    }
-
-   print "Loading:", $file->full_path, "\n" if ( $self->verbose );
-   $fa->store( $file, $self->update_existing, $self->store_new ) if ($run);
-  };
-  if ($@) {
-   throw( "Problem storing " . $file . " " . $file->full_path . " $@" )
-     if ( $self->die_for_problems );
-   push( @storage_problems, $file->full_path . " " . $@ );
-  }
+   
+   if ( !$file->size && -e $file->full_path ) {
+     my $size = -s $file->full_path;
+     $file->size($size);
+   }
+   
+   eval {
+     if ( $self->update_existing )
+       {
+	 my $existing = $fa->fetch_by_name( $file->name );
+	 if ($existing) {
+	   $file->dbID( $existing->dbID );
+	   my $history = create_history( $file, $existing );
+	   $file->history($history) if ($history);
+	   unless ($history) {
+	     next FILE;
+	   }
+	 }
+	 else {
+	   my $possible_existing = $fa->fetch_by_filename( $file->filename );
+	   if ($possible_existing) {
+	     if ( @$possible_existing == 1 ) {
+	       my $existing = $possible_existing->[0];
+	       $file->dbID( $existing->dbID );
+	       my $history = create_history( $file, $existing );
+	       next FILE unless ($history);
+	       $file->history($history) if ($history);
+	     }
+	     elsif ( @$possible_existing >= 2 ) {
+	       my $for_update;
+	       foreach my $existing (@$possible_existing) {
+		 if ( $existing->type eq $file->type ) {
+		   if ($for_update) {
+		     warning(   "Can't update "
+				. $file->filename
+				. " there are multiple files "
+				. "which share its name and type" );
+		   }
+		   $for_update = $existing;
+		 }
+	       }
+	       $file->dbID( $for_update->dbID ) if ($for_update);
+	       my $history = create_history( $file, $for_update ) if ($for_update);
+	       next FILE unless ($history);
+	       $file->history($history) if ($history);
+	       unless ($for_update) {
+		 print STDERR "There are "
+		   . @$possible_existing  
+		     . " possible existing files\n";
+		 
+		 foreach my $file (@$possible_existing) {
+		   print STDERR $file->dbID . " " . $file->name . "\n";
+		 }
+		 throw(   "Have multiple files linked to "
+			  . $file->filename
+			  . " not sure how "
+			  . "to update the file" );
+	       }
+	     }
+	   }
+	 }
+       }
+     $fa->store( $file, $self->update_existing, $self->store_new );
+   };
+   if ($@) {
+     throw( "Problem storing " . $file . " " . $file->full_path . " $@" )
+       if ( $self->die_for_problems );
+     push( @storage_problems, $file->full_path . " " . $@ );
+   }
  }
-
+ 
  foreach my $problem (@storage_problems) {
-  print STDERR $problem . "\n";
+   print STDERR $problem . "\n";
  }
-
+ 
  return (1);
 
 }

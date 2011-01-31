@@ -78,13 +78,12 @@ my $archiver = ReseqTrack::Tools::Loader::Archive->new(
 						       -priority  => $priority,
 						       -max_number=> $max_number,
 						       -from_db   => $from_db,
-						       -type      => $type,
 						       -path_like => $path_like,
 						       -archive_sleep => $sleep,
 						       -no_lock   =>$no_lock,
 						      );
 $archiver->process_input();
-$archiver->cleanup_archive_table($verbose);
+#$archiver->cleanup_archive_table($verbose);
 $archiver->sanity_check_objects();
 $archiver->archive_objects() if $run;
 

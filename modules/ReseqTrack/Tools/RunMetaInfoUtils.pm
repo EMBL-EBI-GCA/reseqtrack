@@ -33,7 +33,6 @@ use vars qw (@ISA  @EXPORT);
 sub are_run_meta_infos_identical{
   my ($one, $two, $skip_date) = @_;
   my $verbose = 0;
-  $verbose = 1 if($one->run_id eq 'SRR003513');
   throw("Must pass are_run_meta_infos_identical two RunMetaInfo objects") unless($one && $two);
   throw("Must pass are_run_meta_infos_identical two RunMetaInfo objects and not ".$one." and ".
         $two) unless($one->isa("ReseqTrack::RunMetaInfo") && 
@@ -84,9 +83,7 @@ sub are_run_meta_infos_identical{
   }
   return 0 if($one->paired_length != $two->paired_length);
   return 0 if($one->library_layout ne $two->library_layout);
-  #print "Comparing archive base count for ".$one->run_id." ".
-  #    $one->archive_base_count." compared to ".$two->archive_base_count."\n" 
-  #    if($verbose);
+
   if($one->archive_base_count || $two->archive_read_count){
     if($one->archive_base_count ne $two->archive_base_count){
       unless(!$one->archive_base_count || $one->archive_base_count == 0){
@@ -117,9 +114,10 @@ sub create_history_for_run_meta_info{
   throw("Can't create a history object if you are changing the run id from ".
         $old->run_id." to ".$new->run_id) unless($new->run_id eq $old->run_id);
   my $comment;
-
-  $comment = "Changing submission date from ".$old->submission_date." to ".$new->submission_date if($old->submission_date ne $new->submission_date);
-  $comment = "Changing study name ".$old->study_name." ".$new->study_name if($new->study_name ne $old->study_name);
+  if($old->submission_date && $new->submission_date){
+    $comment = "Changing submission date from ".$old->submission_date." to ".$new->submission_date if($old->submission_date ne $new->submission_date);
+  }
+    $comment = "Changing study name ".$old->study_name." ".$new->study_name if($new->study_name ne $old->study_name);
   
   $comment = "Changing submission id ".$old->submission_id." ".$new->submission_id if($new->submission_id ne $old->submission_id);
   
@@ -164,7 +162,7 @@ sub create_history_for_run_meta_info{
   }
   $comment = "Changing sample name ".$old->sample_name." ".$new->sample_name if($new->sample_name ne $old->sample_name);
   if(!$comment){
-    print "There are no differences between ".$old." and ".$new." can't create a history\n";
+    #print "There are no differences between ".$old." and ".$new." can't create a history\n";
     return undef;
   }
   my $history = ReseqTrack::History->new(

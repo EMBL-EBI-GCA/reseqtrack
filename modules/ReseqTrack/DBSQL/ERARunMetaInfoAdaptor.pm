@@ -247,6 +247,8 @@ sub convert_population{
     $pop = 'CEU';
   }elsif($string =~ /tuscan/i){
     $pop = 'TSI';
+  }elsif($string =~ /toscan/i){
+    $pop = 'TSI';
   }elsif($string =~ /TSI/i){
     $pop = 'TSI';
   }elsif($string =~ /denver/i){

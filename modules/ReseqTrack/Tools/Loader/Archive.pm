@@ -37,8 +37,9 @@ sub new {
 		  );
    
   $self->lines_check (1);	# default 'on';
-  $self->archive_sleep ("240");
-  
+  $self->archive_sleep (240);
+  $self->max_number(1000);
+
   $self->no_lock ($no_lock);
   $self->lines_check($lines_check);
   $self->list_file($list_file);
@@ -99,30 +100,10 @@ sub DESTROY{
 
   # last thing to do is get rid of archive_lock.
 
- 
-
   my $aa = $self->archive_adaptor();
- 
   if ($aa) {
-    #print "Deleting archive table lock\n";
     $aa->delete_archive_lock();
-    #print "Done\n";
-    return;
   }
-
-
-  #if not "-run". Then archive_adaptor not created, so need one.
-  if (!$aa) {
-    #print "Creating archive_adaptor\n";
-    my $aa = $self->db->get_ArchiveAdaptor;
-    #print "Deleting archive table lock\n";
-    $aa->delete_archive_lock();
-    #print "Done\n";
-    return;
-  }
-
-  print STDERR "Failed to delete archive_lock\n";
-
   return;
 
 }
@@ -145,21 +126,14 @@ sub archive_adaptor{
 ###################################
 sub archive_objects {
   my ( $self ) = @_;
-  my $tmp  = $self->file_paths;
-  my $files_to_archive;
+  my $files_to_archive  = keys(%{$self->which_action_hash});
+
   my %file_objects;
 
-  #print "in archive_objects\n";
-
- 
-  if (ref($tmp) eq 'ARRAY') {
-    push(@$files_to_archive, @$tmp);
-  } else {
-    push(@{$files_to_archive}, $tmp);
+  if(!$files_to_archive || @$files_to_archive == 0){
+    print STDERR "There are no files to archive exiting\n";
+    return 0;
   }
-
-  my $total = scalar ( @{$files_to_archive});
-   
   
   my $fa = $self->db->get_FileAdaptor;
 
@@ -171,11 +145,7 @@ sub archive_objects {
   #my $aa = $self->db->get_ArchiveAdaptor();
   $self->archive_adaptor($aa);
 
-  #print "Starting archive of $total objects\n";
-
   foreach my $file_path (@{$files_to_archive}) {
-    #print  "$file_path\n" if ($total < 10);
-    
     next unless ( -e $file_path );
     my $action = $self->{which_action_hash}{$file_path};
   
@@ -191,7 +161,7 @@ sub archive_objects {
     } else {
       $file = $file_objects{$file_path};
     }
-
+    print "Have file ".$file->name."\n";
     my $archive =
       create_archive_from_objects( $file, $action, $self->archive_location );
     $archive->priority( $self->priority );
@@ -204,7 +174,6 @@ sub archive_objects {
    
   }
 
-# $self->archive_adaptor($aa); RES move above after creation of $aa
 
   return;
 }
@@ -216,7 +185,6 @@ sub archive_objects {
 
 sub sanity_check_objects {
   my ( $self, $arg ) = @_;
-  #print "Doing Sanity check\n";
 
 
   #sanity check files
@@ -225,23 +193,13 @@ sub sanity_check_objects {
   my %changelog_hash;
   my $files = $self->file_paths;
 
-  my $file_array;
-
- 
- 
-
-  if (ref($files) eq 'ARRAY') {
-    push(@$file_array, @$files);
-  } else {
-    push(@{$file_array}, $files);
-  }
 
 
-  my $total_files = scalar @{$file_array};
+  my $total_files = scalar @{$files};
 
   my $action_hash = $self->action_hash;
 
-  foreach my $file (@$file_array) {
+  foreach my $file (@$files) {
     warning( "Can't archive a file " . $file . " which doesn't exist" )
       unless ( -e $file );
 
@@ -254,7 +212,7 @@ sub sanity_check_objects {
 		 . $self->location_root );
       next;
     }
-
+    
     my $new_file = $file;
 
   
@@ -299,7 +257,7 @@ sub sanity_check_objects {
 
 
 sub process_input {
-  my ( $self, $arg ) = @_;
+  my ( $self) = @_;
   my %file_objects;
   my $files;
 
@@ -340,18 +298,14 @@ sub process_input {
 	  . "a root path for the files to be from\n";
     }
   
-    #print "Have " . @$list . " files to check\n" ; #if ( $self->verbose );
-
     foreach my $file (@$list) {
       my $other_root = $self->other_location->location;
       next if ( $file->path =~ /$other_root/ );
       push( @$files, $file->full_path );
       $file_objects{ $file->full_path } = $file;
     }
-    #print "Have " . @$list . " file objects  to process\n";
-  }
 
-  #print "Have " . @$files . " file paths  to process\n";
+
 
   throw(   "Need more than zero froms in file array from either the -file, "
 	   . "-file_list or -dir" )
@@ -564,7 +518,7 @@ sub other_location {
 
 sub archive_sleep {
   my ( $self, $arg ) = @_;
-  $self->{sleep} = $arg if ($arg);
+  $self->{sleep} = $arg if (defined $arg);
   return $self->{sleep};
 }
 

@@ -50,11 +50,13 @@ my $aa = $db->get_ArchiveAdaptor;
 
 
 my $count = 0;
-while($count <= $loops){
+while($count < $loops){
+  print "Fetching objects\n";
   my $archives = $aa->fetch_all;
+  print "Running cleanup\n";
   cleanup_archive($archives, $db, $verbose);
   $count++;
-  sleep($sleep) if($count <= $loops);
+  sleep($sleep) if($count < $loops);
 }
 
 $aa->delete_archive_lock;

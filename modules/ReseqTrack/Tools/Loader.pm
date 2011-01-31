@@ -25,7 +25,6 @@ sub new {
  my ( $class, @args ) = @_;
  my $self = {};
  bless $self, $class;
-
  my (
       $db,     $dbhost,  $dbname,  $dbuser, $dbpass,
       $dbport, $dir,     $file,    $type, $list_file,
@@ -120,7 +119,9 @@ sub add_files_from_dir {
  if ($self->dir) {
   my ( $paths, $hash ) = list_files_in_dir( $self->dir, 1 );
   unless ($descend) {
-   $paths = $hash->{$self->dir};
+    my $dir = $self->dir;
+    $dir =~ s/\/$//s;
+    $paths = $hash->{$self->dir};
   }
   throw( "No paths were found in " . $self->dir ) if ( !$paths || @$paths == 0 );
   push( @paths, @$paths ) if ( $paths && @$paths >= 1 );

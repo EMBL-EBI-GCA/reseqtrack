@@ -3,7 +3,6 @@
 use strict;
 use Getopt::Long;
 use File::Basename;
-use ReseqTrack::Tools::Loader;
 use ReseqTrack::Tools::Loader::File;
 
 use ReseqTrack::Tools::Exception qw(throw warning stack_trace_dump);
@@ -99,7 +98,7 @@ my $loader = ReseqTrack::Tools::Loader::File->new(
 $loader->process_input();
 $loader->create_objects();
 $loader->sanity_check_objects();
-$loader->load_objects($run);
+$loader->load_objects() if($run);
 
 
 

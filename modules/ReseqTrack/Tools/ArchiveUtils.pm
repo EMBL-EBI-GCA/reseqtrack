@@ -7,6 +7,7 @@ use File::Basename;
 use ReseqTrack::Tools::Exception;
 use ReseqTrack::Tools::FileSystemUtils;
 use ReseqTrack::Tools::FileUtils;
+use ReseqTrack::Tools::GeneralUtils;
 use ReseqTrack::Archive;
 use ReseqTrack::File;
 

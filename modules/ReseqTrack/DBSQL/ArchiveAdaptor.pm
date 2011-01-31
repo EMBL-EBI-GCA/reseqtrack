@@ -9,7 +9,7 @@ use ReseqTrack::Archive;
 
 use ReseqTrack::Tools::Exception qw(throw warning);
 use ReseqTrack::Tools::Argument qw(rearrange);
-use ReseqTrack::Tools::GeneralUtils;
+use ReseqTrack::Tools::GeneralUtils qw(is_locked create_lock_string delete_lock_string);
 
 @ISA = qw(ReseqTrack::DBSQL::BaseAdaptor);
 
