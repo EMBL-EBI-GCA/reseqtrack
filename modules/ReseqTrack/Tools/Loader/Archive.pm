@@ -126,15 +126,17 @@ sub archive_adaptor{
 ###################################
 sub archive_objects {
   my ( $self ) = @_;
-  my $files_to_archive  = keys(%{$self->which_action_hash});
+
+  my @files_to_archive  = keys(%{$self->which_action_hash});
 
   my %file_objects;
 
-  if(!$files_to_archive || @$files_to_archive == 0){
+
+  if( scalar  (@files_to_archive) == 0){
     print STDERR "There are no files to archive exiting\n";
     return 0;
   }
-  
+
   my $fa = $self->db->get_FileAdaptor;
 
 
@@ -145,7 +147,7 @@ sub archive_objects {
   #my $aa = $self->db->get_ArchiveAdaptor();
   $self->archive_adaptor($aa);
 
-  foreach my $file_path (@{$files_to_archive}) {
+  foreach my $file_path (@files_to_archive) {
     next unless ( -e $file_path );
     my $action = $self->{which_action_hash}{$file_path};
   
@@ -305,7 +307,7 @@ sub process_input {
       $file_objects{ $file->full_path } = $file;
     }
 
-
+  }
 
   throw(   "Need more than zero froms in file array from either the -file, "
 	   . "-file_list or -dir" )
