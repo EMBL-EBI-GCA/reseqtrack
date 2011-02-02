@@ -21,8 +21,6 @@ use vars qw(@ISA);
 
 sub new {
  my ( $class, @args ) = @_;
- my ($p, $f, $l) = caller;
- print $p." ".$f." ".$l."\n";
  my $self = $class->SUPER::new(@args);
  my (
       $md5_file,        $hostname,  $die_for_problems,
@@ -365,7 +363,7 @@ sub load_objects {
    print STDERR $problem . "\n";
  }
  
- return (1);
+ return $files;
 
 }
 
