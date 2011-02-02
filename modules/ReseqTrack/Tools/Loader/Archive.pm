@@ -273,7 +273,7 @@ sub process_input {
   } elsif ( $self->dir ) {
     my ( $list, $hash ) = list_files_in_dir( $self->dir, 1 );
     if ( $self->descend ) {
-      push( @$files, @$list );
+      push( @$files, @$list ) if($list && @$list);
     } else {
       my $dir_list = $hash->{ $self->dir };
       push( @$files, @$dir_list );
@@ -304,12 +304,10 @@ sub process_input {
     }
   }
 
-  }
-
   throw(   "Need more than zero froms in file array from either the -file, "
 	   . "-file_list or -dir" )
     unless ( @$files >= 1 );
-
+  
   $self->file_paths($files);
   print Dumper($files) if ( $self->debug );
   return;
