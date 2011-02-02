@@ -126,13 +126,10 @@ sub archive_adaptor{
 ###################################
 sub archive_objects {
   my ( $self ) = @_;
-
+  
   my @files_to_archive  = keys(%{$self->which_action_hash});
-
   my %file_objects;
-
-
-  if( scalar  (@files_to_archive) == 0){
+  if(@files_to_archive == 0){
     print STDERR "There are no files to archive exiting\n";
     return 0;
   }
@@ -163,7 +160,6 @@ sub archive_objects {
     } else {
       $file = $file_objects{$file_path};
     }
-    print "Have file ".$file->name."\n";
     my $archive =
       create_archive_from_objects( $file, $action, $self->archive_location );
     $archive->priority( $self->priority );
@@ -306,6 +302,7 @@ sub process_input {
       push( @$files, $file->full_path );
       $file_objects{ $file->full_path } = $file;
     }
+  }
 
   }
 
@@ -329,6 +326,7 @@ sub which_action_hash {
   }
   return $self->{which_action_hash};
 }
+
 sub set_other_location {
   my ( $self, $arg ) = @_;
 
@@ -347,6 +345,7 @@ sub set_other_location {
   return;
 }
 ####################################
+
 sub get_archive_actions {
   my ( $self, $arg ) = @_;
   if ( !defined $self->archive_actions ) {
@@ -369,6 +368,7 @@ sub create_action_hash {
   $self->action_hash( \%action_hash );
   return;
 }
+
 sub archive_location_adaptor {
   my ( $self, $arg ) = @_;
 
