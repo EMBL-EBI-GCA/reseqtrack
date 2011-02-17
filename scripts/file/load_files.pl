@@ -2,18 +2,17 @@
 
 use strict;
 use Getopt::Long;
-use File::Basename;
+#use File::Basename;
 use ReseqTrack::Tools::Loader::File;
 
 use ReseqTrack::Tools::Exception qw(throw warning stack_trace_dump);
-use ReseqTrack::Tools::FileUtils qw(create_objects_from_path_list create_history assign_type check_type);
-use ReseqTrack::Tools::FileSystemUtils;
-use ReseqTrack::Tools::HostUtils qw(get_host_object);
-use ReseqTrack::Tools::IndexUtils qw(get_md5hash_from_sequence_index get_md5hash_from_alignment_index);
+#use ReseqTrack::Tools::FileSystemUtils;
+#use ReseqTrack::Tools::HostUtils qw(get_host_object);
+#use ReseqTrack::Tools::IndexUtils qw(get_md5hash_from_sequence_index get_md5hash_from_alignment_index);
 use ReseqTrack::DBSQL::DBAdaptor;
 
-use ReseqTrack::File;
-use ReseqTrack::Host;
+#use ReseqTrack::File;
+#use ReseqTrack::Host;
 
 $| = 1;
 
