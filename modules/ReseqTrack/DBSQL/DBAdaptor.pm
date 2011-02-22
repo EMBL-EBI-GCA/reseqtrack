@@ -22,6 +22,8 @@ use ReseqTrack::DBSQL::ArchiveActionAdaptor;
 use ReseqTrack::DBSQL::ArchiveLocationAdaptor;
 use ReseqTrack::DBSQL::InputStringAdaptor;
 use ReseqTrack::DBSQL::MetaAdaptor;
+use ReseqTrack::DBSQL::GenotypeResultsAdaptor;
+
 
 sub new {
   my($class, @args) = @_;
