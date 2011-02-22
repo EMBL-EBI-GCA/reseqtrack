@@ -10,49 +10,42 @@ use vars qw(@ISA);
 
 sub new {
 
- my ( $class, @args ) = @_;
- my $self = $class->SUPER::new(@args);
+ 
+
+  my ( $class, @args ) = @_;
+  my $self = $class->SUPER::new(@args);
 
   my (
 
-      $genotype_results_id,
-      $other_id,
-      $table_name,
-      $reference,
-      $snps_bin,
-      $aligner,
-      $version,
-      $validation_method,
-      $max_bases,
-      $percent_mapped,
-      $summary,
-      $verdict,
+    
+      $table_name, $other_id, $name,  $claimed,
+      $top_hit, $second_hit, $ratio21,  $ratio_claimed,
+      $reference, $snps_bin,  $aligner,  $version,
+      $validation_method,  $max_bases, $percent_mapped,
+      $percent_reads_used,  $verdict,  $cfg_file,
       $performed,
 
      ) = rearrange(
 		   [
 		    qw(
-			  GENOTYPE_RESULTS_ID
-			  OTHER_ID
-			  TABLE_NAME
-			  REFERENCE
-			  SNPS_BIN
-			  ALIGNER
-			  VERSION
-			  VALIDATION_METHOD
-			  MAX_BASES
-			  PERCENT_MAPPED
-			  SUMMARY
-			  VERDICT
-			  PERFORMED )
+                  TABLE_NAME OTHER_ID NAME CLAIMED
+                  TOP_HIT SECOND_HIT RATIO21 RATIO_CLAIMED
+	          REFERENCE SNPS_BIN ALIGNER VERSION
+		  VALIDATION_METHOD MAX_BASES PERCENT_MAPPED
+                  PERCENT_READS_USED VERDICT CFG_FILE PERFORMED )
 		   ],
 		   @args
 		  );
  
-  ######
-  $self->genotype_results_id($genotype_results_id);
-  $self->other_id($other_id);
+
   $self->table_name($table_name);
+  $self->other_id($other_id);
+  $self->name($name);
+  $self->claimed($claimed);
+  $self->top_hit($top_hit);
+  $self->second_hit($second_hit);
+  $self->ratio21($ratio21);
+  $self->ratio_claimed($ratio_claimed);
   $self->reference($reference);
   $self->snps_bin($snps_bin);
   $self->aligner($aligner);
@@ -60,13 +53,14 @@ sub new {
   $self->validation_method($validation_method);
   $self->max_bases($max_bases);
   $self->percent_mapped($percent_mapped);
-  $self->summary($summary);
+  $self->percent_reads_used($percent_reads_used);
+ 
   $self->verdict($verdict);
   $self->performed($performed);
-
+  $self->cfg_file($cfg_file);
   #########
 
-  my $ERR_MSG = "Can't create ReseqTrack::Genotyping without";
+  my $ERR_MSG = "Can't create ReseqTrack::GenotypeResults without";
 
   #ERROR CHECKING
   throw("$ERR_MSG other_id")   unless ($other_id);
@@ -76,9 +70,11 @@ sub new {
   throw("$ERR_MSG aligner")    unless ($aligner);
   throw("$ERR_MSG version")    unless ($version);
   throw("$ERR_MSG validation_method")    unless ($validation_method);
-  throw("$ERR_MSG summary")    unless ($summary);
+ 
   #throw("$ERR_MSG max_bases")  unless ($max_bases);
   #throw("$ERR_MSG verdict")    unless ($verdict);
+ 
+
 
   return $self;
 }
@@ -93,6 +89,50 @@ sub new {
   Example   : 
 
 =cut
+sub name {
+  my ( $self, $arg ) = @_;
+  if ($arg) {
+    $self->{name} = $arg;
+  }
+  return $self->{name};
+}
+
+sub claimed {
+  my ( $self, $arg ) = @_;
+  if ($arg) {
+    $self->{claimed} = $arg;
+  }
+  return $self->{claimed};
+}
+sub top_hit {
+  my ( $self, $arg ) = @_;
+  if ($arg) {
+    $self->{top_hit} = $arg;
+  }
+  return $self->{top_hit};
+}
+sub second_hit {
+  my ( $self, $arg ) = @_;
+  if ($arg) {
+    $self->{second_hit} = $arg;
+  }
+  return $self->{second_hit};
+}
+sub ratio21 {
+  my ( $self, $arg ) = @_;
+  if ($arg) {
+    $self->{ratio21} = $arg;
+  }
+  return $self->{ratio21};
+}
+sub ratio_claimed {
+  my ( $self, $arg ) = @_;
+  if ($arg) {
+    $self->{ratio_claimed} = $arg;
+  }
+  return $self->{ratio_claimed};
+}
+
 sub genotype_results_id {
   my ( $self, $arg ) = @_;
   if ($arg) {
@@ -154,6 +194,13 @@ sub percent_mapped {
   }
   return $self->{percent_mapped};
 }
+sub percent_reads_used {
+  my ( $self, $arg ) = @_;
+  if ($arg) {
+    $self->{percent_reads_used} = $arg;
+  }
+  return $self->{percent_reads_used};
+}
 sub performed {
   my ( $self, $arg ) = @_;
   if ($arg) {
@@ -186,12 +233,13 @@ sub reference {
   return $self->{reference};
 }
 
-sub summary {
+
+sub cfg_file {
   my ( $self, $arg ) = @_;
   if ($arg) {
-    $self->{summary} = $arg;
+    $self->{cfg_file} = $arg;
   }
-  return $self->{summary};
+  return $self->{cfg_file};
 }
 
 1;
