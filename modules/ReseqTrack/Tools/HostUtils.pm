@@ -88,6 +88,10 @@ sub check_name{
   $valid_hash{"1000genomes.ebi.ac.uk"} = 1;
   $valid_hash{"sanger"} = 1;
   $valid_hash{"tgen"} = 1;
+  $valid_hash{"ncbi"} = 1;
+  $valid_hash{"broad"} = 1;
+  $valid_hash{"baylor"} = 1;
+  $valid_hash{"boston_college"} = 1;
   return $valid_hash{$name};
 }
 

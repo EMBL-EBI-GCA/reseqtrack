@@ -89,6 +89,7 @@ sub fetch_by_filename{
   $sth->bind_param(1, $name_like);
   $sth->execute;
   #print "sql $sql\n";
+  #print "name: $name_like\n";
   my @files;
   while(my $rowHashref = $sth->fetchrow_hashref){
     #print "Have rowHashref ".$rowHashref."\n";

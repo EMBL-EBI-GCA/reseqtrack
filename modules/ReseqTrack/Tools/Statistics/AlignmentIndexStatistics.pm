@@ -303,6 +303,17 @@ sub make_stats{
  	 $self->old_bp_cnt_by_pop_hash($old_bp_cnt_by_pop_hash);
  	 $self->old_sample_cnt_hash($old_sample_cnt_hash);
   }
+
+=head
+ my %h = %$sample_cnt_hash;
+ my $c = 1;
+ foreach my $s ( keys %{$h{"ABI_SOLID"}{"total"}} ) {
+     print "sample $c is $s\n";
+     $c++;
+ }     
+=cut
+## FIXME: remove above lines after testing
+
 }
 
 =head2 get_population
@@ -358,10 +369,14 @@ sub parse_bas {
 			my @values = split /\t/, $line;
 			#print STDERR "line is $line\n";
 			my $read_group = $values[6];
-                        next unless($run_id_hash{$values[6]});
+                        next unless($run_id_hash->{$values[6]});
   			my $individual = $values[3];
   			my $population = $individual_to_pop->{$individual};
   			my $study = $values[2];
+			
+  			next if ( $line =~ /20101123/ && $line =~ /chrom20/);  ## FIXME: change date!! This line produce the right results 
+  														# this way chrom20 data are not double counted in alignment starting from 20101123 
+  														# also chrom20 data can be slightly out of date
   			my $platform = $values[4];
   			my $mapped_bp = $values[8];
 		    $bp_hash{$platform}->{$individual} += $mapped_bp;
@@ -379,6 +394,7 @@ sub parse_bas {
  
 	foreach my $platform(keys(%bp_hash)){
 	  	foreach my $sample(keys(%{$bp_hash{$platform}})){
+	  	    next if $sample eq "total"; ## FIXME, check me??
 	    	my $gigabase = convert_to_giga($bp_hash{$platform}->{$sample});
 	    	$sample_cnt_hash{$platform}{"total"}{$sample} = 1;
 	    	$sample_cnt_hash{$platform}{"greater than 10"}{$sample} = 1 if($gigabase >= 10);

@@ -196,7 +196,8 @@ sub useage{
 sub convert_to_giga{
   my ($base_count) = @_;
   $base_count = 0 unless($base_count);
-  my $gigabase = $base_count/1000000000;
+ # my $gigabase = $base_count/1000000000;
+  my $gigabase = sprintf("%.2f", $base_count/1000000000);
   return $gigabase;
 }
 

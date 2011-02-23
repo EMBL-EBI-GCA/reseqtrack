@@ -384,11 +384,23 @@ sub assign_type{
       $type = "WITHDRAWN_".$type;
       $file->type($type);
     }
-    if ($file->name =~ /mosaik/i ){
+    if ($file->name =~ /mosaik/i && $file->name !~ /exome/i){
       my $type = $file->type;
       $type = "NCBI_".$type;
       $file->type($type);
     }
+    if( $file->name =~ /exome/i && $file->name =~ /bwa/i  ) {
+      my $type = $file->type;
+      $type = "EXOME_BI_".$type;
+      $file->type($type);
+    }
+=head
+    if( $file->name =~ /exome/i && $file->name =~ /??????/i  ) {
+      my $type = $file->type;
+      $type = "EXOME_BC_".$type;
+      $file->type($type);
+    }
+=cut
   }
   return $files;
 }
@@ -436,6 +448,9 @@ sub standard_type_hash{
   $hash{'NCBI_BAM'} = 1;
   $hash{'NCBI_BAI'} = 1;
   $hash{'NCBI_BAS'} = 1;
+  $hash{'EXOME_BI_BAM'} = 1;
+  $hash{'EXOME_BI_BAS'} = 1;
+  $hash{'EXOME_BI_BAI'} = 1;
   return \%hash;
 }
 
