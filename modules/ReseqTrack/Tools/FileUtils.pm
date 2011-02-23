@@ -45,9 +45,10 @@ use vars qw (@ISA  @EXPORT);
              copy_file_object
              assign_type
              check_type
-	     move_file_in_db_and_dir
+	     	 move_file_in_db_and_dir
              get_count_stats
-	     get_run_id_to_file_hash);
+	     	 get_run_id_to_file_hash
+	     	 write_log);
 
 =head2 are_files_identical
 
@@ -549,5 +550,30 @@ sub get_run_id_to_file_hash{
   }
   return \%hash;
 }
+
+sub write_log {
+	my ($f_obj, $log_adaptor, $message) = @_;	
+	my $new_log_obj;
+	
+	if ($message) {
+		$new_log_obj = ReseqTrack::RejectLog->new(
+			-file_id 		=> $f_obj->dbID,
+			-is_reject 		=> 'y',
+			-reject_reason 	=> $message, 
+			);
+	}
+	else { #a good file
+		$new_log_obj = ReseqTrack::RejectLog->new(
+			-file_id => $f_obj->dbID,
+			-is_reject => 'n', 
+			);
+	}		
+	
+	#$log_adaptor->store($new_log_obj, 1) if ($run);
+	$log_adaptor->store($new_log_obj, 1);
+	
+	return 1;
+}	
+
 
 1;

@@ -238,4 +238,13 @@ sub get_GenotypeResultsAdaptor{
   return $self->{genotype_results_adaptor};
 }
 
+sub get_RejectLogAdaptor{
+  my ($self) = @_;
+  if(!$self->{rejectlog_adaptor}){
+    $self->{rejectlog_adaptor} = ReseqTrack::DBSQL::RejectLogAdaptor->
+        new($self);
+  }
+  return $self->{rejectlog_adaptor};
+}
+
 1;
