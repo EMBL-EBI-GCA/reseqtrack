@@ -8,6 +8,7 @@ use ReseqTrack::Tools::RunMetaInfoUtils;
 use ReseqTrack::Tools::SequenceIndexUtils;
 use ReseqTrack::Tools::FileUtils;
 use Getopt::Long;
+use Data::Dumper;
 
 $| = 1;
 
@@ -27,6 +28,8 @@ my @skip_study_ids;
 my $test_id;
 my $study_collection_type = 'STUDY_TYPE';
 
+my $current_index ;
+
 &GetOptions(
 	    'dbhost=s'      => \$dbhost,
 	    'dbname=s'      => \$dbname,
@@ -42,6 +45,7 @@ my $study_collection_type = 'STUDY_TYPE';
 	    'skip_study_id=s@' => \@skip_study_ids,
 	    'run_id=s' => \$single_run_id,
 	    'study_collection_type:s' => \$study_collection_type,
+	    'current_index=s'     =>\$current_index,
 	   );
 
 if($help){
@@ -54,6 +58,27 @@ my $db = ReseqTrack::DBSQL::DBAdaptor->new(
   -dbname => $dbname,
   -pass   => $dbpass,
     );
+    
+my %current_hash;
+if ($current_index){
+	die "Cannot find $current_index" if ( !-e $current_index);
+  open my $CURRENT_SI,'<', $current_index; 
+    die "Cannot load current sequence index:$current_index\n" if (!$CURRENT_SI);
+
+  my %current_hash;
+  while (<$CURRENT_SI>){
+    chomp;
+    my @aa = split /\t/;
+
+    if ($aa[20] eq "1"){
+      $current_hash{$aa[2]}{withdrawn}      = $aa[20];
+      $current_hash{$aa[2]}{withdrawn_date} = $aa[21];
+      $current_hash{$aa[2]}{comment}        = $aa[22];
+    }
+  }
+  close ($CURRENT_SI);
+}
+
 
 
 my %skip_study_id;
@@ -90,22 +115,38 @@ if($table_name eq 'file'){
   }
 }
 my %index_lines;
+
+
+
  META_INFO:foreach my $meta_info(@sorted){
-   print "Have ".$meta_info->run_id."\n";
+ # print "Have ".$meta_info->run_id."\n";
    my $analysis_group = $study_collection_hash{$meta_info->run_id};
    if($single_run_id){
      #print STDERR "Comparing ".$meta_info->run_id." to ".$single_run_id."\n";
      next META_INFO unless($meta_info->run_id eq $single_run_id);
    }
-   print "Running dump on ".$meta_info->run_id."\n";
+ #  print "Running dump on ".$meta_info->run_id."\n";
    if(keys(%skip_study_id)){
      next META_INFO if($skip_study_id{$meta_info->study_id});
    }
    $index_lines{$meta_info->run_id} = [] unless($index_lines{$meta_info->run_id});
    if($meta_info->status eq 'suppressed' || $meta_info->status eq 'cancelled'){
-      my $line = create_suppressed_index_line($meta_info, undef, $analysis_group);
+   	my $line;
+   	
+   	if (defined $current_hash{$meta_info->run_id}{withdrawn}){
+        print $meta_info->run_id, "\t",$current_hash{$meta_info->run_id}{comment},"\n";
+        my $new_comment = $current_hash{$meta_info->run_id}{comment};
+        my $time        = $current_hash{$meta_info->run_id}{withdrawn_date}; 
+        
+       my $line =create_suppressed_index_line($meta_info, $new_comment, $time, $analysis_group);
+   	}
+   	else{   	
+        $line = create_suppressed_index_line($meta_info, undef, undef,$analysis_group);
+   	}
+   	
      #print $line."\n";
      push(@{$index_lines{$meta_info->run_id}}, $line);
+     
    }elsif($meta_info->status eq 'public'){
      my $files;
       if($table_name eq 'file'){
@@ -140,31 +181,68 @@ my %index_lines;
        }
      }
      
-
      if(!$files || @$files == 0){
        my $warning = $meta_info->run_id." seems to have no files associated with it";
        $warning .= " for type ".$type if($type);
-       warning($warning);
-      my $line;
+       print $warning,"\n";
+      
+       my $tmp_comment="";
+
+     
        if ( !$all_collections || @$all_collections ==0 ) {
-         $line = create_suppressed_index_line($meta_info, 'NOT YET AVAILABLE FROM ARCHIVE', $analysis_group);
-       }elsif(@$all_collections == 1 && (!$complete || @$complete == 0)){
-         $line = create_suppressed_index_line($meta_info, 'NOT YET AVAILABLE FROM ARCHIVE', $analysis_group);
-       }elsif($staging_area{$meta_info->run_id}){
-	 $line = create_suppressed_index_line($meta_info, 'NOT YET AVAILABLE FROM ARCHIVE', $analysis_group);
-       }elsif(@$all_collections >= 2 && (!$complete || @$complete == 0)){
-         $line = create_suppressed_index_line($meta_info, 'FAILED ONE OF THE DCC PROCESSES', $analysis_group);
-       }elsif(@$all_collections >= 2 && @$complete == 1){
-         $line = create_suppressed_index_line($meta_info, 'FAILED GENOTYPE QC', $analysis_group);
-       }elsif(@$all_collections == 1 && @$complete ==1){
-         $line = create_suppressed_index_line($meta_info, 'FAILED ONE OF THE DCC PROCESSES', $analysis_group);
-       }else{
+         $tmp_comment = 'NOT YET AVAILABLE FROM ARCHIVE';
+       }
+       elsif(@$all_collections == 1 && (!$complete || @$complete == 0)){
+         $tmp_comment= 'NOT YET AVAILABLE FROM ARCHIVE';
+       }
+       elsif($staging_area{$meta_info->run_id}){
+	      $tmp_comment = 'NOT YET AVAILABLE FROM ARCHIVE';
+       }
+       elsif(@$all_collections >= 2 && (!$complete || @$complete == 0)){
+         $tmp_comment ='FAILED ONE OF THE DCC PROCESSES';
+       }
+       elsif(@$all_collections >= 2 && @$complete == 1){
+         $tmp_comment ='FAILED GENOTYPE QC';
+       }
+       elsif(@$all_collections == 1 && @$complete ==1){
+         $tmp_comment = 'FAILED ONE OF THE DCC PROCESSES';
+       }
+       else{
          throw("Have ".@$all_collections." collections and ".@$complete." ".
                "event complete objects associated with ".$meta_info->run_id
                ." Not sure what sort of line to print")
        }
-       push(@{$index_lines{$meta_info->run_id}}, $line);
-     }else{
+
+     # go back in time. assume previous index withdrawn reason correct;
+       my $new_comment = $tmp_comment;
+       my $time = "";
+
+       if (defined $current_hash{$meta_info->run_id}{withdrawn}){
+       	print $meta_info->run_id, "\t",$current_hash{$meta_info->run_id}{comment},"\n";
+       	$new_comment = $current_hash{$meta_info->run_id}{comment};
+        $time        = $current_hash{$meta_info->run_id}{withdrawn_date}; 
+      
+     }
+       
+        my $line;
+        $line =create_suppressed_index_line($meta_info, $new_comment, $time, $analysis_group);
+        push(@{$index_lines{$meta_info->run_id}}, $line);
+
+     }
+     else{
+     	
+     	if (defined $current_hash{$meta_info->run_id}{withdrawn}){
+	  print $meta_info->run_id, "\t",$current_hash{$meta_info->run_id}{comment},"\n";
+	  my $new_comment = $current_hash{$meta_info->run_id}{comment};
+	  my $time        = $current_hash{$meta_info->run_id}{withdrawn_date}; 
+     			 
+	  my $line;
+	  $line =create_suppressed_index_line($meta_info, $new_comment, $time, $analysis_group);
+	  push(@{$index_lines{$meta_info->run_id}}, $line);
+	  next;
+     			  		
+     	}
+     		
        #print STDERR "Have ".@$files." for ".$meta_info->run_id."\n";
        my ($mate1, $mate2, $frag) = assign_file_objects($files);
        #print STDERR "Mate 1 ".$mate1->name."\n" if($mate1);
@@ -197,7 +275,7 @@ my %index_lines;
                                              $analysis_group);
           push(@{$index_lines{$meta_info->run_id}}, ($mate1_line, $mate2_line));
         }else{
-          warning("Dont have mate1 and/or mate2 files for ".$meta_info->run_id);
+          print "Dont have mate1 and/or mate2 files for ".$meta_info->run_id,"\n";
         }
       }else{
         throw("Don't know what to expect for ".$meta_info->library_layout);
@@ -278,12 +356,15 @@ appear multiple times on the commandline
 -single_run_id, this is to allow a single runs index to be dumped which is useful
 for debugging purposes
 
+-current_index, path to existing sequence.index file. Withdrawn date and reasons will
+be retained from the older index.
+
 -help, binary flag to get the perldocs printed
 
 =head1 Examples
 
 
-perl ReseqTrack/scripts/run_meta_info/dump_sequence_index.pl -dbhost mysql-host -dbuser rw_user -dbpass **** -dbport 4197 -dbname my_database -table_name file -type FILTERED_FASTQ
+perl ReseqTrack/scripts/run_meta_info/dump_sequence_index.pl -dbhost mysql-host -dbuser rw_user -dbpass **** -dbport 4197 -dbname my_database -table_name file -type FILTERED_FASTQ -current_index $FTP_ROOT/sequence.index
 
 
 =head1 Other useful scripts
