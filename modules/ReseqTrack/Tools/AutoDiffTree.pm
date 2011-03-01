@@ -15,7 +15,7 @@ sub new {
   bless $self, $class;
 
   my ( $old_tree_file, $new_tree_file, $changelog, 
-       $staging_dir, $verbose ) = rearrange(
+       $staging_dir, $verbose,$date ) = rearrange(
 					    [
 					     qw(
                           OLD_TREE_FILE
@@ -23,6 +23,7 @@ sub new {
 			  CHANGELOG
 			  STAGING_DIR
 			  VERBOSE
+                          DATE
 			  )
 					    ],
 					    @args
@@ -31,6 +32,14 @@ sub new {
   $self->verbose($verbose);
   $self->changelog($changelog);
   $self->create_timestamps();
+
+  if ($date){
+    $self->details_date($date);
+  }else{
+    my $tmp = current_date;
+    $self->details_date($tmp);
+  }  
+
   $self->staging_dir($staging_dir);
 	
 
@@ -734,7 +743,7 @@ sub assign_type {
     $type = "INTERNAL";
   } elsif ( $name =~ /changelog/i ) {
     $type = "CHANGELOG";
-  } elsif ( $name =~ /\/technical\//i ) {
+  } elsif ( $name =~ /\/technical\//i   && $name !~ /\/ncbi_varpipe_data\//i) {
     $type = "TECHNICAL";
   } elsif ( $name =~ /\/release/i ) {
     $type = "RELEASE";
@@ -769,7 +778,11 @@ sub assign_type {
     $tmp  = "WITHDRAWN_" . $type;
     $type = $tmp;
   }
-
+ if ($name =~ /mosaik/i ){
+      my $tmp = $type;
+      $tmp = "NCBI_".$type;
+      $type =  $tmp;
+    }
   exit("WHAT ???") if ( $type =~ /FRED/ );
 
   return $type;
@@ -875,22 +888,18 @@ sub changelog_header {
 
 sub details_date {
   my ( $self, $arg ) = @_;
+
   if ($arg) {
     $self->{details_date} = $arg;
   }
+
   return $self->{details_date};
 }
 
 sub create_timestamps {
-  my ($self) = shift;
-
-  my $date = current_date;
-
-  $self->details_date($date);
-
+  my ($self,$arg) = shift;
 
   my $time = current_time;
-
  
   my @aa = split /:|\s+/,$time;
  
