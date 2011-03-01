@@ -77,6 +77,9 @@ throw("Can't run if ".$log_dir." log dir does not exist") unless(-d $log_dir);
 my $logging_filepath = logging_filepath($log_dir);
 my $log_fh = logging_fh($logging_filepath);
 
+my $date = current_date;#RES need $date as , this is run close to midnight
+
+
 print $log_fh "Starting tree dump to:";
 if ( !$output_path) {
   $new_tree_file = $STAGING_DIR . '/' . "current.tree";
@@ -177,6 +180,7 @@ if ($new_tree_md5 ne $old_tree_md5) {
 				  -old_tree_file => $old_tree_file,
 				  -changelog     => $CHANGELOG,
 				  -staging_dir   => $STAGING_DIR,
+                                  -date          => $date,
 				 );
 
   $tree_diffs->create_log_files;
