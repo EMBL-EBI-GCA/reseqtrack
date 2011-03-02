@@ -15,7 +15,7 @@ sub new {
   bless $self, $class;
 
   my ( $old_tree_file, $new_tree_file, $changelog, 
-       $staging_dir, $verbose,$date ) = rearrange(
+       $staging_dir, $verbose,$date, $changelog_header ) = rearrange(
 					    [
 					     qw(
                           OLD_TREE_FILE
@@ -24,6 +24,7 @@ sub new {
 			  STAGING_DIR
 			  VERBOSE
                           DATE
+                          CHANGELOG_HEADER
 			  )
 					    ],
 					    @args
@@ -31,8 +32,15 @@ sub new {
 
   $self->verbose($verbose);
   $self->changelog($changelog);
-  $self->create_timestamps();
 
+  if ($changelog_header){ # formatted time stamp for CHANGELOG file
+      $self->changelog_header($changelog_header);
+    }
+  else{
+    $self->create_timestamps();
+  }
+ 
+  #Should be getting time stamps from run_tree_for_ftp.pl 
   if ($date){
     $self->details_date($date);
   }else{
