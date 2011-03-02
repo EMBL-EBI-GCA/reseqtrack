@@ -49,6 +49,7 @@ my $test_mode;
 my $skip_cleanup=0;
 my $archive_sleep=240;
 my $test=0;
+my $file_list;
 
 &GetOptions( 
 	    'dbhost=s'      => \$dbhost,
@@ -68,6 +69,7 @@ my $test=0;
 	    'debug!' => \$debug,
 	    'test!' => \$test,
 	    'log_dir=s' => \$log_dir,
+	    'file_list=s' =>\$file_list,
 	   );
 
 
@@ -77,7 +79,14 @@ throw("Can't run if ".$log_dir." log dir does not exist") unless(-d $log_dir);
 my $logging_filepath = logging_filepath($log_dir);
 my $log_fh = logging_fh($logging_filepath);
 
-my $date = current_date;#RES need $date as , this is run close to midnight
+
+#RES need $date now , this is run close to midnight.
+my $date = current_date;
+#RES CHANGELOG headers slightly diff format.
+my $time = current_time;
+my @aa = split /:|\s+/,$time;
+my $changelog_header = $aa[0];
+
 
 
 print $log_fh "Starting tree dump to:";
@@ -134,7 +143,7 @@ if ( ! ($check_old)  && ! ($check_new) ) {
 
   
  
-  dump_dirtree_summary($dir_to_tree,  $new_tree_file, undef, $fa);
+  dump_dirtree_summary($dir_to_tree,  $new_tree_file, undef, $fa, $file_list);
 
 
   throw "Failed to get new_tree_md5\n" if (! -e  $new_tree_file );
@@ -181,6 +190,7 @@ if ($new_tree_md5 ne $old_tree_md5) {
 				  -changelog     => $CHANGELOG,
 				  -staging_dir   => $STAGING_DIR,
                                   -date          => $date,
+				  -changelog_header =>$changelog_header,
 				 );
 
   $tree_diffs->create_log_files;
@@ -242,7 +252,6 @@ if ($new_tree_md5 ne $old_tree_md5) {
     exit;
 
   }
-
  
   my $loader = ReseqTrack::Tools::Loader::File->new( 
 						    -file      => $files_to_process,
@@ -408,6 +417,9 @@ Standard options other than db paramters
 
  -test           create current.tree and changelogs but do not load/archive.
                  For testing purposes
+
+ -file_list      Provide list of file in directory to dump tree for.
+                 Side steps successive "find $input_dir" searches on large directories
 
  -verbose        usual what is going on output.
  -debug          more output
