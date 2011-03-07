@@ -32,7 +32,7 @@ sub columns {
         genotype_results.claimed,
         genotype_results.top_hit,
         genotype_results.second_hit,
-        genotype_results.ratio21,
+        genotype_results.ratio_2_to_1,
         genotype_results.ratio_claimed,
         genotype_results.reference  ,
         genotype_results.snps_bin  ,
@@ -66,7 +66,7 @@ sub store {
         claimed,
         top_hit,
         second_hit,
-        ratio21,
+        ratio_2_to_1,
         ratio_claimed,
         reference  ,
         snps_bin  ,
@@ -92,7 +92,7 @@ sub store {
 	$sth->bind_param(4 ,  $genotype_results->claimed);
 	$sth->bind_param(5 ,  $genotype_results->top_hit);
 	$sth->bind_param(6 ,  $genotype_results->second_hit);
-	$sth->bind_param(7 ,  $genotype_results->ratio21);
+	$sth->bind_param(7 ,  $genotype_results->ratio_2_to_1);
 	$sth->bind_param(8 ,  $genotype_results->ratio_claimed);
 	$sth->bind_param(9 ,  $genotype_results->reference );
 	$sth->bind_param(10,  $genotype_results->snps_bin );
@@ -131,7 +131,7 @@ sub object_from_hashref {
 			   -claimed           => $hashref->{claimed},
 			   -top_hit           => $hashref->{top_hit},
 			   -second_hit        => $hashref->{second_hit},
-			   -ratio21           => $hashref->{ratio21},
+			   -ratio_2_to_1           => $hashref->{ratio_2_to_1},
 			   -ratio_claimed     => $hashref->{ratio_claimed},
 			   -reference         => $hashref->{reference},
 			   -snps_bin          => $hashref->{snps_bin},
