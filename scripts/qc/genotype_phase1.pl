@@ -11,7 +11,6 @@ use ReseqTrack::Tools::RunAlignment::BWA;
 use ReseqTrack::Tools::FileSystemUtils;
 use ReseqTrack::Tools::QC::GLFTools;
 use ReseqTrack::Tools::QC::QCUtils qw (get_params);
-#use ReseqTrack::GenotypeResults;
 use Getopt::Long;
 use ReseqTrack::Tools::Exception qw(throw warning stack_trace_dump);
 
@@ -27,7 +26,6 @@ $input{skip_fragment}  = 0;
 
 my $run_alignment;
 my $bams;
-my $debug = 0;
 
 
 
@@ -71,7 +69,7 @@ my @should_skip = /$platform/ig;
 
 if (@should_skip) {
   print "Not running on " . $input{name}." on $platform. Flagged to skip\n";
-  sleep (180);
+  sleep (2);
   exit;
 }
 
@@ -222,7 +220,6 @@ foreach my $bam_file (@$bams){
 			    -claimed_sample => $claimed_sample,
 			    -working_dir    => $run_alignment->working_dir, 
 			    -bam            => $bam_file,
-			   
 			   );
 
   $glf_check->run;
@@ -250,7 +247,7 @@ foreach my $bam_file (@$bams){
 				   -claimed       => $claimed_sample,
 				   -top_hit       => $$results_summary{top_hit},
 				   -second_hit    => $$results_summary{second_hit},
-				   -ratio21       => $$results_summary{ratio21} ,
+				   -ratio_2_to_1  => $$results_summary{ratio_2_to_1} ,
 				   -ratio_claimed => $$results_summary{ratio_claimed},
 				   -reference     => $ref,
 				   -snps_bin      => $snps,
@@ -270,12 +267,15 @@ foreach my $bam_file (@$bams){
 
 
   my  $gra = $db->get_GenotypeResultsAdaptor;
+
+  print Dumper ($genotype_results) if ($input{debug});
+
   $gra->store($genotype_results);
 }
 
 
 
-delete_directory($run_alignment->working_dir) unless ($debug);
+delete_directory($run_alignment->working_dir) unless ($input{debug});
 
 
 
@@ -288,7 +288,7 @@ sub have_snps{
 
   if ($sample =~ /unidentified/) {
     print "sample unidentified";
-    sleep (180);
+    sleep (2);
     throw ("sample unidentified");
   }
 
@@ -303,7 +303,7 @@ sub have_snps{
   }
 
   print"\nDo not have snps for $claimed_sample\n";
-  sleep (180);
+  sleep (2);
   exit;
 
   return 0;
@@ -340,7 +340,7 @@ sub check_already_run_with_parms {
     if ($matches == 6) {
       # all params match and test successfully completed 
       print "Found matching gt results\n";
-      sleep (180);		# keep farm scheduler happyish
+      sleep (2);		# keep farm scheduler happyish
       exit;
     }
   }
