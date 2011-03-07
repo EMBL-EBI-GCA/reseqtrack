@@ -19,7 +19,7 @@ sub new {
 
     
       $table_name, $other_id, $name,  $claimed,
-      $top_hit, $second_hit, $ratio21,  $ratio_claimed,
+      $top_hit, $second_hit, $ratio_2_to_1,  $ratio_claimed,
       $reference, $snps_bin,  $aligner,  $version,
       $validation_method,  $max_bases, $percent_mapped,
       $percent_reads_used,  $verdict,  $cfg_file,
@@ -29,7 +29,7 @@ sub new {
 		   [
 		    qw(
                   TABLE_NAME OTHER_ID NAME CLAIMED
-                  TOP_HIT SECOND_HIT RATIO21 RATIO_CLAIMED
+                  TOP_HIT SECOND_HIT RATIO_2_TO_1 RATIO_CLAIMED
 	          REFERENCE SNPS_BIN ALIGNER VERSION
 		  VALIDATION_METHOD MAX_BASES PERCENT_MAPPED
                   PERCENT_READS_USED VERDICT CFG_FILE PERFORMED )
@@ -44,7 +44,7 @@ sub new {
   $self->claimed($claimed);
   $self->top_hit($top_hit);
   $self->second_hit($second_hit);
-  $self->ratio21($ratio21);
+  $self->ratio_2_to_1($ratio_2_to_1);
   $self->ratio_claimed($ratio_claimed);
   $self->reference($reference);
   $self->snps_bin($snps_bin);
@@ -118,12 +118,12 @@ sub second_hit {
   }
   return $self->{second_hit};
 }
-sub ratio21 {
+sub ratio_2_to_1 {
   my ( $self, $arg ) = @_;
   if ($arg) {
-    $self->{ratio21} = $arg;
+    $self->{ratio_2_to_1} = $arg;
   }
-  return $self->{ratio21};
+  return $self->{ratio_2_to_1};
 }
 sub ratio_claimed {
   my ( $self, $arg ) = @_;
