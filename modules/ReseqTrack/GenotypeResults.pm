@@ -23,7 +23,7 @@ sub new {
       $reference, $snps_bin,  $aligner,  $version,
       $validation_method,  $max_bases, $percent_mapped,
       $percent_reads_used,  $verdict,  $cfg_file,
-      $performed,
+      $performed,$skip_others,
 
      ) = rearrange(
 		   [
@@ -32,7 +32,8 @@ sub new {
                   TOP_HIT SECOND_HIT RATIO_2_TO_1 RATIO_CLAIMED
 	          REFERENCE SNPS_BIN ALIGNER VERSION
 		  VALIDATION_METHOD MAX_BASES PERCENT_MAPPED
-                  PERCENT_READS_USED VERDICT CFG_FILE PERFORMED )
+                  PERCENT_READS_USED VERDICT CFG_FILE PERFORMED
+		  SKIP_OTHERS )
 		   ],
 		   @args
 		  );
@@ -89,6 +90,73 @@ sub new {
   Example   : 
 
 =cut
+
+sub others {
+
+	my ( $self, $arg ) = @_;
+	my $db_id;
+
+	if ($arg) {
+		print "pushing\n";
+		if ( ref($arg) eq 'ARRAY' ) {
+			push( @{ $self->{others} }, @$arg );
+		}
+		else {
+			push( @{ $self->{others} }, $arg );
+		}
+		return $self->{others};
+	}
+
+	if ( !$arg ) {
+		$db_id = $self->{other_id};
+		if ( !$db_id ) {
+			print "Cannot retrieve Collection data without dbID\n";
+			die "Failed others retrieval\n";
+		}
+	}
+	
+	$self->get_others($db_id);
+
+
+	return $self->{others};
+}
+
+
+sub get_others{
+	my ( $self, $arg ) = @_;
+	my $db_id; 
+	
+	if ($arg){
+	  $db_id = $arg;
+	}
+	else{
+	$db_id = $self->{other_id};
+	}
+	
+	if ( !$db_id ) {
+            print "Cannot retrieve Collection data without dbID\n";
+            die "Failed others retrieval\n";
+        }
+	
+	my $db = $self->adaptor->db;
+	
+    my $ca = $db->get_CollectionAdaptor;
+     
+    my $collection = $ca->fetch_by_dbID($db_id);
+
+    if ( !$collection ) {
+        print "No collection data found for dbID $db_id \n";
+    }
+    else{
+       $self->{others} = \$collection;
+    }
+    return;	
+}
+
+
+
+
+
 sub name {
   my ( $self, $arg ) = @_;
   if ($arg) {
@@ -204,7 +272,7 @@ sub percent_reads_used {
 sub performed {
   my ( $self, $arg ) = @_;
   if ($arg) {
-    $self->{preformed} = $arg;
+    $self->{performed} = $arg;
   }
   return $self->{performed};
 }
@@ -241,5 +309,15 @@ sub cfg_file {
   }
   return $self->{cfg_file};
 }
+
+sub skip_others {
+    my ( $self, $arg ) = @_;
+    if ($arg) {
+        $self->{skip_others} = $arg;
+    }
+    return $self->{skip_others};
+}
+
+
 
 1;
