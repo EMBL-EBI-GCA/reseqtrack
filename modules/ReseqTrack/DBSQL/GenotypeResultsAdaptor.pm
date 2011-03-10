@@ -213,6 +213,31 @@ sub fetch_by_verdict {
 	return \@results;
 }
 
-
+sub fetch_by_name {
+        my ( $self, $name ) = @_;
+        
+        my $sql =
+          "select " . $self->columns . " from genotype_results where name  = ? ";
+        my $sth = $self->prepare($sql);
+        $sth->bind_param( 1, $name );
+        $sth->execute;
+        
+        my $rowHashref = $sth->fetchrow_hashref;
+         if (! $rowHashref){
+                print "No genotype results results for $name\n";
+                return;
+                
+               }
+              
+        my $result = $self->object_from_hashref($rowHashref);
+               if (! $result){
+               	print "No genotype results results for $name\n";
+               	return;
+               	
+               }
+      
+        $sth->finish;
+        return $result;
+}
 
 1;
