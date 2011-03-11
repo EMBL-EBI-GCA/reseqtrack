@@ -59,6 +59,11 @@ sub new {
   $self->verdict($verdict);
   $self->performed($performed);
   $self->cfg_file($cfg_file);
+  
+  
+  if ($self->other_id && !$self->skip_others){
+  	$self->get_others;	
+  }
   #########
 
   my $ERR_MSG = "Can't create ReseqTrack::GenotypeResults without";
