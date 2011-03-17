@@ -83,12 +83,22 @@ sub run {
   my $have_test_results;
   my $results;
   my $results_summary;
-
+  my $ok; 
  
   if ($self->glf_out_file) {
 
     $results = $self->read_to_hash;
-    $self->check_glf_run_success ($results);
+    if (! $results){
+      $self->results_summary($self->failed_glf_test() );
+      return 0;
+    }
+
+    $ok= $self->check_glf_run_success ($results);
+    if (!$ok){ 
+      $self->results_summary( $self->failed_glf_test() );
+      return 0;
+    }
+
     $results_summary = $self->sum_results ($results);
     $self->results_summary($results_summary);   
     return 0 ;
@@ -107,8 +117,20 @@ sub run {
   if ($self->glf_file) {
 
     $self->create_glf_out_file();
+
     $results = $self->read_to_hash;
-    $self->check_glf_run_success ($results);
+    if (! $results){
+      $self->results_summary($self->failed_glf_test() );
+      return 0;
+    }
+
+
+    $ok=  $self->check_glf_run_success ($results);
+    if (!$ok){ 
+      $self->results_summary( $self->failed_glf_test() );
+      return 0;
+    }
+
     $results_summary = $self->sum_results ($results);
     $self->results_summary($results_summary);
     return;
@@ -132,7 +154,21 @@ sub run {
   }
 
   $results = $self->read_to_hash;
-  $self->check_glf_run_success ($results);
+
+  if (! $results){
+    $self->results_summary($self->failed_glf_test() );
+    return 0;
+  }
+
+
+  $ok=  $self->check_glf_run_success ($results);
+
+  if (!$ok){ 
+    $self->results_summary( $self->failed_glf_test() );
+    return 0;
+  }
+
+
   $results_summary = $self->sum_results ($results);
   $self->results_summary($results_summary);
  
@@ -171,7 +207,7 @@ sub sum_results{
   $ref->{top_hit}    = $x;
   $ref->{top_sites}    = $$top{sites};
   $ref->{second_hit} = $$second{sample};
-  $ref->{ratio21} = $r_21;
+  $ref->{ratio_2_to_1} = $r_21;
   $ref->{ratio_claimed} = $r_claimed;
   $ref->{claimed_sites} = $$claimed{sites};
   $ref->{claimed} = $$claimed{sample};
@@ -226,15 +262,17 @@ sub check_glf_run_success {
 
 
   if ( $score < 0.001 ) {
-    die "test failed sites\n";
+    print  "test failed sites\n";
+    return 0;
   }
 
   if ( $score > 2147483630  ) {
-    die "test failed score\n";
+    print "test failed score\n";
+    return 0;
   }
 
  
-  return;
+  return 1 ;
 }
 #############
 sub read_to_hash{
@@ -881,6 +919,20 @@ sub summary {
   return $self->{'claimed_summary'};
 }
 
+sub failed_glf_test {
 
+
+  my %summary =();
+  my $ref = \%summary;
+
+  $ref->{top_hit}       = "N/A";
+  $ref->{second_hit}    = "N/A";
+  $ref->{ratio_2_to_1}  = "0.0";
+  $ref->{ratio_claimed} = "0.0";
+  $ref->{claimed}       = "N/A";   
+  $ref->{verdict}       = "GLF_FAILED";
+
+  return (\%summary);
+}
 1;
 
