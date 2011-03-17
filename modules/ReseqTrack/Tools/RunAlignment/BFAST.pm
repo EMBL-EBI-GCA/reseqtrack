@@ -7,7 +7,7 @@ use Data::Dumper;
 use ReseqTrack::Tools::Exception qw(throw warning);
 use ReseqTrack::Tools::Argument qw(rearrange);
 use ReseqTrack::Tools::RunAlignment;
-use ReseqTrack::Tools::FileSystemUtils qw(delete_directory check_files_exists);
+use ReseqTrack::Tools::FileSystemUtils qw(delete_directory check_files_exists create_tmp_process_dir );
 
 use File::Basename;
 use File::stat;
@@ -39,19 +39,14 @@ sub new {
 	$self->ali_options('-A 1 -K 8 -M 384 -n 4 -Q 25000 ');
 	$self->space ("A -1"); # color space by default
 
+	$self->read_length($read_length);
 
 	$self->verbose($verbose);
 
 	$self->preprocess_exe($preprocess_exe);
 
-	$self->read_length($read_length);
 
-	$self->check_reference();
 
-	$self->create_tmp_process_dir();
-	$self->create_cmds();
-
-	print "Created BFAST object\n";
 	return $self;
 
 }
@@ -62,15 +57,11 @@ sub run {
 	my ($self) = @_;
 	my $exit;
 
-
-#	$self->create_tmp_process_dir();
 	$self->change_dir();
 
-	print "Working in ", $self->working_dir(), "\n";
+       	$self->check_reference();
 
-#	print "NOT RUNNING\n";
-#	return;
-       
+	$self->create_cmds();
 
 	# 'match procedure, incorporates preprocess pipe
 	eval {
@@ -106,19 +97,15 @@ sub run {
 	}
 
 	$self->convert_sam_to_bam();
+	$self->get_bfast_tmp_files;
 
-	print "REALLY ??????? I made it to here . Wow\n\n";
 
-	#print "Delete tmp dir\n";
-	#delete_directory( $self->working_dir() );
-	return;
+	return 0 ;
 }
+
 sub create_cmds {
 
     my $self = shift;
-    $self->get_base_counts();
-    $self->subsample_fastq(); 
-    
     $self->create_fastq_cmd_line();
     $self->create_match_cmd_line();
     $self->create_localalign_cmd_line();
@@ -129,17 +116,28 @@ sub create_cmds {
 sub check_reference {
     my $self = shift;
     print "Check:",$self->{reference},"\n";
-    print "Check:",$self->{read_length},"\n";
+    print "Check:",$self->{max_read_length},"\n";
+ 
 
-    if ( $self->{read_length} < 40 ) {
+    if ( $self->{max_read_length} < 40 ) {
         if ( !( $self->{reference} =~ /short/i ) ) {
-            throw "Reference name looks wrong.No 'short' but read length < 40";
+            warning "Reference name looks wrong.No 'short' but read length < 40";
+	    print "Automatically changing\n";
+	    my $ref =  $self->{reference};
+	    print $ref,"\n";
+	    $ref =~ s/long/short/;
+	    $self->reference($ref);
         }
     }
 
-    if ( $self->{read_length} >= 40 ) {
+    if ( $self->{max_read_length} >= 40 ) {
         if ( !( $self->{reference} =~ /long/i ) ) {
-            throw "Reference name looks wrong.No 'long' but read length >=40";
+	  warning "Reference name looks wrong.No 'long' but read length < 40";
+	  print "Automatically changing\n";
+	   my $ref =  $self->{reference};
+	   $ref =~ s/short/long/;
+	   print $ref,"\n";
+	   $self->reference($ref);
         }
     }
     print "reference looks OK\n";
@@ -162,7 +160,7 @@ sub convert_sam_to_bam {
 
 
 	$out_bam =~ s/\/\//\//;
-	print $out_bam,"\n";
+	#print $out_bam,"\n";
 
 	my $make_bam =
 	  $self->samtools . " import " . $self->reference . " $sam  $out_bam";
@@ -180,13 +178,14 @@ sub convert_sam_to_bam {
 	}
 
 	$self->bam($out_bam);
-
+        $self->output_files ($out_bam);
 	if (-e	$self->bam) {
 	  print "Made " . $self->bam, "\n";
 	}
 	else{
 	  throw "Failed to create $out_bam";
 	}
+
 	return;
 }
 
@@ -200,7 +199,7 @@ sub create_postprocess_cmd_line {
 	my $tmp_baf =  $tmp_dir . $$ . ".baf"; 
 	$cmd_line .= " -i  $tmp_baf ";
 	my $tmp_sam =  $tmp_dir . $$ . ".sam"; 
-	$cmd_line .= " -n 4 -Q 1000 -t  > $tmp_sam";
+	$cmd_line .= " -n 4 -Q 1000 -t -U  > $tmp_sam";
 	print "$cmd_line\n\n";# if $self->verbose;
 	$self->postprocess_cmd($cmd_line);
 	$self->sam("$tmp_sam");
@@ -261,10 +260,17 @@ sub create_fastq_cmd_line {
 	throw("No preprocess exe set") if ( !( defined $self->{preprocess_exe} ) );
 
 	$cmd_line = $self->preprocess_exe() . " ";
-	$cmd_line .= $self->mate1_file() . " " if ( $self->mate1_file );
-	$cmd_line .= $self->mate2_file() . " " if ( $self->mate2_file );
-	$cmd_line .= $self->fragment_file() . " "
-	  if ( $self->fragment_file );
+
+	if (! $self->skip_mate_files){
+
+	  $cmd_line .= $self->mate1_file() . " " if ( $self->mate1_file );
+	  $cmd_line .= $self->mate2_file() . " " if ( $self->mate2_file );
+	}
+
+	if (! $self->skip_fragment){
+	  $cmd_line .= $self->fragment_file() . " "
+	    if ( $self->fragment_file );
+	}
 
 	$cmd_line .= " \| ";
 
@@ -370,6 +376,40 @@ sub verbose {
 	}
 	return $self->{verbose};
 }
+
+
+sub get_bfast_tmp_files {
+  my ( $self ) = @_;
+
+  my $dir = $self->working_dir;
+  my $tmp_files_found = 0; 
+  print $dir,"\n";
+
+  if ( !(-d $dir) ||  !( -e $dir) ||  !( $dir =~ /^\// ) ){
+	warning "Bad directory info for bfast tmp file search.Skipping\n";
+	return;
+      }
+
+
+  opendir ( DIR, $dir ) || die "Error in opening dir $dir\n";
+
+  my @files = readdir(DIR);
+
+  foreach my $file (@files) {
+    if ( $file =~  /\.bfast\.tmp/ ){
+      print $file,"\n";
+      my $del_file = $dir . '/'. $file;
+      $del_file =~ s/\/\//\//;
+      $self->file_to_delete ($del_file);
+      $tmp_files_found ++;
+    }
+  }
+ 
+  print "Number of temporary bfast files found = $tmp_files_found\n";
+  
+  return;
+}
+
 
 1;
 
