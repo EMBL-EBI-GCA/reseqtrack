@@ -34,6 +34,7 @@ GetOptions (\%input, 'dbhost=s','dbname=s','dbuser=s','dbpass=s',
 	    'type=s','name=s' ,'skip_platform=s', 'debug!',
 	    'program=s','snps_bin=s','snps_list=s','reference=s',
 	    'validation_method=s','cfg_file=s', 'working_dir=s',
+	    'no_store!', 'no_skip_files!',
 	   );
 
 
@@ -118,11 +119,20 @@ if ($platform eq "ABI_SOLID") {
 			       -input          => $collection,			  
 			      );
 
+ 
+
+ store_skip_short_SOLID($run_alignment, 
+			$db, 
+			$other_id,
+			$input{name},
+			$claimed_sample); 
+
+
   my $tmp_dir = create_tmp_process_dir ($input{working_dir});
 
   $run_alignment->working_dir($tmp_dir);
 
-  $run_alignment->decide_file_skip();
+  $run_alignment->decide_file_skip() unless ($input{no_skip_files}) ;
  
   $db->dbc->disconnect_when_inactive(2);
 
@@ -168,7 +178,7 @@ if ( ($platform eq "LS454") || ($platform eq "ILLUMINA")  ) {
 
   $run_alignment->working_dir($tmp_dir);
 
-  $run_alignment->decide_file_skip();
+  $run_alignment->decide_file_skip() unless ($input{no_skip_files}) ;
 
   $db->dbc->disconnect_when_inactive(2);
 
@@ -270,7 +280,7 @@ foreach my $bam_file (@$bams){
 
   print Dumper ($genotype_results) if ($input{debug});
 
-  $gra->store($genotype_results);
+  $gra->store($genotype_results) unless ($input{no_store});
 }
 
 
@@ -278,6 +288,73 @@ foreach my $bam_file (@$bams){
 delete_directory($run_alignment->working_dir) unless ($input{debug});
 
 
+
+sub store_skip_short_SOLID{
+#TGEN withdrew all 25 and 35mer runs.
+  my ( $run_alignment,$db,$other_id,$name,$claimed_sample) = @_;
+  my $too_short = 0;
+
+	
+  my $read_lengths = $run_alignment->read_lengths;
+
+  foreach my $key (keys %$read_lengths){
+    if ( $$read_lengths{$key} <= 35){
+      $too_short = 1;
+    }
+  }
+
+
+  if ($too_short){
+    print "Short read lengths for SOLID run.";
+    print " Entering dummy entry in genotype_results table.Skipping\n";
+  }
+  else{
+    return;
+  }
+ 
+
+ my $GTR ="ReseqTrack::GenotypeResults";
+  my $genotype_results = $GTR->new(
+                   -other_id      => $other_id,
+                   -table_name    => "collection",
+                   -name          => $name,
+                   -claimed       => $claimed_sample,
+                   -top_hit       => "N/A",
+                   -second_hit    => "N/A",
+                   -ratio21       => "N/A",
+                   -ratio_claimed => "N/A",
+                   -reference     => "N/A",
+                   -snps_bin      => "N/A",
+                   -aligner       => "bfast",
+                   -version       => "N/A",
+                   -validation_method =>  "N/A",
+                   -percent_mapped => 0,
+                   -percent_reads_used => 0,
+                   -max_bases     => 0,
+                   -verdict       => "SHORT_SOLID", 
+                   -cfg_file      => "N/A",
+                   -skip_others   => '1',
+                  );
+	
+	
+  if (! $db) {
+    $db = ReseqTrack::DBSQL::DBAdaptor->new(
+                       -host   => $input{dbhost},
+                       -user   => $input{dbuser},
+                      -port   => $input{dbport},
+                      -dbname => $input{dbname},
+                      -pass   => $input{dbpass},
+                     );
+
+	
+	}
+	
+  my  $gra = $db->get_GenotypeResultsAdaptor;
+  $gra->store($genotype_results);
+  print "Skipping short SOLID run\n";
+  exit;
+	
+}
 
 
 
