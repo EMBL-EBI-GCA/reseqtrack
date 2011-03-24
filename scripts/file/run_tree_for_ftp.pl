@@ -141,7 +141,7 @@ if ( ! ($check_old)  && ! ($check_new) ) {
   throw "Failed to get old_tree_md5\n" if (! $old_tree_md5 );
 
 
-  
+  $dbA->dbc->disconnect_when_inactive(2);
  
   dump_dirtree_summary($dir_to_tree,  $new_tree_file, undef, $fa, $file_list);
 
