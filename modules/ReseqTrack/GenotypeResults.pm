@@ -5,6 +5,7 @@ use warnings;
 use ReseqTrack::Tools::Argument qw(rearrange);
 use ReseqTrack::Tools::Exception qw(throw warning);
 use vars qw(@ISA);
+use Data::Dumper;
 
 @ISA = qw(ReseqTrack::Base);
 
@@ -38,6 +39,8 @@ sub new {
 		   @args
 		  );
  
+  $self->skip_others("0");
+
 
   $self->table_name($table_name);
   $self->other_id($other_id);
@@ -59,13 +62,17 @@ sub new {
   $self->verdict($verdict);
   $self->performed($performed);
   $self->cfg_file($cfg_file);
-  
+  $self->skip_others($skip_others);
   
   if ($self->other_id && !$self->skip_others){
+	print "Getting others\n";
   	$self->get_others;	
   }
+  else{
+    print "Skipping others fetch\n";
+  }
   #########
-
+ 
   my $ERR_MSG = "Can't create ReseqTrack::GenotypeResults without";
 
   #ERROR CHECKING
@@ -126,6 +133,10 @@ sub get_others{
   my ( $self, $arg ) = @_;
   my $db_id; 
 
+
+ # print Dumper ($self);
+
+
   if ($arg){
     $db_id = $arg;
   }
@@ -138,10 +149,18 @@ sub get_others{
     die "Failed others retrieval\n";
   }
 
+  if (! $self->adaptor->db){
+    throw "Why no adaptor->db ?\n";
+
+  } 
+
   my $db = $self->adaptor->db;
   my $ca = $db->get_CollectionAdaptor;
 
   my $collection = $ca->fetch_by_dbID($db_id);
+
+#  print Dumper ($collection);
+
 
   if ( !$collection ) {
     print "No collection data found for dbID $db_id \n";
@@ -309,7 +328,7 @@ sub cfg_file {
 
 sub skip_others {
     my ( $self, $arg ) = @_;
-    if ($arg) {
+    if (defined $arg) {
         $self->{skip_others} = $arg;
     }
     return $self->{skip_others};
