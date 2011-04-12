@@ -247,11 +247,10 @@ sub update{
 	  unless ( $genotype_results->isa("ReseqTrack::GenotypeResults") );
 
 
-#	print Dumper  ($genotype_results);
+
 	
 	my $sql = "update genotype_results  set table_name = ?, other_id   = ? , claimed  = ?, top_hit = ?, second_hit = ? , ratio_2_to_1 = ?, ratio_claimed = ?, reference  = ? , snps_bin     = ? ,aligner    = ?, version    = ? , validation_method = ?, max_bases     = ?, percent_mapped = ? , percent_reads_used = ?,  verdict = ? ,  cfg_file = ?,  performed = now()  where name  = ? ";
-	print "$sql\n";
-#	exit;
+
 	my $sth = $self->prepare($sql);
 
 	$sth->bind_param( 1 ,  $genotype_results->table_name );
