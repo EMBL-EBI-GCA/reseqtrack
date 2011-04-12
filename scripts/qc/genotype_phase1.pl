@@ -20,7 +20,7 @@ use File::Basename;
 my %input;
 
 $input{verbose}        = 0;
-$input{working_dir}    = "/nfs/nobackup/resequencing_informatics/rseqpipe/genotype_check/tmp/staging";
+$input{working_dir}    = "/nfs/1000g-work/G1K/scratch/rseqpipe/genotype_check/staging/";
 $input{subsample_size} = 250000000;
 $input{skip_fragment}  = 0;
 $input{no_store}       = 0;
