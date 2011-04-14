@@ -9,6 +9,7 @@ use File::Copy;
 use File::Basename;
 use File::Find ();
 use File::stat;
+use File::Temp qw/ tempfile tempdir /;
 use Time::localtime;
 
 use vars qw (@ISA  @EXPORT);
@@ -25,7 +26,8 @@ use vars qw (@ISA  @EXPORT);
   check_md5
   dump_dirtree_summary
   delete_directory
-  check_files_exists );
+  check_files_exists
+  create_tmp_process_dir  );
 
 =head2 get_filenames
 
@@ -320,10 +322,21 @@ sub check_md5 {
 }
 
 sub dump_dirtree_summary{
-  my ($input_dir, $output_file, $skip_regex, $fa) = @_;
+  my ($input_dir, $output_file, $skip_regex, $fa, $file_list) = @_;
   my $no_md5s = 0;
   $skip_regex = 'current.tree';
-  my ($files, $hash) = list_files_in_dir($input_dir, 1);
+
+  my ($files, $hash);# = list_files_in_dir($input_dir, 1);
+
+  #provide file list from 'find $input_dur > file.list'
+  if ($file_list){
+    $files = get_lines_from_file($file_list);
+  }
+  else{
+    ($files, $hash) = list_files_in_dir($input_dir, 1);
+  }
+
+
   my $fh;
   if($output_file){
     open(FH, ">".$output_file) or throw("Failed to open ".$output_file." $!");
@@ -431,6 +444,20 @@ sub check_files_exists {
  if ( !( $file =~ /^\// ) && -e $file){
   warn "Not full path to $file. But it exists";
 }
+}
+
+
+sub create_tmp_process_dir {
+  my ($parent_dir) = @_;
+ 
+  throw "No parent directory specified" if ( !defined $parent_dir );
+  
+  my $temp_dir = tempdir( DIR => $parent_dir );
+
+  print "processing in would be $temp_dir \n";
+
+  `chmod -R  775 $temp_dir`;
+  return ($temp_dir);
 }
 
 1;
