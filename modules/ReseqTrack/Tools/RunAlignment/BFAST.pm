@@ -7,7 +7,7 @@ use Data::Dumper;
 use ReseqTrack::Tools::Exception qw(throw warning);
 use ReseqTrack::Tools::Argument qw(rearrange);
 use ReseqTrack::Tools::RunAlignment;
-use ReseqTrack::Tools::FileSystemUtils qw(delete_directory check_files_exists create_tmp_process_dir );
+use ReseqTrack::Tools::FileSystemUtils qw(delete_directory check_files_exists );
 
 use File::Basename;
 use File::stat;
@@ -37,6 +37,7 @@ sub new {
 	  );
 
 	$self->ali_options('-A 1 -K 8 -M 384 -n 4 -Q 25000 ');
+
 	$self->space ("A -1"); # color space by default
 
 	$self->read_length($read_length);
@@ -200,7 +201,7 @@ sub create_postprocess_cmd_line {
 	$cmd_line .= " -i  $tmp_baf ";
 	my $tmp_sam =  $tmp_dir . $$ . ".sam"; 
 	$cmd_line .= " -n 4 -Q 1000 -t -U  > $tmp_sam";
-	print "$cmd_line\n\n";# if $self->verbose;
+	print "$cmd_line\n\n" if $self->verbose;
 	$self->postprocess_cmd($cmd_line);
 	$self->sam("$tmp_sam");
 	return;
@@ -223,7 +224,7 @@ sub create_localalign_cmd_line {
 	
 	$self->files_to_delete ("$tmp_baf");
 	
-	print "$cmd_line\n\n";#  if $self->verbose;
+	print "$cmd_line\n\n"  if $self->verbose;
 	
 	$self->localalign_cmd($cmd_line);
     return;
@@ -246,7 +247,7 @@ sub create_match_cmd_line {
 
 	$self->files_to_delete ("$tmp_bmf");
 
-	print "$cmd_line\n\n";# if $self->verbose;
+	print "$cmd_line\n\n" if $self->verbose;
 	$self->match_cmd($cmd_line);
     return;
 }
