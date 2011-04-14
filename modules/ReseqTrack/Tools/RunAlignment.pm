@@ -26,14 +26,8 @@ use ReseqTrack::Tools::Exception qw(throw warning stack_trace_dump);
 use ReseqTrack::Tools::Argument qw(rearrange);
 use ReseqTrack::Tools::SequenceIndexUtils;
 use Data::Dumper;
+
 use File::Basename;
-use File::Temp qw/ tempfile tempdir /;
-
-use Exporter;
-
-use vars qw (@ISA  @EXPORT);
-@ISA = qw(Exporter);  
-@EXPORT = qw (create_tmp_process_dir working_dir);
 
 
 =head2 new
@@ -1079,18 +1073,6 @@ sub percent_reads_used {
   return $self->{percent_reads_used}; 
 }
 
-sub create_tmp_process_dir {
-  my ($parent_dir) = @_;
- 
-  throw "No parent directory specified" if ( !defined $parent_dir );
-  
-  my $temp_dir = tempdir( DIR => $parent_dir );
-
-  print "processing in would be $temp_dir \n";
-
-  `chmod -R  775 $temp_dir`;
-  return ($temp_dir);
-}
 
 
 
