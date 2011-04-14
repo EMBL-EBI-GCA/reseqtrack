@@ -8,7 +8,7 @@ use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::DBSQL::GenotypeResultsAdaptor;
 use ReseqTrack::Tools::RunAlignment::BFAST;
 use ReseqTrack::Tools::RunAlignment::BWA;
-use ReseqTrack::Tools::FileSystemUtils;
+use ReseqTrack::Tools::RunAlignment qw (create_tmp_process_dir);
 use ReseqTrack::Tools::QC::GLFTools;
 use ReseqTrack::Tools::QC::QCUtils qw (get_params);
 use Getopt::Long;
