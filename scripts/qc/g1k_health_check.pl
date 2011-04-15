@@ -63,9 +63,8 @@ sub sample_swap_results {
 	my ( $db, $verbose ) = @_;
 	
 	my $sql =
-	  'select gt.name, gt.claimed , rmi.run_id, rmi.sample_name'
-	    . 'from genotype_results gt , run_meta_info rmi'
-	    . 'where gt.name = rmi.run_id and gt.claimed != rmi.sample_name';
+	  'select gt.name, gt.claimed , rmi.run_id, rmi.sample_name from genotype_results gt , run_meta_info rmi ' .
+	    'where gt.name = rmi.run_id and gt.claimed != rmi.sample_name';
 
 	my $sth = $db->dbc->prepare($sql);
 	$sth->execute;
@@ -142,11 +141,8 @@ sub no_genotype_results_for_run_id {
 	my ( $db, $verbose ) = @_;
 
 	my $sql =
-	    "select "
-	  . "run_id, sample_name, center_name "
-	  . "from run_meta_info where type = \"public\" and "
-	  . "where run_id not in (select name from genotype_results)";
-
+	    'select run_id, sample_name, center_name  from run_meta_info where status = "public" and run_id not in (select name from genotype_results)';
+#	print $sql;
 	my $sth = $db->dbc->prepare($sql);
 	$sth->execute;
 	my $ctr = 0;
