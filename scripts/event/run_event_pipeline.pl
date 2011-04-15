@@ -13,6 +13,7 @@ use File::Copy;
 use File::Path;
 use File::Basename;
 use Benchmark;
+use Data::Dumper;
 $| = 1;
 
 my $term_sig =  0;
@@ -28,11 +29,11 @@ my $dbport = 4175;
 my $dbname;
 my @event_names;
 my @input_types;
-my $retry_max = 4;
+my $retry_max = 1;
 my $once = 0;
 my $submission_limit;
 my $submission_total = 25;
-my $num_output_dirs = 10;
+my $num_output_dirs = 100;
 my $runner;
 my $max_number_of_jobs = 10000;
 my $sleep = 360;
@@ -40,47 +41,66 @@ my $help;
 my $batch_submission_path = 'ReseqTrack::Tools::BatchSubmission';
 my $module_name = 'LSF';
 my $verbose;
+my $submit_input_name_type;
+my $submit_hash;
+my $test;
 
 &GetOptions( 
-  'dbhost=s'      => \$dbhost,
-  'dbname=s'      => \$dbname,
-  'dbuser=s'      => \$dbuser,
-  'dbpass=s'      => \$dbpass,
-  'dbport=s'      => \$dbport,
-  'name=s@' => \@event_names,
-  'type=s@' => \@input_types,
-  'max_retry=s' => \$retry_max,
-  'submission_limit!' => \$submission_limit,
-  'submission_total=s' => \$submission_total,
-  'once!' => \$once,
-  'output_dir_num=s' => \$num_output_dirs,
-  'runner=s' => \$runner,
-  'max_numbers_of_jobs=s' => \$max_number_of_jobs,
-  'help!' => \$help,
-  'batch_submission_path=s' => \$batch_submission_path,
-  'module_name:s' => \$module_name,
-  'sleep=s' => \$sleep,
-  'verbose!' => \$verbose,
-    );
+	    'dbhost=s'      => \$dbhost,
+	    'dbname=s'      => \$dbname,
+	    'dbuser=s'      => \$dbuser,
+	    'dbpass=s'      => \$dbpass,
+	    'dbport=s'      => \$dbport,
+	    'name=s@' => \@event_names,
+	    'type=s@' => \@input_types,
+	    'max_retry=s' => \$retry_max,
+	    'submission_limit!' => \$submission_limit,
+	    'submission_total=s' => \$submission_total,
+	    'once!' => \$once,
+	    'output_dir_num=s' => \$num_output_dirs,
+	    'runner=s' => \$runner,
+	    'max_numbers_of_jobs=s' => \$max_number_of_jobs,
+	    'help!' => \$help,
+	    'batch_submission_path=s' => \$batch_submission_path,
+	    'module_name:s' => \$module_name,
+	    'sleep=s' => \$sleep,
+	    'verbose!' => \$verbose,
+	    'submit_input_name_type=s' => \$submit_input_name_type,
+	    'test!'             =>\$test,
+	   );
 
-if($help){
+
+
+
+if ($help) {
   perldocs();
 }
 
 print "Starting to run pipeline based on ".$dbname."\n" if($verbose);
 my $db = ReseqTrack::DBSQL::DBAdaptor->new(
-  -host => $dbhost,
-  -user => $dbuser,
-  -port => $dbport,
-  -dbname => $dbname,
-  -pass => $dbpass,
-    );
+					   -host => $dbhost,
+					   -user => $dbuser,
+					   -port => $dbport,
+					   -dbname => $dbname,
+					   -pass => $dbpass,
+					  );
+
+
+
+if ($submit_input_name_type) {
+  $submit_hash = submit_by_name_and_type ( $submit_input_name_type );
+  my $to_do = scalar (keys %$submit_hash);
+  print "Got $to_do to examine\n";
+
+#  print Dumper $submit_hash;
+}
+#exit;
 
 my $meta_adaptor = $db->get_MetaAdaptor;
 eval{
   is_locked("pipeline.lock", $meta_adaptor);
 };
-if($@){
+if ($@) {
   throw("Can't run, there is a problem with the locking system \n".
         "$@\n");
 }
@@ -89,11 +109,11 @@ my $ja = $db->get_JobAdaptor;
 
 throw($runner." runner script must exist") unless(-e $runner);
 my %allowed_input_types;
-foreach my $type(@input_types){
+foreach my $type (@input_types) {
   $allowed_input_types{$type} = 1;
 }
 my %event_name_hash;
-foreach my $logic(@event_names){
+foreach my $logic (@event_names) {
   $event_name_hash{$logic} = 1;
 }
 
@@ -114,126 +134,140 @@ my $total_submission_count = 0;
 my $done = 0;
 
 my %event_hash;
-foreach my $event(@$events){
+foreach my $event (@$events) {
   $event_hash{$event->name} = $event;
 }
 my $loop_count = 1;
- LOOP:while(1){
-   my $submitted_count = 0;
-   print "\n*****Starting loop $loop_count*****\n" if($verbose);
-   $loop_count++;
-   my %submitted_hash;
-   my $input_hash = get_inputs($db, $events);
-   my %event_to_submit;
+LOOP:while(1){
+  my $submitted_count = 0;
+  print "\n*****Starting loop $loop_count*****\n" if($verbose);
+  $loop_count++;
+  my %submitted_hash;
+  my $input_hash = get_inputs($db, $events);
+  my %event_to_submit;
  TABLE_NAME:foreach my $table_name(keys(%$input_hash)){
-   print "TABLE NAME ".$table_name."\n" if($verbose);
-   my %type_hash = %{$input_hash->{$table_name}};
- INPUT_TYPE:foreach my $input_type(keys(%type_hash)){
-   if(keys(%allowed_input_types)){
-     next INPUT_TYPE unless($allowed_input_types{$input_type});
-   }
-   print "INPUT TYPE ".$input_type."\n" if($verbose);
-   my $inputs = $type_hash{$input_type};
-   my $events = $type_event_hash->{$input_type};
-   my $check_count = 0;
-   foreach my $input (@$inputs){
-     if($term_sig){
-       print "Have sigterm\n";
-       $done = 1;
-       last INPUT_TYPE;
-     }
-   EVENT:foreach my $event(@$events){
-     next EVENT if($event->table_name ne $table_name);
-     my $workflow = $workflow_hash->{$event->name};
-     next if(@event_names && !$event_name_hash{$event->name});
-     print "Checking if ".$event->name." can run on ".$input."\n" if($verbose);
-     if(can_run($input, $event, $db, $workflow, $input_hash, $retry_max, $verbose)){
-       if(!$event_to_submit{$event->name}){
-         $event_to_submit{$event->name} = [];
-       }
-       push(@{$event_to_submit{$event->name}}, $input);
-     }else{
-       print "Cant run\n" if($verbose);
-     }
-   }
-   }
- }
-   if($done){
-     last TABLE_NAME;
-   }
- }
+    print "TABLE NAME ".$table_name."\n" if($verbose);
+    my %type_hash = %{$input_hash->{$table_name}};
+  INPUT_TYPE:foreach my $input_type(keys(%type_hash)){
+      if (keys(%allowed_input_types)) {
+	next INPUT_TYPE unless($allowed_input_types{$input_type});
+      }
+      print "INPUT TYPE ".$input_type."\n" if($verbose);
+      my $inputs = $type_hash{$input_type};
+      my $events = $type_event_hash->{$input_type};
+      my $check_count = 0;
+      foreach my $input (@$inputs) {
+	if ($term_sig) {
+	  print "Have sigterm\n";
+	  $done = 1;
+	  last INPUT_TYPE;
+	}
+
+	#only do names in specified 2 col file
+	if ((keys %$submit_hash ) && ! (defined($$submit_hash{$input})) ) {
+	   #	print "skipping $input\n";
+	  next;
+	}
+
+#	print "Checking $input\n";
+
+      EVENT:foreach my $event(@$events){
+	  next EVENT if($event->table_name ne $table_name);
+	  my $workflow = $workflow_hash->{$event->name};
+	  next if(@event_names && !$event_name_hash{$event->name});
+	  print "Checking if ".$event->name." can run on ".$input."\n" if($verbose);
+	  if (can_run($input, $event, $db, $workflow, $input_hash, $retry_max, $verbose)) {
+	    if (!$event_to_submit{$event->name}) {
+	      $event_to_submit{$event->name} = [];
+	    }
+	    push(@{$event_to_submit{$event->name}}, $input);
+	  } else {
+	    print "Cant run\n" if($verbose);
+	  }
+	}
+      }
+    }
+    if ($done) {
+      last TABLE_NAME;
+    }
+  }
+
  EVENT_NAME:foreach my $name(keys(%event_to_submit)){
-   print "\nConsidering event ".$name."\n" if($verbose);
-   if($term_sig){
-     $done = 1;
-     last EVENT_NAME;
-   }
-   if($done){
-     last EVENT_NAME;
-   }
-   my $inputs_to_submit = $event_to_submit{$name};
-   my $event = $event_hash{$name};
-   my @jobs;
-   my %input_strings;
-   print "Have ".@$inputs_to_submit." inputs to submit\n" if($verbose);
-   foreach my $input(@$inputs_to_submit){
-     my $job = create_job_object($event, $input, $db, $num_output_dirs, $retry_max);
-     push(@jobs, $job) if($job);
-   }
-   my $cmds = create_submission_cmds(\@jobs, $db, $batch_submission_object, $runner,
-                                     $event);
- CMD:foreach my $cmd(keys(%$cmds)){
-   if($submission_limit){
-     if($total_submission_count >= $submission_total){
-       $done = 1;
-       last CMD;
-     }
-   }
-   my $return_value = has_to_many_jobs($max_number_of_jobs, 
-                                       $batch_submission_object, $sleep);
-   my $jobs = $cmds->{$cmd};
-   foreach my $job(@$jobs){
-     $job->current_status("SUBMITTED");
-     $ja->set_status($job);
-     print "Submitting ".$job->dbID."\n" if($verbose);
-     if($submitted_hash{$job->dbID}){
-       throw("Have already submitted ".$job->dbID);
-     }else{
-       $submitted_hash{$job->dbID} = 1;
-     }
-   }
-   eval{
-     system($cmd);
-     print "CMD ".$cmd."\n" if($verbose);
-     $total_submission_count++;
-     $submitted_count++;
-   };
-   if($@){
-     print STDERR "Failed to run ".$cmd." $@\n";
-     foreach my $job(@$jobs){
-       $job->current_status("FAILED");
-       $ja->set_status($job);
-     }
-     next CMD;
-   }
- }
- }
-   #check if pipeline is finished
+    print "\nConsidering event ".$name."\n";# if($verbose);
+    if ($term_sig) {
+      $done = 1;
+      last EVENT_NAME;
+    }
+    if ($done) {
+      last EVENT_NAME;
+    }
+    my $inputs_to_submit = $event_to_submit{$name};
+    my $event = $event_hash{$name};
+    my @jobs;
+    my %input_strings;
+
+    print "Have ".@$inputs_to_submit." inputs to submit\n"; # if($verbose);
+
+    next if $test;
+
+    foreach my $input (@$inputs_to_submit) {
+      my $job = create_job_object($event, $input, $db, $num_output_dirs, $retry_max);
+      push(@jobs, $job) if($job);
+    }
+    my $cmds = create_submission_cmds(\@jobs, $db, $batch_submission_object, $runner,
+				      $event);
+  CMD:foreach my $cmd(keys(%$cmds)){
+      if ($submission_limit) {
+	if ($total_submission_count >= $submission_total) {
+	  $done = 1;
+	  last CMD;
+	}
+      }
+      my $return_value = has_to_many_jobs($max_number_of_jobs, 
+					  $batch_submission_object, $sleep);
+      my $jobs = $cmds->{$cmd};
+      foreach my $job (@$jobs) {
+	$job->current_status("SUBMITTED");
+	$ja->set_status($job);
+	print "Submitting ".$job->dbID."\n" if($verbose);
+	if ($submitted_hash{$job->dbID}) {
+	  throw("Have already submitted ".$job->dbID);
+	} else {
+	  $submitted_hash{$job->dbID} = 1;
+	}
+      }
+      eval{
+	system($cmd);
+	print "CMD ".$cmd."\n" if($verbose);
+	$total_submission_count++;
+	$submitted_count++;
+      };
+      if ($@) {
+	print STDERR "Failed to run ".$cmd." $@\n";
+	foreach my $job (@$jobs) {
+	  $job->current_status("FAILED");
+	  $ja->set_status($job);
+	}
+	next CMD;
+      }
+    }
+  }
+  #check if pipeline is finished
    
-   if($once || $done){
-     print "Finished exiting loop\n";
-     last LOOP;
-   }else{
-     if(check_if_done($db, $retry_max)){
-       last LOOP unless($submitted_count >= 1);
-     }
-   }
+  if ($once || $done) {
+    print "Finished exiting loop\n";
+    last LOOP;
+  } else {
+    if (check_if_done($db, $retry_max)) {
+      last LOOP unless($submitted_count >= 1);
+    }
+  }
 }
 
 delete_lock_string("pipeline.lock", $meta_adaptor);
   
 sub termhandler {
-    $term_sig = 1;
+  $term_sig = 1;
 }
 
 sub perldocs{
