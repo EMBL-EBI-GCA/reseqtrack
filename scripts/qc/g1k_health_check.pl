@@ -34,6 +34,9 @@ print "\n";
 &fastq_attrib_stat_obj_check( $db, 'WITHDRAWN_FILTERED_FASTQ',
 	$input{verbose} );
 
+
+&sample_swap_results ( $db, $input{verbose});
+
 &more_read_than_bases( $db, $input{verbose} );
 
 &no_genotype_results_for_run_id( $db, $input{verbose} );
@@ -46,6 +49,38 @@ print "\n";
 
 print "\n\nDone \n";
 
+=head2 sample_swap_results
+
+  Arg [1]   : DB adaptor
+  Arg [2]   : verbose
+ 
+  Function  : See if missed re-running any sample swaps
+
+
+=cut
+
+sub sample_swap_results {
+	my ( $db, $verbose ) = @_;
+	
+	my $sql =
+	  'select gt.name, gt.claimed , rmi.run_id, rmi.sample_name'
+	    . 'from genotype_results gt , run_meta_info rmi'
+	    . 'where gt.name = rmi.run_id and gt.claimed != rmi.sample_name';
+
+	my $sth = $db->dbc->prepare($sql);
+	$sth->execute;
+	my $ctr = 0;
+
+	while ( my @row = $sth->fetchrow_array ) {
+		print "@row\n" if $verbose;
+		$ctr++;
+	}
+	$sth->finish;
+
+
+
+	return;
+}
 
 
 
@@ -89,7 +124,7 @@ sub check_fastq_collection_types_consistent {
 			}
 		}
 	}
-	print "Done";
+	print "Done\n ";
 	return;
 }
 
@@ -109,7 +144,7 @@ sub no_genotype_results_for_run_id {
 	my $sql =
 	    "select "
 	  . "run_id, sample_name, center_name "
-	  . "from run_meta_info "
+	  . "from run_meta_info where type = \"public\" and "
 	  . "where run_id not in (select name from genotype_results)";
 
 	my $sth = $db->dbc->prepare($sql);
@@ -193,7 +228,7 @@ sub fastq_attrib_stat_obj_check {
 	$sth->finish;
 
 	print "Have $ctr fastq files of type $type";
-	print "with only 1 attribute entry in Statistics table\n";
+	print " with only 1 attribute entry in Statistics table\n";
 	return;
 }
 
