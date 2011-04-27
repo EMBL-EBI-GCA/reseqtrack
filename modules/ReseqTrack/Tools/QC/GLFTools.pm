@@ -211,8 +211,8 @@ sub sum_results{
   $ref->{ratio_claimed} = $r_claimed;
   $ref->{claimed_sites} = $$claimed{sites};
   $ref->{claimed} = $$claimed{sample};
-  
-  if ( $$top{sample} eq $$claimed{sample}) {
+
+  if ( ($$top{sample} eq $$claimed{sample}) && ($r_21 >= 1.2) ) {
     $ref->{verdict} = "PASSED";
   } else {
     $ref->{verdict} = "FAILED";
