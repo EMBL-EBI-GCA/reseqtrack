@@ -8,7 +8,7 @@ use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::DBSQL::GenotypeResultsAdaptor;
 use ReseqTrack::Tools::RunAlignment::BFAST;
 use ReseqTrack::Tools::RunAlignment::BWA;
-use ReseqTrack::Tools::RunAlignment qw (create_tmp_process_dir);
+use ReseqTrack::Tools::FileSystemUtils qw (create_tmp_process_dir delete_directory);
 use ReseqTrack::Tools::QC::GLFTools;
 use ReseqTrack::Tools::QC::QCUtils qw (get_params);
 use Getopt::Long;
@@ -60,7 +60,10 @@ my $db = ReseqTrack::DBSQL::DBAdaptor->new(
 my  $gr = $db->get_GenotypeResultsAdaptor;
 
 my $prev_result = $gr->fetch_by_name ($input{name});
-if ($prev_result){  
+
+
+if ($prev_result){
+  
   throw ( "Already have results for $input{name}. 'update' option not used")
     unless $input{update};
 }
