@@ -65,7 +65,7 @@ if ($current_index){
   open my $CURRENT_SI,'<', $current_index; 
     die "Cannot load current sequence index:$current_index\n" if (!$CURRENT_SI);
 
-  my %current_hash;
+#  my %current_hash;
   while (<$CURRENT_SI>){
     chomp;
     my @aa = split /\t/;
@@ -232,7 +232,7 @@ my %index_lines;
      else{
      	
      	if (defined $current_hash{$meta_info->run_id}{withdrawn}){
-	  print $meta_info->run_id, "\t",$current_hash{$meta_info->run_id}{comment},"\n";
+	  #print $meta_info->run_id, "\t",$current_hash{$meta_info->run_id}{comment},"\n";
 	  my $new_comment = $current_hash{$meta_info->run_id}{comment};
 	  my $time        = $current_hash{$meta_info->run_id}{withdrawn_date}; 
      			 
@@ -293,11 +293,17 @@ if($output_file){
 
 my $header = return_header_string();
 print $fh $header;
-
+my $bad_lines; 
 foreach my $meta_info(@sorted){
   my $lines = $index_lines{$meta_info->run_id};
   if($lines && @$lines > 0){
     foreach my $line(@$lines){
+    	
+      if (!$line ){                                                                                   
+       $bad_lines++;                                                                                      
+       next;                                                                                              
+      }                                                                                                          
+ 
       if($trim_paths){
         my @values = split /\t/, $line;
         $values[0] =~ s/$root_trim//;
@@ -311,9 +317,13 @@ foreach my $meta_info(@sorted){
     print STDERR "Have no lines for ".$meta_info->run_id."\n" unless($single_run_id);
   }
 }
-
-
 close($fh);
+
+print "\n\n";
+#Have lines with 0 length.	
+print "Have $bad_lines lines with 0 length\n\n";
+
+
 
 =pod
 
