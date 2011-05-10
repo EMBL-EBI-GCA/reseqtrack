@@ -29,10 +29,17 @@ print "\n\nStarting Jr Health check of: " . $input{dbname} . "\n";
 print '-' x 45;
 print "\n";
 
+
+&history_objects_with_no_assoc_obj( $db, 'file');
+&history_objects_with_no_assoc_obj( $db, 'collection');
+
+
+
+&objects_with_no_history ( $db, 'collection');
+
 &fastq_attrib_stat_obj_check( $db, 'FILTERED_FASTQ', $input{verbose} );
 
-&fastq_attrib_stat_obj_check( $db, 'WITHDRAWN_FILTERED_FASTQ',
-	$input{verbose} );
+&fastq_attrib_stat_obj_check( $db,'WITHDRAWN_FILTERED_FASTQ',$input{verbose});
 
 
 &sample_swap_results ( $db, $input{verbose});
@@ -44,10 +51,99 @@ print "\n";
 &check_fastq_collection_types_consistent( $db, 'FILTERED_FASTQ',
 	$input{verbose} );
 
-&check_fastq_collection_types_consistent( $db, 'WITHDRAWN_FILTERED_FASTQ',
-	$input{verbose} );
+##&check_fastq_collection_types_consistent( $db, 'WITHDRAWN_FILTERED_FASTQ',
+##	$input{verbose} );
 
 print "\n\nDone \n";
+
+
+=head2 history_objects_with_no_coll_obj 
+
+  Arg [1]   : DB adaptor
+  Arg [2]   : verbose
+ 
+  Function  : collections get deleted, but not there history obj
+
+=cut
+
+sub history_objects_with_no_assoc_obj {
+    my ( $db, $table,$verbose ) = @_;
+    
+    my $get = "select history_id,other_id, table_name from history where table_name = \"$table\" ";
+    my $clause ="  other_id not in (select ${table}_id from $table)"; 
+
+    my $sql = "$get AND  $clause" ;
+    
+    print $sql,"\n\n" if $verbose;
+    
+    my $sth = $db->dbc->prepare($sql);
+    $sth->execute;
+    my $ctr = 0;
+
+    while ( my @row = $sth->fetchrow_array ) {
+            $ctr++;
+      }
+
+ print "Got $ctr  history (table = $table) objects with no existing $table objects\n";
+}
+
+
+
+=head2 objects_with_no_history 
+
+  Arg [1]   : DB adaptor
+  Arg [2]   : verbose
+ 
+  Function  : Any files with no History objects
+
+
+=cut
+
+sub objects_with_no_history {
+    my ( $db, $table,$verbose ) = @_;
+    my $scratch ='scratch/staging_area/sequence_staging';
+    #print "Any $table objects with no History objects\n";
+    
+    my $sql =
+      "select ${table}_id, name from ${table} where ${table}_id not in "
+      .  "(select other_id from history where table_name = \"$table\") ";
+    
+    print $sql,"\n\n" if $verbose;
+    
+    my $sth = $db->dbc->prepare($sql);
+    $sth->execute;
+    my $ctr = 0;
+
+    while ( my @row = $sth->fetchrow_array ) {
+    	if ($row[1] =~ /scratch/){
+    	#	next;
+    	}
+        if ($row[1] =~ /withdrawn/){
+         #   next;
+        }
+    	 if ($row[1] =~ /pilot/){
+          #  next;
+        }
+         if ($row[1] =~ /sequence_read/){
+           # next;
+        }
+        
+        print "@row\n" if $verbose;
+        $ctr++;
+    }
+    
+    print "Have $ctr case(s) of $table objects where no history objects present\n";
+    
+    $sth->finish;
+
+
+
+    return;
+}
+
+
+
+
 
 =head2 sample_swap_results
 
@@ -62,10 +158,14 @@ print "\n\nDone \n";
 sub sample_swap_results {
 	my ( $db, $verbose ) = @_;
 	
+	#print "Checking for genotype sample swap results\n";
+	
 	my $sql =
 	  'select gt.name, gt.claimed , rmi.run_id, rmi.sample_name from genotype_results gt , run_meta_info rmi ' .
 	    'where gt.name = rmi.run_id and gt.claimed != rmi.sample_name';
-
+  
+   # print $sql,"\n";
+	
 	my $sth = $db->dbc->prepare($sql);
 	$sth->execute;
 	my $ctr = 0;
@@ -74,6 +174,9 @@ sub sample_swap_results {
 		print "@row\n" if $verbose;
 		$ctr++;
 	}
+	
+	print "Have $ctr case(s) where genotype_results.claimed != rmi.sample_name\n";
+	
 	$sth->finish;
 
 
@@ -100,12 +203,15 @@ sub check_fastq_collection_types_consistent {
 	print "Checking $type collection file types\n";
 
 	if ( $type =~ /WITHDRAWN/ ) {
-		$check = 'vol1/withdrawn';
-	}
-	else {
+		
 		$check = '/vol1/ftp';
 	}
-
+	else {
+		$check = 'withdrawn';
+	}
+	
+    print "checking for $check in $type file names\n";
+	
 	my $ca = $db->get_CollectionAdaptor;
 
 	my $collections = $ca->fetch_by_type("$type");
@@ -114,16 +220,31 @@ sub check_fastq_collection_types_consistent {
 	  if ( !$collections );
 
 	print "Have ", scalar(@$collections), " collections\n";
-
+    my $ctr = 0;
+    my %tracker;
 	foreach my $coll (@$collections) {
 		my $others = $coll->others;
 		foreach my $q (@$others) {
-			if ( !( $q->name =~ /$check/ ) ) {
+			if (  $q->name =~ /withdrawn/g  ) {
 				print $coll->name, "\t", $coll->type, "\t", $q->name, "\n";
+				push (@{$tracker{$coll->name}}, $q->name);
 			}
 		}
 	}
-	print "Done\n ";
+	
+	my $bad_collections = scalar ( keys %tracker);
+	print "Got $bad_collections bad collections with mixed types\n";
+	
+#	foreach my $key (keys %tracker){
+#		my @arr = $tracker{$key};
+#		print $key,"\n";
+#		foreach (@arr){
+#		  print;
+#		  print "\n";	
+#		}		
+#	}
+	
+	print "\n\nWITHDRAWN HARD CODED   Done\n ";
 	return;
 }
 
@@ -148,7 +269,7 @@ sub no_genotype_results_for_run_id {
 	my $ctr = 0;
 
 	while ( my @row = $sth->fetchrow_array ) {
-		print "@row\n" if $verbose;
+		print "@row\n";# if $verbose;
 		$ctr++;
 	}
 	$sth->finish;
