@@ -288,12 +288,9 @@ sub set_required_vars {
  }
 
  if (! ($ENV{'PATH'} =~ /samtools/) ) {
-   $ENV{'PATH'}= $ENV{'PATH'} . ':' .$ENV{'SAMTOOLS'};
+   $ENV{'PATH'}= $ENV{'PATH'} . ':' . $ENV{'SAMTOOLS'};
  }
 
- if ( ! ($ENV{'PATH'} =~  /$samtools_dir/ )  ){
-   throw "samtools location not in \$PATH. Must append";
-  }
 
 
  
