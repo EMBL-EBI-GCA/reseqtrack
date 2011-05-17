@@ -275,17 +275,17 @@ sub set_required_vars {
   
   $ENV{'PERL5LIB'} = '/nfs/1000g-work/G1K/work/bin/local-perl/local-lib/lib/perl5/x86_64-linux:/nfs/1000g-work/G1K/work/bin/local-perl/local-lib/lib/perl5:/homes/smithre/OneKGenomes/reseqtrack/modules:/nfs/1000g-work/G1K/work/bin/VertebrateResequencing-vr-codebase-3ddb4db/modules/';
 
-  if ( ! $ENV{'PICARD'}){
+#  if ( ! $ENV{'PICARD'}){
     $ENV{'PICARD'} = '/nfs/1000g-work/G1K/work/bin/picard/picard-tools-1.33';
-  }
+#  }
 
-  if ( ! $ENV{'SAMTOOLS'}){
-    $ENV{'SAMTOOLS'} = '/nfs/1000g-work/G1K/work/bin/samtools_latest/samtools/';
-  }
+#  if ( ! $ENV{'SAMTOOLS'}){
+    $ENV{'SAMTOOLS'} = '/nfs/1000g-work/G1K/work/bin/samtools_latest/samtools';
+#  }
 
- if ( ! $ENV{'PERL_INLINE_DIRECTORY'}){
+# if ( ! $ENV{'PERL_INLINE_DIRECTORY'}){
    $ENV{'PERL_INLINE_DIRECTORY'} = '/homes/rseqpipe/.Inline';
- }
+# }
 # /nfs/1000g-work/G1K/work/bin/VertebrateResequencing-vr-codebase-3ddb4db/modules/VertRes
 
   $self->samtools('/nfs/1000g-work/G1K/work/bin/samtools_latest/samtools/samtools'); 
