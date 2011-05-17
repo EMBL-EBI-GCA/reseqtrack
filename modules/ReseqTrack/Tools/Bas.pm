@@ -280,7 +280,7 @@ sub set_required_vars {
   }
 
   if ( ! $ENV{'SAMTOOLS'}){
-    $ENV{'SAMTOOLS'} = '/nfs/1000g-work/G1K/work/bin/samtools_latest/samtools/samtools';
+    $ENV{'SAMTOOLS'} = '/nfs/1000g-work/G1K/work/bin/samtools_latest/samtools/';
   }
 
  if ( ! $ENV{'PERL_INLINE_DIRECTORY'}){
@@ -288,7 +288,7 @@ sub set_required_vars {
  }
 # /nfs/1000g-work/G1K/work/bin/VertebrateResequencing-vr-codebase-3ddb4db/modules/VertRes
 
-  $self->samtools('/nfs/1000g-work/G1K/work/bin/samtools_latest/samtools/'); 
+  $self->samtools('/nfs/1000g-work/G1K/work/bin/samtools_latest/samtools/samtools'); 
   
 
   return;
