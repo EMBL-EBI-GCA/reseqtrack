@@ -284,11 +284,11 @@ sub set_required_vars {
   }
 
  if ( ! $ENV{'PERL_INLINE_DIRECTORY'}){
-   $ENV{'PERL_INLINE_DIRECTORY'} = '~/.Inline';
+   $ENV{'PERL_INLINE_DIRECTORY'} = '/homes/rseqpipe/.Inline';
  }
 # /nfs/1000g-work/G1K/work/bin/VertebrateResequencing-vr-codebase-3ddb4db/modules/VertRes
 
-  $self->samtools('/nfs/1000g-work/G1K/work/bin/samtools_latest/samtools/samtools'); 
+  $self->samtools('/nfs/1000g-work/G1K/work/bin/samtools_latest/samtools/'); 
   
 
   return;
