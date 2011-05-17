@@ -279,6 +279,11 @@ sub set_required_vars {
     $ENV{'PICARD'} = '/nfs/1000g-work/G1K/work/bin/picard/picard-tools-1.33';
   }
 
+  if ( ! $ENV{'SAMTOOLS'}){
+    $ENV{'SAMTOOLS'} = '/nfs/1000g-work/G1K/work/bin/samtools_latest/samtools';
+  }
+
+ 
 # /nfs/1000g-work/G1K/work/bin/VertebrateResequencing-vr-codebase-3ddb4db/modules/VertRes
 
   $self->samtools('/nfs/1000g-work/G1K/work/bin/samtools_latest/samtools/samtools'); 
