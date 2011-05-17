@@ -107,9 +107,9 @@ sub create_bas {
   my $perl = $self->perl_exe;
   my $release_date = $self->release_date;
   my $bas = $bam .'.bas';
-
+  $bas =~ s/\/\//\//g;
   $self->tmp_bas ($bas);
- 
+  
   my $make_bas_file_cmd ="$perl -MVertRes::Utils::Sam -e \"VertRes::Utils::Sam->new->bas('$bam', '$release_date', '$bas')\" ";
   print $make_bas_file_cmd,"\n" if $self->verbose;
 
@@ -159,7 +159,7 @@ sub add_tags {
   my $ref     = $self->reference;
 
   my $tmp_bam = $self->tmp_dir . '/' . basename($bam) . '_'. $$;
-
+ 
   print "Adding tags\n" if $self->verbose;
   print  "$sam_exe fillmd -b  $bam $ref > $tmp_bam\n" if $self->verbose;
 
@@ -274,6 +274,10 @@ sub set_required_vars {
  my $self = shift;
   
   $ENV{'PERL5LIB'} = '/nfs/1000g-work/G1K/work/bin/local-perl/local-lib/lib/perl5/x86_64-linux:/nfs/1000g-work/G1K/work/bin/local-perl/local-lib/lib/perl5:/homes/smithre/OneKGenomes/reseqtrack/modules:/nfs/1000g-work/G1K/work/bin/VertebrateResequencing-vr-codebase-3ddb4db/modules/';
+
+  if ( ! $ENV{'PICARD'}){
+    $ENV{'PICARD'} = '/nfs/1000g-work/G1K/work/bin/picard/picard-tools-1.33';
+  }
 
 # /nfs/1000g-work/G1K/work/bin/VertebrateResequencing-vr-codebase-3ddb4db/modules/VertRes
 
