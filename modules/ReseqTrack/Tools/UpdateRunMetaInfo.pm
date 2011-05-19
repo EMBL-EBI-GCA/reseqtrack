@@ -393,6 +393,7 @@ sub check_sample_in_path{
   my ($self, $rmis, $files) = @_;
   $rmis = $self->get_dcc_rmis() unless($rmis);
   $files = $self->get_all_fastq unless($files) ;
+  return {} unless($files && @$files >= 1);
   my $file_hash = $self->run_hash_from_fastq($files) if($files && @$files);
   my %move_hash;
   my $verbose = 0;
@@ -505,7 +506,7 @@ sub get_all_fastq{
       push(@files, @{$fa->fetch_by_type($type)});
     }
     $self->{all_fastq} = \@files;
-    throw("Have no files in database ") unless(@{$self->{all_fastq}});
+    #throw("Have no files in database ") unless(@{$self->{all_fastq}});
   }
   return $self->{all_fastq};
 }
@@ -638,7 +639,15 @@ sub get_era_rmis{
     $self->{era_rmis} = $rmis;
   }
   if(!$self->{era_rmis} || $force_update){
-    $self->{era_rmis} = $self->era_db->get_ERARunMetaInfoAdaptor->fetch_all();
+    my $rmis = $self->era_db->get_ERARunMetaInfoAdaptor->fetch_all();
+    my @array;
+    foreach my $rmi(@$rmis){
+      next unless($rmi);
+      next if($rmi->sample_name =~ /genomic/i);
+      next if($rmi->sample_name =~ /\./);
+      push(@array, $rmi);
+    }
+    $self->{era_rmis} = \@array;
   }
   return $self->{era_rmis};
 }
