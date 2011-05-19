@@ -309,7 +309,7 @@ sub create_index_line{
 }
 
 sub create_suppressed_index_line{
-  my ($rmi, $comment, $analysis_group) = @_;
+  my ($rmi, $comment,$time, $analysis_group) = @_;
   unless($rmi->status eq 'suppressed'){
     warning($rmi->run_id." has status ".$rmi->status." are you sure you want to ".
         "print a suppressed style line for it");
@@ -318,7 +318,7 @@ sub create_suppressed_index_line{
   my $md5 = "................................";
   my $file = "data/".$rmi->sample_name."/sequence_read/".$rmi->run_id.".fastq.gz";
 
-  return create_index_line($file, $md5, $rmi, undef, 1, $comment, undef, undef, 
+  return create_index_line($file, $md5, $rmi, undef, 1, $comment, $time, undef, 
                            undef, $analysis_group);
 }
 
