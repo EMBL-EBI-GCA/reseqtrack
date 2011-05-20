@@ -19,6 +19,7 @@ CREATE TABLE host(
        host_id int(10) unsigned NOT NULL AUTO_INCREMENT,
        name  VARCHAR(255),
        remote tinyint(1) NOT NULL DEFAULT '0',
+       dropbox_dir VARCHAR(200),
        PRIMARY KEY(host_id),
        UNIQUE(name)
 );
@@ -241,6 +242,15 @@ CREATE TABLE meta (
   unique (meta_key)
 
 ) ;
+
+CREATE TABLE reject_log (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    file_id INT NOT NULL,
+    is_reject enum("y", "n") NOT NULL DEFAULT "n",
+    reject_reason VARCHAR(500),
+    created TIMESTAMP(8)
+    );
+
 
 #Now to add entries to the two standard tables
 
