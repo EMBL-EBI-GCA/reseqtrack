@@ -83,6 +83,9 @@ sub run {
  if ($self->need_tags){
    $self->add_tags;
  }
+ else{
+ 	$self->bam_to_process = $self->bam;	
+ }
    
  $self->create_bas;
  $self->correct_bas_file_convention;
