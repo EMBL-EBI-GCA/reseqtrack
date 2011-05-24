@@ -20,6 +20,7 @@ use ReseqTrack::Tools::AlignmentBase;
 use ReseqTrack::Tools::Argument qw(rearrange);
 use ReseqTrack::Tools::SequenceIndexUtils;
 use ReseqTrack::Tools::FileSystemUtils qw (create_tmp_process_dir run_md5 delete_directory );
+use ReseqTrack::Tools::BamUtils qw (CHECK_AND_PARSE_FILE_NAME);
 use File::Temp qw/ tempfile tempdir /;
 use File::Basename;
 use File::Copy;
@@ -68,30 +69,33 @@ sub new {
   $self->set_required_vars;
 
 
-  if ( ! $self->bam_md5 ){
-   $self->bam_md5 ( run_md5 ($self->bam) );
+  if ( ! $self->bam_md5 ) {
+    $self->bam_md5 ( run_md5 ($self->bam) );
   }
 
   return $self;
 }
 
 sub run {
- my $self = shift;
 
- $self->tmp_process_dir;
+  my $self = shift;
 
- if ($self->need_tags){
-   $self->add_tags;
- }
- else{
- 	$self->bam_to_process = $self->bam;	
- }
+  $self->tmp_process_dir;
+
+  if ( $self->need_tags ) {
+    $self->add_tags;
+  } else {
+    $self->bam_to_process ($self->bam);	
+  }
    
- $self->create_bas;
- $self->correct_bas_file_convention;
- delete_directory ($self->tmp_dir);
 
- return;
+
+
+  $self->create_bas;
+  $self->correct_bas_file_convention;
+  delete_directory ($self->tmp_dir);
+
+  return;
 }
 
 =head2 create_bas
@@ -107,19 +111,29 @@ sub create_bas {
   my $self = shift;
   my $bam  = $self->bam_to_process;
 
+  if ( !-e $bam) {
+    die "Bam file: $bam does not exist\n";
+  }
+
+
+
   my $perl = $self->perl_exe;
   my $release_date = $self->release_date;
-  my $bas = $bam .'.bas';
+
+  my $bas = $self->working_dir . '/'. basename ($bam) .'.bas';
+
+  print $bas,"\n";
+
   $bas =~ s/\/\//\//g;
   $self->tmp_bas ($bas);
   
   my $make_bas_file_cmd ="$perl -MVertRes::Utils::Sam -e \"VertRes::Utils::Sam->new->bas('$bam', '$release_date', '$bas')\" ";
   print $make_bas_file_cmd,"\n" if $self->verbose;
 
-   eval{
-     `$make_bas_file_cmd`;
-   };
-   die "Adding tags failed: $@" if $@;
+  eval{
+    `$make_bas_file_cmd`;
+  };
+  die "Adding tags failed: $@" if $@;
 
   return;
 }
@@ -138,10 +152,21 @@ sub create_bas {
 sub parse_study_name{
   my $self = shift;
   my @aa = split /\./, $self->bam;
-  print "@aa\n" if $self->verbose;
 
-  $self->study_name ( $aa[-3]);
+  my ($sample, $platform, $algorithm, $project, $analysis_grp, $chr, $date);
+
+  $analysis_grp = "UNKNOWN_GROUP";
+ 
+  ($sample, $platform, $algorithm, $project, $analysis_grp, $chr,$date) = 
+    CHECK_AND_PARSE_FILE_NAME ($self->bam);
+  
+  print $date,"\n";
+
+  $self->study_name ( $analysis_grp);
+  $self->release_date ( $date);
+  print "release date= $date\n";
   print "study name = ",  $self->study_name,"\n" if $self->verbose;
+
   return;
 }
 
@@ -169,7 +194,7 @@ sub add_tags {
   eval{  
     `$sam_exe fillmd -b  $bam $ref  > $tmp_bam `;
   };
-    die "Adding tags failed: $@" if $@;
+  die "Adding tags failed: $@" if $@;
 
   $self->bam_to_process ($tmp_bam);
   print  $self->bam_to_process,"\n" if $self->verbose;
@@ -180,130 +205,134 @@ sub add_tags {
 
   Arg [1]   : ReseqTrack::Bas
   Function  : Need tmp dir for processing
-  Returntype: None
+ Returntype: None
  
-=cut
+  =cut
 
-sub tmp_process_dir {
- my $self = shift;
- my $tmp;
+  sub tmp_process_dir {
+    my $self = shift;
+    my $tmp;
 
- $tmp =  create_tmp_process_dir ($self->working_dir); 
- $self->tmp_dir ( $tmp);
+    $tmp =  create_tmp_process_dir ($self->working_dir); 
+    $self->tmp_dir ( $tmp);
 
- return;
-}
+    return;
+  }
 
 =head2  correct_bas_file_convention
 
   Arg [1]   : ReseqTrack::Bas
   Function  : Add correct bam file name and study name to tmp bas file
-  Returntype: None
-  Exceptions: none
+ Returntype: None
+ Exceptions: none
  
-=cut
+  =cut
 
-sub correct_bas_file_convention{
+  sub correct_bas_file_convention{
 
-  my $self = shift;
+    my $self = shift;
   
-  my $bam_name  = basename ($self->bam_to_process);
-  my $bas_file  = $self->tmp_bas;
-  my $bam_md5   = $self->bam_md5;
-  my $study_name = $self->study_name;
+    my $bam_name  = basename ($self->bam_to_process);
+    my $bas_file  = $self->tmp_bas;
+    my $bam_md5   = $self->bam_md5;
+    my $study_name = $self->study_name;
 
-  my @data;
-  my @hold;
-  my $newline;
+    my @data;
+    my @hold;
+    my $newline;
 
-  $bam_name =~   s/\.bam//g; # goes in col 1 of bas file
-
-
-  open (IN, '<' ,$bas_file) || die "Failed to open $bas_file";
+    $bam_name =~   s/\.bam//g;	# goes in col 1 of bas file
 
 
-  while (<IN>) {
+    open (IN, '<' ,$bas_file) || die "Failed to open $bas_file";
+
+
+    while (<IN>) {
    
-    @data = split /\t/; 
+      @data = split /\t/; 
   
 
-    if ($data[0] eq "bam_filename"){
-      $newline = join ("\t",@data);
-      push (@hold, $newline);
-      next;
-    }
+      if ($data[0] eq "bam_filename") {
+	$newline = join ("\t",@data);
+	push (@hold, $newline);
+	next;
+      }
 
-    $data[0] = $bam_name;           # original bam file name
-    $data[1] = $bam_md5 ;      # not tmp bam md5 if you added tags 
-    $data[2] = $study_name;
+      $data[0] = $bam_name;	# original bam file name
+      $data[1] = $bam_md5 ;	# not tmp bam md5 if you added tags 
+      $data[2] = $study_name;
  
-    my $newline = join ( "\t", @data);
+      my $newline = join ( "\t", @data);
 
-    push (@hold, $newline);
+      push (@hold, $newline);
     
-  }
-  close (IN);
+    }
+    close (IN);
 
-   my $tmp_file = $bas_file . ".org";
-   move ($bas_file, $tmp_file);
+    my $tmp_file = $bas_file . ".org";
+    move ($bas_file, $tmp_file);
 
-  open (OUT, '>' ,"$bas_file") || die "Failed to open $bas_file for rewrite";
-  foreach my $i (@hold) {
-    print OUT $i;
-  }
-  close (OUT);
+    open (OUT, '>' ,"$bas_file") || die "Failed to open $bas_file for rewrite";
+    foreach my $i (@hold) {
+      print OUT $i;
+    }
+    close (OUT);
 
   
-  my $new_location = $self->bam . '.bas';
+    my $new_location = $self->bam . '.bas';
 
-  move ( $bas_file, $new_location);
+    move ( $bas_file, $new_location);
 
-  print "See $new_location for new bas file\n" ;
+    print "See $new_location for new bas file\n" ;
 
-  chmod(0775, $bas_file);
+    chmod(0775, $bas_file);
 
-  return; 
-}
+    return; 
+  }
 
 =head2  set_required_vars
 
   Function  : Set ENV variables + perl path so code runs. Only run with
   local perl installation at moment
-  Returntype:None
+ Returntype:None
  
-=cut
+  =cut
 
-sub set_required_vars {
- my $self = shift;
-  
-  $ENV{'PERL5LIB'} = '/nfs/1000g-work/G1K/work/bin/local-perl/local-lib/lib/perl5/x86_64-linux:/nfs/1000g-work/G1K/work/bin/local-perl/local-lib/lib/perl5:/homes/smithre/OneKGenomes/reseqtrack/modules:/nfs/1000g-work/G1K/work/bin/VertebrateResequencing-vr-codebase-3ddb4db/modules/';
-
-  if ( ! $ENV{'PICARD'}){
-    $ENV{'PICARD'} = '/nfs/1000g-work/G1K/work/bin/picard/picard-tools-1.33';
-  }
-
-  if ( ! $ENV{'SAMTOOLS'}){
-    $ENV{'SAMTOOLS'} = '/nfs/1000g-work/G1K/work/bin/samtools_latest/samtools';
-  }
-
- if ( ! $ENV{'PERL_INLINE_DIRECTORY'}){
-   $ENV{'PERL_INLINE_DIRECTORY'} = '/homes/rseqpipe/.Inline';
- }
-
- if (! ($ENV{'PATH'} =~ /samtools/) ) {
-   $ENV{'PATH'}= $ENV{'PATH'} . ':' . $ENV{'SAMTOOLS'};
- }
-
-
-
- 
-# /nfs/1000g-work/G1K/work/bin/VertebrateResequencing-vr-codebase-3ddb4db/modules/VertRes
-
-  $self->samtools('/nfs/1000g-work/G1K/work/bin/samtools_latest/samtools/samtools'); 
+  sub set_required_vars {
+    my $self = shift;
   
 
-  return;
-}
+    # if 
+
+
+    $ENV{'PERL5LIB'} = '/nfs/1000g-work/G1K/work/bin/local-perl/local-lib/lib/perl5/x86_64-linux:/nfs/1000g-work/G1K/work/bin/local-perl/local-lib/lib/perl5:/homes/smithre/OneKGenomes/reseqtrack/modules:/nfs/1000g-work/G1K/work/bin/VertebrateResequencing-vr-codebase-3ddb4db/modules/';
+
+    if ( ! (defined $ENV{'PICARD'} )) {
+      $ENV{'PICARD'} = '/nfs/1000g-work/G1K/work/bin/picard/picard-tools-1.33';
+    }
+
+    if ( ! (defined $ENV{'SAMTOOLS'} )) {
+      $ENV{'SAMTOOLS'} = '/nfs/1000g-work/G1K/work/bin/samtools_latest/samtools';
+    }
+
+    if ( ! defined ($ENV{'PERL_INLINE_DIRECTORY'})) {
+      $ENV{'PERL_INLINE_DIRECTORY'} = '/homes/rseqpipe/.Inline';
+    }
+
+    if (! ($ENV{'PATH'} =~ /samtools/) ) {
+      $ENV{'PATH'}= $ENV{'PATH'} . ':' . $ENV{'SAMTOOLS'};
+    }
+
+
+
+ 
+    # /nfs/1000g-work/G1K/work/bin/VertebrateResequencing-vr-codebase-3ddb4db/modules/VertRes
+
+    $self->samtools('/nfs/1000g-work/G1K/work/bin/samtools_latest/samtools/samtools'); 
+  
+
+    return;
+  }
 
 
 
