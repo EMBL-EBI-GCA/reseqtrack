@@ -40,6 +40,8 @@ sub new {
       $release_date,
       $md5,
       $verbose,
+      $in_parent,
+      $output_dir,
      )
     =
       rearrange(
@@ -51,6 +53,8 @@ sub new {
               RELEASE_DATE
               MD5
               VERBOSE
+              IN_PARENT
+              OUTPUT_DIR
 )
 		],
 		@args
@@ -64,8 +68,8 @@ sub new {
   $self->release_date($release_date);
   $self->bam_md5($md5);
   $self->parse_study_name;
-  
-
+  $self->in_parent($in_parent);
+  $self->output_dir($output_dir);
   $self->set_required_vars;
 
 
@@ -93,6 +97,31 @@ sub run {
 
   $self->create_bas;
   $self->correct_bas_file_convention;
+
+  if ($self->output_dir){
+      my $new_loc =$self->output_dir . '/'. basename($self->bam) . '.bas';
+       $new_loc =~ s/\/\//\//g;
+     
+      my $old_loc = $self->tmp_dir . '/' . $self->tmp_bas;
+      print "Copy $old_loc to $new_loc\n"; 
+       $old_loc =~ s/\/\//\//g;
+      my  $fred = copy ( $old_loc, $new_loc);
+      print $fred,"\n";
+      exit;
+  }
+
+
+  if ($self->in_parent){
+    my $new_loc = $self->bam . '.bas';
+    print "Moving ", $self->tmp_bas, " ", $new_loc,"\n";
+    move ( $self->tmp_bas, $new_loc);
+    my $sanger_inline = $self->tmp_dir . '/'. "\_Inline";
+    $sanger_inline =~ s/\/\//\//g;
+    print  $sanger_inline,"\n";
+    `chmod -R 775 $sanger_inline` if (-e $sanger_inline);
+
+    delete_directory ($self->tmp_dir);
+  }
 #  delete_directory ($self->tmp_dir);
 
   return;
@@ -108,14 +137,16 @@ sub create_bas {
     die "Bam file: $bam does not exist\n";
   }
 
-
+  my $go_here =  $self->tmp_dir;
+  print "Changing dir to $go_here\n";
+  chdir ( $go_here);
 
   my $perl = $self->perl_exe;
   my $release_date = $self->release_date;
 
-  my $bas = $self->working_dir . '/'. basename ($bam) .'.bas';
-
-  print $bas,"\n";
+  my $bas =  basename ($bam) .'.bas';
+  
+  print "Making $bas\n";
 
   $bas =~ s/\/\//\//g;
   $self->tmp_bas ($bas);
@@ -126,8 +157,8 @@ sub create_bas {
   eval{
     `$make_bas_file_cmd`;
   };
-  die "Adding tags failed: $@" if $@;
-
+  die "bas creaton failed: $@" if $@;
+ 
   return;
 }
 
@@ -196,7 +227,8 @@ sub correct_bas_file_convention{
   my $self = shift;
   
   my $bam_name  = basename ($self->bam_to_process);
-  my $bas_file  = $self->tmp_bas;
+  my $bas_file  = $self->tmp_dir . '/' . $self->tmp_bas;
+  $bas_file =~ s /\/\//\//g;
   my $bam_md5   = $self->bam_md5;
   my $study_name = $self->study_name;
 
@@ -235,6 +267,8 @@ sub correct_bas_file_convention{
   my $tmp_file = $bas_file . ".org";
   move ($bas_file, $tmp_file);
 
+
+
   open (my $OUT, '>' ,"$bas_file") || die "Failed to open $bas_file for rewrite";
   foreach my $i (@hold) {
     print $OUT $i;
@@ -242,7 +276,8 @@ sub correct_bas_file_convention{
   close ($OUT);
 
   
-  my $new_location = $self->bam . '.bas';
+  my $new_location = $bas_file;
+  $new_location =~ s/\.org//;
 
   move ( $bas_file, $new_location);
 
@@ -406,6 +441,21 @@ sub verbose {
   return $self->{'verbose'};
 }
 
+sub in_parent {
+  my ($self, $arg) = @_;
+  if (defined $arg) {
+    $self->{'in_parent'} = $arg;
+  }
+  return $self->{'in_parent'};
+}
+
+sub output_dir {
+  my ($self, $arg) = @_;
+  if (defined $arg) {
+    $self->{'output_dir'} = $arg;
+  }
+  return $self->{'output_dir'};
+}
 
 
 1;
