@@ -98,13 +98,6 @@ sub run {
   return;
 }
 
-=head2 create_bas
-
-  Arg [1]   : ReseqTrack::Bas
-  Function  : Run Sanger module that creates bas file. 
-  Returntype: None
-
-=cut
 
 sub create_bas {
 
@@ -139,15 +132,7 @@ sub create_bas {
 }
 
 
-=head2 parse_study_name
 
-  Arg [1]   : ReseqTrack::Bas
-  Function  : Column 3 of bas file needs correct study type
-              This extracts from bam name. Assuming correctly formated.
-              
-  Returntype: None
-
-=cut
 
 sub parse_study_name{
   my $self = shift;
@@ -170,14 +155,7 @@ sub parse_study_name{
   return;
 }
 
-=head2 add_tags
 
-  Arg [1]   : ReseqTrack::Bas
-  Function  : For correct stats bam needs to have correct tags added.
-              Have to run through samtools 'fillmd'
-  Returntype: None
-
-=cut
 
 sub add_tags {
   my $self = shift;
@@ -201,139 +179,120 @@ sub add_tags {
   return;
 }
 
-=head2   tmp_process_dir
 
-  Arg [1]   : ReseqTrack::Bas
-  Function  : Need tmp dir for processing
- Returntype: None
- 
-  =cut
+sub tmp_process_dir {
+  my $self = shift;
+  my $tmp;
 
-  sub tmp_process_dir {
-    my $self = shift;
-    my $tmp;
+  $tmp =  create_tmp_process_dir ($self->working_dir); 
+  $self->tmp_dir ( $tmp);
 
-    $tmp =  create_tmp_process_dir ($self->working_dir); 
-    $self->tmp_dir ( $tmp);
+  return;
+}
 
-    return;
-  }
 
-=head2  correct_bas_file_convention
 
-  Arg [1]   : ReseqTrack::Bas
-  Function  : Add correct bam file name and study name to tmp bas file
- Returntype: None
- Exceptions: none
- 
-  =cut
+sub correct_bas_file_convention{
 
-  sub correct_bas_file_convention{
-
-    my $self = shift;
+  my $self = shift;
   
-    my $bam_name  = basename ($self->bam_to_process);
-    my $bas_file  = $self->tmp_bas;
-    my $bam_md5   = $self->bam_md5;
-    my $study_name = $self->study_name;
+  my $bam_name  = basename ($self->bam_to_process);
+  my $bas_file  = $self->tmp_bas;
+  my $bam_md5   = $self->bam_md5;
+  my $study_name = $self->study_name;
 
-    my @data;
-    my @hold;
-    my $newline;
+  my @data;
+  my @hold;
+  my $newline;
 
-    $bam_name =~   s/\.bam//g;	# goes in col 1 of bas file
-
-
-    open (IN, '<' ,$bas_file) || die "Failed to open $bas_file";
+  $bam_name =~   s/\.bam//g;	# goes in col 1 of bas file
 
 
-    while (<IN>) {
+  open (my $IN, '<' ,$bas_file) || die "Failed to open $bas_file";
+
+ 
+  while (<$IN>) {
    
-      @data = split /\t/; 
+    @data = split /\t/; 
   
 
-      if ($data[0] eq "bam_filename") {
-	$newline = join ("\t",@data);
-	push (@hold, $newline);
-	next;
-      }
-
-      $data[0] = $bam_name;	# original bam file name
-      $data[1] = $bam_md5 ;	# not tmp bam md5 if you added tags 
-      $data[2] = $study_name;
- 
-      my $newline = join ( "\t", @data);
-
+    if ($data[0] eq "bam_filename") {
+      $newline = join ("\t",@data);
       push (@hold, $newline);
+      next;
+    }
+
+    $data[0] = $bam_name;	# original bam file name
+    $data[1] = $bam_md5 ;	# not tmp bam md5 if you added tags 
+    $data[2] = $study_name;
+ 
+    my $newline = join ( "\t", @data);
+
+    push (@hold, $newline);
     
-    }
-    close (IN);
+  }
+  close ($IN);
 
-    my $tmp_file = $bas_file . ".org";
-    move ($bas_file, $tmp_file);
+  my $tmp_file = $bas_file . ".org";
+  move ($bas_file, $tmp_file);
 
-    open (OUT, '>' ,"$bas_file") || die "Failed to open $bas_file for rewrite";
-    foreach my $i (@hold) {
-      print OUT $i;
-    }
-    close (OUT);
+  open (my $OUT, '>' ,"$bas_file") || die "Failed to open $bas_file for rewrite";
+  foreach my $i (@hold) {
+    print $OUT $i;
+  }
+  close ($OUT);
 
   
-    my $new_location = $self->bam . '.bas';
+  my $new_location = $self->bam . '.bas';
 
-    move ( $bas_file, $new_location);
+  move ( $bas_file, $new_location);
 
-    print "See $new_location for new bas file\n" ;
+  print "See $new_location for new bas file\n" ;
 
-    chmod(0775, $bas_file);
+  chmod(0775, $bas_file);
 
-    return; 
+  return; 
+}
+
+
+sub set_required_vars {
+  my $self = shift;
+  
+
+ 
+
+
+  $ENV{'PERL5LIB'} = '/nfs/1000g-work/G1K/work/bin/local-perl/local-lib/lib/perl5/x86_64-linux:/nfs/1000g-work/G1K/work/bin/local-perl/local-lib/lib/perl5:/homes/smithre/OneKGenomes/reseqtrack/modules:/nfs/1000g-work/G1K/work/bin/VertebrateResequencing-vr-codebase-3ddb4db/modules/';
+
+#  print  $ENV{'PERL5LIB'},"\n";
+
+
+  if ( ! (defined $ENV{'PICARD'} )) {
+    $ENV{'PICARD'} = '/nfs/1000g-work/G1K/work/bin/picard/picard-tools-1.33';
   }
 
-=head2  set_required_vars
+  if ( ! (defined $ENV{'SAMTOOLS'} )) {
+    $ENV{'SAMTOOLS'} = '/nfs/1000g-work/G1K/work/bin/samtools_latest/samtools';
+  }
 
-  Function  : Set ENV variables + perl path so code runs. Only run with
-  local perl installation at moment
- Returntype:None
- 
-  =cut
+  if ( ! defined ($ENV{'PERL_INLINE_DIRECTORY'})) {
+    $ENV{'PERL_INLINE_DIRECTORY'} = '/homes/rseqpipe/.Inline';
+  }
 
-  sub set_required_vars {
-    my $self = shift;
-  
-
-    # if 
-
-
-    $ENV{'PERL5LIB'} = '/nfs/1000g-work/G1K/work/bin/local-perl/local-lib/lib/perl5/x86_64-linux:/nfs/1000g-work/G1K/work/bin/local-perl/local-lib/lib/perl5:/homes/smithre/OneKGenomes/reseqtrack/modules:/nfs/1000g-work/G1K/work/bin/VertebrateResequencing-vr-codebase-3ddb4db/modules/';
-
-    if ( ! (defined $ENV{'PICARD'} )) {
-      $ENV{'PICARD'} = '/nfs/1000g-work/G1K/work/bin/picard/picard-tools-1.33';
-    }
-
-    if ( ! (defined $ENV{'SAMTOOLS'} )) {
-      $ENV{'SAMTOOLS'} = '/nfs/1000g-work/G1K/work/bin/samtools_latest/samtools';
-    }
-
-    if ( ! defined ($ENV{'PERL_INLINE_DIRECTORY'})) {
-      $ENV{'PERL_INLINE_DIRECTORY'} = '/homes/rseqpipe/.Inline';
-    }
-
-    if (! ($ENV{'PATH'} =~ /samtools/) ) {
-      $ENV{'PATH'}= $ENV{'PATH'} . ':' . $ENV{'SAMTOOLS'};
-    }
+  if (! ($ENV{'PATH'} =~ /samtools/) ) {
+    $ENV{'PATH'}= $ENV{'PATH'} . ':' . $ENV{'SAMTOOLS'};
+  }
 
 
 
  
-    # /nfs/1000g-work/G1K/work/bin/VertebrateResequencing-vr-codebase-3ddb4db/modules/VertRes
+  # /nfs/1000g-work/G1K/work/bin/VertebrateResequencing-vr-codebase-3ddb4db/modules/VertRes
 
-    $self->samtools('/nfs/1000g-work/G1K/work/bin/samtools_latest/samtools/samtools'); 
+  $self->samtools('/nfs/1000g-work/G1K/work/bin/samtools_latest/samtools/samtools'); 
   
 
-    return;
-  }
-
+  return;
+}
 
 
 #####
@@ -447,6 +406,8 @@ sub verbose {
   }
   return $self->{'verbose'};
 }
+
+
 
 1;
 
