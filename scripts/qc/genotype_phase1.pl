@@ -321,10 +321,6 @@ foreach my $bam_file (@$bams){
     $gra->store($genotype_results) ;
   }
   
-  if ($prev_result){
-    $gra->update($genotype_results) ;
-  }
-
 }
 
 
@@ -342,7 +338,7 @@ sub store_skip_short_SOLID{
   my $read_lengths = $run_alignment->read_lengths;
 
   foreach my $key (keys %$read_lengths){
-    if ( $$read_lengths{$key} > 35){
+    if ( $$read_lengths{$key} > 30){
       $all_short = 0;
     }
   }
