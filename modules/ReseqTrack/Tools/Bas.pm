@@ -93,7 +93,7 @@ sub run {
 
   $self->create_bas;
   $self->correct_bas_file_convention;
-  delete_directory ($self->tmp_dir);
+#  delete_directory ($self->tmp_dir);
 
   return;
 }
@@ -144,13 +144,12 @@ sub parse_study_name{
  
   ($sample, $platform, $algorithm, $project, $analysis_grp, $chr,$date) = 
     CHECK_AND_PARSE_FILE_NAME ($self->bam);
-  
-  print $date,"\n";
 
   $self->study_name ( $analysis_grp);
   $self->release_date ( $date);
+
   print "release date= $date\n";
-  print "study name = ",  $self->study_name,"\n" if $self->verbose;
+  print "study name = ",  $self->study_name,"\n";# if $self->verbose;
 
   return;
 }
