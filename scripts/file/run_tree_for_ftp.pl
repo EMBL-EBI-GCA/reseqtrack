@@ -247,7 +247,7 @@ if ($new_tree_md5 ne $old_tree_md5) {
   }
 
 
-  if ( $test_mode) {
+  if ( $test) {
     print "In test mode comparing files. No database loading/archiving occurring\n";
     exit;
 
