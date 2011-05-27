@@ -7,6 +7,7 @@ use ReseqTrack::Tools::Exception;
 use ReseqTrack::Tools::GeneralUtils;
 use ReseqTrack::Tools::Argument qw(rearrange);
 use File::Basename;
+use ReseqTrack::Tools::FileUtils qw(assign_type_by_filename);
 
 sub new {
 
@@ -730,72 +731,13 @@ sub assign_g1k_types {
   my ( $self, $tree_hash ) = @_;
 
   foreach my $key ( keys %$tree_hash ) {
-
-    $$tree_hash{$key}{g1k_type} = assign_type($key);
-    if ( $$tree_hash{$key}{g1k_type} =~ /BAI|BAS/ ) {
-      $$tree_hash{$key}{g1k_type} = "BAM";
-    }
-
+    my $type = assign_type_by_filename ($key);
+    $$tree_hash{$key}{g1k_type} = $type;  
   }
 
   return 0;
 }
 
-sub assign_type {
-  my $name = shift;
-  my $type = "FRED";
-
-  if ( $name =~ /reference/i ) {
-    $type = "REFERENCE";
-  } elsif ( $name =~ /\/technical\/working/i ) {
-    $type = "INTERNAL";
-  } elsif ( $name =~ /changelog/i ) {
-    $type = "CHANGELOG";
-  } elsif ( $name =~ /\/technical\//i   && $name !~ /\/ncbi_varpipe_data\//i) {
-    $type = "TECHNICAL";
-  } elsif ( $name =~ /\/release/i ) {
-    $type = "RELEASE";
-  } elsif ( $name =~ /\.filt\.fastq\.gz$/ ) {
-    $type = "FILTERED_FASTQ";
-  } elsif ( $name =~ /sequence_staging/ ) {
-    $type = "ARCHIVE_FASTQ";
-  } elsif ( $name =~ /\.fastq\.gz/i ) {
-    $type = "FASTQ";
-  } elsif ( $name =~ /\.bam$/ ) {
-    $type = "BAM";
-  } elsif ( $name =~ /\.bai$/ ) {
-    $type = "BAI";
-  } elsif ( $name =~ /\.bas$/ && !( $name =~ /README/ ) ) {
-    $type = "BAS";
-  } elsif ( $name =~ /\.index/ ) {
-    $type = "INDEX";
-  } else {
-    $type = "MISC";
-  }
-  if ( $name =~ /\/pilot3_/ ) {
-    my $tmp = $type;
-    $tmp  = "PILOT3_" . $type;
-    $type = $tmp;
-  } elsif ( $name =~ /\/pilot_data\// ) {
-    my $tmp = $type;
-    $type = "PILOT_" . $tmp;
-    $type = $tmp;
-  }
-  if ( $name =~ /\/withdrawn\// ) {
-    my $tmp = $type;
-    $tmp  = "WITHDRAWN_" . $type;
-    $type = $tmp;
-  }
- if ($name =~ /mosaik/i ){
-      my $tmp = $type;
-      $tmp = "NCBI_".$type;
-      $type =  $tmp;
-    }
-  exit("WHAT ???") if ( $type =~ /FRED/ );
-
-  return $type;
-
-}
 
 ###########################
 
