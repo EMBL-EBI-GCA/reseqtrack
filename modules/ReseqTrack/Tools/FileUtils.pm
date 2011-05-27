@@ -45,10 +45,13 @@ use vars qw (@ISA  @EXPORT);
              copy_file_object
              assign_type
              check_type
-	     	 move_file_in_db_and_dir
+	     move_file_in_db_and_dir
              get_count_stats
-	     	 get_run_id_to_file_hash
-	     	 write_log);
+	     get_run_id_to_file_hash
+	     write_log
+             assign_type_by_filename
+             
+);
 
 =head2 are_files_identical
 
@@ -342,68 +345,73 @@ sub copy_file_object{
 
 sub assign_type{
   my ($files) =@_;
+  my $type;
+  
   foreach my $file(@$files){
-    if($file->name =~ /reference/i){
-      $file->type("REFERENCE");
-    }elsif($file->name =~ /\/technical\/working/i){
-      $file->type("INTERNAL");
-    }elsif($file->name =~ /changelog/i){
-      $file->type("CHANGELOG");
-    }elsif($file->name =~ /\/technical\//i && $file->name !~ /\/ncbi_varpipe_data\//i ){
-      $file->type("TECHNICAL");
-    }elsif($file->name =~ /\/release/i){
-      $file->type("RELEASE");
-    }elsif($file->name =~ /\.filt\.fastq\.gz$/){
-      $file->type("FILTERED_FASTQ");
-    }elsif($file->name =~ /sequence_staging/){
-      $file->type("ARCHIVE_FASTQ");
-    }elsif($file->name =~ /\.fastq\.gz/i){
-      $file->type("FASTQ");
-    }elsif($file->name =~ /\.bam$/){
-      $file->type("BAM");
-    }elsif($file->name =~ /\.bai$/){
-      $file->type("BAI");
-    }elsif($file->name =~ /\.bas$/ && !($file->name =~ /README/)){
-      $file->type("BAS");
-    }elsif($file->name =~ /\.index$/){
-      $file->type("INDEX");
-    }else{
-      $file->type("MISC");
-    }
-    if($file->name =~ /\/pilot3_/){
-      my $type = $file->type;
-      $type = "PILOT3_".$type;
-      $file->type($type);
-    }elsif($file->name =~ /\/pilot_data\//){
-      my $type = $file->type;
-      $type = "PILOT_".$type;
-      $file->type($type);
-    }
-    if($file->name =~ /\/withdrawn\//){
-      my $type = $file->type;
-      $type = "WITHDRAWN_".$type;
-      $file->type($type);
-    }
-    if ($file->name =~ /mosaik/i && $file->name !~ /exome/i){
-      my $type = $file->type;
-      $type = "NCBI_".$type;
-      $file->type($type);
-    }
-    if( $file->name =~ /exome/i && $file->name =~ /bwa/i  ) {
-      my $type = $file->type;
-      $type = "EXOME_BI_".$type;
-      $file->type($type);
-    }
-=head
-    if( $file->name =~ /exome/i && $file->name =~ /??????/i  ) {
-      my $type = $file->type;
-      $type = "EXOME_BC_".$type;
-      $file->type($type);
-    }
-=cut
+    $type = assign_type_by_filename($file->name);
+    $file->type($type);
   }
   return $files;
 }
+
+sub assign_type_by_filename {
+	
+  my $name = shift;
+  my $type ="NO_TYPE_YET";
+	
+	
+  if($name =~ /reference/i){
+      $type = "REFERENCE";
+    }elsif($name =~ /\/technical\/working/i){
+      $type = "INTERNAL";
+    }elsif($name =~ /changelog/i){
+      $type = "CHANGELOG";
+    }elsif($name =~ /\/technical\//i && $name !~ /\/ncbi_varpipe_data\//i ){
+      $type = "TECHNICAL";
+    }elsif($name =~ /\/release/i){
+      $type = "RELEASE";
+    }elsif($name =~ /\.filt\.fastq\.gz$/){
+      $type = "FILTERED_FASTQ";
+    }elsif($name =~ /sequence_staging/){
+      $type = "ARCHIVE_FASTQ";
+    }elsif($name =~ /\.fastq\.gz/i){
+      $type = "FASTQ";
+    }elsif($name =~ /\.bam$/){
+      $type = "BAM";
+    }elsif($name =~ /\.bai$/){
+      $type = "BAI";
+    }elsif($name =~ /\.bas$/ && !($name =~ /README/)){
+      $type = "BAS";
+    }elsif($name =~ /\.index$/){
+      $type = "INDEX";
+    }else{
+      $type ="MISC";
+    }
+    
+    if($name =~ /\/pilot3_/){
+      $type = "PILOT3_".$type;
+    }elsif($name =~ /\/pilot_data\//){
+      $type = "PILOT_".$type;
+    }
+    
+    if($name =~ /\/withdrawn\//){
+      $type = "WITHDRAWN_".$type;
+    }
+    
+    if ($name =~ /mosaik/i && $name !~ /exome/i){
+      $type = "NCBI_".$type;
+    }
+    
+    if( $name =~ /exome/i && $name =~ /bwa/i  ) {
+      $type = "EXOME_BI_".$type;
+    }
+    
+    throw "No type assigned to $name" if ($type eq "NO_TYPE_YET");
+    
+    return $type;
+
+}
+
 
 sub check_type{
   my ($file) = @_;
