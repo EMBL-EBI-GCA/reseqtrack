@@ -8,6 +8,7 @@ use ReseqTrack::Tools::GeneralUtils;
 use ReseqTrack::Tools::Argument qw(rearrange);
 use File::Basename;
 use ReseqTrack::Tools::FileUtils qw(assign_type_by_filename);
+use Data::Dumper;
 
 sub new {
 
@@ -295,9 +296,10 @@ sub output_changelog_files {
 
 	my $change = $$hash{$f}{change};
 	if ( !defined($change) ) {
-	  #print $f, "\n";
-	  #print Dumper($h);
-	  throw "ERROR. Residual file in tree hash with no change\n";
+	  print $f, "\n";
+	  print Dumper($h);
+	  warn "ERROR. Residual file in tree hash with no change\n";
+	  next;
 	}
 				#print $change, "\n";
 	next if ( $change ne "$action" );
@@ -426,6 +428,9 @@ sub flag_moved_replaced_withdrawn {
     next if $self->was_replaced( $old, $new, $of, $verbose );
     next if $self->was_moved( $old, $new, $of );
     next if $self->was_withdrawn( $old, $new, $of );
+
+
+    print "$of nothing flagged to status change\n";
   }
 
   return;
@@ -578,6 +583,18 @@ sub was_withdrawn {
     return 0;			# not withdrawn
   }
 
+  if ( !defined ( $new_hash->{$f_name})  ) {
+    #print "$f_name has been withdrawn\n";
+    $$old_hash{$f_name}{change} = "withdrawn";
+
+     $self->modified_type_hash( $$old_hash{$f_name}{g1k_type},
+				$$old_hash{$f_name}{change} );
+
+    return 1;		     
+  }
+  
+
+
   my $old_md5 = $$old_hash{$f_name}->{md5};
 
   foreach my $key ( keys %{$new_hash} ) {
@@ -608,6 +625,8 @@ sub was_withdrawn {
     }
 
   }
+
+ 
 
   return 0;
 }
@@ -682,7 +701,7 @@ sub delete_identical {
       }
 
       if ( $$old{$f}{md5} =~/NO_MD5_IN_DB/) {
-	#	print "$f has no md5 but is same size. Ignoring for changelogs\n";
+	print "$f has no md5 but is same size. Ignoring for changelogs\n";
       }
 
     }
@@ -701,6 +720,7 @@ sub delete_identical {
 
   print "Have $dates_md5_same files with same md5 but diff dates\n" if($self->verbose);
 
+ 
 
   if ( $old_keys == 0 && $new_keys == 0 ) {
     print "No changes to tree files occurred\n" if($self->verbose);
@@ -717,6 +737,8 @@ sub delete_identical {
  foreach my $nf ( keys %$new) {
         print $nf,"\n"  if ($new_keys < 10 && $self->verbose);
  }
+
+
 
 #  print Dumper ($old) if ( $old_keys < 11) ;
 #  print Dumper ($new) if ( $new_keys < 11) ;
