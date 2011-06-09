@@ -23,6 +23,7 @@ use ReseqTrack::Tools::GeneralUtils;
 use ReseqTrack::Tools::FileUtils;
 use File::Path;
 use FileHandle;
+use Data::Dumper;
 
 sub new{
   my ( $class, @args ) = @_;
@@ -689,6 +690,7 @@ sub check_unidentified{
   my $dcc_rmis = $self->get_dcc_rmis(undef, 1);
   my @era_problems;
   my @dcc_problems;
+
   foreach my $rmi(@$era_rmis){
     next if($rmi->sample_name =~ /^NA/ || $rmi->sample_name =~ /^HG/);
     push(@era_problems, $rmi);
@@ -701,17 +703,21 @@ sub check_unidentified{
   print $logging_fh "There are ".@era_problems." era runs with unidentified samples\n" if(@era_problems);
   print "There are ".@dcc_problems." dcc runs with unidentified samples\n" if(@dcc_problems);
   print $logging_fh "There are ".@dcc_problems." dcc runs with unidentified samples\n" if(@dcc_problems);
-  if($self->verbose){
-    foreach my $rmi(@era_problems){
-      print $logging_fh $rmi->run_id." ".$rmi->center_name." ".$rmi->study_name." ".$rmi->sample_name." ".$rmi->population."\n";
-    }
-    foreach my $rmi(@dcc_problems){
-      print $logging_fh $rmi->run_id." ".$rmi->center_name." ".$rmi->study_name." ".$rmi->sample_name." ".$rmi->population."\n";
-    }
+
+ 
+  foreach my $rmi(@era_problems){
+    print $logging_fh $rmi->run_id." ".$rmi->center_name." ".$rmi->study_name." ".$rmi->sample_name." ".$rmi->population."\n";
   }
-  my $problem_count = scalar(@dcc_problems);
-  $problem_count += scalar(@era_problems);
-  return $problem_count;
+ 
+  foreach my $rmi(@dcc_problems){
+    print $logging_fh $rmi->run_id." ".$rmi->center_name." ".$rmi->study_name." ".$rmi->sample_name." ".$rmi->population."\n";
+  }
+  
+  my $dcc_problem_count = scalar(@dcc_problems);
+  my $era_problem_count = scalar(@era_problems);
+
+
+  return $era_problem_count, $dcc_problem_count;
 }
 
 1;
