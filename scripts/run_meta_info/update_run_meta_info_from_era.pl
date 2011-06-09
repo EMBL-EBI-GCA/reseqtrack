@@ -63,12 +63,16 @@ my $check_unidentified;
 	    'check_unidentified!' => \$check_unidentified,
 	   );
 
+print $all_checks,"\n";
+
 if($help){
   useage();
 }
 my $original_run = $run;
 $summary = 1 if($verbose);
+
 if($all_checks){
+  print "A HA\n";
   $store_new = 1;
   $update_existing = 1;
   $update_collections = 1;
@@ -88,6 +92,9 @@ if(($store_new + $update_existing + $update_collections + $check_sample +
       "-check_status or -all to have everything run\n";
   exit(0);
 }
+
+
+
 
 my $db = get_erapro_conn($era_dbuser, $era_dbpass);
 
@@ -123,9 +130,10 @@ if($update_existing){
 if($update_collections){
   $updater->update_collections;
 }
-my $problems;
+my ($dcc_problems,$era_problems);
+
 if($check_unidentified){
-  $problems = $updater->check_unidentified;
+  ($era_problems, $dcc_problems) = $updater->check_unidentified;
 }
 $updater->close_logging_fh;
 my $log_file = $updater->logging_filepath;
@@ -152,9 +160,12 @@ if($check_status){
 close(FH);
 print "There are ".$sample_count." sample issues to resolve\n" if($sample_count);
 print "There are ".$status_count." status issues to resolve\n" if($status_count);
-print "There are ".$problems." sample name issues\n" if($problems);
+
+print "There are ".$era_problems." sample name issues\n" if($era_problems);
+print "There are ".$dcc_problems." sample name issues\n" if($dcc_problems);
+
 print $updater->logging_filepath."\n" if($sample_count || $status_count || 
-					 $problems);
+					 $era_problems || $dcc_problems);
 
 =pod
 
