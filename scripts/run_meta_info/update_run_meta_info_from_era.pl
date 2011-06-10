@@ -63,7 +63,7 @@ my $check_unidentified;
 	    'check_unidentified!' => \$check_unidentified,
 	   );
 
-print $all_checks,"\n";
+
 
 if($help){
   useage();
@@ -72,7 +72,6 @@ my $original_run = $run;
 $summary = 1 if($verbose);
 
 if($all_checks){
-  print "A HA\n";
   $store_new = 1;
   $update_existing = 1;
   $update_collections = 1;
@@ -161,7 +160,7 @@ close(FH);
 print "There are ".$sample_count." sample issues to resolve\n" if($sample_count);
 print "There are ".$status_count." status issues to resolve\n" if($status_count);
 
-print "There are ".$era_problems." sample name issues\n" if($era_problems);
+print "There are ".$era_problems." sample name issues\n" if($era_problems && $verbose);
 print "There are ".$dcc_problems." sample name issues\n" if($dcc_problems);
 
 print $updater->logging_filepath."\n" if($sample_count || $status_count || 
