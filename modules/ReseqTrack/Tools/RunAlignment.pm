@@ -76,7 +76,6 @@ sub new {
               SAMTOOLS
               WORKING_DIR
               NAME
-              FILE_INFO
               SUBSAMPLE_SIZE
               RUN_META_INFO
 )
