@@ -30,11 +30,14 @@ sub get_params {
         next if ( !$_ );
         my @aa = split /=/;
 	$aa[1] =~ s/\s+//g;
-
+        if (defined  $$input{ $aa[0] }){
+          print "$aa[0] already set. Skipping cfg entry\n";
+          next;
+        }
         $$input{ $aa[0] } = $aa[1] ;
     }
     close $IN;
-
+    
     return ( \%$input );
 }
 
