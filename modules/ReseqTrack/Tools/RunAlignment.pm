@@ -62,7 +62,7 @@ sub new {
   my (
       $reference, $input,     $program,
       $options,   $samtools,  $working_dir,
-      $name,      $file_info, $subsample_size,
+      $name,      $subsample_size,
       $run_meta_info)
     =
 
@@ -102,7 +102,6 @@ sub new {
 
 
   $self->subsample_size($subsample_size);
-  $self->file_info($file_info);
   $self->name($name);
   $self->run_meta_info($run_meta_info);
 
@@ -541,7 +540,15 @@ sub subsample_fastq {
 
 sub get_base_read_counts {
   my $self  = shift;
-  my $files = $self->file_info;
+  my $collection = $self->input;
+
+  if  ( ! $collection->isa('ReseqTrack::Collection') ){
+    print "Input is not a collection. Not getting base counts.\n";
+    return;
+  }
+ 
+  my $files = $collection->others;
+
   my $bases = 0;
   my $reads = 1;
   my %base_counts;
@@ -632,16 +639,6 @@ sub read_lengths {
     $self->{'read_lengths'} = $arg;
   }
   return $self->{'read_lengths'};
-}
-
-sub file_info {
-  my ( $self, $arg ) = @_;
-  if ($arg) {
-    $self->{'file_info'} = $arg;
-  } else {
-
-  }
-  return $self->{'file_info'};
 }
 
 =head2 accessor methods

@@ -65,12 +65,12 @@ throw("Failed to find a collection for ".$run_id." ".$type." from ".$dbname)
 
 my $alignment_module = $module_path."::".$module_name;
 my $constructor_hash = parameters_hash($module_constructor_args);
-$constructor_hash->{reference} = $reference;
-$constructor_hash->{input} = $collection;
-$constructor_hash->{program} = $program_file;
-$constructor_hash->{samtools} = $samtools;
-$constructor_hash->{working_dir} = $output_dir;
-$constructor_hash->{name} = $run_id;
+$constructor_hash->{-reference} = $reference;
+$constructor_hash->{-input} = $collection;
+$constructor_hash->{-program} = $program_file;
+$constructor_hash->{-samtools} = $samtools;
+$constructor_hash->{-working_dir} = $output_dir;
+$constructor_hash->{-name} = $run_id;
 
 my $run_alignment = setup_alignment_module($alignment_module, $constructor_hash);
 

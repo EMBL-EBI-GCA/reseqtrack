@@ -108,7 +108,6 @@ if (!$collection) {
 }
 
 my $other_id = $collection->dbID;
-my $files    = $collection->others;
 
 
 my $BFAST= "ReseqTrack::Tools::RunAlignment::BFAST";
@@ -123,7 +122,6 @@ if ($platform eq "ABI_SOLID") {
 			       -preprocess_exe => $input{preprocess_exe},
 			       -subsample_size => $input{subsample_size},
 			       -name           => $input{name},
-			       -file_info      =>$files,
 			       -run_meta_info  =>$meta_info,
 			       -input          => $collection,			  
 			      );
@@ -190,7 +188,6 @@ if ( ($platform eq "LS454") || ($platform eq "ILLUMINA")  ) {
 			     -working_dir    => $input{working_dir},
 			     -name           => $input{name},
 			     -subsample_size => $input{subsample_size},
-			     -file_info      => $files,
 			     -paired_length  => $paired_length,
 			     -run_meta_info  => $meta_info,
 			     -input          => $collection,
