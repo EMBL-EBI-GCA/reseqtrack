@@ -164,7 +164,7 @@ print "There are ".$era_problems." sample name issues\n" if($era_problems && $ve
 print "There are ".$dcc_problems." sample name issues\n" if($dcc_problems);
 
 print $updater->logging_filepath."\n" if($sample_count || $status_count || 
-					 $era_problems || $dcc_problems);
+					 $dcc_problems);
 
 =pod
 
