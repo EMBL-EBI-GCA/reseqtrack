@@ -21,7 +21,7 @@ sub new {
 
 	my (
 		$read_length, $program,    $preprocess_exe,
-		$verbose,     $sub_sample_size , $max_bases,
+		$verbose, 
 	  )
 	  = rearrange(
 		[
@@ -30,7 +30,6 @@ sub new {
 			  PROGRAM
 			  PREPROCESS_EXE
 			  VERBOSE			
-			  MAX_BASES
 			  )
 		],
 		@args
