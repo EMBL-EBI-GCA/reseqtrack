@@ -8,6 +8,8 @@ use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::DBSQL::GenotypeResultsAdaptor;
 use ReseqTrack::Tools::RunAlignment::BFAST;
 use ReseqTrack::Tools::RunAlignment::BWA;
+use ReseqTrack::Tools::RunAlignmentUtils qw (get_base_read_counts subsample_fastq get_program_version  
+    decide_file_skip); 
 use ReseqTrack::Tools::FileSystemUtils qw (create_tmp_process_dir delete_directory);
 use ReseqTrack::Tools::QC::GLFTools;
 use ReseqTrack::Tools::QC::QCUtils qw (get_params);
@@ -126,6 +128,10 @@ if ($platform eq "ABI_SOLID") {
 			       -input          => $collection,			  
 			      );
 
+  get_base_read_counts ($run_alignment);	
+  get_program_version ($run_alignment);
+
+
 skip_lane($run_alignment, 
 	  $db, 
 	  $other_id,
@@ -148,13 +154,11 @@ skip_lane($run_alignment,
 
   $run_alignment->working_dir($tmp_dir);
 
-  $run_alignment->decide_file_skip() unless ($input{no_skip_files}) ;
+  decide_file_skip ($run_alignment)   unless ($input{no_skip_files}) ;
  
   $db->dbc->disconnect_when_inactive(2);
-
-   $run_alignment->subsample_fastq();
   
-
+  subsample_fastq($run_alignment);
 
 
 
@@ -193,6 +197,10 @@ if ( ($platform eq "LS454") || ($platform eq "ILLUMINA")  ) {
 			     -input          => $collection,
 			    );
 
+  get_base_read_counts ($run_alignment);	
+  get_program_version ($run_alignment);
+ 
+
   skip_lane($run_alignment, 
 	    $db, 
 	    $other_id,
@@ -206,11 +214,12 @@ if ( ($platform eq "LS454") || ($platform eq "ILLUMINA")  ) {
 
   $run_alignment->working_dir($tmp_dir);
 
-  $run_alignment->decide_file_skip() unless ($input{no_skip_files}) ;
+  decide_file_skip ($run_alignment) unless ($input{no_skip_files});  
 
   $db->dbc->disconnect_when_inactive(2);
 
-  $run_alignment->subsample_fastq();
+  subsample_fastq($run_alignment);
+
   
   my $bang = 0;
   $bang =   $run_alignment->run();
