@@ -168,7 +168,9 @@ sub store{
 
 sub remove_others{
  my ($self, $collection, $others_to_delete) = @_;
- 
+ if(!$others_to_delete || @$others_to_delete == 0){
+   throw("Can't remove zero others\n");
+ }
  my $others = $collection->others;
  my %all_others_in_collection;
  foreach my $other ( @$others) { 	
@@ -179,11 +181,14 @@ sub remove_others{
  my $sth = $self->prepare($sql);
  	 
  foreach my $other_to_del (@$others_to_delete) {
- 	my $other_to_del_name = $other_to_del->name;
-	warn ("Object $other_to_del_name does not exist to delete from collection\n") if ( !$all_others_in_collection{$other_to_del->dbID});		
- 	$sth->bind_param(1, $collection->dbID);
- 	$sth->bind_param(2, $other_to_del->dbID);
- 	$sth->execute;
+   unless($other_to_del){
+     throw("Can't remove non existent other object");
+   }
+   my $other_to_del_name = $other_to_del->name;
+   warn ("Object $other_to_del_name does not exist to delete from collection\n") if ( !$all_others_in_collection{$other_to_del->dbID});		
+   $sth->bind_param(1, $collection->dbID);
+   $sth->bind_param(2, $other_to_del->dbID);
+   $sth->execute;
  }
  $sth->finish; 
  return $collection;

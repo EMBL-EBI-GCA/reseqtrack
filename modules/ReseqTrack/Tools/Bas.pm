@@ -103,21 +103,21 @@ sub run {
        $new_loc =~ s/\/\//\//g;
      
       my $old_loc = $self->tmp_dir . '/' . $self->tmp_bas;
-      print "Copy $old_loc to $new_loc\n"; 
+      print "Copy $old_loc to $new_loc\n" if $self->verbose; 
        $old_loc =~ s/\/\//\//g;
       my  $fred = copy ( $old_loc, $new_loc);
-      print $fred,"\n";
+      print $fred,"\n" if $self->verbose;
       exit;
   }
 
 
   if ($self->in_parent){
     my $new_loc = $self->bam . '.bas';
-    print "Moving ", $self->tmp_bas, " ", $new_loc,"\n";
+    print "Moving ", $self->tmp_bas, " ", $new_loc,"\n" if $self->verbose;
     move ( $self->tmp_bas, $new_loc);
     my $sanger_inline = $self->tmp_dir . '/'. "\_Inline";
     $sanger_inline =~ s/\/\//\//g;
-    print  $sanger_inline,"\n";
+    print  $sanger_inline,"\n" if $self->verbose;
     `chmod -R 775 $sanger_inline` if (-e $sanger_inline);
 
     delete_directory ($self->tmp_dir);
@@ -138,7 +138,7 @@ sub create_bas {
   }
 
   my $go_here =  $self->tmp_dir;
-  print "Changing dir to $go_here\n";
+  print "Changing dir to $go_here\n" if $self->verbose;
   chdir ( $go_here);
 
   my $perl = $self->perl_exe;
@@ -146,7 +146,7 @@ sub create_bas {
 
   my $bas =  basename ($bam) .'.bas';
   
-  print "Making $bas\n";
+  print "Making $bas\n" if $self->verbose;
 
   $bas =~ s/\/\//\//g;
   $self->tmp_bas ($bas);
@@ -179,8 +179,8 @@ sub parse_study_name{
   $self->study_name ( $analysis_grp);
   $self->release_date ( $date);
 
-  print "release date= $date\n";
-  print "study name = ",  $self->study_name,"\n";# if $self->verbose;
+  print "release date= $date\n" if $self->verbose;
+  print "study name = ",  $self->study_name,"\n" if $self->verbose;
 
   return;
 }
@@ -281,7 +281,7 @@ sub correct_bas_file_convention{
 
   move ( $bas_file, $new_location);
 
-  print "See $new_location for new bas file\n" ;
+  print "See $new_location for new bas file\n" if $self->verbose;
 
   chmod(0775, $bas_file);
 

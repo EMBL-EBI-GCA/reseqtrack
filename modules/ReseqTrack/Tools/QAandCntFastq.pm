@@ -17,6 +17,7 @@ use ReseqTrack::Tools::Exception;
 use ReseqTrack::Tools::Argument qw(rearrange);
 use ReseqTrack::Tools::FileUtils;
 use ReseqTrack::Tools::Counts;
+use File::Copy;
 
 sub qa_and_cnt {
 
@@ -68,7 +69,8 @@ sub qa_and_cnt {
 			elsif ( $f =~ /.fastq/) {
 				$frag = $f;
 				$ori_frag_obj = $files{$f};
-				($frag_fh, $frag_file) = open_fh($output_dir, \$frag); 
+				print "FRAG FILE IS ".$frag."\n";
+				  ($frag_fh, $frag_file) = open_fh($output_dir, \$frag); 
 				
 				$tmp_frag_file = $$frag_file . ".tmp"; #$tmp_frag_file is a full file path
 				open ($frag_fh_tmp, ">", $tmp_frag_file) || throw("Cannot open temperary output fastq file $tmp_frag_file for fragments\n");
@@ -78,25 +80,28 @@ sub qa_and_cnt {
 		
 		throw("This run supposes to have three files. Either that or file names do not fit convention\n") if(!$mate1 || !$mate2 || !$frag);
 		
-		($mate1_stats, $mate2_stats, $frag_stats_tmp) = check_paired_fastq(\$mate1, \$mate2, \$instrument, $frag_fh_tmp, $mate1_fh, $mate2_fh, 
-$len_limit, $run_id, $log_fh);	
-	    
-	    #### cat together the original fragment file with the fragment file generated from singled out mate reads
-	    `cat $frag $tmp_frag_file > ./tmp.concatenated.fastq`;
-	    
+		($mate1_stats, $mate2_stats, $frag_stats_tmp) = 
+		  check_paired_fastq(\$mate1, \$mate2, \$instrument, $frag_fh_tmp, 
+				     $mate1_fh, $mate2_fh, $len_limit, $run_id, 
+				     $log_fh);	
+		
+		#### cat together the original fragment file with the fragment file generated from singled out mate reads
+		#`cat $frag $tmp_frag_file > $$output_dir/tmp.concatenated.fastq`;
+		my $out_file = $$output_dir."/tmp.concatenated.fastq";
+		$out_file = cat_frag_files($frag, $tmp_frag_file, $out_file);
 	    #print "original frag file: " . `ls -l $frag` . "\n";
 	    #print "temparay frag file: " . `ls -l $tmp_frag_file` . "\n";
 	    #print "concatenated frag file: " . `ls -l ./tmp.concatenated.fastq` . "\n";
 	    
-	    `mv ./tmp.concatenated.fastq $$frag_file`;
+	    `mv $$output_dir/tmp.concatenated.fastq $$frag_file`;
 
 	    #print "new frag file: " . `ls -l $$frag_file` . "\n";
 	    
-	    open (my $frag_fh_new, ">", "./tmp.filtered.concatenated.fastq") || throw("Cannot open output filtered fastq file\n");
+	    open (my $frag_fh_new, ">", "$$output_dir/tmp.filtered.concatenated.fastq") || throw("Cannot open output filtered fastq file\n");
 		
 		#### QA the concatenated fragment file, output fragment file will be in ./tmp.filtered.concatenated.fastq
 		$frag_stats = check_single_fastq($frag_file, \$instrument, $frag_fh_new, $len_limit, $run_id, $log_fh);
-		`mv ./tmp.filtered.concatenated.fastq $$frag_file`;
+		`mv $$output_dir/tmp.filtered.concatenated.fastq $$frag_file`;
 		`rm $tmp_frag_file`;
 		close $frag_fh_new;
 	}
@@ -307,9 +312,12 @@ sub check_paired_fastq {
 
 sub check_single_fastq {
 	my ($file, $instrument,  $OUT_fastq, $len_limit, $run_id, $log_fh) = @_;
-	
+	print "OPENING ".$$file."\n";
+	my $new_path = $$file.".gz";;
+	move($$file, $new_path);
+	$$file = $new_path;
 	my ($FILE1, $frag_file_line_cnt) = open_infile_handle($file);
-	
+
 	my $flt_read_cnt = 0;
 	my $flt_base_cnt = 0;
 	my $unflt_read_cnt = 0;
@@ -334,22 +342,22 @@ sub check_single_fastq {
 			
 		$unflt_read_cnt++;
 		$unflt_base_cnt = $unflt_base_cnt + $$read_len;
-=head				
-		print "read len: $$read_len\n";
-		print "unfilter read cnt: $unflt_read_cnt\n";
-		print "unfilter base cnt: $unflt_base_cnt\n";
-=cut				
-		if ( QA(\$line1, \$line2, \$line3, \$line4, \$unflt_read_cnt,  $instrument, $len_limit, $run_id, $log_fh) eq "Fail" ) {		
-		    print $log_fh "ERROR: fragment $unflt_read_cnt failed QA\n";
-		    next;
-		}    
+
+		#print "read len: $$read_len\n";
+		#print "unfilter read cnt: $unflt_read_cnt\n";
+		#print "unfilter base cnt: $unflt_base_cnt\n";
+			
+  if ( QA(\$line1, \$line2, \$line3, \$line4, \$unflt_read_cnt,  $instrument, $len_limit, $run_id, $log_fh) eq "Fail" ) {		
+    print $log_fh "ERROR: fragment $unflt_read_cnt failed QA\n";
+    next;
+  }    
 		 	
 		$flt_read_cnt++;
 		$flt_base_cnt = $flt_base_cnt + $$read_len;		
 =head	
-		print "read len: $$read_len\n";
-		print "filtered read cnt: $flt_read_cnt\n";
-		print "filter base cnt: $flt_base_cnt\n\n";					
+		#print "read len: $$read_len\n";
+		#print "filtered read cnt: $flt_read_cnt\n";
+		#print "filter base cnt: $flt_base_cnt\n\n";					
 =cut		
 		print $OUT_fastq "$line1\n$line2\n$line3\n$line4\n";
 	}
@@ -376,6 +384,8 @@ sub QA {
 	
 	###### check if a read block start with @ and if the 3rd line start with a + #####
 	unless ( $line_1 =~ /^\@/ && $line_3 =~ /^\+/ ) {
+	  print STDERR $line_1."\n";
+	  print STDERR $line_3."\n";
 		throw("FATAL ERROR: block $read_num, the first line does not start with @ or the third line does not start with a +\n");
 	}	
 	
@@ -630,5 +640,21 @@ sub getReadLen {
 	}
 	return \$len;
 }	
+
+
+sub cat_frag_files{
+  my ($old_file, $new_file, $output_file) = @_;
+  open(FH, ">".$output_file) or throw("Failed to open ".$output_file);
+  my ($old_fh, $line_count) = open_infile_handle(\$old_file);
+  my ($new_fh, $new_line_count) = open_infile_handle(\$new_file);
+  while(<$old_fh>){
+    print FH $_;
+  }
+  while(<$new_fh>){
+    print FH $_;
+  }
+  close(FH);
+  return($output_file);
+}
 	
 1;

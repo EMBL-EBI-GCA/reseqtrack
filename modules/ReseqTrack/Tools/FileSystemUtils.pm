@@ -388,7 +388,22 @@ sub dump_dirtree_summary{
     }
 
     my $size = -s $file;
-    my $date_string = ctime(stat($file)->mtime);
+    my $date_string;
+
+    if(!$file){
+      throw("Can't get date string if file path is not defined");
+    }
+    eval{
+      $date_string  = ctime(stat($file)->mtime);
+    };
+
+    if( $@) {
+      print $@;
+      warning( "failed stat check on $file.Skipping");  
+      next;
+    }
+  
+
     $label = 'file';
     $file =~ s/$trim//;
     print $fh join("\t", $file, $label, $size, $date_string);

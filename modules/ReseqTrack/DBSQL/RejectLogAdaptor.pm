@@ -48,7 +48,7 @@ sub store{
   my ($self, $log_obj, $update) = @_;
   my $exists = $self->fetch_by_file_id($log_obj->file_id);  
   if($exists && @$exists == 1){
-      warning("File already exists in reject_log table\n");
+      #warning("File already exists in reject_log table\n");
       if($update){
         $log_obj->dbID($exists->[0]->dbID);     
 		return $self->update($log_obj);

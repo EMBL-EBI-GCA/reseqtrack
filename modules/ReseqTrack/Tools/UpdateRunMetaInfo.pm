@@ -356,9 +356,9 @@ sub update_collections{
       my @rmis_to_remove;
       foreach my $run_id(@{$not_in_file->list}){
 	my $rmi = $run_id_to_rmi{$run_id};
-	push(@rmis_to_remove, $rmi);
+	push(@rmis_to_remove, $rmi) if($rmi);
       }
-      $ca->remove_others($collection, \@rmis_to_remove);
+      $ca->remove_others($collection, \@rmis_to_remove) if(@rmis_to_remove >= 1);
     }
   }
   foreach my $name(keys(%collection_hash)){

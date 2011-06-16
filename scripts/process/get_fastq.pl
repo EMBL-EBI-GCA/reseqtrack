@@ -87,7 +87,7 @@ unless($era_rmia->is_fastq_available($run_id)){
   print STDERR "There are no fastq files available for ".$run_id."\n";
   exit(20);
 }
-
+$db->dbc->disconnect_when_inactive(1);
 my $hash = get_era_fastq($run_id, $full_output_dir, $ftp_server, $clobber, $program, $options, $era_db);
 
 
@@ -122,7 +122,7 @@ foreach my $path(keys(%$hash)){
   $file->md5($md5);
   push(@objects, $file);
 }
-
+$db->dbc->disconnect_when_inactive(0);
 if($load){
   my $fa = $db->get_FileAdaptor;
   foreach my $object(@objects){

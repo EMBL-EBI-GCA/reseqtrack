@@ -114,6 +114,20 @@ my $dbA = ReseqTrack::DBSQL::DBAdaptor->new(
 
 throw "No DB connection established\n" if (! $dbA);
 
+my $clean_archiver  = ReseqTrack::Tools::Loader::Archive->new(
+							      -db=>$dbA,
+							      -verbose=>$verbose,
+							      -debug=>$debug,
+							      -no_lock=>1,
+							      -action=>'archive',
+							     );
+my $continue = clean_archive_table($clean_archiver, 10, 360, $log_fh);
+unless($continue){
+  print STDERR "Stopping tree process as there are still objects in the archive table and ".
+    "this may cause issues\n";
+  exit(0);
+}
+
 
 if ( ! ($check_old)  && ! ($check_new) ) {
   
@@ -283,7 +297,7 @@ if ($new_tree_md5 ne $old_tree_md5) {
 							 -debug=>$debug, 
 							);
   $archiver->process_input();
-  $archiver->cleanup_archive_table($verbose);
+  $archiver->cleanup_archive_table();
   $archiver->sanity_check_objects();
   $archiver->archive_objects();
 
@@ -296,25 +310,7 @@ if ($new_tree_md5 ne $old_tree_md5) {
 
     my $tries = 0;
     my $clean_archive_table = 1;
-
-    while ($clean_archive_table) {
-     
-      my $obs_remaining = $archiver->cleanup_archive_table($verbose);
-     
-      if ($obs_remaining) {
-	print $log_fh "Found $obs_remaining in archive table. Waiting $archive_sleep\n";
-	sleep($archive_sleep);
-	$tries++;
-	
-	if ($tries == $max_tries) {
-	  print $log_fh "Tries $max_tries to clean up archive table. Giving up\n";
-	  $clean_archive_table = 0;
-	}
-	
-      } else {
-	$clean_archive_table = 0;
-      }
-    }
+    clean_archive_table($archiver, 10, $archive_sleep, $log_fh);
   }
 } else {
   print $log_fh "The tree files are exactly the same\n";
@@ -322,6 +318,28 @@ if ($new_tree_md5 ne $old_tree_md5) {
 }
 
 
+sub clean_archive_table{
+  my ($archiver, $loops, $sleep, $log_fh) = @_;
+  my $clean_archive_table = 1;
+  my $continue = 1;
+  my $tries = 0;
+  while($clean_archive_table){
+    my $obs_remaining = $archiver->cleanup_archive_table($verbose);
+    if ($obs_remaining) {
+      $tries++;
+      if ($loops && $tries == $loops) {
+	print $log_fh "Tries $loops to clean up archive table. Giving up\n";
+	$continue = 0;
+	$clean_archive_table = 0;
+      }else{
+	sleep($sleep);
+      }
+    } else {
+      $clean_archive_table = 0;
+    }
+  }
+  return $continue;
+}
 
 
 sub check_destinations {
@@ -359,6 +377,21 @@ sub logging_filepath{
   my $tmp_name = "update_runmetainfo.".$date.".".$ident.".$$.log";
   return $log_dir."/".$tmp_name;
 }
+
+sub cleanup_archive_table{
+  my ($db) = @_;
+
+  my $aa = $db->get_ArchiveAdaptor(1);
+
+  my $archives = $aa->fetch_all;
+  if (!$archives) {
+    #print "Archive table is clean\n";
+    return;
+  }
+
+  cleanup_archive( $archives, $db, $verbose) ;
+}
+
 
 =pod
 

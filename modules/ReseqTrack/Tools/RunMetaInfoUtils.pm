@@ -259,6 +259,7 @@ sub get_meta_info_hash{
   my ($meta_info) = @_;
   my %hash;
   foreach my $object(@$meta_info){
+    next unless($object);
     if($hash{$object->run_id}){
       #warning($object->run_id." already exists in hash skipping");
       next;

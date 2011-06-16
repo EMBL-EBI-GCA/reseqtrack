@@ -138,7 +138,14 @@ sub object_from_hashref{
   if(!$hashref->{POPULATION}){
     $hashref->{POPULATION} = $hashref->{STUDY_NAME};
   }
-  my $population = convert_population($hashref->{POPULATION}, $hashref->{RUN_ID}, $hashref->{STUDY_ID});
+  my $population;
+  eval{
+    $population = convert_population($hashref->{POPULATION}, $hashref->{RUN_ID}, $hashref->{STUDY_ID});
+  };
+  if($@){
+    print "$@\n";
+    return undef;
+  }
   my $center_name = convert_center_name($hashref->{CENTER_NAME});
   my $object = ReseqTrack::RunMetaInfo->new(
     -run_id => $hashref->{RUN_ID},
