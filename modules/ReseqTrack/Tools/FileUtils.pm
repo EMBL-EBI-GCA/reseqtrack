@@ -48,10 +48,7 @@ use vars qw (@ISA  @EXPORT);
 	     move_file_in_db_and_dir
              get_count_stats
 	     get_run_id_to_file_hash
-	     write_log
-             assign_type_by_filename
-             
-);
+	     write_log);
 
 =head2 are_files_identical
 
@@ -398,7 +395,7 @@ sub assign_type_by_filename {
       $type = "WITHDRAWN_".$type;
     }
     
-    if ($name =~ /mosaik/i && $name !~ /exome/i){
+    if ($name =~ /mosaik/i && $name =~ /bam/ && $name !~ /exome/i){
       $type = "NCBI_".$type;
     }
     

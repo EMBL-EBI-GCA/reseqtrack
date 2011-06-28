@@ -293,4 +293,6 @@ sub assign_files{
   }
   return ($mate1, $mate2, $frag);
 }
+
+
 1;

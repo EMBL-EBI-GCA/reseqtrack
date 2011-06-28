@@ -103,6 +103,7 @@ sub create_DBAdaptor {
 				     -dbname => $self->dbname,
 				     -pass   => $self->dbpass,
 				    );
+ $db->dbc->disconnect_when_inactive(1);
  throw("Failed to create a database adaptor using ".$self->dbhost." ".$self->dbname)
    unless($db);
  return $db;

@@ -250,18 +250,19 @@ sub check_paired_fastq {
 		print "mate2 unfilter read cnt: $unflt_read_cnt2\n";
 		print "mate2 unfilter base cnt: $unflt_base_cnt2\n";	
 =cut	
-	
+		print $log_fh "Filtering ".$line1."\n";
+		print $log_fh "Filtering ".$line_a."\n";
 		if ( QA(\$line1, \$line2, \$line3, \$line4, \$unflt_read_cnt1, $instrument, $len_limit, $run_id, $log_fh) eq "Fail" ) {
 		    if ( QA(\$line_a, \$line_b, \$line_c, \$line_d, \$unflt_read_cnt2, $instrument, $len_limit, $run_id, $log_fh) eq "Fail") {
-		        print $log_fh "ERROR: both mates failed syntax and sequence check\n\n";
-			    next;
+		      print $log_fh "ERROR: both mates failed syntax and sequence check\n\n";
+		      next;
 		    }
 		    else {
-		     	print $log_fh "ERROR: mate1 failed mate2 passed, move mate2 to fragment file\n\n";
-		        print  $FH_frag "$line_a\n$line_b\n$line_c\n$line_d\n";
-		        $frag_read_cnt++;
-		        $frag_base_cnt = $frag_base_cnt + $$mate2_read_len;
-		    	next;
+		      print $log_fh "ERROR: mate1 failed mate2 passed, move mate2 to fragment file\n\n";
+		      print  $FH_frag "$line_a\n$line_b\n$line_c\n$line_d\n";
+		      $frag_read_cnt++;
+		      $frag_base_cnt = $frag_base_cnt + $$mate2_read_len;
+		      next;
 		    }       
 		}
 		else {
@@ -343,14 +344,16 @@ sub check_single_fastq {
 		$unflt_read_cnt++;
 		$unflt_base_cnt = $unflt_base_cnt + $$read_len;
 
+		#=head				
 		#print "read len: $$read_len\n";
 		#print "unfilter read cnt: $unflt_read_cnt\n";
 		#print "unfilter base cnt: $unflt_base_cnt\n";
-			
-  if ( QA(\$line1, \$line2, \$line3, \$line4, \$unflt_read_cnt,  $instrument, $len_limit, $run_id, $log_fh) eq "Fail" ) {		
-    print $log_fh "ERROR: fragment $unflt_read_cnt failed QA\n";
-    next;
-  }    
+		#=cut				
+		  print $log_fh "Filtering ".$line1."\n";
+		if ( QA(\$line1, \$line2, \$line3, \$line4, \$unflt_read_cnt,  $instrument, $len_limit, $run_id, $log_fh) eq "Fail" ) {		
+		    print $log_fh "ERROR: fragment $unflt_read_cnt failed QA\n";
+		    next;
+		}    
 		 	
 		$flt_read_cnt++;
 		$flt_base_cnt = $flt_base_cnt + $$read_len;		
@@ -381,7 +384,7 @@ sub QA {
 	my $read_num = $$read_num_r;
 	
 	my $flag = "Pass";
-	
+	print $log_fh." Filtering ".$line_1."\n";
 	###### check if a read block start with @ and if the 3rd line start with a + #####
 	unless ( $line_1 =~ /^\@/ && $line_3 =~ /^\+/ ) {
 	  print STDERR $line_1."\n";
@@ -581,8 +584,17 @@ sub checkSolidSeq {
 	}
 	
 	if ($color_space =~ /0{$len}/ ) {
-		$tag = "Bad";	
-		print $log_fh "ERROR: The colorspace string contains only one type of nucleotide in the first $len bp\n";		
+	  $tag = "Bad";	
+	  print $log_fh "ERROR: The colorspace string contains only one type of nucleotide in the first $len bp\n";		
+	}elsif($color_space =~ /1{$len}/i){
+	  $tag = "Bad";	
+	  print $log_fh "ERROR: The colorspace string contains only one type of nucleotide in the first $len bp\n";
+	}elsif($color_space =~ /2{$len}/i){
+	  $tag = "Bad";	
+	   print $log_fh "ERROR: The colorspace string contains only one type of nucleotide in the first $len bp\n";
+	}elsif($color_space =~ /3{$len}/i){
+	  $tag = "Bad";	
+	  print $log_fh "ERROR: The colorspace string contains only one type of nucleotide in the first $len bp\n";
 	}
 	return $tag;	
 }

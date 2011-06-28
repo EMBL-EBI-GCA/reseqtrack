@@ -570,9 +570,14 @@ sub check_column_syntax{
       my $method_name = 'check_column_'.$i;
       no strict;
       unless(&$method_name($values[$i])){
+	#print "There is a problem with ".$method_name."\n";
         if(!$sanity_hash{$key}){
           $sanity_hash{$key} = {};
         }
+	if(!$values[$i]){
+	  print "Something when wrong when analysing ".$_." on ".$key." ".$i."\n";
+	}
+	#print "Adding ".$key." ".$i." ".$values[$i]." to sanity hash\n";
         $sanity_hash{$key}->{$i} = $values[$i];
       }
       use strict;

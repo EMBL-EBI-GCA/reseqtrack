@@ -311,9 +311,9 @@ sub create_index_line{
 
 sub create_suppressed_index_line{
   my ($rmi, $comment,$time, $analysis_group) = @_;
-  unless($rmi->status eq 'suppressed'){
-    warning($rmi->run_id." has status ".$rmi->status." are you sure you want to ".
-        "print a suppressed style line for it");
+  unless($rmi->status ne 'public'){
+    #warning($rmi->run_id." has status ".$rmi->status." are you sure you want to ".
+    #    "print a suppressed style line for it");
   }
   $comment = 'SUPPRESSED IN ARCHIVE' unless($comment);
   my $md5 = "................................";

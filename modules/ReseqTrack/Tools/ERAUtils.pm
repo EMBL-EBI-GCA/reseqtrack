@@ -49,7 +49,7 @@ sub get_era_fastq{
   #check for existing files
   throw("Can't get fastq files if no run_id is specified") unless($run_id);
   $wget_program = "wget" unless($wget_program);
-  $wget_options = '-t 1 --ignore_length' unless($wget_options);
+  $wget_options = '-t 1' unless($wget_options);
   $output_dir = getcwd() unless($output_dir);
   #check to see if files already exist;
   my $existing_files = find_file($run_id."*", $output_dir);
@@ -63,11 +63,13 @@ sub get_era_fastq{
     }else{
       print STDERR @$existing_files." files already exist starting with ".
           $run_id."\n";
+      my %hash;
       foreach my $path(@$existing_files){
         print STDERR $path."\n";
       }
-      print STDERR "Can not continue with existing files\n";
-      return undef;
+      
+      #print STDERR "Can not continue with existing files\n";
+      return ;
     }
   }
   #get fastq paths/md5s/sizes

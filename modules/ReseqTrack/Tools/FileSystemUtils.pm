@@ -27,7 +27,9 @@ use vars qw (@ISA  @EXPORT);
   dump_dirtree_summary
   delete_directory
   check_files_exists
-  create_tmp_process_dir  );
+  create_tmp_process_dir 
+  delete_file);
+
 
 =head2 get_filenames
 
@@ -450,6 +452,16 @@ sub delete_directory {
 
 }
 
+sub delete_file{
+  my $file = shift;
+  unlink $file;
+  if(-e $file){
+    throw("Failed to delete ".$file);
+  }else{
+    return 1;
+  }
+}
+
 
 sub check_files_exists {
  my $file = shift;
@@ -457,8 +469,8 @@ sub check_files_exists {
  die "$file is a directory, not a file\n" if ( -d $file );
  die "$file does not exist\n"     if ( !-e $file );
  if ( !( $file =~ /^\// ) && -e $file){
-  warn "Not full path to $file. But it exists";
-}
+   warn "Not full path to $file. But it exists";
+ }
 }
 
 

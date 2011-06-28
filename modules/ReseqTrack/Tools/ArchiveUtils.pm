@@ -39,6 +39,7 @@ sub create_archive_from_objects{
     my $relative_path = $new_dir;
     $relative_path =~ s/$root//;
     $relative_path =~ s/\/vol\d+//;
+    $relative_path =~ s/\s+//g;
     $archive->new_relative_path($relative_path);
   }
   if(!$archive->relative_path){
