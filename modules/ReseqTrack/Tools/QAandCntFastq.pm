@@ -24,7 +24,6 @@ sub qa_and_cnt {
 	my ($files_ref, $instrument, $output_dir, $len_limit, $run_id) = @_;
 
 	throw("No instrument information is available for files\n") if (!$instrument);
-	
 	my %files = %$files_ref;
    
 	my $file_num = keys(%files);
@@ -79,7 +78,7 @@ sub qa_and_cnt {
 		}					
 		
 		throw("This run supposes to have three files. Either that or file names do not fit convention\n") if(!$mate1 || !$mate2 || !$frag);
-		
+	print "Instrument is $instrument\n";	
 		($mate1_stats, $mate2_stats, $frag_stats_tmp) = 
 		  check_paired_fastq(\$mate1, \$mate2, \$instrument, $frag_fh_tmp, 
 				     $mate1_fh, $mate2_fh, $len_limit, $run_id, 
@@ -641,7 +640,6 @@ sub checkSeqLen {
 sub getReadLen {
 	my ($seq, $instrument) = @_;
 	my $len;
-
 	#color space
 	if ($$instrument eq "ABI_SOLID") {
 		$len = length($$seq) -1;		

@@ -402,6 +402,12 @@ sub assign_type_by_filename {
     if( $name =~ /exome/i && $name =~ /bwa/i  ) {
       $type = "EXOME_BI_".$type;
     }
+    if( $name =~ /exome/i && $name =~ /bfast/i  ) {
+      $type = "EXOME_BCM_".$type;
+    }
+    if( $name =~ /exome/i && $name =~ /mosaik/i  ) {
+      $type = "EXOME_BC_".$type;
+    }
     
     throw "No type assigned to $name" if ($type eq "NO_TYPE_YET");
     
@@ -456,6 +462,12 @@ sub standard_type_hash{
   $hash{'EXOME_BI_BAM'} = 1;
   $hash{'EXOME_BI_BAS'} = 1;
   $hash{'EXOME_BI_BAI'} = 1;
+  $hash{'EXOME_BCM_BAM'} = 1;
+  $hash{'EXOME_BCM_BAS'} = 1;
+  $hash{'EXOME_BCM_BAI'} = 1;
+  $hash{'EXOME_BC_BAI'} = 1;
+  $hash{'EXOME_BC_BAM'} = 1;
+  $hash{'EXOME_BC_BAS'} = 1;
   return \%hash;
 }
 
