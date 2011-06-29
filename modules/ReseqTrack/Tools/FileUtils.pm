@@ -48,7 +48,8 @@ use vars qw (@ISA  @EXPORT);
 	     move_file_in_db_and_dir
              get_count_stats
 	     get_run_id_to_file_hash
-	     write_log);
+	     write_log
+             assign_type_by_filename);
 
 =head2 are_files_identical
 

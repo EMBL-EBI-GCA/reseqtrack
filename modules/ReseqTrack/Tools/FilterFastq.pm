@@ -901,6 +901,7 @@ sub create_filtered_filename{
 sub create_fh{
   my ($self, $file, $mode, $use_pipe) = @_;
   my $fh = new FileHandle;
+  throw("Can't process an empty string as a file") unless($file);
   if($file =~ /\.gz$/){
     $mode = "zcat" unless($mode);
     $use_pipe = 1 unless(defined($use_pipe));
