@@ -9,6 +9,7 @@ use File::Copy;
 use File::Basename;
 use File::Find ();
 use File::stat;
+use File::Path;
 use File::Temp qw/ tempfile tempdir /;
 use Time::localtime;
 
@@ -26,10 +27,11 @@ use vars qw (@ISA  @EXPORT);
   check_md5
   dump_dirtree_summary
   delete_directory
-  check_files_exists
-  create_tmp_process_dir 
-  delete_file);
-
+  delete_file
+  check_file_exists
+  check_directory_exists
+  make_directory
+  create_tmp_process_dir  );
 
 =head2 get_filenames
 
@@ -390,22 +392,7 @@ sub dump_dirtree_summary{
     }
 
     my $size = -s $file;
-    my $date_string;
-
-    if(!$file){
-      throw("Can't get date string if file path is not defined");
-    }
-    eval{
-      $date_string  = ctime(stat($file)->mtime);
-    };
-
-    if( $@) {
-      print $@;
-      warning( "failed stat check on $file.Skipping");  
-      next;
-    }
-  
-
+    my $date_string = ctime(stat($file)->mtime);
     $label = 'file';
     $file =~ s/$trim//;
     print $fh join("\t", $file, $label, $size, $date_string);
@@ -424,60 +411,132 @@ sub dump_dirtree_summary{
   close($fh);
 }
 
+=head2 delete_directory
+
+  Arg [1]   : path to directory.  This directory must exist.
+  Function  : deletes the directory and all sub-directories and files.
+  Returntype: 0/1 
+  Exceptions: throws if deletion fails
+  Example   : delete_directory('/path/to/directory');
+
+=cut
 
 sub delete_directory {
- my $dir = shift;
+    my $dir = shift;
 
- my $failed_unlink = 0;
- my $ok            = 0;
+    #remove directory contents first
+    opendir (my $dir_handle, $dir)
+        or throw("could not open $dir: $!");
+    my @files = grep !/^\.\.?$/, readdir($dir_handle);
+    foreach my $file (@files) {
+        $file = $dir . "/" . $file;
+        $file =~ s{//}{/};
 
- die "$dir is not a directory\n" if ( !-d $dir );
- die "$dir does not exist\n"     if ( !-e $dir );
- die "Not full path to $dir\n\n" if ( !( $dir =~ /^\// ) );
+        if (-d $file){
+            delete_directory($file);
+        }
+        else {
+            delete_file($file);
+        }
 
- #remove all files first
- my @files = <$dir/*>;
- foreach my $file (@files) {
-  $ok = unlink($file);
-  if ( $ok == 0 ) {
-   print "Failed unlink: $file\n";
-   $failed_unlink = 1;
-  }
- }
+    }
 
- if ( $failed_unlink == 0 ) {
-  $ok = rmdir($dir);
-  print "Deleted $dir\n" if ($ok);
- }
+    rmdir($dir)
+        or throw( "directory not deleted: $dir $!");
 
-}
-
-sub delete_file{
-  my $file = shift;
-  unlink $file;
-  if(-e $file){
-    throw("Failed to delete ".$file);
-  }else{
     return 1;
-  }
+
 }
 
+=head2 delete_file
 
-sub check_files_exists {
- my $file = shift;
+  Arg [1]   : path to file.  This file must exist.
+  Function  : deletes the file
+  Returntype: 0/1 
+  Exceptions: throws if deletion fails
+  Example   : delete_file('/path/to/file');
+
+=cut
+
+sub delete_file {
+    my $file = shift;
+
+    unlink($file)
+        or throw( "file not deleted: $file $!");
+
+    return 1;
+}
+
+=head2 check_directory_exists
+
+  Arg [1]   : path to directory
+  Function  : checks that the directory exists
+  Returntype: 0/1 
+  Exceptions: throws if directory does not exist
+  Example   : check_directory_exists('/path/to/directory');
+
+=cut
+
+sub check_directory_exists {
+  my $dir = shift;
  
- die "$file is a directory, not a file\n" if ( -d $file );
- die "$file does not exist\n"     if ( !-e $file );
+ throw( "$dir is a file, not a directory") if ( -e $dir && ! -d $dir );
+ throw( "$dir does not exist")     if ( !-e $dir );
+ if ( !( $dir =~ /^\// ) && -e $dir){
+  warn "Not full path to $dir. But it exists";
+  }
+  return 1;
+}
+
+=head2 check_file_exists
+
+  Arg [1]   : path to file
+  Function  : checks that the file exists and is not a directory
+  Returntype: 0/1 
+  Exceptions: throws if file does not exist or if it is a directory.
+  Example   : check_file_exists('/path/to/file');
+
+=cut
+
+sub check_file_exists {
+  my $file = shift;
+ 
+ throw( "$file is a directory, not a file") if ( -d $file );
+ throw( "$file does not exist")     if ( !-e $file );
  if ( !( $file =~ /^\// ) && -e $file){
-   warn "Not full path to $file. But it exists";
- }
+  warn "Not full path to $file. But it exists";
+  }
+  return 1;
+}
+
+=head2 make_directory
+
+  Arg [1]   : path to new directory
+  Function  : creates new directory if it does not already exist
+  Returntype: 0/1 
+  Exceptions: throws if failed to create directory
+  Example   : make_directory('/path/to/directory');
+
+=cut
+
+sub make_directory {
+    my $dir = shift;
+
+    if ( ! -d $dir) {
+        eval { mkpath($dir, 0, 0775)};
+        if ($@) {
+            throw ($@);
+        }
+    }
+
+    return 1;
 }
 
 
 sub create_tmp_process_dir {
   my ($parent_dir) = @_;
  
-  throw "No parent directory specified" if ( !defined $parent_dir );
+  throw "No parent directory specified" if ( ! $parent_dir );
   
   my $temp_dir = tempdir( DIR => $parent_dir );
 

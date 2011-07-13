@@ -7,9 +7,10 @@ ReseqTrack::Tools::RunAlignment
 
 =head1 SYNOPSIS
 
-This is a base class for RunAlignment objects and provides some standard
-accessor methods and throws exceptions when vital methods aren't implemented in
-the child classes. The Child classes should wrap specific alignment algorithms
+This is a base class for RunAlignment objects.
+It is a sub class of a ReseqTrack::Tools::RunProgram.
+It provides methods that are common to many RunAlignment child classes.
+Child classes should wrap specific alignment algorithms.
 
 =head1 Example
 
@@ -21,389 +22,290 @@ package ReseqTrack::Tools::RunAlignment;
 use strict;
 use warnings;
 
-use ReseqTrack::Tools::FastQ qw (sample);
 use ReseqTrack::Tools::Exception qw(throw warning stack_trace_dump);
 use ReseqTrack::Tools::Argument qw(rearrange);
+use ReseqTrack::Tools::RunSamtools;
 use ReseqTrack::Tools::SequenceIndexUtils;
-use Data::Dumper;
-
 use File::Basename;
+
+
+use base qw(ReseqTrack::Tools::RunProgram);
 
 
 =head2 new
 
-  Arg [1]   : ReseqTrack::Tools::RunAlignment
-  Arg [2]   : string, path to reference genome file/directory/stem as is required
-  for aligner
-  Arg [3]   : string/arrayref/ReseqTrack::File/ReseqTrack::Collection. The
-  input argument can be several things, all must provide a filename or set of 
-  filenames for the aligner to run on
-  Arg [4]   : string, path to alignment program
-  Arg [5]   : string, commandline options for program
-  Arg [6]   : path to samtools installation so output bam can be
-  indexed
-  Function  : This should create the ReseqTrack::Tools::RunAlignment object 
+  Arg [-reference]   :
+      string, path to the reference genome
+  Arg [-samtools]   :
+      string, the samtools executable (if in $PATH) or path to samtools
+  Arg [-mate1_file]   :
+      string, optional, path to the mate1 file.
+  Arg [-mate2_file]   :
+      string, optional, path to the mate2 file.
+  Arg [-fragment_file]   :
+      string, optional, path to the fragment file.
+  Arg [-convert_sam_to_bam]   :
+      boolean, default 1, flag to convert output to bam
+  Arg [-sort_bams]   :
+      boolean, default 1, flag to sort output bams
+  Arg [-merge_bams]   :
+      boolean, default 1, flag to merge all output to a single bam
+  Arg [-index_bams]   :
+      boolean, default 1, flag to index output bam(s)
+  + Arguments for ReseqTrack::Tools::RunProgram parent class
+
+  Function  : Creates a new ReseqTrack::Tools::RunAlignment object.
+  If mate1_file, mate2_file, fragment_file are not specified, they are assigned
+  from the list of input_files
   Returntype: ReseqTrack::Tools::RunAlignment
   Exceptions: 
-  Example   : 
+  Example   : my $run_alignment = ReseqTrack::Tools::RunAlignment->new(
+                -program => "alignmentprogram",
+                -working_dir => '/path/to/dir/',
+                -reference => '/path/to/ref.fa',
+                -samtools => '/path/to/samtools',
+                -mate1_file => '/path/to/mate1',
+                -mate2_file => '/path/to/mate2',
+                -fragment_file => '/path/to/fragment' );
 
 =cut
 
 sub new {
   my ( $class, @args ) = @_;
-  my $self = {};
-  bless $self, $class;
+  my $self = $class->SUPER::new(@args);
 
-  #reference genome file
-  #input sequence, we will allow single file name, list of file names
-  # or a collection object with associated sequence
-  #program
-  #commandline options
-  my (
-      $reference, $input,     $program,
-      $options,   $samtools,  $working_dir,
-      $name,      $subsample_size,
-      $run_meta_info)
-    =
+  my ( $reference, $samtools, $mate1_file, $mate2_file, $fragment_file,
+        $merge_bams, $sort_bams, $index_bams, $convert_sam_to_bam)
+        = rearrange( [
+             qw( REFERENCE SAMTOOLS MATE1_FILE MATE2_FILE FRAGMENT_FILE
+             MERGE_BAMS SORT_BAMS INDEX_BAMS CONVERT_SAM_TO_BAM)
+                    ], @args);
 
-      rearrange(
-		[
-		 qw(
-              REFERENCE
-              INPUT
-              PROGRAM
-              OPTIONS
-              SAMTOOLS
-              WORKING_DIR
-              NAME
-              SUBSAMPLE_SIZE
-              RUN_META_INFO
-)
-		],
-		@args
-	       );
-  #some defaults
-#  $self->subsample_size("1200000000");
-  $self->working_dir("/tmp/") unless ($working_dir);
-  $self->fragment_file ("");
-  $self->mate1_file("");
-  $self->mate2_file("");
-
-  #####
-
-
+  $self->mate1_file($mate1_file);
+  $self->mate2_file($mate2_file);
+  $self->fragment_file($fragment_file);
   $self->reference($reference);
-  $self->input($input);
-  $self->program($program);
-  $self->options($options);
-  $self->samtools($samtools);
-  $self->working_dir($working_dir);
 
-
-  $self->subsample_size($subsample_size);
-  $self->name($name);
-  $self->run_meta_info($run_meta_info);
-
-
-  unless ( $self->name ) {
-    my $string = $self->mate1_file;
-    $string = $self->fragment_file unless ($string);
-    $string =~ /^(\S+)\./;
-    $self->name($1);
-    throw(
-	  "ReseqTrack::Tools::RunAlignment, Not sure what to do failed to define "
-	  . "a name from "
-	  . $string
-	  . " for this run" )
-      unless ( $self->name );
+  if ( $fragment_file or $mate1_file or $mate2_file) {
+      foreach my $file ($fragment_file, $mate1_file, $mate2_file) {
+          if ($file && ! scalar grep {$_ == $file} @{$self->input_files}) {
+              $self->input_files($file);
+          }
+      }
+  }
+  else {
+      $self->assign_fastq_files;
   }
 
-  #
-  throw("Have no working directory")
-    unless ( $self->working_dir && -d $self->working_dir );
-  
+  if (! $self->job_name) {
+      $self->generate_job_name;
+  }
+
+  if ( defined($convert_sam_to_bam) && ! $convert_sam_to_bam) {
+      $merge_bams = 0;
+      $sort_bams = 0;
+      $index_bams = 0;
+  }
+  else {
+      $convert_sam_to_bam = 1;
+
+      if ( ! defined($merge_bams) ) {
+          $merge_bams = 1;
+      }
+      if ( ! defined($sort_bams) ) {
+          $sort_bams = 1;
+      }
+      if ( ! defined($index_bams) ) {
+          $index_bams = 1;
+      }
+  }
+
+  my $samtools_object = ReseqTrack::Tools::RunSamtools->new(
+                        -program                 => $samtools,
+                        -working_dir             => $self->working_dir,
+                        -echo_cmd_line           => $self->echo_cmd_line,
+                        -save_files_for_deletion => $self->save_files_for_deletion,
+                        -job_name                => $self->job_name,
+                        -reference               => $reference,
+                        -output_to_working_dir   => 1,
+                        -replace_files           => 1,
+                        -flag_merge              => $merge_bams,
+                        -flag_sort               => $sort_bams,
+                        -flag_index              => $index_bams,
+                        -flag_sam_to_bam         => $convert_sam_to_bam,
+                        );
+
+  $self->samtools($samtools_object);
+
+
   return $self;
 }
 
-sub base_counts {
-  my ( $self, $arg ) = @_;
-  if ($arg) {
-    $self->{'base_counts'} = $arg;
-  }
-  return $self->{'base_counts'};
-}
-
-sub read_counts {
-  my ( $self, $arg ) = @_;
-  if ($arg) {
-    $self->{'read_counts'} = $arg;
-  }
-  return $self->{'read_counts'};
-}
-
-sub read_lengths {
-  my ( $self, $arg ) = @_;
-  if ($arg) {
-    $self->{'read_lengths'} = $arg;
-  }
-  return $self->{'read_lengths'};
-}
-
-=head2 accessor methods
+=head2 run_samtools
 
   Arg [1]   : ReseqTrack::Tools::RunAlignment
-  Arg [2]   : string, generally
-  Function  : These are accessor methods for variables needed to run
-  and alignment like reference genomes, program and options
- Returntype: string, generally
- Exceptions: n/a
-  Example   : my $reference = $run_alignment->reference;
+  Function  : uses samtools to process files listed in $self->sam_files
+  Returntype: 
+  Exceptions: 
+  Example   : $self->run_samtools;
+=cut
+
+sub run_samtools {
+    my $self = shift;
+
+    my $samtools = $self->samtools;
+
+    $samtools->input_files( $self->sam_files );
+
+    $samtools->run();
+
+    $self->output_files( $samtools->output_files );
+
+    return;
+
+}
+
+=head2 generate_job_name
+
+  Arg [1]   : ReseqTrack::Tools::RunAlignment
+  Function  : overrides the generate_job_name of the parent class
+  Returntype: string
+  Exceptions: 
+  Example   : $self->generate_job_name();
+=cut
+
+sub generate_job_name {
+    my $self = shift;
+
+    my $file = ${$self->input_files}[0];
+    my $job_name = basename($file);
+    $job_name =~ s/^([A-Za-z0-9]+).*/$1/;
+    $job_name .= "." . $$;
+
+    $self->job_name($job_name);
+    return $job_name;
+}
+
+
+=head2 samtools
+
+  Arg [1]   : ReseqTrack::Tools::RunAlignment
+  Arg [2]   : a ReseqTrack::Tools::RunSamtools object
+  Function  : accessor method for samtools
+  Returntype: string
+  Exceptions: n/a
+  Example   : my $samtools = $self->samtools
 
 =cut
 
-sub reference {
-  my ( $self, $arg ) = @_;
-  if ($arg) {
-    $self->{'reference'} = $arg;
-  }
-  return $self->{'reference'};
-}
-
-sub program {
-  my ( $self, $arg ) = @_;
-  if ($arg) {
-    $self->{'program'} = $arg;
-  }
-  return $self->{'program'};
-}
-
-sub options {
-  my ( $self, $arg ) = @_;
-  if ($arg) {
-    $self->{'options'} = $arg;
-  }
-  return $self->{'options'};
-}
-
 sub samtools {
-  my ( $self, $arg ) = @_;
-  if ($arg) {
-    $self->{'samtools'} = $arg;
-  }
-  return $self->{'samtools'};
+    my ($self, $samtools) = @_;
+    if ($samtools) {
+        $self->{'samtools'} = $samtools;
+    }
+    return $self->{'samtools'};
 }
 
+=head2 reference
+
+  Arg [1]   : ReseqTrack::Tools::RunAlignment
+  Arg [2]   : string, path of reference file
+  Function  : accessor method for reference file
+  Returntype: string
+  Exceptions: n/a
+  Example   : my $reference = $self->reference;
+
+=cut
+sub reference {
+    my ($self, $reference) = @_;
+    if ($reference) {
+        $self->{'reference'} = $reference;
+    }
+    return $self->{'reference'};
+}
+
+=head2 fragment_file
+
+  Arg [1]   : ReseqTrack::Tools::RunAlignment
+  Arg [2]   : string, path of fragment file
+  Function  : accessor method for fragment file
+  Returntype: string
+  Exceptions: n/a
+  Example   : my $fragment_file = $self->fragment_file;
+
+=cut
 sub fragment_file {
-  my ( $self, $arg ) = @_;
-  if ($arg) {
-    $self->{'fragment_file'} = $arg;
+  my ($self, $fragment_file) = @_;
+  if ($fragment_file) {
+    $self->{'fragment_file'} = $fragment_file;
   }
   return $self->{'fragment_file'};
 }
 
+=head2 mate1_file
+
+  Arg [1]   : ReseqTrack::Tools::RunAlignment
+  Arg [2]   : string, path of mate1 file
+  Function  : accessor method for mate1 file
+  Returntype: string
+  Exceptions: n/a
+  Example   : my $mate1_file = $self->mate1_file;
+
+=cut
+
 sub mate1_file {
-  my ( $self, $arg ) = @_;
-  if ($arg) {
-    $self->{'mate1_file'} = $arg;
+  my ($self, $mate1_file) = @_;
+  if ($mate1_file) {
+    $self->{'mate1_file'} = $mate1_file;
   }
   return $self->{'mate1_file'};
 }
 
+=head2 mate2_file
+
+  Arg [1]   : ReseqTrack::Tools::RunAlignment
+  Arg [2]   : string, path of mate2 file
+  Function  : accessor method for mate2 file
+  Returntype: string
+  Exceptions: n/a
+  Example   : my $mate2_file = $self->mate2_file;
+
+=cut
+
 sub mate2_file {
-  my ( $self, $arg ) = @_;
-  if ($arg) {
-    $self->{'mate2_file'} = $arg;
+  my ($self, $mate2_file) = @_;
+  if ($mate2_file) {
+    $self->{'mate2_file'} = $mate2_file;
   }
   return $self->{'mate2_file'};
 }
 
-sub name {
-  my ( $self, $arg ) = @_;
-  if ($arg) {
-    $self->{'name'} = $arg;
-  }
-  return $self->{'name'};
-}
-sub max_read_length{
-  my ( $self, $arg ) = @_;
-  if ($arg) {
-    $self->{'max_read_length'} = $arg;
-  }
-  return $self->{'max_read_length'};
+=head2 sam_files
 
-}
-sub subsample_size {
-  my ( $self, $arg ) = @_;
-  if ($arg) {
-    $self->{'subsample_size'} = $arg;
-  }
-  return $self->{'subsample_size'};
-}
-
-sub files_to_delete {
-  my ( $self, $file ) = @_;
-  if ($file) {
-    if ( ref($file) eq 'ARRAY' ) {
-      foreach my $path (@$file) {
-	$self->{'files_to_delete'}->{$path} = 1;
-      }
-    } else {
-      $self->{'files_to_delete'}->{$file} = 1;
-    }
-  }
-  my @keys = keys( %{ $self->{'files_to_delete'} } );
-  return \@keys;
-}
-
-=head2 working_dir
-
-  Arg [1]   : ReseqTrack::Tools::RunAlignment
-  Arg [2]   : string, path of working directory
-  Function  : accessor method for working directory, also creates directory
-  if it doesn't exist
-  Returntype: string
-  Exceptions: n/a
-  Example   : my $work_dir = $self->working_dir;
-
-=cut
-
-sub working_dir {
-  my ( $self, $arg ) = @_;
-
-  if ($arg) {
-    $self->{'working_dir'} = $arg;
-  }
-
-  if ( $self->{'working_dir'} ) {
-    unless ( -d $self->{'working_dir'} ) {
-      mkdir( $self->{'working_dir'}, 775 );
-    }
-    unless ( -d $self->{'working_dir'} ) {
-      throw(  "ReseqTrack::Tools::RunAlignment cannot run when "
-	      . $self->{'working_dir'}
-	      . " does not exist " );
-    }
-  }
-  return $self->{'working_dir'};
-}
-
-=head2 change_dir
-
-  Arg [1]   : ReseqTrack::Tools::RunAlignment
-  Arg [2]   : string, path of working directory
-  Function  : changes to given working directory
-  Returntype: string
-  Exceptions: throws if it can't change to given directory
-  Example   : $self->check_dir();
-
-=cut
-
-sub change_dir {
-  my ( $self, $dir ) = @_;
-  $dir = $self->working_dir unless ($dir);
-  chdir($dir)
-    or throw( "Failed to change to " 
-	      . $dir
-	      . " ReseqTrack::Tools::RunAlignment check_dir" );
-  return $dir;
-}
-
-=head2 output_files
-
-  Arg [1]   : ReseqTrack::Tools::RunAlignment
+  Arg [1]   : ReseqTrack::Tools::RunAlignent
   Arg [2]   : string or arrayref of strings
-  Function  : This is to store output filepaths
+  Function  : accessor method for sam files.
   Returntype: arrayref of strings
-  Exceptions: n/a
-  Example   : $self->output('path/to/file');
-
+  Exceptions: 
+  Example   : $self->sam_files('path/to/file');
 =cut
 
-sub output_files {
+sub sam_files {
   my ( $self, $arg ) = @_;
-  $self->{'output'} = [] unless ( $self->{'output'} );
+
+  if (! $self->{'sam_files'}) {
+      $self->{'sam_files'} = [] ;
+  }
+
   if ($arg) {
     if ( ref($arg) eq 'ARRAY' ) {
-      push( @{ $self->{'output'} }, @$arg );
+        push( @{ $self->{'sam_files'} }, @$arg );
     } else {
-      push( @{ $self->{'output'} }, $arg );
+        push( @{ $self->{'sam_files'} }, $arg );
     }
   }
-  return $self->{'output'};
-}
 
-=head2 input
-
-  Arg [1]   : ReseqTrack::Tools::RunAlignment
-  Arg [2]   : string/arrayref/ReseqTrack::File/ReseqTrack::Collection. The
-  input argument can be several things, all must provide a filename or set of 
-  filenames for the aligner to run on
-  Function  : setup the input file paths
-  Returntype: string/arrayref/ReseqTrack::File/ReseqTrack::Collection, it returns
-    what is passed in
-  Exceptions: 
-  Example   : 
-
-=cut
-
-sub input {
-  my ( $self, $input ) = @_;
-
-  #need to work out if we have filepaths, file objects or a collection object
-  if ($input) {
-    if ( -e $input ) {
-      $self->fragment_file($input);
-    } elsif ( ref($input) eq 'ARRAY' ) {
-      my ( $mate1, $mate2, $frag );
-      if ( -e $input->[0] ) {
-	( $mate1, $mate2, $frag ) = $self->assign_fastq_files($input);
-      } elsif ( $input->[0]->isa("ReseqTrack::File") ) {
-	my @names;
-	foreach my $file (@$input) {
-	  push( @names, $file->name );
-	}
-	( $mate1, $mate2, $frag ) =
-	  $self->assign_fastq_files( \@names );
-      } else {
-	print STDERR "Not sure how to deal with the contents of "
-	  . $input . "\n";
-	foreach my $element (@$input) {
-	  print STDERR $element . "\n";
-	}
-	throw(
-	      "ReseqTrack::Tools::RunAlignment::input Failed to process "
-	      . $input );
-      }
-      $self->fragment_file($frag);
-      $self->mate1_file($mate1);
-      $self->mate2_file($mate2);
-    } elsif ( $input->isa("ReseqTrack::File") ) {
-      $self->fragment_file( $input->name );
-    } elsif ( $input->isa('ReseqTrack::Collection') ) {
-      throw(
-	    "ReseqTrack::Tools::RunAlignment::input Can only handle file "
-	    . "collections not "
-	    . $input->table_name
-	    . " collections" )
-	unless ( $input->table_name eq 'file' );
-      my $others = $input->others;
-      my @names;
-      foreach my $other (@$others) {
-	push( @names, $other->name );
-      }
-      my ( $mate1, $mate2, $frag ) = $self->assign_fastq_files( \@names );
-      $self->fragment_file($frag);
-      $self->mate1_file($mate1);
-      $self->mate2_file($mate2);
-    } else {
-      throw(
-	    "ReseqTrack::Tools::RunAlignment::input not sure how to handle input "
-	    . $input
-	    . " what type is it?" );
-    }
-    $self->{'input'} = $input;
-  }
-  return $self->{'input'};
+  return $self->{'sam_files'};
 }
 
 =head2 run
@@ -423,163 +325,82 @@ sub run {
           . "does not provide one" );
 }
 
-=head2 create_bam_from_sam
-
-  Arg [1]   : ReseqTrack::Tools::RunAlignment
-  Arg [2]   : string, path to sam file
-  Arg [3]   : binary flag if set sam files marked for deletion, this is on by
-  default but it can be turned off if delete_sam is set to 0
-  Function  : create a bam file from a sam file
-  Returntype: string, path to bam file
-  Exceptions: n/a
-  Example   : 
-
-=cut
-
-sub create_bam_from_sam {
-  my ( $self, $sam, $delete_sam ) = @_;
-  unless ( defined($delete_sam) ) {
-    $delete_sam = 1;
-  }
-  my $bam = $sam;
-  $bam =~ s/sam/bam/;
-  my $cmd =
-    $self->samtools . " import " . $self->reference . " " . $sam . " " . $bam;
-  print $cmd. "\n";
-  eval {
-    my $exit = system($cmd);
-    if ( $exit && $exit >= 1 ) {
-      throw( "Failed to run " . $cmd );
-    }
-  };
-  if ($@) {
-    throw("Failed to run samtools import $@");
-  }
-  if ($delete_sam) {
-    $self->files_to_delete($sam);
-  }
-  return $bam;
-}
-
-=head2 delete_files
-
-  Arg [1]   : ReseqTrack::Tools::RunAlignment
-  Arg [2]   : arrayref of string of paths to delete
-  Function  : remove given files
-  Returntype: n/a
-  Exceptions: throws if a file doesn't exist
-  Example   : 
-
-=cut
-
-sub delete_files {
-  my ( $self, $files ) = @_;
-  $files = $self->files_to_delete unless ($files);
-  foreach my $file (@$files) {
-    print "Deleting " . $file . "\n";
-    unlink $file;
-  }
-  return;
-}
 
 =head2 assign_fastq_files
 
   Arg [1]   : ReseqTrack::Tools::RunAlignment
-  Arg [2]   : arrayref of filepaths
   Function  : assign file names into mate1, mate2 and frag
   Returntype: array of filepaths
   Exceptions: if the path doesn't match any of the regexs
-  Example   : my ($mate1, $mate2, $frag) = $self->assign_files
+  Example   : $self->assign_files;
 
 =cut
 
 sub assign_fastq_files {
-  my ( $self, $files ) = @_;
-  return assign_files($files);
-}
+  my ($self) = @_;
 
-sub create_sorted_bam {
-   my ( $self, $bam ) = @_;
-   print "Creating sorted bam\n";
-   my $cmd = $self->samtools . " sort ". $bam. " ";
+  my @files = @{$self->input_files};
+  my ( $mate1, $mate2, $frag ) ;
 
-   $bam =~ s/\.bam/\.sorted/;
-
-   $cmd .= $bam;
-
-   print $cmd,"\n";
-   eval{
-     `$cmd`;
-   };
-
-   if ($@) {
-     throw( "Failed: $cmd" );      
-   }
-
-
-   my $out = $bam . "\.bam";
-   print "Created $out\n";
-   return $out;
-}
-
-sub collection_base_count{
-  my ( $self, $arg ) = @_;
-  if ($arg) {
-    $self->{collection_base_count} = $arg;
+  if ((scalar @files) ==1) {
+    $frag = $files[0];
   }
-  return $self->{collection_base_count};
-
-}
-
-sub skip_fragment {
-  my ( $self, $arg ) = @_;
-  if (defined $arg) {
-    $self->{skip_fragment} = $arg;
+  else {
+    ($mate1, $mate2, $frag) =
+        ReseqTrack::Tools::SequenceIndexUtils::assign_files(\@files);
   }
-  return $self->{skip_fragment};
+  $self->fragment_file($frag);
+  $self->mate1_file($mate1);
+  $self->mate2_file($mate2);
+
+  return ( $mate1, $mate2, $frag );
 }
 
-sub skip_mate_files {
-  my ( $self, $arg ) = @_;
-  if (defined $arg) {
-    $self->{skip_mate_files} = $arg;
-  }
-  return $self->{skip_mate_files};
-}
-sub program_version {
-  my ( $self, $arg ) = @_;
-  if ($arg) {
-    $self->{program_version} = $arg;
-  }
-  return $self->{program_version};
-}
+=head2 output_bam_files
 
+  Arg [1]   : ReseqTrack::Tools::RunAlignment
+  Function  : gets bam files from the list of output files
+  Returntype: arrayref of filepaths
+  Exceptions: 
+  Example   : my $bams = $self->output_bam_files;
 
-sub run_meta_info {
+=cut
 
-  my ( $self, $arg ) = @_;
-  if ($arg) {
+sub output_bam_files {
+    my $self = shift;
 
-   if ( ! ($arg->isa("ReseqTrack::RunMetaInfo")) ){
-     print Dumper ($arg), "\n";
-     throw "Passed object other than RunMetaInfo\n"       	
-   }
-    $self->{run_meta_info } = $arg;
-  }
-  return $self->{run_meta_info };
+    my @output_bams;
+    foreach my $file (@{$self->output_files}) {
+        if ( $file =~ /\.bam$/ ) {
+            push( @output_bams, $file);
+        }
+    }
 
+    return \@output_bams;
 }
 
-sub percent_reads_used {
-  my ( $self, $arg ) = @_;
-  if ($arg) {
-    $self->{percent_reads_used} = $arg;
-  }
-  return $self->{percent_reads_used}; 
+=head2 output_bai_files
+
+  Arg [1]   : ReseqTrack::Tools::RunAlignment
+  Function  : gets bai files from the list of output files
+  Returntype: arrayref of filepaths
+  Exceptions: 
+  Example   : my $bai_files = $self->output_bai_files;
+
+=cut
+
+sub output_bai_files {
+    my $self = shift;
+
+    my @output_bai_files;
+    foreach my $file (@{$self->output_files}) {
+        if ( $file =~ /\.bai$/ ) {
+            push( @output_bai_files, $file);
+        }
+    }
+
+    return \@output_bai_files;
 }
-
-
-
 
 1;
 

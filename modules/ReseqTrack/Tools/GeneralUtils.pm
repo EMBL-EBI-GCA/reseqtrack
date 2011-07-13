@@ -28,7 +28,7 @@ use vars qw (@ISA  @EXPORT);
 @ISA = qw(Exporter);
 @EXPORT = qw(current_time parse_movelist get_input_arg create_lock_string
              delete_lock_string is_locked useage convert_to_giga current_date 
-	     create_filename calculate_coverage trim_spaces);
+	     create_filename calculate_coverage trim_spaces execute_system_command);
 
 
 
@@ -229,6 +229,40 @@ sub trim_spaces{
   $string =~ s/^\s+//;
   $string =~ s/\s+$//;
   return $string;
+}
+
+=head2 execute_system_command
+
+  Arg [1]   : string containing the command line
+  Function  : executes the command line and waits for the exit code
+  Returntype: exit code of system
+  Exceptions: throws if command failed to execute or if exit code is not zero.
+  Also throws if the command line is an empty string.
+  Example   : execute_system_command('/path/to/executable -options > output')
+
+=cut
+
+sub execute_system_command{
+    my $command_line = shift;
+
+    throw("no command line to execute")
+        if (! $command_line);
+
+    system( $command_line );
+
+    throw("command failed: $! $command_line")
+        if ( $? == -1 );
+
+    my $signal = $? & 127;
+    throw("process died with signal $signal $command_line")
+        if ($signal);
+
+    my $exit = $? >> 8;
+    throw("command exited with value $exit $command_line")
+        if ($exit != 0);
+
+    return $exit;
+
 }
 
 
