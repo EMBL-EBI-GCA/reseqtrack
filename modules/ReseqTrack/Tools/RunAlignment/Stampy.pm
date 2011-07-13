@@ -5,34 +5,32 @@ use warnings;
 
 use ReseqTrack::Tools::Exception qw(throw warning);
 use ReseqTrack::Tools::Argument qw(rearrange);
-use ReseqTrack::Tools::RunAlignment;
-use ReseqTrack::Tools::FileSystemUtils qw(delete_directory check_files_exists );
 
-use File::Basename;
-use File::stat;
 
-our @ISA = qw(ReseqTrack::Tools::RunAlignment);
+use base qw(ReseqTrack::Tools::RunAlignment);
 
 sub new {
 
     my ( $class, @args ) = @_;
     my $self = $class->SUPER::new(@args);
 
-    my (
-        $genome_prefix, $hash_prefix,
-    )
-        = rearrange(
-            [
-                qw(
-                      GENOME_PREFIX
-                      HASH_PREFIX
-                )
-            ],
-            @args
-        );
+    my ( $genome_prefix, $hash_prefix, $build_genome_flag, $insert_size, $se_options, $pe_options)
+        = rearrange( [
+            qw( GENOME_PREFIX HASH_PREFIX BUILD_GENOME_FLAG INSERT_SIZE SE_OPTIONS PE_OPTIONS )
+                ], @args);
+
+
+    #setting defaults
+    if (! $self->program) {
+        $self->program('stampy');
+    }
 
     $self->genome_prefix($genome_prefix);
     $self->hash_prefix($hash_prefix);
+    $self->build_genome_flag($build_genome_flag);
+    $self->insert_size($insert_size);
+    $self->se_options($se_options);
+    $self->pe_options($pe_options);
 
 
     return $self;
@@ -43,65 +41,125 @@ sub new {
 
 sub run {
     my ($self) = @_;
-    my $exit;
 
     $self->change_dir();
 
-    $self->create_cmd_line();
-
-    eval {
-        $exit = system( $self->cmd_line );
-        #print $self->cmd_line, "\n"; $exit=0;
-        if ( $exit && $exit >= 1 ) {
-            print STDERR ( "Failed to run " . $self->cmd_line );
-        }
-    };
-    if ( $@ || $exit >= 1 ) {
-        throw("Failed to run stampy: $@");
+    if ($self->build_genome_flag){
+        $self->build_genome();
+        $self->build_hash();
     }
 
-    my $sam = $self->sam();
-    my $bam = $self->create_bam_from_sam($sam);
+    if ($self->fragment_file) {
+        my $sam = $self->run_se_alignment();
+        $self->sam_files($sam);
+    }
 
-    $self->output_files($bam);
+    if ($self->mate1_file && $self->mate2_file) {
+        my $sam = $self->run_pe_alignment();
+        $self->sam_files($sam);
+    }
 
-    $self->delete_files();
+    $self->run_samtools;
 
-    return 0 ;
+    return;
 }
 
-
-
-############
-
-sub create_cmd_line {
+sub run_se_alignment {
     my $self = shift;
 
-    my $out_sam = $self->working_dir() . '/' . $$ . '.sam';
-    $out_sam =~ s{//}{/};
-    $self->sam($out_sam);
+    my $sam = $self->working_dir() . '/'
+        . $self->job_name
+        . '_se.sam';
+    $sam =~ s{//}{/};
 
     my $cmd_line;
     $cmd_line = $self->program();
-    $cmd_line .= " -g " . $self->genome_prefix();
-    $cmd_line .= " -h " . $self->hash_prefix();
-    $cmd_line .= " -o " . $out_sam;
-    $cmd_line .= " -M ";
-
-    if (! $self->skip_fragment){
-        $cmd_line .= $self->fragment_file() . " "
-            if ( $self->fragment_file);
+    $cmd_line .= " -g " . $self->genome_prefix;
+    $cmd_line .= " -h " . $self->hash_prefix;
+    
+    if ($self->se_options) {
+        $cmd_line .= " " . $self->se_options;
     }
 
-    if (! $self->skip_mate_files){
-        $cmd_line .= $self->mate1_file() . " " if ( $self->mate1_file );
-        $cmd_line .= $self->mate2_file() . " " if ( $self->mate2_file );
-    }
-            
+    $cmd_line .= " -o " . $sam;
+    $cmd_line .= " -M " . $self->fragment_file;
 
-    $self->cmd_line($cmd_line);
+    $self->execute_command_line($cmd_line);
+
+    return $sam ;
+}
+
+sub run_pe_alignment {
+    my $self = shift;
+
+    my $sam = $self->working_dir() . '/'
+        . $self->job_name
+        . '_pe.sam';
+    $sam =~ s{//}{/};
+
+    my $cmd_line;
+    $cmd_line = $self->program();
+    $cmd_line .= " -g " . $self->genome_prefix;
+    $cmd_line .= " -h " . $self->hash_prefix;
+    
+    if ($self->pe_options) {
+        $cmd_line .= " " . $self->pe_options;
+    }
+
+    if (defined( $self->insert_size )) {
+        $cmd_line .= " --insertsize=" . $self->insert_size;
+    }
+
+    $cmd_line .= " -o " . $sam;
+    $cmd_line .= " -M " . $self->mate1_file . " " . $self->mate2_file;
+
+    $self->execute_command_line($cmd_line);
+
+    return $sam ;
+}
+
+sub build_genome {
+    my $self = shift;
+
+    my $genome_prefix = $self->working_dir . '/'
+                . $self->job_name;
+    $genome_prefix =~ s{//}{/};
+
+    my $cmd_line = $self->program;
+    $cmd_line .= " -G " . $genome_prefix;
+    $cmd_line .= " " . $self->reference;
+
+    $self->execute_command_line($cmd_line);
+
+    $self->genome_prefix($genome_prefix);
+
+    my $genome = $genome_prefix . ".stidx";
+    $self->files_to_delete($genome);
 
     return;
+
+}
+
+sub build_hash {
+    my $self = shift;
+
+    my $hash_prefix = $self->working_dir . '/'
+                . $self->job_name;
+    $hash_prefix =~ s{//}{/};
+
+    my $cmd_line = $self->program;
+    $cmd_line .= " -g " . $self->genome_prefix;
+    $cmd_line .= " -H " . $hash_prefix;
+
+    $self->execute_command_line($cmd_line);
+
+    $self->hash_prefix($hash_prefix);
+
+    my $hash = $hash_prefix . ".sthash";
+    $self->files_to_delete($hash);
+
+    return;
+
 }
 
 
@@ -124,22 +182,40 @@ sub hash_prefix {
     return $self->{hash_prefix};
 }
 
-sub sam {
+sub build_genome_flag {
     my ( $self, $arg ) = @_;
 
-    if ($arg) {
-        $self->{sam} = $arg;
+    if (defined $arg) {
+        $self->{build_genome_flag} = $arg;
     }
-    return $self->{sam};
+    return $self->{build_genome_flag};
 }
 
-sub cmd_line {
-    my ( $self, $arg ) = @_;
+sub pe_options {
+    my $pelf = shift;
 
-    if ($arg) {
-        $self->{cmd_line} = $arg;
+    if (@_) {
+        $pelf->{pe_options} = shift;
     }
-    return $self->{cmd_line};
+    return $pelf->{pe_options};
+}
+
+sub se_options {
+    my $self = shift;
+
+    if (@_) {
+        $self->{se_options} = shift;
+    }
+    return $self->{se_options};
+}
+
+sub insert_size {
+    my $self = shift;
+
+    if (@_) {
+        $self->{insert_size} = shift;
+    }
+    return $self->{insert_size};
 }
 
 

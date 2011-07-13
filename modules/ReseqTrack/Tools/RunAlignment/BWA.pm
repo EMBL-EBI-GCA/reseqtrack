@@ -40,7 +40,8 @@ use Data::Dumper;
 sub new {
 	my ( $class, @args ) = @_;
 	my $self = $class->SUPER::new(@args);
-	my ( $samse_options, $sampe_options, $aln_optionsm, $paired_length ) =
+
+	my ( $samse_options, $sampe_options, $aln_options, $paired_length ) =
 	  rearrange( [qw(SAMSE_OPTIONS SAMPE_OPTIONS ALN_OPTIONS PAIRED_LENGTH )], @args );
 
 	#setting defaults
@@ -48,7 +49,6 @@ sub new {
 	$self->paired_length("2000");
 	$self->sampe_options("-a ");
 	$self->aln_options("-q 15 -l 32");
-	$self->options("");
 
 	
 	$self->paired_length( $paired_length);
@@ -74,24 +74,22 @@ sub new {
 
 
 sub run {
-	my ($self) = @_;
-	$self->change_dir();
-	my ( $single_ended_bam, $paired_end_bam );
-	
+    my ($self) = @_;
+    $self->change_dir();
+    
+    if ( $self->fragment_file ) {
+        my $sam = $self->run_samse_alignment();
+        $self->sam_files($sam);
+    }
+    
+    if ( $self->mate1_file && $self->mate2_file ) {
+        my $sam = $self->run_sampe_alignment();
+        $self->sam_files($sam);
+    }
 
-	if ( $self->fragment_file &&  (!$self->skip_fragment) ) {
-		$single_ended_bam = $self->run_samse_alignment();
-	}
-	
-	if ( $self->mate1_file && $self->mate2_file && ! ($self->skip_mate_files) ) {
-		$paired_end_bam = $self->run_sampe_alignment();
-	}
-	
-	$self->output_files($single_ended_bam) if ($single_ended_bam);
-	$self->output_files($paired_end_bam)   if ($paired_end_bam);
+    $self->run_samtools;
 
-	$self->delete_files;
-	return 0;
+    return;
 }
 
 sub run_sampe_alignment {
@@ -119,33 +117,20 @@ sub run_sampe_alignment {
 	  . $self->mate2_file . " > "
 	  . $output_sam;
 	print $sampe_cmd. "\n";
-	eval {
-		my $exit = system($sampe_cmd);
 
-		if ( $exit && $exit >= 1 ) {
-			warn( "Failed to run " . $sampe_cmd );
-			return;
-		}
-	};
-	if ($@) {
-		throw("Failed to run bwa sampe alignment $@");
-	}
-	$self->files_to_delete($output_sam);
+        $self->execute_command_line($sampe_cmd);
+
 	$self->files_to_delete($mate1_sai);
 	$self->files_to_delete($mate2_sai);
-	my $bam_file = $self->create_bam_from_sam($output_sam);
-	return $bam_file;
+
+	return $output_sam;
 }
 
 sub run_samse_alignment {
 	my ($self) = @_;
 
-
-
 	my $sai_file =
 	  $self->run_aln_mode( $self->fragment_file, $self->aln_options, "frag" );
-
-	$self->files_to_delete($sai_file);
 
 	my $output_sam = $sai_file;
 
@@ -160,21 +145,11 @@ sub run_samse_alignment {
 	  . $self->fragment_file . " > "
 	  . $output_sam;
 	  
-	print $samse_cmd. "\n";
-	eval {
-		my $exit = system($samse_cmd);
+        $self->execute_command_line($samse_cmd);
 
-		if ( $exit && $exit >= 1 ) {
-			warn( "Failed to run " . $samse_cmd );
-			exit;
-		}
-	};
-	if ($@) {
-		throw("Failed to run bwa samse alignment $@");
-	}
-	$self->files_to_delete($output_sam);
-	my $bam_file = $self->create_bam_from_sam($output_sam);
-	return $bam_file;
+	$self->files_to_delete($sai_file);
+
+	return $output_sam;
 }
 
 sub run_aln_mode {
@@ -186,16 +161,10 @@ sub run_aln_mode {
 
 	$options = $self->aln_options unless ($options);
 
-	my $output_file = $self->working_dir . "/" . $self->name;
+	my $output_file = $self->working_dir . "/" . $self->job_name;
 	$output_file .= "." . $file_ext if ($file_ext);
 	$output_file .= ".sai";
 
-	#	my $aln_command =
-	#	    $self->program . " aln "
-	#	  . $options . "  "
-	#	  . $self->reference . " "
-	#	  . $input_file . " > "
-	#	  . $output_file;
 	my $aln_command;
 	$aln_command .= $self->program;
 	$aln_command .= " aln ";
@@ -204,17 +173,7 @@ sub run_aln_mode {
 	$aln_command .= $input_file . " $do_bwa_log_file > ";
 	$aln_command .= $output_file;
 
-	print $aln_command. "\n";
-	eval {
-		my $exit = system($aln_command);
-
-		if ( $exit && $exit >= 1 ) {
-			throw( "Failed to run " . $aln_command );
-		}
-	};
-	if ($@) {
-		throw("Failed to run bwa aln alignment $@");
-	}
+        $self->execute_command_line($aln_command);
 
 	$self->files_to_delete($bwa_log_file);
 
