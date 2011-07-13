@@ -307,7 +307,7 @@ $ENV{'PERL5LIB'} = '/nfs/1000g-work/G1K/work/bin/local-perl/local-lib/lib/perl5/
 
 
   if ( ! (defined $ENV{'PICARD'} )) {
-    $ENV{'PICARD'} = '/nfs/1000g-work/G1K/work/bin/picard/picard-tools-1.33';
+    $ENV{'PICARD'} = '/nfs/1000g-work/G1K/work/bin/picard/picard_143/picard-tools-1.43/';
   }
 
   if ( ! (defined $ENV{'SAMTOOLS'} )) {
