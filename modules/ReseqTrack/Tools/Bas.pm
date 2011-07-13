@@ -72,10 +72,10 @@ sub new {
   $self->output_dir($output_dir);
   $self->set_required_vars;
 
-
-  if ( ! $self->bam_md5 ) {
-    $self->bam_md5 ( run_md5 ($self->bam) );
+  if( ! $self->samtools){
+    $self->samtools('/nfs/1000g-work/G1K/work/bin/samtools/samtools');
   }
+
 
   return $self;
 }
@@ -83,6 +83,10 @@ sub new {
 sub run {
 
   my $self = shift;
+
+  if ( ! $self->bam_md5 ) {
+    $self->bam_md5 ( run_md5 ($self->bam) );
+  }
 
   $self->tmp_process_dir;
 
@@ -307,7 +311,7 @@ $ENV{'PERL5LIB'} = '/nfs/1000g-work/G1K/work/bin/local-perl/local-lib/lib/perl5/
   }
 
   if ( ! (defined $ENV{'SAMTOOLS'} )) {
-    $ENV{'SAMTOOLS'} = '/nfs/1000g-work/G1K/work/bin/samtools_latest/samtools';
+    $ENV{'SAMTOOLS'} = '/nfs/1000g-work/G1K/work/bin/samtools';
   }
 
   if ( ! defined ($ENV{'PERL_INLINE_DIRECTORY'})) {
@@ -317,14 +321,6 @@ $ENV{'PERL5LIB'} = '/nfs/1000g-work/G1K/work/bin/local-perl/local-lib/lib/perl5/
   if (! ($ENV{'PATH'} =~ /samtools/) ) {
     $ENV{'PATH'}= $ENV{'PATH'} . ':' . $ENV{'SAMTOOLS'};
   }
-
-
-
- 
-  # /nfs/1000g-work/G1K/work/bin/VertebrateResequencing-vr-codebase-3ddb4db/modules/VertRes
-
-  $self->samtools('/nfs/1000g-work/G1K/work/bin/samtools_latest/samtools/samtools'); 
-  
 
   return;
 }
