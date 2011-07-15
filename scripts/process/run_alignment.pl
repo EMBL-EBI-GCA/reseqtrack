@@ -19,7 +19,7 @@ my $run_id;
 my $type;
 my $output_dir;
 my $reference;
-my $module_path = "ReseqTrack::Tools::BatchSubmission";
+my $module_path;
 my $module_name;
 my $module_constructor_args;
 my $program_file;
@@ -63,27 +63,40 @@ my $collection = $ca->fetch_by_name_and_type($run_id, $type);
 throw("Failed to find a collection for ".$run_id." ".$type." from ".$dbname) 
     unless($collection);
 
+my $rmi_a = $db->get_RunMetaInfoAdaptor;
+my $run_meta_info = $rmi_a->fetch_by_run_id($run_id);
+
+throw("Failed to find run_meta_info for $run_id from $dbname")
+    unless($run_meta_info);
+
+my $input_files = $collection->others;
+my @input_file_paths = map {$_->{'name'}} @$input_files;
+my $paired_length = $run_meta_info->paired_length;
+
 my $alignment_module = $module_path."::".$module_name;
 my $constructor_hash = parameters_hash($module_constructor_args);
-$constructor_hash->{-reference} = $reference;
-$constructor_hash->{-input} = $collection;
+$constructor_hash->{-input_files} = \@input_file_paths;
 $constructor_hash->{-program} = $program_file;
-$constructor_hash->{-samtools} = $samtools;
 $constructor_hash->{-working_dir} = $output_dir;
-$constructor_hash->{-name} = $run_id;
+$constructor_hash->{-reference} = $reference;
+$constructor_hash->{-samtools} = $samtools;
+$constructor_hash->{-job_name} = $run_id;
+$constructor_hash->{-paired_length} = $paired_length;
 
 my $run_alignment = setup_alignment_module($alignment_module, $constructor_hash);
 
 $run_alignment->run;
 
-my $output_bams = $run_alignment->output_files;
+my $bam_filepaths = $run_alignment->output_bam_files;
+my $bai_filepaths = $run_alignment->output_bai_files;
 
 my $host = get_host_object($host_name, $db);
-my $files = create_objects_from_path_list($output_bams, 'BAM', $host);
+my $bam_files = create_objects_from_path_list($bam_filepaths, 'BAM', $host);
+my $bai_files = create_objects_from_path_list($bai_filepaths, 'BAI', $host);
 
 if($store){
   my $fa = $db->get_FileAdaptor;
-  foreach my $file(@$files){
+  foreach my $file(@$bam_files, @$bai_files){
   my $md5 = run_md5($file->name);
   $file->md5($md5);
   $fa->store($file, $update);
