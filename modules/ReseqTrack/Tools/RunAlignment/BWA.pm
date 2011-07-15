@@ -41,19 +41,17 @@ sub new {
 	my ( $class, @args ) = @_;
 	my $self = $class->SUPER::new(@args);
 
-	my ( $samse_options, $sampe_options, $aln_options, $paired_length ) =
-	  rearrange( [qw(SAMSE_OPTIONS SAMPE_OPTIONS ALN_OPTIONS PAIRED_LENGTH )], @args );
+	my ( $samse_options, $sampe_options, $aln_options ) =
+	  rearrange( [qw(SAMSE_OPTIONS SAMPE_OPTIONS ALN_OPTIONS )], @args );
 
 	#setting defaults
 	$self->program('bwa') unless ( $self->program );
-	$self->paired_length("2000");
-	$self->sampe_options("-a ");
-	$self->aln_options("-q 15 -l 32");
+	$self->aln_options("-q 15 -l 32") unless ($aln_options);
 
 	
-	$self->paired_length( $paired_length);
 	$self->samse_options($samse_options);
 	$self->sampe_options($sampe_options);
+	$self->aln_options($aln_options);
 	
 
 
@@ -178,15 +176,6 @@ sub run_aln_mode {
 	$self->files_to_delete($bwa_log_file);
 
 	return $output_file;
-}
-
-sub paired_length {
-    my ( $self, $arg ) = @_;
-
-    if ($arg) {
-        $self->{paired_length} = $arg;
-    }
-    return $self->{paired_length};
 }
 
 sub samse_options {

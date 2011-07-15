@@ -14,9 +14,9 @@ sub new {
     my ( $class, @args ) = @_;
     my $self = $class->SUPER::new(@args);
 
-    my ( $genome_prefix, $hash_prefix, $build_genome_flag, $insert_size, $se_options, $pe_options)
+    my ( $genome_prefix, $hash_prefix, $build_genome_flag, $se_options, $pe_options)
         = rearrange( [
-            qw( GENOME_PREFIX HASH_PREFIX BUILD_GENOME_FLAG INSERT_SIZE SE_OPTIONS PE_OPTIONS )
+            qw( GENOME_PREFIX HASH_PREFIX BUILD_GENOME_FLAG SE_OPTIONS PE_OPTIONS )
                 ], @args);
 
 
@@ -28,7 +28,6 @@ sub new {
     $self->genome_prefix($genome_prefix);
     $self->hash_prefix($hash_prefix);
     $self->build_genome_flag($build_genome_flag);
-    $self->insert_size($insert_size);
     $self->se_options($se_options);
     $self->pe_options($pe_options);
 
@@ -106,8 +105,8 @@ sub run_pe_alignment {
         $cmd_line .= " " . $self->pe_options;
     }
 
-    if (defined( $self->insert_size )) {
-        $cmd_line .= " --insertsize=" . $self->insert_size;
+    if ($self->paired_length ) {
+        $cmd_line .= " --insertsize=" . $self->paired_length;
     }
 
     $cmd_line .= " -o " . $sam;
@@ -208,16 +207,6 @@ sub se_options {
     }
     return $self->{se_options};
 }
-
-sub insert_size {
-    my $self = shift;
-
-    if (@_) {
-        $self->{insert_size} = shift;
-    }
-    return $self->{insert_size};
-}
-
 
 
 1;

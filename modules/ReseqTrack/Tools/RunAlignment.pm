@@ -24,7 +24,7 @@ use warnings;
 
 use ReseqTrack::Tools::Exception qw(throw warning stack_trace_dump);
 use ReseqTrack::Tools::Argument qw(rearrange);
-use ReseqTrack::Tools::RunSamtools;
+use ReseqTrack::Tools::Samtools;
 use ReseqTrack::Tools::SequenceIndexUtils;
 use File::Basename;
 
@@ -120,7 +120,7 @@ sub new {
       }
   }
 
-  my $samtools_object = ReseqTrack::Tools::RunSamtools->new(
+  my $samtools_object = ReseqTrack::Tools::Samtools->new(
                         -program                 => $samtools,
                         -working_dir             => $self->working_dir,
                         -echo_cmd_line           => $self->echo_cmd_line,
@@ -190,7 +190,7 @@ sub generate_job_name {
 =head2 samtools
 
   Arg [1]   : ReseqTrack::Tools::RunAlignment
-  Arg [2]   : a ReseqTrack::Tools::RunSamtools object
+  Arg [2]   : a ReseqTrack::Tools::Samtools object
   Function  : accessor method for samtools
   Returntype: string
   Exceptions: n/a
@@ -260,6 +260,27 @@ sub mate1_file {
   }
   return $self->{'mate1_file'};
 }
+
+=head2 paired_length
+
+  Arg [1]   : ReseqTrack::Tools::RunAlignment
+  Arg [2]   : integer, value of paired_length
+  Function  : accessor method for paired_length
+  Returntype: integer
+  Exceptions: n/a
+  Example   : $self->paired_length(2000);
+
+=cut
+
+sub paired_length {
+    my $self = shift;
+
+    if (@_) {
+        $self->{paired_length} = shift;
+    }
+    return $self->{paired_length};
+}
+
 
 =head2 mate2_file
 
