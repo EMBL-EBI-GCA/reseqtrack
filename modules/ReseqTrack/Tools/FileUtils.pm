@@ -364,7 +364,7 @@ sub assign_type_by_filename {
       $type = "INTERNAL";
     }elsif($name =~ /changelog/i){
       $type = "CHANGELOG";
-    }elsif($name =~ /\/technical\//i && $name !~ /\/ncbi_varpipe_data\//i ){
+    }elsif($name =~ /\/technical\//i && $name !~ /\/ncbi_varpipe_data\//i &&  $name !~ /other_exome_alignments/i ) {
       $type = "TECHNICAL";
     }elsif($name =~ /\/release/i){
       $type = "RELEASE";

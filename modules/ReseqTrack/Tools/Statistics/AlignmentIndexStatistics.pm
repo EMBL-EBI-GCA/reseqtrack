@@ -88,7 +88,7 @@ sub new_index{
     throw("AlignmentIndexStatistics:new_index ".$new_index." should exist")
       unless(-e $new_index);
     throw("AlignmentIndexStatistcs:new_index ".$new_index." must match pattern ".
-	  "YYYYMMDD.alignment.index.bas.gz") unless($new_index =~ /\d+\.alignment\.index\.bas\.gz/);
+	  "YYYYMMDD.alignment.index.bas.gz") unless($new_index =~ /\d+\.alignment\.index\.bas\.gz/ || $new_index =~ /\d+\.exome\.alignment\.index\.bas\.gz/);
     $self->{new_index} = $new_index;
   }
   return $self->{new_index};
@@ -100,7 +100,7 @@ sub old_index{
     throw("AlignmentIndexStatistics:old_index ".$old_index." should exist")
       unless(-e $old_index);
     throw("AlignmentIndexStatistcs:new_index ".$old_index." must match pattern ".
-	  "YYYYMMDD.alignment.index.bas.gz") unless($old_index =~ /\d+\.alignment\.index\.bas\.gz/);
+	  "YYYYMMDD.alignment.index.bas.gz") unless($old_index =~ /\d+\.alignment\.index\.bas\.gz/ || $old_index =~ /\d+\.exome\.alignment\.index\.bas\.gz/);
     $self->{old_index} = $old_index;
   }
   return $self->{old_index};
@@ -134,20 +134,35 @@ sub fetch_index_bas_file{
     next if($file->filename eq 'alignment.index');
     next if($file->filename =~ /^\d+\.alignment\.index$/);
     #print "file name is " . $file->filename . "\n";    
-    $file->filename =~ /(\d+)\.alignment\.index\.bas\.gz/;
-    my $new_date = $1;
+    my $new_date;
+    if ($file->filename !~ /exome/i) {
+    	$file->filename =~ /(\d+)\.alignment\.index\.bas\.gz/;
+    	$new_date = $1;
+    }
+    else {
+	$file->filename =~ /(\d+)\.exome\.alignment\.index\.bas\.gz/;
+        $new_date = $1;
+    }
     if(!$new_date){
       print "Can't parse ".$file->filename."\n";
     }
-    $index_files{$1} = $file->name;
+    #$index_files{$1} = $file->name;
+    $index_files{$new_date} = $file->name;
   }
   
   #sort dates numerically, the newest date should always be the largest number
   #provided the YYYYMMDD format is followed
 
   my @dates = sort {$a <=> $b} keys(%index_files);
-  $self->new_index =~ /(\d+)\.alignment\.index/ if($self->new_index);
-  my $new_date = $1;
+  my $new_date;
+  if ($self->new_index && $self->new_index !~ /exome/i) {
+    $self->new_index =~ /(\d+)\.alignment\.index/ ;
+    $new_date = $1;
+  }
+  elsif ($self->new_index && $self->new_index =~ /exome/i) {
+    $self->new_index =~ /(\d+)\.exome\.alignment\.index/ ;
+    $new_date = $1;
+  }
   my $old_date;
   #The newest date is the new file unless it is already defined
   $new_date = $dates[-1] unless($new_date);
@@ -307,7 +322,7 @@ sub make_stats{
 =head
  my %h = %$sample_cnt_hash;
  my $c = 1;
- foreach my $s ( keys %{$h{"ABI_SOLID"}{"total"}} ) {
+ foreach my $s ( keys %{$h{"SOLiD"}{"total"}} ) {
      print "sample $c is $s\n";
      $c++;
  }     
@@ -369,7 +384,7 @@ sub parse_bas {
 			my @values = split /\t/, $line;
 			#print STDERR "line is $line\n";
 			my $read_group = $values[6];
-                        next unless($run_id_hash->{$values[6]});
+            #            next unless($run_id_hash->{$values[6]});  ### FIXME, CHECKME, for baylor solid BAMs, lots of read groups are 1, 0.1 etc. but in any event, run id should be unique when used properly
   			my $individual = $values[3];
   			my $population = $individual_to_pop->{$individual};
   			my $study = $values[2];

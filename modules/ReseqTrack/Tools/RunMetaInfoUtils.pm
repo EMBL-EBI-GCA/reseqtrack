@@ -390,6 +390,7 @@ sub get_sequence_index_stats{
     $values[5] = convert_center_name($values[5]);
     next if($values[20]);
     my $summary = $values[$summary_column];
+    #print "study is $summary\trun_id is $values[2]\n";
     my $stat = $values[$stats_column];
     throw("Can't get summary stats from ".$index_file." based on ".$summary_column.
           " as ".$stats_column." contains some non numeric values") 
