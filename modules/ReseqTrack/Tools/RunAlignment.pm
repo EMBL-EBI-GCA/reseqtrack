@@ -24,7 +24,6 @@ use warnings;
 
 use ReseqTrack::Tools::Exception qw(throw warning stack_trace_dump);
 use ReseqTrack::Tools::Argument qw(rearrange);
-use ReseqTrack::Tools::Samtools;
 use ReseqTrack::Tools::SequenceIndexUtils;
 use File::Basename;
 
