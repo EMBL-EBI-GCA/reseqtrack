@@ -1,5 +1,5 @@
 package ReseqTrack::DBSQL::DBAdaptor;
-
+ 
 use ReseqTrack::DBSQL::DBConnection;
 
 use ReseqTrack::Tools::Exception qw(throw warning);
@@ -23,7 +23,8 @@ use ReseqTrack::DBSQL::ArchiveLocationAdaptor;
 use ReseqTrack::DBSQL::InputStringAdaptor;
 use ReseqTrack::DBSQL::MetaAdaptor;
 use ReseqTrack::DBSQL::GenotypeResultsAdaptor;
-
+use ReseqTrack::DBSQL::VerifyBamIDReadGroupAdaptor;
+use ReseqTrack::DBSQL::VerifyBamIDSampleAdaptor;
 
 sub new {
   my($class, @args) = @_;
@@ -246,5 +247,25 @@ sub get_RejectLogAdaptor{
   }
   return $self->{rejectlog_adaptor};
 }
+
+sub get_VerifyBamIDSampleAdaptor{
+  my ($self) = @_;
+  if(!$self->{VerifyBamIDSampleAdaptor}){
+    $self->{VerifyBamIDSampleAdaptor} = ReseqTrack::DBSQL::VerifyBamIDSampleAdaptor->
+        new($self);
+  }
+  return $self->{VerifyBamIDSampleAdaptor};
+}
+
+sub get_VerifyBamIDReadGroupAdaptor{
+  my ($self) = @_;
+  if(!$self->{VerifyBamIDReadGroupAdaptor}){
+    $self->{VerifyBamIDReadGroupAdaptor} = ReseqTrack::DBSQL::VerifyBamIDReadGroupAdaptor->
+        new($self);
+  }
+
+  return $self->{VerifyBamIDReadGroupAdaptor};
+}
+
 
 1;
