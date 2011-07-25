@@ -28,7 +28,8 @@ use vars qw (@ISA  @EXPORT);
 @ISA = qw(Exporter);
 @EXPORT = qw(current_time parse_movelist get_input_arg create_lock_string
              delete_lock_string is_locked useage convert_to_giga current_date 
-	     create_filename calculate_coverage trim_spaces execute_system_command);
+	     create_filename calculate_coverage trim_spaces execute_system_command
+	     get_params);
 
 
 
@@ -264,6 +265,45 @@ sub execute_system_command{
     return $exit;
 
 }
+
+=head2  get_params
+
+  Arg [1]   : hash ref
+  Function  : adds key-value pairs listed in input file to hash unless defined
+  Returntype: hash ref
+  Exceptions: none
+  Example   : get_params ( cfg_file, \%input);
+
+=cut
+
+sub get_params {
+
+    my $file  = shift;
+    my $input = shift;
+
+
+    throw ("Could not open $file") if ( !-e $file);
+
+    open my $IN, '<', $file || die "No config file found";
+
+    while (<$IN>) {
+        chomp $_;
+        next if ( !$_ );
+        my @aa = split /=/;
+        $aa[1] =~ s/\s+//g;
+
+        if (defined  $$input{ $aa[0] }){
+          print "$aa[0] already set. Skipping cfg entry\n";
+          next;
+        }
+
+        $$input{ $aa[0] } = $aa[1] ;
+    }
+    close $IN;
+
+    return ( $input );
+}
+
 
 
 1;
