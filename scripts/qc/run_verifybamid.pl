@@ -56,6 +56,7 @@ $Sample_adaptor = $db->get_VerifyBamIDSampleAdaptor();
 $RG_adaptor     = $db->get_VerifyBamIDReadGroupAdaptor();
 
 
+
 die "Could not retrieve " . $input{bam} . " from file table\n"
   if ( !$bam_file_obj );
 
@@ -77,6 +78,7 @@ if ( $got_sample_result && ! $update) {
 } else {
   print "No results found\n";
 }
+
 
 my ( $sample2, $platform2, $algorithm2, $project2, $analysis2, $chrom2, $date2 )
   = CHECK_AND_PARSE_FILE_NAME( $input{bam} );
@@ -122,8 +124,6 @@ $bestSM = get_verifybamid_file($VBAM->bestSM_file, 0) if (defined $VBAM->bestSM_
 ( $Sample, $passed_step1 ) = &create_Sample_object_step1($selfSM);
 
 
-
-
 #Step 2. Check high selfSM_MIX against low %MIX in selfRG file.
 #High selfSM_MIX  and low selfRG %MIX is bad.
 $BAD += &check_selfRG_data( $Sample, $selfRG );
@@ -143,30 +143,30 @@ print "\n-----------------------------------------\n";
 
 
 
-  foreach my $key ( keys %rg_info ) {
-    my $x =  $rg_info{$key};
+foreach my $key ( keys %rg_info ) {
+  my $x =  $rg_info{$key};
  
 
-    my $RG_OBJ = "ReseqTrack::VerifyBamIDReadGroup";
-    my $rg_obj = $RG_OBJ->new(
-			      -other_id => $bam_file_obj->dbID,
-			      -run_id   => $key,
-			      -SELFIBD  => $rg_info{$key}{'SELFIBD'},
-			      -SELFMIX  => $rg_info{$key}{'SELFMIX'},
-			      -BEST_SM  => $rg_info{$key}{'BEST_SM'},
-			      -BESTIBD  => $rg_info{$key}{'BESTIBD'},
-			      -BESTMIX  => $rg_info{$key}{'BESTMIX'},
-			     );
+  my $RG_OBJ = "ReseqTrack::VerifyBamIDReadGroup";
+  my $rg_obj = $RG_OBJ->new(
+			    -other_id => $bam_file_obj->dbID,
+			    -run_id   => $key,
+			    -SELFIBD  => $rg_info{$key}{'SELFIBD'},
+			    -SELFMIX  => $rg_info{$key}{'SELFMIX'},
+			    -BEST_SM  => $rg_info{$key}{'BEST_SM'},
+			    -BESTIBD  => $rg_info{$key}{'BESTIBD'},
+			    -BESTMIX  => $rg_info{$key}{'BESTMIX'},
+			   );
 	
-    my $got_result = $RG_adaptor->fetch_by_other_id_and_run_id( $bam_file_obj->dbID, $key );
+  my $got_result = $RG_adaptor->fetch_by_other_id_and_run_id( $bam_file_obj->dbID, $key );
 	
-    if ($got_result) {
-      $RG_adaptor->update($rg_obj)  unless ($input{test});
-    } else {
-      $RG_adaptor->store($rg_obj)   unless ($input{test}) ;
-    }
-	 
+  if ($got_result) {
+    $RG_adaptor->update($rg_obj)  unless ($input{test});
+  } else {
+    $RG_adaptor->store($rg_obj)   unless ($input{test}) ;
   }
+	 
+}
 
 
 
@@ -294,15 +294,15 @@ sub check_selfRG_data {
     $rg_info{$rg}{'SELFMIX'} = $srg_mix;
 
 
-       if (! (defined  $rg_info{$rg}{BESTMIX})) {
-	 $rg_info{$rg}{BESTMIX} = 'N/A';
-       }
+    if (! (defined  $rg_info{$rg}{BESTMIX})) {
+      $rg_info{$rg}{BESTMIX} = 'N/A';
+    }
 
-    if (! (defined  $rg_info{$rg}{BESTIBD})){
+    if (! (defined  $rg_info{$rg}{BESTIBD})) {
       $rg_info{$rg}{BESTIBD} = 'N/A';
     }
 
-    if (! (defined  $rg_info{$rg}{BEST_SM})){
+    if (! (defined  $rg_info{$rg}{BEST_SM})) {
       $rg_info{$rg}{BEST_SM} = 'N/A';
     }
 
