@@ -9,7 +9,7 @@ use ReseqTrack::Tools::Exception qw(throw warning);
 use ReseqTrack::Tools::Argument qw(rearrange);
 use File::Basename;
 use Data::Dumper;
-use ReseqTrack::Tools::QC::VerifyBamID::VerifyBamIDReadGroup;
+use ReseqTrack::VerifyBamIDReadGroup;
 
 
 use vars qw(@ISA);
@@ -42,13 +42,15 @@ sub table_name {
 
 sub store {
 	my ( $self, $verifybamid_ReadGroup ) = @_;
+	print "Storing\n";
+	print Dumper 
 
 	throw(  "Can't store "
 		  . $verifybamid_ReadGroup
 		  . " using ReseqTrack::DBSQL::VerifyBamIDReadGroupAdaptor" )
 	  unless (
 		$verifybamid_ReadGroup->isa(
-			"ReseqTrack::Tools::QC::VerifyBamID::VerifyBamIDReadGroup")
+			"ReseqTrack::VerifyBamIDReadGroup")
 	  );
 
 	my $sql =
@@ -84,7 +86,7 @@ sub update {
 		  . " using ReseqTrack::DBSQL::VerifyBamIDReadGroupAdaptor" )
 	  unless (
 		$verifybamid_ReadGroup->isa(
-			"ReseqTrack::Tools::QC::VerifyBamID::VerifyBamIDReadGroup"
+			"ReseqTrack::VerifyBamIDReadGroup"
 		)
 	  );
 
@@ -123,7 +125,7 @@ sub object_from_hashref {
       "
 	) if ( !$hashref );
 
-	my $OBJ = "ReseqTrack::Tools::QC::VerifyBamID::VerifyBamIDReadGroup";
+	my $OBJ = "ReseqTrack::VerifyBamIDReadGroup";
 	my $obj = $OBJ->new(
 
 		-adaptor               => $self,
