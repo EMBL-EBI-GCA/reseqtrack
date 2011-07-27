@@ -9,7 +9,7 @@ use ReseqTrack::Tools::Exception qw(throw warning);
 use ReseqTrack::Tools::Argument qw(rearrange);
 use File::Basename;
 use Data::Dumper;
-use ReseqTrack::Tools::QC::VerifyBamID::VerifyBamIDSample;
+use ReseqTrack::VerifyBamIDSample;
 use vars qw(@ISA);
 @ISA = qw(ReseqTrack::DBSQL::BaseAdaptor);
 
@@ -62,7 +62,7 @@ sub store {
 		  . " using ReseqTrack::DBSQL::VerifyBamIDSampleAdaptor" )
 	  unless (
 		$verifybamid_Sample->isa(
-			"ReseqTrack::Tools::QC::VerifyBamID::VerifyBamIDSample")
+			"ReseqTrack::VerifyBamIDSample")
 	  );
 
 	my $sql =
@@ -109,7 +109,7 @@ sub update {
 		  . " using ReseqTrack::DBSQL::VerifyBamIDSampleAdaptor" )
 	  unless (
 		$verifybamid_Sample->isa(
-			"ReseqTrack::Tools::QC::VerifyBamID::VerifyBamIDSample")
+			"ReseqTrack::VerifyBamIDSample")
 	  );
 
 	my $sql =
@@ -155,7 +155,7 @@ sub object_from_hashref {
 	) if ( !$hashref );
 
 
-	my $obj = ReseqTrack::Tools::QC::VerifyBamID::VerifyBamIDSample->new(
+	my $obj = ReseqTrack::VerifyBamIDSample->new(
 
 		-adaptor               => $self,
 		-verifybamid_Sample_id => $hashref->{verifybamid_Sample_id},
