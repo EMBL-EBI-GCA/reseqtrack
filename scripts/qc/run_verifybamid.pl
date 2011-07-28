@@ -75,8 +75,14 @@ $update = $input{update} if (defined $input{update});
 if ( $got_sample_result && ! $update) {
   print "Have results for " , $input{bam}, " update option = 0. Exitting\n";
   exit;
-} else {
-  print "No results found\n";
+}
+
+if ( $got_sample_result &&  $update) {
+  print "Have results for " , $input{bam}, " update option = 1. Updating\n";
+} 
+
+if ( ! $got_sample_result) {
+  print "No previous results found. Processing\n";
 }
 
 
@@ -98,7 +104,7 @@ my $VBAM = $VOBJ->new(
 		      -bimp          => $input{bimp},
 		      -echo_cmd_line => $input{echo_cmd_line},
 		      -out_prefix    => $input{out_prefix},
-		      -maxdepth      => $input{maxdepth},
+		      -options       => $input{options},
 		      -selfonly      => $input{selfonly},
 		      -working_dir   => $tmp_dir,
 		     );
