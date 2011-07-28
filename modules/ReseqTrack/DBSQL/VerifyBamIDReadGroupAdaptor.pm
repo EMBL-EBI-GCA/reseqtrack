@@ -42,8 +42,6 @@ sub table_name {
 
 sub store {
 	my ( $self, $verifybamid_ReadGroup ) = @_;
-	print "Storing\n";
-	print Dumper 
 
 	throw(  "Can't store "
 		  . $verifybamid_ReadGroup
