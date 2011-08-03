@@ -118,7 +118,7 @@ else {
 #print "BAM path on ftp site: $bam_ftp_path\n" if ($verbose);
 
 unless ($bam =~ /\/nfs\/1000g-work\/G1K\/archive_staging\/ftp\// ) {
-#unless ($bam =~ /\/nfs\/1000g-work\/G1K\/archive_staging\/test2/ ) {  ###FIXME: change after testing
+#unless ($bam =~ /\/nfs\/1000g-work\/G1K\/archive_staging\/test/ ) {  ###FIXME: change after testing
 	throw("BAM file $bam has to be in archive staging area in order for it to be archived\n");
 }
 
@@ -293,18 +293,18 @@ elsif ( check_this_md5($bai) == 1 ) {
 	move_bam_to_trash($db, $bai, $run);
 	throw("md5 check failed for $bai_name, file moved to reject bin\n");
 }	
-elsif ( $bas && check_this_md5($bas) == 1  ) {
+elsif ( $bas && check_this_md5($bas) == 1  ) { ## No need to do md5check for bas files that have been just created as the md5 was calculated
 	move_bam_to_trash($db, $bas, $run);
 	throw("md5 check failed for $bas_name, file moved to reject bin\n");
 }
 else {
 	#print "The BAM file $bam and associated bas and bai files passed md5 check\n" if ($verbose);
-	if ($bas) {
+	#if ($bas) {
 		print LIST "$bam\n$bas_name\n$bai_name\n";
-	}
-	else {
-		print LIST "$bam\n$bai_name\n";
-	}
+	#}
+	#else {
+	#	print LIST "$bam\n$bai_name\n";
+	#}
 	close(LIST);
 
 	my $action_string = "archive";
@@ -401,4 +401,6 @@ sub check_this_md5 {
 
 /usr/bin/perl ~/ReseqTrack/scripts/qc/bam_md5check_and_archive.pl -dbhost mysql-g1kdcc-public -dbname g1k_archive_staging_track -dbuser g1krw -dbpass thousandgenomes -dbport 4197 -bam /nfs/1000g-work/G1K/archive_staging/test/NA06985/alignment/NA06985.chrom11.ILLUMINA.bwa.SRP0000testArchive.20091216.bam -out somewhere_the_farm_job_writes_log_to -run -priority 99  
 
+/usr/bin/perl ~/ReseqTrack/scripts/qc/bam_md5check_and_archive.v2.pl -dbhost mysql-g1kdcc-public -dbname g1k_archive_staging_track -dbuser g1krw -dbpass thousandgenomes -dbport 4197 -bam 
+/nfs/1000g-work/G1K/archive_staging/test/NA06985/alignment/NA06985.chrom10.ILLUMINA.bwa.CEU.low_coverage.2011b.bam -out /tmp 
 =cut

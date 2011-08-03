@@ -86,6 +86,7 @@ my %run_id_hash;
 
 foreach my $rmi(@rmis){
   $run_id_hash{$rmi->run_id} = 1;
+  #print $rmi->run_id . "\t" . $rmi->study_id . "\t" . $collection_name . "\n";  
 }
 
 

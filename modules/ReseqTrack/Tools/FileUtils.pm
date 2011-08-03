@@ -400,13 +400,13 @@ sub assign_type_by_filename {
       $type = "NCBI_".$type;
     }
     
-    if( $name =~ /exome/i && $name =~ /bwa/i  ) {
+    if( $name =~ /exome/i && $name =~ /bwa/i && $name =~ /bam/ ) {
       $type = "EXOME_BI_".$type;
     }
-    if( $name =~ /exome/i && $name =~ /bfast/i  ) {
+    if( $name =~ /exome/i && $name =~ /bfast/i  && $name =~ /bam/  ) {
       $type = "EXOME_BCM_".$type;
     }
-    if( $name =~ /exome/i && $name =~ /mosaik/i  ) {
+    if( $name =~ /exome/i && $name =~ /mosaik/i  && $name =~ /bam/  ) {
       $type = "EXOME_BC_".$type;
     }
     

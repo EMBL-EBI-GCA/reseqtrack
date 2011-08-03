@@ -26,7 +26,7 @@ my @files;
 my $list_file;
 my $md5_file;
 my $type;
-my $host_name;
+my $host_name = "1000genomes.ebi.ac.uk";
 my $run;
 my $verbose;
 my $descend = 1;

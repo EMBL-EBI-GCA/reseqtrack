@@ -4,7 +4,7 @@ use strict;
 use warnings;
 use vars qw(@ISA);
 
-use lib '/homes/zheng/reseq-personal/zheng/lib/reseqtrack_hzb/modules/';
+#use lib '/homes/zheng/reseq-personal/zheng/lib/reseqtrack_hzb/modules/';
 
 use ReseqTrack::RejectLog;
 use ReseqTrack::DBSQL::BaseAdaptor;
