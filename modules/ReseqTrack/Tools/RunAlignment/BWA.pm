@@ -41,19 +41,18 @@ sub new {
 	my ( $class, @args ) = @_;
 	my $self = $class->SUPER::new(@args);
 
-	my ( $samse_options, $sampe_options, $aln_options ) =
-	  rearrange( [qw(SAMSE_OPTIONS SAMPE_OPTIONS ALN_OPTIONS )], @args );
+	my ( $samse_options, $sampe_options, $aln_options, $paired_length) =
+	  rearrange( [qw(SAMSE_OPTIONS SAMPE_OPTIONS ALN_OPTIONS PAIRED_LENGTH)], @args );
 
 	#setting defaults
 	$self->program('bwa') unless ( $self->program );
-	$self->aln_options("-q 15 -l 32") unless ($aln_options);
+	$self->aln_options("-q 15 ") unless ($aln_options);
 
 	
 	$self->samse_options($samse_options);
 	$self->sampe_options($sampe_options);
 	$self->aln_options($aln_options);
-	
-
+	$self->paired_length ( $paired_length);
 
 	return $self;
 }
@@ -99,6 +98,8 @@ sub run_sampe_alignment {
 	my $output_sam = $mate1_sai;
 	$output_sam =~ s/\.mate1\.sai/\_pe\.sam/;
 
+       exit if ( ! $self->paired_length);
+
 	if ( $self->paired_length() ) {
 		my $paired_length = " -a " . $self->paired_length;
 		$self->sampe_options($paired_length);
@@ -114,8 +115,9 @@ sub run_sampe_alignment {
 	  . $self->mate1_file . " "
 	  . $self->mate2_file . " > "
 	  . $output_sam;
-	print $sampe_cmd. "\n";
 
+	print $sampe_cmd. "\n";
+      
         $self->execute_command_line($sampe_cmd);
 
 	$self->files_to_delete($mate1_sai);
