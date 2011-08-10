@@ -252,6 +252,30 @@ CREATE TABLE reject_log (
     );
 
 
+CREATE TABLE `genotype_results` (
+  `genotype_results_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `table_name` enum('file','collection','run_meta_info','input_string') DEFAULT NULL,
+  `other_id` int(10) unsigned NOT NULL,
+  `name` varchar(15) NOT NULL,
+  `claimed` varchar(15) NOT NULL,
+  `top_hit` varchar(15) NOT NULL,
+  `second_hit` varchar(15) NOT NULL,
+  `ratio_2_to_1` decimal(6,2) NOT NULL,
+  `ratio_claimed` decimal(6,2) NOT NULL,
+  `reference` varchar(1000) NOT NULL,
+  `snps_bin` varchar(1000) NOT NULL,
+  `aligner` varchar(1000) NOT NULL,
+  `validation_method` varchar(100) NOT NULL,
+  `max_bases` varchar(40) NOT NULL,
+  `percent_mapped` int(4) unsigned NOT NULL,
+  `verdict` varchar(30) NOT NULL,
+  `cfg_file` varchar(350) NOT NULL,
+  `performed` datetime NOT NULL,
+  PRIMARY KEY (`genotype_results_id`),
+  UNIQUE KEY `name` (`name`)
+) 
+
+
 #Now to add entries to the two standard tables
 
 INSERT INTO archive_action (archive_action_id, action) values(1, 'archive');
