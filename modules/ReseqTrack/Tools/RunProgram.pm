@@ -65,7 +65,7 @@ sub new {
         $echo_cmd_line, $save_files_for_deletion )
     = rearrange( [
          qw( INPUT_FILES PROGRAM JOB_NAME WORKING_DIR
-             ECHO_CMD_LINE SAVE_FILES_FOR_DELETETION )
+             ECHO_CMD_LINE SAVE_FILES_FOR_DELETION )
 		], @args);
 
   if ( ! $working_dir){
