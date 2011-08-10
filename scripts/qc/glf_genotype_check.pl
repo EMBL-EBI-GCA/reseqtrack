@@ -34,6 +34,7 @@ $input{verbose}     = 0;
 $input{working_dir} = "/nfs/nobackup/resequencing_informatics/rseqpipe/genotype_check/grc37/staging";
 $input{no_store}    = 0;
 $input{update} = 1;
+$input{save_files_for_deletion} = 0;
 
 GetOptions (\%input, 'dbhost=s','dbname=s','dbuser=s','dbpass=s',
 	    'dbport=s', 'working_dir=s','verbose!','preprocess_exe=s',
@@ -41,7 +42,7 @@ GetOptions (\%input, 'dbhost=s','dbname=s','dbuser=s','dbpass=s',
 	    'program=s','snps_bin=s','snps_list=s','reference=s',
 	    'validation_method=s','cfg_file=s', 'working_dir=s',
 	    'no_store!', 'no_skip_files!','update!','subsample_size=s',
-	    'file=s@', 'paired_length=s', 'no_subsample!',
+	    'file=s@', 'paired_length=s', 'no_subsample!', 'save_files_for_deletion!',
 	   );
 
 
@@ -51,6 +52,7 @@ if (defined $input{cfg_file}) {
 die "No type given\n"  if (!$input{type});
 
 $input{subsample_size} = 250000000 unless (defined $input{subsample_size});
+
 
 
 my ($db,$ca,$fa,$gr, $rmi_a ) =  get_db_adaptors (\%input);
@@ -101,7 +103,11 @@ my %alignment_hash = (
 		      -name           => $input{name},
 		      -working_dir    => $tmp_dir,
 		      -input_files    => $align_these,
+		      -save_files_for_deletion =>$input{save_files_for_deletion}, 
 		     );
+
+#print Dumper %alignment_hash;
+#exit;
 
 if ($platform eq "ABI_SOLID") {
 
@@ -112,7 +118,7 @@ if ($platform eq "ABI_SOLID") {
   if ($max_read < 30) {
     skip_lane ( $db, $collection->dbID, $input{name}, $claimed_sample, $prev_result,
 		"SHORT_SOLID");
-    delete_directory($tmp_dir) unless ($input{debug}); 
+
     exit;
   }
 
@@ -129,15 +135,23 @@ if ($platform eq "ABI_SOLID") {
 
 $run_alignment = $ALIGNER->new( %alignment_hash );
 
+$run_alignment->files_to_delete($tmp_dir);
+
 $run_alignment->run();
 
 $bams = $run_alignment->output_files;
+
 
 throw "\n\nNo bams made\n\n" if (! (scalar @$bams) );
 
 
 #should only have one bam file.
 foreach my $bam_file (@$bams){ 
+
+ 
+
+  next if ( ! ( $bam_file =~ /\.bam$/) );
+
   print $bam_file,"\n";
 
   my $GLF ="ReseqTrack::Tools::QC::GLFTools";
@@ -222,7 +236,7 @@ foreach my $bam_file (@$bams){
 
 }
 
-delete_directory($run_alignment->working_dir) unless ($input{debug});
+#delete_directory($run_alignment->working_dir) unless ($input{debug});
 
 
 
@@ -237,8 +251,7 @@ sub get_run_meta_info {
 
   my $paired_length = $meta_info->{paired_length};
   my $platform      = $meta_info->{instrument_platform};
-  print $platform,"\n";
-
+  print "$platform  paired length $paired_length\n";
   my $claimed_sample;
   $claimed_sample = $meta_info->{sample_name};
   print "Claimed sample = $claimed_sample\n";
