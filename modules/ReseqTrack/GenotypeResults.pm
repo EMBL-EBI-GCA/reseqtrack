@@ -21,20 +21,18 @@ sub new {
     
       $table_name, $other_id, $name,  $claimed,
       $top_hit, $second_hit, $ratio_2_to_1,  $ratio_claimed,
-      $reference, $snps_bin,  $aligner,  $version,
+      $reference, $snps_bin,  $aligner, 
       $validation_method,  $max_bases, $percent_mapped,
-      $percent_reads_used,  $verdict,  $cfg_file,
-      $performed,$skip_others,
+      $verdict,  $cfg_file,   $performed, $skip_others,
 
      ) = rearrange(
 		   [
 		    qw(
                   TABLE_NAME OTHER_ID NAME CLAIMED
                   TOP_HIT SECOND_HIT RATIO_2_TO_1 RATIO_CLAIMED
-	          REFERENCE SNPS_BIN ALIGNER VERSION
+	          REFERENCE SNPS_BIN ALIGNER
 		  VALIDATION_METHOD MAX_BASES PERCENT_MAPPED
-                  PERCENT_READS_USED VERDICT CFG_FILE PERFORMED
-		  SKIP_OTHERS )
+                  VERDICT CFG_FILE PERFORMED  SKIP_OTHERS )
 		   ],
 		   @args
 		  );
@@ -53,17 +51,16 @@ sub new {
   $self->reference($reference);
   $self->snps_bin($snps_bin);
   $self->aligner($aligner);
-  $self->version($version);
   $self->validation_method($validation_method);
   $self->max_bases($max_bases);
   $self->percent_mapped($percent_mapped);
-  $self->percent_reads_used($percent_reads_used);
- 
   $self->verdict($verdict);
   $self->performed($performed);
   $self->cfg_file($cfg_file);
   $self->skip_others($skip_others);
   
+
+
   if ($self->other_id && !$self->skip_others){
 	print "Getting others\n";
   	$self->get_others;	
@@ -81,7 +78,6 @@ sub new {
   throw("$ERR_MSG reference")  unless ($reference);
   throw("$ERR_MSG snps_bin")   unless ($snps_bin);
   throw("$ERR_MSG aligner")    unless ($aligner);
-  throw("$ERR_MSG version")    unless ($version);
   throw("$ERR_MSG validation_method")    unless ($validation_method);
  
   #throw("$ERR_MSG max_bases")  unless ($max_bases);
@@ -132,10 +128,6 @@ sub others {
 sub get_others{
   my ( $self, $arg ) = @_;
   my $db_id; 
-
-
- # print Dumper ($self);
-
 
   if ($arg){
     $db_id = $arg;
@@ -247,13 +239,6 @@ sub aligner {
   }
   return $self->{aligner};
 }
-sub version {
-  my ( $self, $arg ) = @_;
-  if ($arg) {
-    $self->{version} = $arg;
-  }
-  return $self->{version};
-}
 
 sub validation_method {
   my ( $self, $arg ) = @_;
@@ -278,13 +263,7 @@ sub percent_mapped {
   }
   return $self->{percent_mapped};
 }
-sub percent_reads_used {
-  my ( $self, $arg ) = @_;
-  if ($arg) {
-    $self->{percent_reads_used} = $arg;
-  }
-  return $self->{percent_reads_used};
-}
+
 sub performed {
   my ( $self, $arg ) = @_;
   if ($arg) {
