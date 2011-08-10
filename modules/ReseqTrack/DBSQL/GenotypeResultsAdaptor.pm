@@ -38,11 +38,9 @@ sub columns {
         genotype_results.reference  ,
         genotype_results.snps_bin  ,
         genotype_results.aligner,
-        genotype_results.version,
         genotype_results.validation_method,
         genotype_results.max_bases,
         genotype_results.percent_mapped  , 
-        genotype_results.percent_reads_used,
         genotype_results.verdict    ,
         genotype_results.cfg_file,
         genotype_results.performed";
@@ -72,18 +70,16 @@ sub store {
         reference  ,
         snps_bin  ,
         aligner,
-        version,
         validation_method,
         max_bases,
         percent_mapped  , 
-        percent_reads_used,
         verdict    ,
         cfg_file,
         performed        
        )"
 	  .
 
-	  "values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,now() )";
+	  "values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,now() )";
 
 	my $sth = $self->prepare($sql);
 
@@ -98,13 +94,11 @@ sub store {
 	$sth->bind_param(9 ,  $genotype_results->reference );
 	$sth->bind_param(10,  $genotype_results->snps_bin );
 	$sth->bind_param(11 ,  $genotype_results->aligner );
-	$sth->bind_param(12 ,  $genotype_results->version );
-	$sth->bind_param(13 ,  $genotype_results->validation_method );
-	$sth->bind_param(14 ,  $genotype_results->max_bases );
-	$sth->bind_param(15 ,  $genotype_results->percent_mapped );
-        $sth->bind_param(16 ,  $genotype_results->percent_reads_used );
-	$sth->bind_param(17 ,  $genotype_results->verdict );
-        $sth->bind_param(18 ,  $genotype_results->cfg_file );  
+	$sth->bind_param(12 ,  $genotype_results->validation_method );
+	$sth->bind_param(13 ,  $genotype_results->max_bases );
+	$sth->bind_param(14 ,  $genotype_results->percent_mapped );
+	$sth->bind_param(15,  $genotype_results->verdict );
+        $sth->bind_param(16 ,  $genotype_results->cfg_file );  
 
 	my $rows_inserted = $sth->execute();
 	my $dbID          = $sth->{'mysql_insertid'};
@@ -140,11 +134,9 @@ sub object_from_hashref {
 			   -reference         => $hashref->{reference},
 			   -snps_bin          => $hashref->{snps_bin},
 			   -aligner           => $hashref->{aligner},
-			   -version           => $hashref->{version},
 			   -validation_method => $hashref->{validation_method},
 			   -max_bases         => $hashref->{max_bases},
 			   -percent_mapped    => $hashref->{percent_mapped},
-			   -percent_reads_used=> $hashref->{percent_reads_used},
 			   -verdict           => $hashref->{verdict},
 			   -cfg_file          => $hashref->{cfg_file},
 			   -performed         => $hashref->{performed},
@@ -249,7 +241,7 @@ sub update{
 
 
 	
-	my $sql = "update genotype_results  set table_name = ?, other_id   = ? , claimed  = ?, top_hit = ?, second_hit = ? , ratio_2_to_1 = ?, ratio_claimed = ?, reference  = ? , snps_bin     = ? ,aligner    = ?, version    = ? , validation_method = ?, max_bases     = ?, percent_mapped = ? , percent_reads_used = ?,  verdict = ? ,  cfg_file = ?,  performed = now()  where name  = ? ";
+	my $sql = "update genotype_results  set table_name = ?, other_id   = ? , claimed  = ?, top_hit = ?, second_hit = ? , ratio_2_to_1 = ?, ratio_claimed = ?, reference = ? , snps_bin = ? ,aligner = ?,  validation_method = ?, max_bases = ?, percent_mapped = ? ,  verdict = ? ,  cfg_file = ?,  performed = now()  where name  = ? ";
 
 	my $sth = $self->prepare($sql);
 
@@ -263,14 +255,12 @@ sub update{
 	$sth->bind_param( 8 ,  $genotype_results->reference );
 	$sth->bind_param( 9 ,  $genotype_results->snps_bin );
 	$sth->bind_param(10 ,  $genotype_results->aligner );
-	$sth->bind_param(11 ,  $genotype_results->version );
-	$sth->bind_param(12 ,  $genotype_results->validation_method );
-	$sth->bind_param(13 ,  $genotype_results->max_bases );
-	$sth->bind_param(14 ,  $genotype_results->percent_mapped );
-        $sth->bind_param(15 ,  $genotype_results->percent_reads_used );
-	$sth->bind_param(16 ,  $genotype_results->verdict );
-        $sth->bind_param(17 ,  $genotype_results->cfg_file );  
-	$sth->bind_param(18 ,  $genotype_results->name);
+	$sth->bind_param(11 ,  $genotype_results->validation_method );
+	$sth->bind_param(12 ,  $genotype_results->max_bases );
+	$sth->bind_param(13 ,  $genotype_results->percent_mapped );
+	$sth->bind_param(14 ,  $genotype_results->verdict );
+        $sth->bind_param(15 ,  $genotype_results->cfg_file );  
+	$sth->bind_param(16 ,  $genotype_results->name);
 
         $sth->execute();
 	$sth->finish();
