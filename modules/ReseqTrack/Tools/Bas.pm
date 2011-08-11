@@ -24,7 +24,7 @@ use ReseqTrack::Tools::BamUtils qw (CHECK_AND_PARSE_FILE_NAME);
 use File::Temp qw/ tempfile tempdir /;
 use File::Basename;
 use File::Copy;
-
+ 
 use vars qw(@ISA);
 
 @ISA = qw(ReseqTrack::Tools::AlignmentBase);
@@ -42,6 +42,7 @@ sub new {
       $verbose,
       $in_parent,
       $output_dir,
+    
      )
     =
       rearrange(
@@ -55,6 +56,7 @@ sub new {
               VERBOSE
               IN_PARENT
               OUTPUT_DIR
+             
 )
 		],
 		@args
@@ -88,6 +90,8 @@ sub run {
     $self->bam_md5 ( run_md5 ($self->bam) );
   }
 
+  $self->get_bam_run_id_info();
+
   $self->tmp_process_dir;
 
   if ( $self->need_tags ) {
@@ -97,9 +101,8 @@ sub run {
   }
    
 
-
-
   $self->create_bas;
+
   $self->correct_bas_file_convention;
 
   if ($self->output_dir){
@@ -131,7 +134,7 @@ sub run {
   return;
 }
 
-
+ 
 sub create_bas {
 
   my $self = shift;
@@ -224,12 +227,14 @@ sub tmp_process_dir {
   return;
 }
 
-
-
 sub correct_bas_file_convention{
+
+#BCM SOLID bams have RG info in PU feild off header. This is not good.
 
   my $self = shift;
   
+  my $read_group_info = $self->rg_info;
+
   my $bam_name  = basename ($self->bam_to_process);
   my $bas_file  = $self->tmp_dir . '/' . $self->tmp_bas;
   $bas_file =~ s /\/\//\//g;
@@ -241,7 +246,6 @@ sub correct_bas_file_convention{
   my $newline;
 
   $bam_name =~   s/\.bam//g;	# goes in col 1 of bas file
-
 
   open (my $IN, '<' ,$bas_file) || die "Failed to open $bas_file";
 
@@ -261,6 +265,29 @@ sub correct_bas_file_convention{
     $data[1] = $bam_md5 ;	# not tmp bam md5 if you added tags 
     $data[2] = $study_name;
  
+
+    if (! ( $data[6] =~ /^[ERR|SRR]/)) {
+      print "Invalid run id identifier : $data[6]\n";
+
+      if (defined  $$read_group_info{$data[6]}) {
+
+	if ($data[0] =~ /solid/i) {
+	  print "Probably BCM SOLID bam. Assuming run id in PU designation\n";	
+	  my $tmp_rg =  $$read_group_info{$data[6]}{PU};
+
+	  if ( $tmp_rg =~ /^[ERR|SRR]/){
+	    print "Replacing with " , $$read_group_info{$data[6]}{PU},"\n";
+	    $data[6] = $$read_group_info{$data[6]}{PU};
+	  }
+	  else{
+	    print "Do not know what to replace bad identifier with. Ignoring\n";
+	  }
+	}
+
+      }
+
+    }
+
     my $newline = join ( "\t", @data);
 
     push (@hold, $newline);
@@ -293,11 +320,17 @@ sub correct_bas_file_convention{
 }
 
 
+
+
 sub set_required_vars {
   my $self = shift;
   
 
-$ENV{'PERL5LIB'} = '/nfs/1000g-work/G1K/work/bin/local-perl/local-lib/lib/perl5/x86_64-linux:/nfs/1000g-work/G1K/work/bin/local-perl/local-lib/lib/perl5:/homes/smithre/OneKGenomes/reseqtrack/modules:/nfs/1000g-work/G1K/work/bin/vr-codebase/modules/';
+ 
+
+
+#  $ENV{'PERL5LIB'} = '/nfs/1000g-work/G1K/work/bin/local-perl/local-lib/lib/perl5/x86_64-linux:/nfs/1000g-work/G1K/work/bin/local-perl/local-lib/lib/perl5:/homes/smithre/OneKGenomes/reseqtrack/modules:/nfs/1000g-work/G1K/work/bin/VertebrateResequencing-vr-codebase-3ddb4db/modules/';
+$ENV{'PERL5LIB'} = '/nfs/1000g-work/G1K/work/bin/local-perl/local-lib/lib/perl5/x86_64-linux:/nfs/1000g-work/G1K/work/bin/local-perl/local-lib/lib/perl5:/homes/smithre/OneKGenomes/reseqtrack/modules:/homes/zheng/reseq-personal/zheng/lib/VertebrateResequencing-vr-codebase-74f9f17/modules/';
 
 #  print  $ENV{'PERL5LIB'},"\n";
 
@@ -449,6 +482,61 @@ sub output_dir {
   }
   return $self->{'output_dir'};
 }
+
+sub get_bam_run_id_info{
+
+#BCM SOLID bams has RG in PU field of bam header. Must catch.
+#@RG     ID:1    PL:SOLiD        PU:SRR097880    LB:ANG_TG.HG00142-1_1sA SM:HG00142      CN:BCM
+#@RG     ID:2    PL:SOLiD        PU:SRR097881    LB:ANG_TG.HG00142-1_1sA SM:HG00142      CN:BCM
+#
+# Extract RG head info and change when in sub  correct_bas_file_convention
+
+
+  my $self = shift;
+  my $bam  = $self->bam;
+  my $samtools  = $self->samtools;
+  my $key = "-";
+  my %rg_hash;
+
+  my @rg_info =  `$samtools view $bam -H | grep "^\@RG"`;
+
+
+  die "No read group info found in $bam\n" if ( scalar  @rg_info < 1);
+  print "Found RG info for ",  scalar  @rg_info ," runs\n";
+
+  foreach my $line (@rg_info) {
+ #   print $line;
+    my @aa = split /\s+/,$line;
+    shift @aa;
+
+    my $key = "-";
+    foreach my $x (@aa) {
+      my ($p1, $p2) = split /:/,$x;
+      ($key = $p2) if ( $p1 eq "ID");
+    }
+    die "No ID in RG row \n" if ( $key eq "-");
+ 
+ 
+    foreach my $x (@aa) {
+      my ($p1, $p2) = split /:/,$x;
+      next if ($p2 eq $key);
+      $rg_hash{$key}{$p1} =  $p2;
+    }
+  }
+
+  $self->rg_info(\%rg_hash);
+
+  return;
+}
+
+sub rg_info {
+  my ($self, $arg) = @_;
+  if (defined $arg) {
+    $self->{'rg_info'} = $arg;
+  }
+  return $self->{'rg_info'};
+}
+
 
 
 1;
