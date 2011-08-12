@@ -18,7 +18,7 @@ sub new {
   my $self = $class->SUPER::new(@args);
 
   my ( $reference, $claimed_sample, $bimp, $selfonly, $out_prefix,
-     $maxdepth) =
+     $options) =
     rearrange(
 	      [
 	       qw(
@@ -26,8 +26,8 @@ sub new {
 			  CLAIMED_SAMPLE
 			  BIMP
 			  SELFONLY
-			  OUT_PREFIX
-                          MAXDEPTH
+			  OUT_PREFIX                       
+                          OPTIONS
 			  )
 	      ],
 	      @args
@@ -38,8 +38,7 @@ sub new {
   $self->bimp($bimp);
   $self->selfonly($selfonly);
   $self->out_prefix($out_prefix);
-  $self->maxdepth($maxdepth);
-
+  $self->options($options);
  
   return $self;
 }
@@ -82,7 +81,7 @@ sub construct_run_cmd {
 
   $cmd .= "--selfonly "  if ( $self->selfonly );
 
-  $cmd .= "--precise -d " . $self->maxdepth  . " "  if ($self->maxdepth);
+  $cmd .=  $self->options  . " "  if ($self->options);
 
   if ( !defined( $self->out_prefix ) ) {
     $out_prefix = $self->working_dir . "\/" . basename( $bam );
@@ -94,8 +93,8 @@ sub construct_run_cmd {
 
   $cmd .= "--out " . $out_prefix . " --verbose ";
 
-  #print $cmd, "\n";
-  
+  print $cmd,"\n";
+ 
   $self->command_line($cmd);
 
   return;
@@ -145,14 +144,6 @@ sub add_outfiles {
  
   return;
 }
-
-#sub bam {
-#  my ( $self, $arg ) = @_;
-#  if ($arg) {
-#    $self->{bam} = $arg;
-#  }
-#  return $self->{bam};
-#}
 
 sub reference {
   my ( $self, $arg ) = @_;
@@ -217,12 +208,12 @@ sub bestSM_file {
   return $self->{bestSM_file};
 }
 
-sub maxdepth {
+sub options {
   my ( $self, $arg ) = @_;
   if ($arg) {
-    $self->{maxdepth} = $arg;
+    $self->{options} = $arg;
   }
-  return $self->{maxdepth};
+  return $self->{options};
 }
 
 
