@@ -229,7 +229,7 @@ sub tmp_process_dir {
 
 sub correct_bas_file_convention{
 
-#BCM SOLID bams have RG info in PU feild off header. This is not good.
+#BCM SOLID bams have RG info in PU field off header. This is not good.
 
   my $self = shift;
   
