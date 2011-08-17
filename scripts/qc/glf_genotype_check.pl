@@ -63,6 +63,19 @@ my ($platform,$claimed_sample, $paired_length, $collection) =
   get_run_meta_info ( $rmi_a,$ca, $input{name}, $input{type});
 
 
+#for event_complete entries. 'skip_platform' listed in cfg file
+if (defined $input{skip_platform}){
+  $_= $input{skip_platform};
+  my @should_skip = /$platform/ig;
+
+  if (@should_skip) {
+    print "Not running on " . $input{name}." on $platform. Flagged to skip\n";
+    exit;
+  }
+}
+
+
+
 my $have_snps  = have_snps ($claimed_sample, $input{snps_list});
 if (!$have_snps) {
   skip_lane ( $db, $collection->dbID , $input{name}, $claimed_sample, $prev_result,
@@ -107,7 +120,9 @@ my %alignment_hash = (
 		     );
 
 #print Dumper %alignment_hash;
-#exit;
+
+
+
 
 if ($platform eq "ABI_SOLID") {
 
@@ -129,6 +144,11 @@ if ($platform eq "ABI_SOLID") {
 
   $ALIGNER = "ReseqTrack::Tools::RunAlignment::BWA";
   $alignment_hash{-paired_length} =  $paired_length;
+
+}
+
+if ( ! $ALIGNER ) {
+  throw  "Do not know what aligner to use for $platform\n";
 
 }
 
