@@ -122,7 +122,7 @@ sub object_from_hashref {
   my $OBJ ="ReseqTrack::GenotypeResults";
   my $geno_obj = $OBJ->new(
 			   -adaptor           => $self,
-			   -genotype_results_id  => $hashref->{genotype_results_id},
+			   -dbID              => $hashref->{genotype_results_id},
 			   -table_name        => $hashref->{table_name},
 			   -other_id          => $hashref->{other_id},
 			   -name              => $hashref->{name},
