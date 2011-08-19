@@ -8,10 +8,7 @@ use ReseqTrack::Tools::Exception qw(throw warning);
 use ReseqTrack::Tools::Argument qw(rearrange);
 use File::Basename;
 use Data::Dumper;
-use ReseqTrack::Tools::RunVerifyBamIDUtils qw (ALT_A1
-  BESTHOMMIXLLK   BESTHOMMIXLLKdiff DP HET_A1
-  HOM MIX  SEQ_SM run_id SELFIBD
-  SELFIBDLLK SELFIBDLLKdiff SEQ_RG SEQ_SM performed other_id table_name);
+
   
 @ISA = qw(ReseqTrack::Base);
 
@@ -37,6 +34,7 @@ sub new {
         $num_run_ids,
         $num_low_selfIBD_run_ids,
         $failed,
+        $status,
         $performed,
 
       ) = rearrange(
@@ -58,6 +56,7 @@ sub new {
               num_run_ids
               num_low_selfIBD_run_ids
               FAILED
+              STATUS
               performed
               )
         ],
@@ -79,8 +78,131 @@ sub new {
     $self->num_run_ids($num_run_ids);
     $self->num_low_selfIBD_run_ids($num_low_selfIBD_run_ids);
     $self->failed($failed);
+    $self->status($status);
     $self->performed($performed);
     return $self;
+}
+
+
+sub status {
+  my ( $self, $arg ) = @_;
+  if ( defined $arg ) {
+	  $self->{status} = $arg;
+	}
+  return $self->{status};
+}
+
+sub performed {
+	my ( $self, $arg ) = @_;
+	if ( defined $arg ) {
+		$self->{performed} = $arg;
+	}
+	return $self->{performed};
+}
+
+#5. SELFIBDLLK/BESTIBDLLK : Log likelihood of the sequence reads
+# given the MLE SELFIBD/BESTIBD with SELF_SM/BEST_SM
+sub SELFIBDLLK {
+	my ( $self, $arg ) = @_;
+	if ( defined $arg ) {
+		$self->{SELFIBDLLK} = $arg;
+	}
+	return $self->{SELFIBDLLK};
+}
+
+#6. SELFIBDLK-/BESTIBDLK- : Difference of log-likelihood between
+# SELFIBDLLK/BESTIBDLLK and the likelihood of reads under no contamination (SELFIBD=1)
+sub SELFIBDLLKdiff {
+	my ( $self, $arg ) = @_;
+	if ( defined $arg ) {
+		$self->{SELFIBDLLKdiff} = $arg;
+	}
+	return $self->{SELFIBDLLKdiff};
+}
+
+
+#4. SELFIBD/BESTIBD
+sub SELFIBD {
+	my ( $self, $arg ) = @_;
+	if ( defined $arg ) {
+		$self->{SELFIBD} = $arg;
+	}
+	return $self->{SELFIBD};
+}
+
+#SEQ_SM : Sample ID of the sequenced sample. Obtained from @RG header / SM tag in the BAM file
+sub SEQ_SM {
+	my ( $self, $arg ) = @_;
+	if ( defined $arg ) {
+		$self->{SEQ_SM} = $arg;
+	}
+	return $self->{SEQ_SM};
+}
+
+#25. %MIX : Maximum-likelihood estimate of % of contamination based on
+# two-sample mixture model from population allele frequency.
+sub MIX {
+	my ( $self, $arg ) = @_;
+	if ( defined $arg ) {
+		$self->{MIX} = $arg;
+	}
+	return $self->{MIX};
+}
+
+
+
+sub HOM {
+	my ( $self, $arg ) = @_;
+	if ( defined $arg ) {
+		$self->{HOM} = $arg;
+	}
+	return $self->{HOM};
+}
+
+
+#HET-A1% : Fraction of reference bases in Heterozygous site
+sub HET_A1 {
+	my ( $self, $arg ) = @_;
+	if ( defined $arg ) {
+		$self->{HET_A1} = $arg;
+	}
+	return $self->{HET_A1};
+}
+
+
+#21.#DP>1 : Number of sites with depth of 2 or greater
+sub DP {
+	my ( $self, $arg ) = @_;
+	if ( defined $arg ) {
+		$self->{DP} = $arg;
+	}
+	return $self->{DP};
+}
+
+sub BESTHOMMIXLLKdiff {
+	my ( $self, $arg ) = @_;
+	if ( defined $arg ) {
+		$self->{BESTHOMMIXLLKdiff} = $arg;
+	}
+	return $self->{BESTHOMMIXLLKdiff};
+}
+
+
+sub BESTHOMMIXLLK {
+	my ( $self, $arg ) = @_;
+	if ( defined $arg ) {
+		$self->{BESTHOMMIXLLK} = $arg;
+	}
+	return $self->{BESTHOMMIXLLK};
+}
+
+#ALT-A1% : Fraction of reference bases in HomAlt site
+sub ALT_A1 {
+	my ( $self, $arg ) = @_;
+	if ( defined $arg ) {
+		$self->{ALT_A1} = $arg;
+	}
+	return $self->{ALT_A1};
 }
 
 sub num_run_ids {
@@ -106,6 +228,26 @@ sub failed {
     return $self->{failed};
 }
     
+
+sub other_id {
+    my ( $self, $arg ) = @_;
+    if ( defined $arg ) {
+        $self->{other_id} = $arg;
+    }
+    return $self->{other_id};
+}
+
+sub table_name {
+    my ( $self, $arg ) = @_;
+    if ( defined $arg ) {
+        $self->{table_name} = $arg;
+    }
+    return $self->{table_name};
+}
+
+
+
+#INFO extracted from results files
 
 #cat HG00308.selfRG  | cut -f 1,4,5,6,17,19,21,25,26,27,28
 #SEQ_RG  SELFIBD SELFIBDLLK      SELFIBDLLK-     HET-A1% ALT-A1% #DP     %MIX    %HOM    BESTHOMMIXLLK   BESTHOMMIXLLK-

@@ -8,8 +8,6 @@ use ReseqTrack::Tools::Exception qw(throw warning);
 use ReseqTrack::Tools::Argument qw(rearrange);
 use File::Basename;
 use Data::Dumper;
-use ReseqTrack::Tools::RunVerifyBamIDUtils qw (
-  swap_candidate run_id SELFIBD other_id );
 
 @ISA = qw(ReseqTrack::Base);
 
@@ -26,17 +24,19 @@ sub new {
 		$BEST_SM,
 		$BESTIBD,
 		$BESTMIX,
+	        $status
 
 	  ) = rearrange(
 		[
 			qw(
-			  other_id
+			  OTHER_ID
 			  RUN_ID
 			  SELFIBD
 			  SELFMIX
 			  BEST_SM
 			  BESTIBD
 			  BESTMIX
+                          STATUS
 			  )
 		],
 		@args
@@ -49,10 +49,59 @@ sub new {
 	$self->BEST_SM($BEST_SM);
 	$self->BESTIBD($BESTIBD);
 	$self->BESTMIX($BESTMIX);
-	#print Dumper $self;
+	$self->status($status);	
+
 
 	return $self;
 }
+sub run_id {
+	my ( $self, $arg ) = @_;
+	if ( defined $arg ) {
+		$self->{run_id} = $arg;
+	}
+	return $self->{run_id};
+}
+
+
+
+sub status {
+    my ( $self, $arg ) = @_;
+    if ( defined $arg ) {
+        $self->{status} = $arg;
+    }
+    return $self->{status};
+}
+
+
+sub other_id {
+    my ( $self, $arg ) = @_;
+    if ( defined $arg ) {
+        $self->{other_id} = $arg;
+    }
+    return $self->{other_id};
+}
+
+
+#4. SELFIBD/BESTIBD
+sub SELFIBD {
+	my ( $self, $arg ) = @_;
+	if ( defined $arg ) {
+		$self->{SELFIBD} = $arg;
+	}
+	return $self->{SELFIBD};
+}
+
+
+
+sub swap_candidate {
+	my ( $self, $arg ) = @_;
+	if ( defined $arg ) {
+		$self->{swap_candidate} = $arg;
+	}
+	return $self->{swap_candidate};
+}
+
+
 
 
 sub SELFMIX {
@@ -87,6 +136,7 @@ sub BESTMIX {
     }
     return $self->{BESTMIX};
 }
+
 
 1;
 
