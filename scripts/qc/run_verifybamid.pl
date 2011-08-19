@@ -9,12 +9,11 @@ use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::DBSQL::FileAdaptor;
 use ReseqTrack::VerifyBamIDSample;
 use ReseqTrack::VerifyBamIDReadGroup;
-use ReseqTrack::Tools::RunVerifyBamIDUtils;
 use ReseqTrack::Tools::RunVerifyBamID;
 use ReseqTrack::Tools::GeneralUtils qw (get_params);
 use ReseqTrack::Tools::BamUtils;
 use ReseqTrack::Tools::FileSystemUtils qw (create_tmp_process_dir delete_directory);
-
+use ReseqTrack::Tools::Exception qw(throw warning stack_trace_dump);
 my %input;
 my %rg_info;
 
@@ -30,6 +29,7 @@ my $selfRG;
 my $bestRG;
 my $bestSM;
 my $got_sample_result;
+my $got_readgroup_result;
 my $Sample_adaptor;
 my $RG_adaptor;
 my $bam_file_obj;
@@ -39,7 +39,7 @@ GetOptions(
 	   'dbpass=s', 'dbport=s',   'working_dir=s', 'verbose!',
 	   'bam=s',    'cfg_file=s', 'out_prefix=s', 'echo_cmd_line!',
 	   'bimp=s', 'debug!', 'selfonly!', 'update!', 'selfSM=s',
-	   'selfRG=s','bestRG=s', 'test!');
+	   'selfRG=s','bestRG=s', 'test!', 'save_files_for_deletion!');
 
 
 if ( defined $input{cfg_file} ) {
@@ -65,10 +65,17 @@ print "File id = ", $bam_file_obj->dbID, "\n";
 
 
 
-$got_sample_result = $Sample_adaptor->fetch_by_other_id( $bam_file_obj->dbID );
+$got_sample_result    = $Sample_adaptor->fetch_by_other_id( $bam_file_obj->dbID );
+$got_readgroup_result = $RG_adaptor->fetch_by_other_id( $bam_file_obj->dbID );
+
+
+if ( $input{selfonly} && $got_readgroup_result){
+ throw ("\nYou are running with 'selfonly' option, but there are read group\n" .
+       "results associated with file_id = " .  $bam_file_obj->dbID . "\n" )
+}
+
 
 my $update = 0;
-
 $update = $input{update} if (defined $input{update});
 
 
@@ -194,9 +201,9 @@ if ( $got_sample_result) {
   $Sample_adaptor->store($Sample) unless ($input{test}) ;
 }
 
-
-#delete_directory ($VBAM->{working_dir}) unless $input{debug};
-
+if ( -e $VBAM->{working_dir}){
+  delete_directory ($VBAM->{working_dir}) unless $input{debug};
+}
 
 
 #=====================================================
@@ -280,10 +287,10 @@ sub check_selfRG_data {
      
   #if ( !$passed_step1 ) {
 
-  print "Step 2 Check selfRG ------------\n";
+  print "Step 2 Check selfRG\n";
 
 
-  print "total RG = $totalRG\n";
+ # print "total RG = $totalRG\n";
 
   my $high_mix = 0;
   my $ctr      = 0;
@@ -492,4 +499,68 @@ sub get_db_adaptors {
 
 
 
+=pod
 
+=head1 NAME
+
+ReseqTrack/scripts/qc/run_verifybam.pl
+
+=head1 SYNOPSIS
+
+ This script will take runs the program VerifyBamID on a bam file and stores
+ a subsection of the results in the DB table VerifyBam_Sample and VerifyBam_ReadGroup.
+ Different types of bam require different command lines. These are loaded via a cfg file.
+
+=head1 OPTIONS
+
+Database options
+
+This is the database the objects will be written to
+
+ -dbhost, the name of the mysql-host
+ -dbname, the name of the mysql database
+ -dbuser, the name of the mysql user
+ -dbpass, the database password if appropriate
+ -update,    Use if you wish to update results. If results are present in DB
+            and -update is not used the script exit.
+ -working_dir, Base directory for processing in temp directories. These 
+           should be removed after processing is complete.
+
+ -save_files_for_deletion, RunProgram.pm option that prevents deletion of output files.   
+
+ VerifyBamID options.
+ -selfonly,  only check sample against reference snps. Quicker.
+ -bimp,      bed format file containing reference snps info.
+            (bed file via something ~ ......
+            vcftools --plink --vcf reference_snps.vcf
+            rename out ref_snps out*
+            plink --file ref_snps --maf 0.01 --geno 0.05 --make-bed
+            rename plink ref_snps plink*)
+ -reference, location of fasta formatted reference sequence. Also present
+            must be ref.umfa file. VerifyBamID will create one if missing
+
+
+ Note: If there are results for a run_id in the Sample and Read_group tables you cannot 
+ run the script with the option combination  '-update -selfonly' as this will update the
+ VerifyBamID_Sample table, but not the associated VerifyBamID_ReadGroup entries.
+
+
+example
+
+ perl reseqtrack/scripts/qc/run_verifybamid.pl -dbhost mysql-g1kdcc-public -dbport 4197 -dbuser g1krw -dbpass **** -dbname g1k_archive_staging_track -cfg_file /nfs/1000g-work/G1K/work/rseqpipe/perl_code/reseq-personal/rseqpipe/prog_conf/verifybam_chr20.cfg -working_dir /tmp -update -bam /nfs/1000g-archive/vol1/ftp/data/NA11831/exome_alignment/NA11831.mapped.SOLID.bfast.CEU.exome.20110411.bam
+
+
+ the cfg file will look similar to 
+
+ ftp_root=/nfs/1000g-archive/vol1/ftp/
+ program=/nfs/1000g-work/G1K/work/bin/verifyBamID/bin/verifyBamID
+ bimp=/nfs/1000g-work/G1K/work/REFERENCE/verifybam/CHROM20/chr20
+ reference=/nfs/1000g-work/G1K/work/REFERENCE/verifybam/VerifyBamID/verifyBamID-0.0.5/reference/human_g1k_v37.fa
+ working_dir=/nfs/1000g-work/G1K/scratch/rseqpipe/verifybamid/tmp
+ options=-m 10 -g 5e-3
+ selfonly=0
+
+ Different options are required for different types of bams ( ie low coverage, exome ).
+
+
+=cut
