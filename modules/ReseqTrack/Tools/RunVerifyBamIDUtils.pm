@@ -27,6 +27,7 @@ use vars qw (@ISA  @EXPORT);
   run_id
   SEQ_SM
   performed
+  status
 );
 
 #ALT-A1% : Fraction of reference bases in HomAlt site
@@ -166,6 +167,14 @@ sub table_name {
         $self->{table_name} = $arg;
     }
     return $self->{table_name};
+}
+
+sub status {
+    my ( $self, $arg ) = @_;
+    if ( defined $arg ) {
+        $self->{status} = $arg;
+    }
+    return $self->{status};
 }
 
 1;
