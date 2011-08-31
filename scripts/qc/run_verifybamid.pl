@@ -69,7 +69,8 @@ $got_sample_result    = $Sample_adaptor->fetch_by_other_id( $bam_file_obj->dbID 
 $got_readgroup_result = $RG_adaptor->fetch_by_other_id( $bam_file_obj->dbID );
 
 
-if ( $input{selfonly} && $got_readgroup_result){
+if ( $input{selfonly} && scalar (@$got_readgroup_result) ){
+  print Dumper $got_readgroup_result;
  throw ("\nYou are running with 'selfonly' option, but there are read group\n" .
        "results associated with file_id = " .  $bam_file_obj->dbID . "\n" )
 }
