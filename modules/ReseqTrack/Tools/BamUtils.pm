@@ -8,11 +8,14 @@ use ReseqTrack::Tools::Exception qw(throw warning stack_trace_dump);
 use File::Copy;
 use File::Basename;
 use File::Find ();
+use Data::Dumper;
 
 use vars qw (@ISA  @EXPORT);
 
 @ISA    = qw(Exporter);
-@EXPORT = qw(sum_bam_reads male_female_check move_bam_to_trash CHECK_AND_PARSE_FILE_NAME get_collection_name_from_file_name check_bas);
+@EXPORT = qw(sum_bam_reads male_female_check move_bam_to_trash
+             CHECK_AND_PARSE_FILE_NAME get_collection_name_from_file_name check_bas
+             get_bam_run_id_info);
 
 
 =head2 sum_bam_reads
@@ -307,4 +310,53 @@ sub check_bas {
 	}
 	close BAS;
 	return $flag;	 
+}
+
+
+sub get_bam_run_id_info{
+
+#BCM SOLID bams has RG in PU field of bam header. Must catch.
+#@RG     ID:1    PL:SOLiD        PU:SRR097880    LB:ANG_TG.HG00142-1_1sA SM:HG00142      CN:BCM
+#@RG     ID:2    PL:SOLiD        PU:SRR097881    LB:ANG_TG.HG00142-1_1sA SM:HG00142      CN:BCM
+#
+# Extract RG head info and change when in sub  correct_bas_file_convention
+
+  my $bam  = shift;
+
+  if ( !-e $bam){
+    throw "$bam does not exist\n";
+  }
+
+
+  my $key = "-";
+  my %rg_hash;
+
+  my @rg_info =  `samtools view $bam -H | grep "^\@RG"`;
+
+
+  die "No read group info found in $bam\n" if ( scalar  @rg_info < 1);
+#  print "Found RG info for ",  scalar  @rg_info ," runs\n";
+
+  foreach my $line (@rg_info) {
+ #   print $line;
+    my @aa = split /\s+/,$line;
+    shift @aa;
+
+    my $key = "-";
+    foreach my $x (@aa) {
+      my ($p1, $p2) = split /:/,$x;
+      ($key = $p2) if ( $p1 eq "ID");
+    }
+    die "No ID in RG row \n" if ( $key eq "-");
+
+
+    foreach my $x (@aa) {
+      my ($p1, $p2) = split /:/,$x;
+      next if ($p2 eq $key);
+      $rg_hash{$key}{$p1} =  $p2;
+    }
+  }
+ # print Dumper %rg_hash;
+
+  return (\%rg_hash);
 }
