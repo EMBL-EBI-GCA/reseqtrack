@@ -202,13 +202,13 @@ sub filter_files{
   #Filtering all files
   $self->filtered_frag($self->output_dir."/".$filtered_frag_name);
   $self->filter_matepairs if($self->mate1 && $self->mate2);
-  $self->filter_frag;
+  $self->filter_frag if($self->frag);
   $self->close_files;
   #compressing files
   my @compressed_files;
   if($self->filtered_mate1 && -e $self->filtered_mate1){
     unless(-s $self->filtered_mate1){
-      print STDERR $self->filtered_mate1." is empty deleting\n";
+      #print STDERR $self->filtered_mate1." is empty deleting\n";
       delete_file($self->filtered_mate1);
     }else{
       push(@compressed_files, $self->compress_file($self->filtered_mate1));
@@ -216,7 +216,7 @@ sub filter_files{
   }
   if($self->filtered_mate2 && -e $self->filtered_mate2){
     unless(-s $self->filtered_mate2){
-      print STDERR $self->filtered_mate2." is empty deleting\n";
+      #print STDERR $self->filtered_mate2." is empty deleting\n";
       delete_file($self->filtered_mate2);
     }else{
       push(@compressed_files, $self->compress_file($self->filtered_mate2));
@@ -224,13 +224,14 @@ sub filter_files{
   }
   if($self->filtered_frag && -e $self->filtered_frag){
     unless(-s $self->filtered_frag){
-      print STDERR $self->filtered_frag." is empty deleting\n";
+      #print STDERR $self->filtered_frag." is empty deleting\n";
       delete_file($self->filtered_frag);
     }else{
       push(@compressed_files, $self->compress_file($self->filtered_frag));
     }
   }
   $self->compressed_files(\@compressed_files);
+  $self->print_error_hash_summary();
   return \@compressed_files;
 }
 
@@ -451,6 +452,12 @@ sub filter_matepairs{
 
 sub print_read{
    my ($self, $header, $seq, $strand, $qual, $fh) = @_;
+   if(!$fh){
+     throw("Have no filehandle to print to");
+   }
+   unless(fileno($fh)){
+     throw("Can't print ".$header." to an undefined filehandle");
+   }
    print $fh $header."\n";
    print $fh $seq."\n";
    print $fh $strand."\n";
@@ -500,38 +507,47 @@ sub check_read{
   unless($header =~ /$run_id/){
     #print STDERR $header." from ".$filename." does not contain the run id\n";
     #should die here
+    $self->add_to_error_hash("Run id missing from header");
     return 0;
   }
   if(length($strand) > 1 && !($strand =~ /$run_id/)){
     #print STDERR $header." ".$strand." from ".$filename." does not contain ".
     #  "the run id\n";
     #should die here
+    $self->add_to_error_hash("Run id missing from strand string");
     return 0;
   }
   unless(length($seq) == length($qual)){
     #print STDERR "Seq and Qual strings from ".$filename." ".$header.
     #  " are of different lengths\n";
+    $self->add_to_error_hash("Sequence and Qual strings different lengths");
     return 0;
   }
   unless($self->check_length($seq)){
     #print STDERR "There is a problem with the length of ".$filename." ".$read_count.
     #  " seq or qual string ".$header."\n";
+    $self->add_to_error_hash("sequence string to short");
     return 0;
   }
   unless($self->check_prop_n($seq)){
     #print STDERR "Sequence string  for ".$filename." ".$read_count.
     #  " contains to many Ns ".$header." \n"; 
+    $self->add_to_error_hash("To Many Ns");
     return 0;
   }
-  unless($self->check_base_comp($seq)){
-    #print $seq."\n";
-    #print STDERR "Sequence string  for ".$filename." ".$read_count.
-    #  " contains to many runs of the same base ".$header."\n"; 
+  #print "Checking ".$header."\n";
+  #print $seq."\n";
+  unless($self->check_base_comp($seq, $header)){
+    print STDERR $header."\n";
+    print STDERR "Sequence string  for ".$filename." ".$read_count.
+      " contains to many runs of the same base ".$header."\n"; 
+    $self->add_to_error_hash("To many bases of same type");
     return 0;
   }
   unless($self->check_qual($qual)){
     #print STDERR "Qual string  for ".$filename." ".$read_count.
     #  " contains to many low values ".$header."\n"; 
+    $self->add_to_error_hash("To low qual values");
     return 0;
   }
   return 1;
@@ -614,13 +630,22 @@ sub looks_like_colorspace{
 
 
 sub check_base_comp{
-  my ($self, $seq) = @_;
+  my ($self, $seq, $header) = @_;
   my $len = $self->min_length;
   my ($seq_str) = $self->get_seq_string_to_check($seq);
+  if($seq =~ /([^A|C|G|T|N|0|1|2|3|\.|\n])/gi){
+    #print "Throwing away ".$header." ".$seq."\n";
+    #throw("Non standard characters in ".$header." ".$seq);
+    return 0;
+  }
   if($self->is_colorspace){
-    unless ($seq =~ /^[A-Z]/i && $self->looks_like_colorspace($seq_str) ) {
-      throw("There is a problem for ".$seq." colorspace run as still contains ".
-	    "letters or non numeric characters after subseq ".$seq_str);
+    my $length = length($seq_str) - 1;
+    my $colour_space_string = substr($seq, 1, $length); 
+    if($colour_space_string =~ /^[A-Z]/i
+	    || !($self->looks_like_colorspace($colour_space_string))) {
+      throw("There is a problem for ".$header." ".$seq." colorspace run as ".
+	    "still contains letters or non numeric characters after subseq ".
+	    $seq_str);
       return 0;
     }
     if($seq_str =~ /\./ || $seq_str =~ /N/i){
@@ -908,13 +933,45 @@ sub create_fh{
   }
   my $open_cmd = $mode." ".$file;
   $open_cmd .= " | " if($use_pipe);
-  $fh->open($open_cmd);
-  if(!$fh){
+  eval{
+    $fh->open($open_cmd);
+  };
+  if($@){
+    throw("Problem with ".$open_cmd." $@");
+  }
+  if(!$fh || !fileno($fh)){
     throw("Failed to open ".$open_cmd);
   }
   return $fh;
 }
 
+
+sub print_error_hash_summary{
+  my ($self) = @_;
+  foreach my $key(keys(%{$self->error_hash})){
+    print STDERR $key." ".$self->{error_hash}->{$key}."\n";
+  }
+}
+sub add_to_error_hash{
+  my ($self, $key) = @_;
+  throw("Can't add an empty key to hash") unless($key);
+  unless($self->{error_hash}->{$key}){
+    $self->{error_hash}->{$key} = 1;
+  }else{
+    $self->{error_hash}->{$key}++;
+  }
+}
+
+sub error_hash{
+  my ($self, $arg) = @_;
+  if($arg){
+    $self->{error_hash} = $arg;
+  }
+  if(!$self->{error_hash}){
+    $self->{error_hash} = {};
+  }
+  return $self->{error_hash};
+}
 
 =head2 accessor methods
 
@@ -1181,7 +1238,8 @@ sub filtered_mate1_fh{
     $self->{filtered_mate1_fh} = $fh;
   }
   unless($self->{filtered_mate1_fh}){
-    $fh = $self->create_fh($self->filtered_mate1, ">");
+    #print STDERR "Opening filtered mate1 file handle ".$self->filtered_mate1."\n";
+    $fh = $self->create_fh($self->filtered_mate1, ">") if($self->filtered_mate1);
     $self->{filtered_mate1_fh} = $fh;
   }
   return  $self->{filtered_mate1_fh};

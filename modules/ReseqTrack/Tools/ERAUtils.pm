@@ -342,14 +342,21 @@ sub date_hash{
   return \%hash;
 }
 
-
 sub convert_population{
   my ($string, $run_id, $study_id) = @_;
+  throw("Can't convert an empty string for ".$run_id." ".$study_id)
+    unless($string);
   my $pop;
   if($string =~ /yri/i){
     $pop = 'YRI';
+  }elsif($string =~ /PEL/i){
+    $pop = 'PEL';
+  }elsif($string =~ /KHV/){
+    $pop = 'KHV';
   }elsif($string =~ /yoruba/i){
     $pop = 'YRI';
+  }elsif($string =~ /ACB/){
+    $pop = 'ACB';
   }elsif($string =~ /southern\s+han\s+chinese/i){
     $pop = 'CHS';
   }elsif($string =~ /CHS/i){
@@ -418,11 +425,19 @@ sub convert_population{
     $pop = 'IBS';
   }elsif($string =~ /IBS/i){
     $pop = 'IBS';
- }elsif($string =~ /GIH/){
-   $pop = 'GIH';
- }elsif($string =~ /MKK/){
-   $pop = 'MKK';
- }else{
+  }elsif($string =~ /CDX/i){
+    $pop = 'CDX';
+  }elsif($string =~ /GWD/i){
+    $pop = 'GWD';
+  }elsif($string =~ /GHN/i){
+    $pop = 'GHN';
+  }elsif($string =~ /MAB/i){
+    $pop = 'MAB';
+  }elsif($string =~ /AJM/i){
+    $pop = 'AJM';
+  }elsif($string =~ /ACB/i){
+    $pop = 'ACB';
+  }else{
     throw("Failed to find pop for ".$string." ".$run_id." ".$study_id);
    }
   return $pop;

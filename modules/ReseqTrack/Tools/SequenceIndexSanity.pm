@@ -536,6 +536,7 @@ sub check_population{
   $hash{'CLM'} = 1;
   $hash{'PEL'} = 1;
   $hash{'PUR'} = 1;
+  $hash{'CDX'} = 1;
   while(<FH>){
     chomp;
     next if(/SUBMISSION_ID/);

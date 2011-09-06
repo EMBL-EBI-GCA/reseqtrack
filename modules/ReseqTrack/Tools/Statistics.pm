@@ -235,6 +235,9 @@ sub get_rmis{
   if($collection_name && $collection_type){
     my $ca = $db->get_CollectionAdaptor;
     my $collection =  $ca->fetch_by_name_and_type($collection_name, $collection_type);
+    if(!$collection){
+      throw("Failed to get a collection for ".$collection_name." and ".$collection_type);
+    }
     @rmis = @{$collection->others};
   }else{
     my $rmia = $db->get_RunMetaInfoAdaptor;
