@@ -1,3 +1,4 @@
+#!/usr/local/bin/perl
 use warnings;
 use strict;
 
@@ -14,11 +15,23 @@ use File::Basename;
 use Data::Dumper;
 
 my %input;
+my %snps;
+my $snps_file = "/nfs/1000g-work/G1K/work/REFERENCE/snps/grc37_snps/OMNI_1525_PASS_V2/bin/20110601_omni1525_v2.bin.list";
+
+
+$input{dbname} = "g1k_archive_staging_track";
+$input{dbport} = 4197;
+$input{dbhost} = "mysql-g1kdcc-public";
+$input{dbuser} = "g1kro";
 
 GetOptions(
 	\%input,    'dbhost=s', 'dbname=s',      'dbuser=s',
-	'dbpass=s', 'dbport=s', 'working_dir=s', 'verbose!'
+	'dbpass=s', 'dbport=s', 'working_dir=s', 'verbose!',
+	   'skip_name_check!',
 );
+
+
+
 
 
 my $db = &get_db_connection( \%input );
@@ -29,11 +42,19 @@ print "\n\nStarting Jr Health check of: " . $input{dbname} . "\n";
 print '-' x 45;
 print "\n";
 
+open my $SNPS ,'<', $snps_file || die "Nope: snps_file\n";
+while (<$SNPS>){
+  chomp;
+  $snps{$_} = 1;
+}
+close $SNPS;
+
+
+&failed_glf_but_FILTERED_FASTQ ($db);
 
 &history_objects_with_no_assoc_obj( $db, 'file');
+
 &history_objects_with_no_assoc_obj( $db, 'collection');
-
-
 
 &objects_with_no_history ( $db, 'collection');
 
@@ -47,6 +68,9 @@ print "\n";
 &more_read_than_bases( $db, $input{verbose} );
 
 &no_genotype_results_for_run_id( $db, $input{verbose} );
+
+
+exit if $input{skip_name_check};
 
 &check_fastq_collection_types_consistent( $db, 'FILTERED_FASTQ',
 	$input{verbose} );
@@ -69,13 +93,13 @@ print "\n\nDone \n";
 sub history_objects_with_no_assoc_obj {
     my ( $db, $table,$verbose ) = @_;
     
-    my $get = "select history_id,other_id, table_name from history where table_name = \"$table\" ";
-    my $clause ="  other_id not in (select ${table}_id from $table)"; 
+    my $get = "select other_id,table_name  from history where table_name = \"$table\" ";
+    my $clause ="  other_id not in (select ${table}_id from $table) group by other_id,table_name"; 
 
     my $sql = "$get AND  $clause" ;
     
     print $sql,"\n\n" if $verbose;
-    
+   
     my $sth = $db->dbc->prepare($sql);
     $sth->execute;
     my $ctr = 0;
@@ -85,9 +109,49 @@ sub history_objects_with_no_assoc_obj {
       }
 
  print "Got $ctr  history (table = $table) objects with no existing $table objects\n";
+    return;
 }
 
 
+=head2
+
+
+
+
+=cut
+sub failed_glf_but_FILTERED_FASTQ {
+	my ( $db, $verbose ) = @_;
+	my  @results;
+
+	print "Checking for genotype FAILED  results\n";
+	
+	my $sql = "select name from genotype_results where verdict = \"FAILED\"";
+	my $sth = $db->dbc->prepare($sql);
+	$sth->execute;
+
+
+	while ( my $rowArrayref = $sth->fetchrow_arrayref ) {
+        
+		#print "$ctr @$rowArrayref[0] @$rowArrayref[1]\n";
+		push( @results, @$rowArrayref[0] );
+	}
+	print "Got ", scalar(@results), " runs that FAILED genotype check\n";
+
+	my $ca = $db->get_CollectionAdaptor;
+
+	foreach my $name (@results){
+	  my $coll = $ca->fetch_by_name_and_type ($name,"WITHDRAWN_FILTERED_FASTQ");
+
+	 if (! $coll){
+	   print "Possible error: Got $name failed GLF check but has no ";
+	   print "WITHDRAWN_FILTERED_FASTQ collection\n";
+
+	  }
+
+	} 
+
+ return;
+}
 
 =head2 objects_with_no_history 
 
@@ -262,19 +326,33 @@ sub no_genotype_results_for_run_id {
 	my ( $db, $verbose ) = @_;
 
 	my $sql =
-	    'select run_id, sample_name, center_name  from run_meta_info where status = "public" and run_id not in (select name from genotype_results)';
+	    'select run_id, sample_name, center_name  from run_meta_info ' .
+            'where status = "public" and run_id not in (select name from genotype_results)';
 #	print $sql;
 	my $sth = $db->dbc->prepare($sql);
 	$sth->execute;
 	my $ctr = 0;
+        my $no_snps;
 
 	while ( my @row = $sth->fetchrow_array ) {
-		print "@row\n";# if $verbose;
+		
+	 
+	  print "@row" if( $verbose);
+	  if (! defined $snps{$row[1]} ){
+	    print " No snps available\n" if( $verbose);
+	    $no_snps++;
+	  }
+	  else{
+	    print " $row[1] ", $snps{$row[1]} ," \n" if( $verbose);
+	  }
+	 
+
 		$ctr++;
 	}
 	$sth->finish;
 
-	print "Have $ctr run_meta_info entries with no genotype results\n";
+	print "\nHave $ctr run_meta_info entries with no genotype results\n";
+	print "Have $no_snps runs have no snps\n\n";	
 	return;
 }
 
