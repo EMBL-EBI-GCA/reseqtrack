@@ -14,12 +14,16 @@ use ReseqTrack::Tools::GeneralUtils qw (get_params);
 use ReseqTrack::Tools::BamUtils;
 use ReseqTrack::Tools::FileSystemUtils qw (create_tmp_process_dir delete_directory);
 use ReseqTrack::Tools::Exception qw(throw warning stack_trace_dump);
+use ReseqTrack::Tools::BamUtils  qw (get_bam_run_id_info);
+
+
 my %input;
 my %rg_info;
 
 
 $input{echo_cmd_line} = 0;
 $input{test}          = 0;
+
 
 my $Sample;
 my $passed_step1 = 0;
@@ -33,36 +37,38 @@ my $got_readgroup_result;
 my $Sample_adaptor;
 my $RG_adaptor;
 my $bam_file_obj;
+my $chr20 = 0; 
 
 GetOptions(
 	   \%input,    'dbhost=s',   'dbname=s',      'dbuser=s',
 	   'dbpass=s', 'dbport=s',   'working_dir=s', 'verbose!',
-	   'bam=s',    'cfg_file=s', 'out_prefix=s', 'echo_cmd_line!',
+	   'name=s',    'cfg_file=s', 'out_prefix=s', 'echo_cmd_line!',
 	   'bimp=s', 'debug!', 'selfonly!', 'update!', 'selfSM=s',
-	   'selfRG=s','bestRG=s', 'test!', 'save_files_for_deletion!');
+	   'selfRG=s','bestRG=s', 'test!', 'save_files_for_deletion!',
+	   'chrom20!');
 
 
 if ( defined $input{cfg_file} ) {
   get_params( $input{cfg_file}, \%input );
 }
 
+
+if ( ! defined $input{chrom20}){
+  $input{chrom20} = 0;
+} 
 #print Dumper %input;
 
 
 my ( $db, $fa )  = get_db_adaptors( \%input );
-$bam_file_obj = $fa->fetch_by_name( $input{bam} );
+
+$bam_file_obj = $fa->fetch_by_name( $input{name} );
+ 
+throw ( "Could not get file object for " ,  $input{name},"\n") if ( ! $bam_file_obj);
+
+#print Dumper $bam_file_obj; 
 
 $Sample_adaptor = $db->get_VerifyBamIDSampleAdaptor();
 $RG_adaptor     = $db->get_VerifyBamIDReadGroupAdaptor();
-
-
-
-die "Could not retrieve " . $input{bam} . " from file table\n"
-  if ( !$bam_file_obj );
-
-print "File id = ", $bam_file_obj->dbID, "\n";
-
-
 
 
 $got_sample_result    = $Sample_adaptor->fetch_by_other_id( $bam_file_obj->dbID );
@@ -70,10 +76,22 @@ $got_readgroup_result = $RG_adaptor->fetch_by_other_id( $bam_file_obj->dbID );
 
 
 if ( $input{selfonly} && scalar (@$got_readgroup_result) ){
-  print Dumper $got_readgroup_result;
+  
  throw ("\nYou are running with 'selfonly' option, but there are read group\n" .
        "results associated with file_id = " .  $bam_file_obj->dbID . "\n" )
 }
+
+
+if  ( $input{chrom20} == 1 ) {
+  print "Running chrom20 file only\n";
+   $chr20 = 1;
+  if ( !($bam_file_obj->name =~ /chrom20/i)){
+    print "\n\n$input{name} is not a chrom20 bam. flagged to only do chrom20 bams\n";
+    exit;
+  }
+}
+
+
 
 
 my $update = 0;
@@ -81,12 +99,12 @@ $update = $input{update} if (defined $input{update});
 
 
 if ( $got_sample_result && ! $update) {
-  print "Have results for " , $input{bam}, " update option = 0. Exitting\n";
+  print "Have results for " , $input{name}, " update option = 0. Exitting\n";
   exit;
 }
 
 if ( $got_sample_result &&  $update) {
-  print "Have results for " , $input{bam}, " update option = 1. Updating\n";
+  print "Have results for " , $input{name}, " update option = 1. Updating\n";
 } 
 
 if ( ! $got_sample_result) {
@@ -95,7 +113,9 @@ if ( ! $got_sample_result) {
 
 
 my ( $sample2, $platform2, $algorithm2, $project2, $analysis2, $chrom2, $date2 )
-  = CHECK_AND_PARSE_FILE_NAME( $input{bam} );
+  = CHECK_AND_PARSE_FILE_NAME( $input{name} );
+
+
 
 
 $db->dbc->disconnect_when_inactive(2);
@@ -107,7 +127,7 @@ my $VOBJ = 'ReseqTrack::Tools::RunVerifyBamID';
 my $VBAM = $VOBJ->new(
 		      -program       => $input{program},
 		      -reference     => $input{reference},
-		      -input_files   => $input{bam},
+		      -input_files   => $input{name},
 		      -bfile         => $input{bfile},
 		      -bimp          => $input{bimp},
 		      -echo_cmd_line => $input{echo_cmd_line},
@@ -135,7 +155,7 @@ $bestRG = get_verifybamid_file($VBAM->bestRG_file, 1) if (defined $VBAM->bestRG_
 $bestSM = get_verifybamid_file($VBAM->bestSM_file, 0) if (defined $VBAM->bestSM_file);
 
 # Step 1. Look for SELFIBD < 0.98 and %MIX > 0.02
-( $Sample, $passed_step1 ) = &create_Sample_object_step1($selfSM);
+( $Sample, $passed_step1 ) = &create_Sample_object_step1($selfSM, $analysis2,$date2,$chr20);
 
 
 #Step 2. Check high selfSM_MIX against low %MIX in selfRG file.
@@ -152,10 +172,10 @@ $BAD += &check_SELFIBD_in_selfRG( $selfRG, $Sample->num_run_ids );
 #Step 4  Check for sample swaps
 $BAD += &check_for_sample_swaps($bestRG, $Sample->SEQ_SM) if ($bestRG) ;
 
-print $input{bam}, "  is BAD ($BAD)\n" if ($BAD);
+print $input{name}, "  is BAD ($BAD)\n" if ($BAD);
 print "\n-----------------------------------------\n";
 
-
+my $bam_header_info = get_bam_run_id_info ( $bam_file_obj->name);
 
 foreach my $key ( keys %rg_info ) {
   my $x =  $rg_info{$key};
@@ -173,6 +193,8 @@ foreach my $key ( keys %rg_info ) {
 			   );
 	
   my $got_result = $RG_adaptor->fetch_by_other_id_and_run_id( $bam_file_obj->dbID, $key );
+ 
+  correct_run_id_pu_mismatch ( $rg_obj, $bam_header_info);
 	
   if ($got_result) {
     $RG_adaptor->update($rg_obj)  unless ($input{test});
@@ -210,6 +232,34 @@ if ( -e $VBAM->{working_dir}){
 #=====================================================
 #=====================================================
 #=====================================================
+
+sub correct_run_id_pu_mismatch{
+
+  my ($rg_obj ,$bam_header_info) = @_;
+  my $rg = $rg_obj->run_id;
+
+  print "=========== $rg ==========\n";
+
+  if ( ! ( $rg =~ /^[E|S]RR/ ) ) {
+
+    if ( defined $$bam_header_info{$rg_obj->run_id}) {
+
+      my $tmp_rg =  $$bam_header_info{$rg_obj->run_id}{PU};
+
+      if ( $tmp_rg =~ /^[ERR|SRR]/) {
+        print "Replacing " ,    $rg ," with $tmp_rg \n";
+        $rg_obj->run_id ($tmp_rg);
+      } else {
+        warn "Do not know what to replace bad identifier with. Ignoring\n";
+      }
+    }
+  }
+ 
+
+  return;
+}
+
+
 sub check_SELFIBD_in_selfRG {
   my ( $selfRG, $totalRG ) = @_;
   my $ctr = 0;
@@ -351,8 +401,11 @@ sub create_Sample_object_step1 {
   #Load info from selfSM file
   #if SELFIBD < 0.98 or %MIX > 0.02%. Possible problem
 
-  $selfSM = shift;
+  my ($selfSM,$analysis_group,$sequence_index, $chr20) = @_ ;
   my $passed_step1 = 0;
+
+  print "create_Sample_object_step1  $chr20\n";
+
 
   foreach my $key ( keys %$selfSM ) {
     next if ( $key =~ /header/ );
@@ -373,7 +426,12 @@ sub create_Sample_object_step1 {
 			-HOM               => $$a_ref[ $$selfSM{header}{'%HOM'} ],
 			-BESTHOMMIXLLK     => $$a_ref[ $$selfSM{header}{'BESTHOMMIXLLK'} ],
 			-BESTHOMMIXLLKdiff => $$a_ref[ $$selfSM{header}{'BESTHOMMIXLLK-'} ],
+			-analysis_group     => $analysis_group, 
+			-sequence_index     => $sequence_index,
+			-chr20             => $chr20,
+                        
 		       );
+
 
     my $selfibd    = $$a_ref[ $$selfSM{header}{'SELFIBD'} ];
     my $selfSM_MIX = $$a_ref[ $$selfSM{header}{'%MIX'} ];
