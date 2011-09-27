@@ -71,6 +71,8 @@ sub construct_run_cmd {
   my $files =  $self->input_files;
   my $bam   = @{$files}[0];
 
+  throw "No bam file name passed\n" if ( ! $bam);
+
   $cmd .= $self->program . " ";
 
   $cmd .= "--reference " . $self->reference . " ";
