@@ -43,6 +43,9 @@ sub columns {
         verifybamid_Sample.BESTHOMMIXLLKdiff,
         verifybamid_Sample.num_run_ids,
         verifybamid_Sample.num_low_selfIBD_run_ids,
+        verifybamid_Sample.sequence_index,
+        verifybamid_Sample.analysis_group,
+        verifybamid_Sample.chr20,  
         verifybamid_Sample.failed,
         verifybamid_Sample.status,
         verifybamid_Sample.performed    "
@@ -70,8 +73,9 @@ sub store {
     "insert into verifybamid_Sample (other_id, table_name,"
       . "SEQ_SM, SELFIBD, SELFIBDLLK, SELFIBDLLKdiff,HET_A1, ALT_A1,"
 	. "DP, MIX,HOM  , BESTHOMMIXLLK, BESTHOMMIXLLKdiff,"
-	  . "num_run_ids, num_low_selfIBD_run_ids, failed, status,performed ) "
-	    . " values( ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,now() ) ";
+	  . "num_run_ids, num_low_selfIBD_run_ids, sequence_index,analysis_group, " 
+	    . " chr20, failed, status,performed ) "
+	      . " values( ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,now() ) ";
 
   my $sth = $self->prepare($sql);
   $sth->bind_param( 1,  $verifybamid_Sample->other_id );
@@ -89,8 +93,12 @@ sub store {
   $sth->bind_param( 13, $verifybamid_Sample->BESTHOMMIXLLKdiff );
   $sth->bind_param( 14, $verifybamid_Sample->num_run_ids );
   $sth->bind_param( 15, $verifybamid_Sample->num_low_selfIBD_run_ids );
-  $sth->bind_param( 16, $verifybamid_Sample->failed );
-  $sth->bind_param( 17, $verifybamid_Sample->status );
+
+  $sth->bind_param( 16, $verifybamid_Sample->sequence_index );
+  $sth->bind_param( 17, $verifybamid_Sample->analysis_group );
+  $sth->bind_param( 18, $verifybamid_Sample->chr20 );
+  $sth->bind_param( 19, $verifybamid_Sample->failed );
+  $sth->bind_param( 20, $verifybamid_Sample->status );
 
   my $rows_inserted = $sth->execute();
   my $dbID          = $sth->{'mysql_insertid'};
@@ -119,7 +127,8 @@ sub update {
       . " SELFIBDLLK = ? , SELFIBDLLKdiff = ? ,HET_A1 = ? , ALT_A1 = ?,"
 	. " DP = ? , MIX = ? ,HOM = ?   , BESTHOMMIXLLK = ? , "
 	  . " BESTHOMMIXLLKdiff = ?, num_run_ids = ? , "
-	    . " num_low_selfIBD_run_ids = ?, failed = ? , status = ? " 
+	    . " num_low_selfIBD_run_ids = ?, sequence_index = ? , anaysis_group = ? , "
+	      . " chr20 = ? ,failed = ? , status = ? " 
 	      . ", performed = now()  where other_id  = ? and table_name = ?";
 
   my $sth = $self->prepare($sql);
@@ -137,10 +146,13 @@ sub update {
   $sth->bind_param( 11, $verifybamid_Sample->BESTHOMMIXLLKdiff );
   $sth->bind_param( 12, $verifybamid_Sample->num_run_ids );
   $sth->bind_param( 13, $verifybamid_Sample->num_low_selfIBD_run_ids );
-  $sth->bind_param( 14, $verifybamid_Sample->failed );
-  $sth->bind_param( 15, $verifybamid_Sample->status );
-  $sth->bind_param( 16, $verifybamid_Sample->other_id );
-  $sth->bind_param( 17, $verifybamid_Sample->table_name );
+  $sth->bind_param( 14, $verifybamid_Sample->sequence_index );
+  $sth->bind_param( 15, $verifybamid_Sample->analysis_group );
+  $sth->bind_param( 16, $verifybamid_Sample->chr20 );
+  $sth->bind_param( 17, $verifybamid_Sample->failed );
+  $sth->bind_param( 18, $verifybamid_Sample->status );
+  $sth->bind_param( 19, $verifybamid_Sample->other_id );
+  $sth->bind_param( 20, $verifybamid_Sample->table_name );
 
   $sth->execute();
   $sth->finish();
@@ -176,6 +188,9 @@ sub object_from_hashref {
 		      -BESTHOMMIXLLKdiff     => $hashref->{BESTHOMMIXLLKdiff},
 		      -num_run_ids           => $hashref->{num_run_ids},
 		      -num_low_selfIBD_run_ids =>$hashref->{num_low_selfIBD_run_ids},
+		      -sequence_index        =>$hashref->{sequence_index},
+		      -analysis_group        =>$hashref->{analysis_group},
+                      -chr20                  =>$hashref->{chr20},
 		      -failed    => $hashref->{failed},
 		      -status    => $hashref->{status},
 		      -performed => $hashref->{performed},
