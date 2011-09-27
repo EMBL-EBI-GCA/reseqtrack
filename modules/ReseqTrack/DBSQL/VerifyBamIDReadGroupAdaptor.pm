@@ -80,7 +80,7 @@ sub store {
 
 sub update {
   my ( $self, $verifybamid_ReadGroup ) = @_;
-  
+
   throw(  "Can't store "
 	  . $verifybamid_ReadGroup
 	  . " using ReseqTrack::DBSQL::VerifyBamIDReadGroupAdaptor" )
@@ -113,6 +113,8 @@ sub update {
 
   return $verifybamid_ReadGroup;
 }
+
+
 
 sub object_from_hashref {
   my ( $self, $hashref ) = @_;
@@ -163,9 +165,16 @@ sub fetch_by_other_id_and_run_id{
   throw($other_id." has returned multiple objects ".@results." not sure what to do") 
     if (@results && @results >= 2);
  
+
+  if ( @results ==0 ){
+   print "No results found for  $other_id $run_id\n";
+   return;
+
+  }
+
   my $result = $results[0];
     
-  return \$result;
+  return $result;
 }
 
 
