@@ -33,6 +33,9 @@ sub new {
         $BESTHOMMIXLLKdiff,
         $num_run_ids,
         $num_low_selfIBD_run_ids,
+	$sequence_index,
+	$analysis_group,
+	$chr20,
         $failed,
         $status,
         $performed,
@@ -55,6 +58,9 @@ sub new {
               BESTHOMMIXLLKdiff
               num_run_ids
               num_low_selfIBD_run_ids
+              sequence_index
+              analysis_group
+              chr20
               FAILED
               STATUS
               performed
@@ -62,6 +68,10 @@ sub new {
         ],
         @args
       );
+
+    print "CHROM20 =$chr20\n";
+
+
     $self->other_id ($other_id);
     $self->table_name($table_name);
     $self->SEQ_SM($SEQ_SM);
@@ -77,6 +87,9 @@ sub new {
     $self->BESTHOMMIXLLKdiff($BESTHOMMIXLLKdiff);
     $self->num_run_ids($num_run_ids);
     $self->num_low_selfIBD_run_ids($num_low_selfIBD_run_ids);
+    $self->sequence_index($sequence_index);
+    $self->analysis_group($analysis_group);
+    $self->chr20($chr20);
     $self->failed($failed);
     $self->status($status);
     $self->performed($performed);
@@ -243,6 +256,36 @@ sub table_name {
         $self->{table_name} = $arg;
     }
     return $self->{table_name};
+}
+
+
+sub sequence_index {
+
+    my ( $self, $arg ) = @_;
+    if ( defined $arg ) {
+        $self->{sequence_index} = $arg;
+    }
+    return $self->{sequence_index};
+
+}
+
+sub analysis_group {
+
+    my ( $self, $arg ) = @_;
+    if ( defined $arg ) {
+        $self->{analysis_group} = $arg;
+    }
+    return $self->{analysis_group};
+
+}
+
+sub chr20 {
+    my ( $self, $arg ) = @_;
+    if ( defined $arg ) {
+        $self->{chr20} = $arg;
+    }
+    return $self->{chr20};
+
 }
 
 
