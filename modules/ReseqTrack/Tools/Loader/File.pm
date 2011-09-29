@@ -26,7 +26,7 @@ sub new {
       $md5_file,        $hostname,  $die_for_problems,
       $update_existing, $store_new, $assign_types,
       $check_types,     $do_md5,    $md5_program,
-      $remote,
+      $remote, 
    )
    = rearrange(
   [
@@ -135,13 +135,9 @@ print "Sanity check\n" if $self->verbose;
 
  foreach my $file (@$files) {
   $dups{$file}++;
- }
-
- foreach my $i ( keys %dups ) {
-  if ( $dups{$i} > 1 ) {
-   $bad{$i} = "Duplicate file name:";
-  }
- }
+ }#just get rid of duplication rather than complain
+ my @paths = keys(%dups);
+ $files = \@paths;
  if ( keys %bad && $self->hostname eq "1000genomes.ebi.ac.uk") { # don't throw when it is remote host loading
   warning "Found the following problems:\n";
   foreach my $i ( keys %bad ) {
@@ -188,6 +184,7 @@ sub get_paths_from_md5_file {
  foreach my $key ( keys(%$hash) ) {
   my $md5       = $hash->{$key};
   my $full_path = $key;
+
   $hash->{$full_path} = $md5;
   push( @paths, $full_path );
  }
