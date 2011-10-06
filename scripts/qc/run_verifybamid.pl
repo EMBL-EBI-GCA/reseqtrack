@@ -56,8 +56,6 @@ if ( defined $input{cfg_file} ) {
 if ( ! defined $input{chrom20}){
   $input{chrom20} = 0;
 } 
-#print Dumper %input;
-
 
 my ( $db, $fa )  = get_db_adaptors( \%input );
 
