@@ -31,7 +31,7 @@ my $files_to_delete;
 my %input;
 
 $input{verbose}     = 0;
-$input{working_dir} = "/nfs/nobackup/resequencing_informatics/rseqpipe/genotype_check/grc37/staging";
+#$input{working_dir} = "/nfs/nobackup/resequencing_informatics/rseqpipe/genotype_check/grc37/staging";
 $input{no_store}    = 0;
 $input{update} = 1;
 $input{save_files_for_deletion} = 0;
@@ -50,6 +50,9 @@ if (defined $input{cfg_file}) {
   get_params ($input{cfg_file}, \%input);
 }
 die "No type given\n"  if (!$input{type});
+
+die "'working_dir' not set\n" if (! (defined $input{working_dir}));
+
 
 $input{subsample_size} = 250000000 unless (defined $input{subsample_size});
 
