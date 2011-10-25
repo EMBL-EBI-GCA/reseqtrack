@@ -278,6 +278,10 @@ sub sample_array_list_of_files{
       push (@files_to_process ,$tmp_file);
       push (@files_to_delete  ,$tmp_file);
     }
+    else{
+      print "No indices found. Using $fragment_file\n";
+      push (@files_to_process ,$fragment_file); 
+    }
 
   }
 
@@ -320,6 +324,8 @@ sub sample_array_list_of_files{
     push (@files_to_process ,$tmp_file);
     push (@files_to_delete  ,$tmp_file);
   }    
+
+
 
 
   if (!@files_to_process) {
