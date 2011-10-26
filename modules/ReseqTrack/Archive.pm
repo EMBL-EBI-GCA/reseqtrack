@@ -385,11 +385,6 @@ sub full_path {
     $path .= "/" unless ( $path =~ /\/$/ );
     $path .= $self->volume_name if ( $self->volume_name );
     $path .= "/" unless ( $path =~ /\/$/ );
-    if ( ! (defined $self->relative_path)){
-       print $path,"\n";
-       print $self->volume_name,"\n";
-       print $self->name,"\n";
-    }
     $path .= $self->relative_path;
     $path .= "/" unless ( $path =~ /\/$/ );
     $path .= $self->name;
