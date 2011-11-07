@@ -469,6 +469,7 @@ sub standard_type_hash{
   $hash{'EXOME_BC_BAI'} = 1;
   $hash{'EXOME_BC_BAM'} = 1;
   $hash{'EXOME_BC_BAS'} = 1;
+  $hash{'VCF'} = 1;
   return \%hash;
 }
 

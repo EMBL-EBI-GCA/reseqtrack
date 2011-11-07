@@ -26,7 +26,7 @@ use ReseqTrack::Tools::Exception qw(throw warning stack_trace_dump);
 use ReseqTrack::Tools::Argument qw(rearrange);
 use ReseqTrack::Tools::SequenceIndexUtils;
 use File::Basename;
-
+use ReseqTrack::Tools::RunSamtools;
 
 use base qw(ReseqTrack::Tools::RunProgram);
 
@@ -119,7 +119,7 @@ sub new {
       }
   }
 
-  my $samtools_object = ReseqTrack::Tools::Samtools->new(
+  my $samtools_object = ReseqTrack::Tools::RunSamtools->new(
                         -program                 => $samtools,
                         -working_dir             => $self->working_dir,
                         -echo_cmd_line           => $self->echo_cmd_line,
