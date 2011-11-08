@@ -98,7 +98,6 @@ sub run_sampe_alignment {
 	my $output_sam = $mate1_sai;
 	$output_sam =~ s/\.mate1\.sai/\_pe\.sam/;
 
-       exit if ( ! $self->paired_length);
 
 	if ( $self->paired_length() ) {
 		my $paired_length = " -a " . $self->paired_length;
