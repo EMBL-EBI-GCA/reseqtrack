@@ -1,5 +1,4 @@
 package ReseqTrack::Tools::RunVariantCall;
-#package RunVariantCall;
 
 use strict;
 use warnings;
@@ -195,6 +194,53 @@ sub output_flt_vcf {
 
     return \@output_flt_vcf;
 }
+
+
+=head2 derive_output_file_name 
+
+  Arg [1]   : ReseqTrack::Tools::RunVariantCall::CallByGATK or CallBySamtools or CallByUmake object
+  Arg [2]	: algorithm name
+  Function  : create an output VCF name based on input file information
+  Returntype: file path
+  Exceptions: 
+  Example   : my $output_file = $self->derive_output_file_name("GATK")->[0];
+=cut
+
+
+sub derive_output_file_name {  
+	my ( $self, $algorithm ) = @_;		
+	my $first_bam = basename($self->input_files->[0]);
+	my @tmp = split(/\./, $first_bam);
+	my $first_sample = $tmp[0];
+	my $sample_cnt = @{$self->input_files} - 1;
+	
+	my $output_file;
+	if ( $algorithm =~ /gatk/i ) {
+		if ($self->region) {
+			$output_file = $self->working_dir . "/$first_sample" . "_and_" . $sample_cnt . "_others.chr" . $self->chrom . "_" . $self->region . ".gatk.vcf";
+		}
+		else {
+			$output_file = $self->working_dir . "/$first_sample" . "_and_" . $sample_cnt . "_others.gatk.vcf";
+		}
+	}
+	elsif ( $algorithm =~ /samtools/i ) {
+		if ($self->region) {
+			$output_file = $self->working_dir . "/$first_sample" . "_and_" . $sample_cnt . "_others.chr" . $self->chrom . "_" . $self->region . ".samtools.raw.bcf";
+		}
+		else {
+			$output_file = $self->working_dir . "/$first_sample" . "_and_" . $sample_cnt . "_others.samtools.raw.bcf";
+		}
+	}
+	elsif ($algorithm =~ /umake/i ) {  ## these are not used, UMAKE has its own naming scheme
+		if ($self->region) {
+			$output_file = $self->working_dir . "/$first_sample" . "_and_" . $sample_cnt . "_others.chr" . $self->chrom . "_" . $self->region . ".umake.vcf";
+		}
+		else {
+			$output_file = $self->working_dir . "/$first_sample" . "_and_" . $sample_cnt . "_others.umake.vcf";
+		}
+	}	
+	return $self->output_files($output_file);
+}	
 
 
 1;

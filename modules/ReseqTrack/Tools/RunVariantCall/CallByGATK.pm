@@ -1,5 +1,4 @@
 package ReseqTrack::Tools::RunVariantCall::CallByGATK;
-#package RunVariantCall::CallByGATK;
 
 use strict;
 use warnings;
@@ -9,10 +8,6 @@ use ReseqTrack::Tools::Argument qw(rearrange);
 use File::Basename qw(basename fileparse);
 
 use base qw(ReseqTrack::Tools::RunVariantCall);
-
-#use lib '/homes/zheng/reseq-personal/zheng/lib';
-#use base qw(RunVariantCall);
-use ReseqTrack::Tools::RunVariantCallUtils;
 
 =head2 new
   Arg [-dbSNP]   :
@@ -140,8 +135,6 @@ sub new {
   $self->{'options'}->{'stand_emit_conf'} = 10.0 unless ($stand_emit_conf);
   $self->{'options'}->{'stand_call_conf'} = 50.0 unless ($stand_call_conf);
   $self->{'options'}->{'glm'} = 'SNP' unless ($glm);
-  
-  #$self->output_to_working_dir($output_to_working_dir);
 
   if (! defined $replace_files) {
       $replace_files = 1;
@@ -216,7 +209,9 @@ sub run {
 	elsif ($self->chrom) {
 		$region = "chr" . $self->chrom;
 	}	
-	my $outfile = derive_output_file_name($dir, $input_bams, $region, "GATK");
+
+	my $outfile = $self->derive_output_file_name("GATK")->[0];
+	
 	$cmd .= "-o $outfile "; 
 	
 	$cmd .= "-B:dbsnp,VCF " . $self->dbSNP . " ";
@@ -236,7 +231,7 @@ sub run {
 	
     $self->execute_command_line($cmd);
 
-    $self->output_files($outfile);
+    #$self->output_files($outfile);
     
     return;
 }

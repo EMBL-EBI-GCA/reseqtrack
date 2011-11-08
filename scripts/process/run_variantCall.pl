@@ -10,9 +10,6 @@ use Getopt::Long;
 use ReseqTrack::Tools::BamUtils;
 use File::Basename;
 
-#use lib '/homes/zheng/reseq-personal/zheng/lib';
-#use RunVariantCallUtils qw(validate_input_string);
-
 use ReseqTrack::Tools::RunVariantCallUtils qw(validate_input_string);
 
 $| = 1;
@@ -158,7 +155,6 @@ else {
 }
 
 my $varCalling_module = 'ReseqTrack::Tools::RunVariantCall::'.$module_name;
-#my $varCalling_module = 'RunVariantCall::'.$module_name;
 
 my $constructor_hash = parameters_hash($parameters, $algorithm);
 $constructor_hash->{-input_files} = \@bams;
@@ -181,7 +177,10 @@ foreach my $fo ( @$flt_vcf_obj ) {
 		my $md5 = run_md5($fo->name) if ($store);
 		$fo->md5($md5);
 		$fa->store($fo, $update) if ($store);
-		print "*******************************\nOutput filtered VCF file path is " . $fo->name . "\n";
+		print "*****************************************************************\n";
+		print "Output filtered VCF file path is " . $fo->name . "\n";
+		print "Output filtered VCF file " . $fo->name . "has been stored in the database\n" if ($store);
+		print "*****************************************************************\n";  
 	}	
 	else {
 		throw("Output file " . $fo->name . " does not exist");
@@ -264,17 +263,17 @@ sub help_info {
 	-dbuser, 			the name of the mysql user
 	-dbpass, 			the database password if appropriate
 	-dbport, 			the port the mysql instance is running on, this defaults to 4197 the standard
-            				 port for mysql-g1kdcc.ebi.ac.uk
+						port for mysql-g1kdcc.ebi.ac.uk
     
 	-algorithm,			can be one of the three: samtools, gatk, umake
-	-chrom, 			for umake, chr is mandatory; otherwise the makefile would have nothing. For samtools and gatk, it is optional
+	-chrom,				for umake, chr is mandatory; otherwise the makefile would have nothing. For samtools and gatk, it is optional
 	
 =head2 Optional arguments:		
 
 	-samples,			one or more sample ids separated by , or space
 	-bam_type,			type of BAM
 	-analysis,			can be one of the four: low_coverage, high_coverage, exome, exon_targetted
-	-paltform,        	can be one of the three: ILLUMINA, SOLID, 454 (check exact words)			 
+	-paltform,			can be one of the three: ILLUMINA, SOLID, 454 (check exact words)			 
 
 	-bam_list,			Instead of providing sample names, a list of paths to BAM files can be used as input
 
@@ -415,7 +414,7 @@ perl ~/ReseqTrack/scripts/process/run_variantCall.pl \
 -bam_type TEST_BAM \
 -analysis low_coverage \
 -platform ILLUMINA \
--chrom 10 -region 10000000-20000000 \
+-chrom 10 -region 10000000-15000000 \
 -parameters 'dcov=>10,stand_emit_conf=>10.0,stand_call_conf=>50.0,glm=>BOTH,dbSNP=>/nfs/1000g-work/G1K/scratch/zheng/reference_genomes/dbsnp132_20101103.vcf.gz' &
 
 

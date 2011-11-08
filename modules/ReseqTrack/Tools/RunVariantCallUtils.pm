@@ -1,5 +1,4 @@
 package ReseqTrack::Tools::RunVariantCallUtils;
-#package RunVariantCallUtils;
 
 use strict;
 use warnings;
@@ -14,57 +13,8 @@ use vars qw (@ISA  @EXPORT);
 
 @ISA = qw(Exporter);
 @EXPORT = qw(
-	validate_input_string
-	derive_output_file_name  
+	validate_input_string 
 );
-
-
-=head2 derive_output_file_name 
-
-  Arg [1]   : output directory
-  Arg [2]	: an array ref of a list of input BAMs
-  Arg [3]	: chromosomal region of interest
-  Arg [4]	: variant calling algorithm
-  Function  : create an output VCF name based on input file information
-  Returntype: file path
-  Exceptions: 
-  Example   : my $output_file = derive_output_file_name($dir, $input_bams, $region, "GATK");
-=cut
-
-sub derive_output_file_name {  ### FIXME: pass $self rather than region etc
-	my ( $dir, $input_bams, $region, $algorithm ) = @_;		
-	my $first_bam = basename($input_bams->[0]);
-	my @tmp = split(/\./, $first_bam);
-	my $first_sample = $tmp[0];
-	my $sample_cnt = @$input_bams - 1;
-	
-	my $output_file;
-	if ( $algorithm =~ /gatk/i ) {
-		if ($region) {
-			$output_file = "$dir/$first_sample" . "_and_" . $sample_cnt . "_others." . $region . ".gatk.vcf";
-		}
-		else {
-			$output_file = "$dir/$first_sample" . "_and_" . $sample_cnt . "_others.gatk.vcf";
-		}
-	}
-	elsif ( $algorithm =~ /samtools/i ) {
-		if ($region) {
-			$output_file = "$dir/$first_sample" . "_and_" . $sample_cnt . "_others." . $region . ".samtools.raw.bcf";
-		}
-		else {
-			$output_file = "$dir/$first_sample" . "_and_" . $sample_cnt . "_others.samtools.raw.bcf";
-		}
-	}
-	elsif ($algorithm =~ /umake/i ) {  ## these are not used, UMAKE has its own naming scheme
-		if ($region) {
-			$output_file = "$dir/$first_sample" . "_and_" . $sample_cnt . "_others." . $region . ".umake.vcf";
-		}
-		else {
-			$output_file = "$dir/$first_sample" . "_and_" . $sample_cnt . "_others.umake.vcf";
-		}
-	}
-	return $output_file;
-}	
 
 sub validate_input_string {
 	my ($string, $algorithm) = @_;

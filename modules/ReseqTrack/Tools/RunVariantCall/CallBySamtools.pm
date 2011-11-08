@@ -1,5 +1,4 @@
 package ReseqTrack::Tools::RunVariantCall::CallBySamtools;
-#package RunVariantCall::CallBySamtools;
 
 use strict;
 use warnings;
@@ -9,10 +8,6 @@ use ReseqTrack::Tools::Argument qw(rearrange);
 use File::Basename qw(basename fileparse);
 
 use base qw(ReseqTrack::Tools::RunVariantCall);
-
-#use lib '/homes/zheng/reseq-personal/zheng/lib';
-#use base qw(RunVariantCall);
-use ReseqTrack::Tools::RunVariantCallUtils qw(derive_output_file_name);
 
 =head2 new
 
@@ -104,10 +99,7 @@ sub new {
   else {
 	  $self->vcfutils_path($vcfutils_path);
   }
-  
-  #$self->output_to_working_dir($output_to_working_dir);
 
-	
   print "input mpileup option is $mpileup\n"; 	
   $self->options('mpileup', $mpileup);
   $self->options('bcfview', $bcfview);
@@ -165,7 +157,7 @@ sub run_variant_calling {
 	
     $self->execute_command_line($cmd);
 
-    return $output_raw_bcf;
+    return $self->output_files($output_raw_bcf);
 }
 
 =head2 run_variant_filtering
@@ -196,7 +188,7 @@ sub run_variant_filtering {
     
     $self->execute_command_line($cmd);
 
-    return $output_filtered_vcf;
+    return $self->output_files($output_filtered_vcf);
 }
     
 
@@ -226,19 +218,16 @@ sub run {
 		$region = "chr" . $chr;
 	}	
 		
-	my $out1 = derive_output_file_name($dir, $input_bams, $region, "samtools");
+	my $out1 = $self->derive_output_file_name("samtools")->[0];
+	
 	my $out2 = $out1;
 	$out2 =~ s/raw/flt/;
 	$out2 =~ s/bcf/vcf/;
 	
-	my $intermediate_bcf = $self->run_variant_calling($input_bams, $out1);
+	$self->run_variant_calling($input_bams, $out1);
+	$self->run_variant_filtering($out1, $out2);
 
-	my $flt_vcf = $self->run_variant_filtering($intermediate_bcf, $out2);
-
-    $self->output_files($intermediate_bcf );
-    $self->output_files($flt_vcf);
-
-    return;
+    return $self;
 
 }
 	

@@ -1,5 +1,4 @@
 package ReseqTrack::Tools::RunVariantCall::CallByUmake;
-#package RunVariantCall::CallByUmake;
 
 use strict;
 use warnings;
@@ -9,10 +8,6 @@ use ReseqTrack::Tools::Argument qw(rearrange);
 use File::Basename qw(basename fileparse);
 
 use base qw(ReseqTrack::Tools::RunVariantCall);
-
-#use lib '/homes/zheng/reseq-personal/zheng/lib';
-#use base qw(RunVariantCall);
-use ReseqTrack::Tools::RunVariantCallUtils;
 
 =head2 new
   Arg [-dbSNP]   :
@@ -53,7 +48,6 @@ use ReseqTrack::Tools::RunVariantCallUtils;
                 -output_to_working_dir 	=> 1 );
 
 =cut
-
 
 ### FIXME: write to Hyun about what is the best way to pass chromosomal regions; and how to avoid the to run the program using make
 
@@ -163,12 +157,12 @@ sub print_config_file {
 	print CONFIG "BAM_INDEX = " . $self->bam_index . "\n";
 	print CONFIG "CHRS = " . $self->chrom . "\n" if ($self->chrom);
 	
-	my $out_vcf = $self->working_dir . "/vcfs/chr" . $self->chrom . "/chr" . $self->chrom . ".filtered.vcf.gz" if ($self->chrom);  																							  
+	my $out_vcf = $self->working_dir . "/vcfs/chr" . $self->chrom . "/chr" . $self->chrom . ".filtered.vcf.gz" if ($self->chrom);  		
+	$self->output_files($out_vcf);																					  
 	#### umake can take > 1 chr but i won't allow it here as it doesn't make sense for parallel runs.
 	#### FIXME: When the output is Beagle, Thunder or other things, the output directory will be different
 	
 	my $makeFile_prefix = basename($self->bam_index);
-	$self->output_files($out_vcf) if ($self->chrom);
 	
 	print CONFIG "OUT_DIR = " . $self->working_dir . "\n";
 	print CONFIG "OUT_PREFIX = " . $makeFile_prefix . "\n"; ### This is the prefix for the MAKEFile
@@ -361,14 +355,6 @@ sub run {
 	
 	$self->print_config_file;
 	
-#	my $outfiles = $self->output_files;
-#	my $makefile_pre;
-#	foreach my $f ( @{$outfiles} ) {
-#		if ( $f !~ /vcf/ ) {
-#			$makefile_pre = $f; 
-#		} 
-#	}	
-	
 	my $cmd = "/nfs/1000g-work/G1K/work/bin/local-perl/bin/perl " . $self->program . "/scripts/umake.pl --conf " .  $self->config . " --snpcall";
 	
 	$self->execute_command_line($cmd);
@@ -432,10 +418,8 @@ ReseqTrack::Tools::RunVariantCall::CallByUmake
 
 =head1 SYNOPSIS
 
-This is a class for running mpileup and BCFtools to call variants
+This is a class for running umake to call variants
 It is a sub class of a ReseqTrack::Tools::RunVariantCall.
-
-=head1 Example
 
 
 =cut
