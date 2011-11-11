@@ -18,6 +18,7 @@ my %input;
 my %snps;
 my $snps_file = "/nfs/1000g-work/G1K/work/REFERENCE/snps/grc37_snps/OMNI_1525_PASS_V2/bin/20110601_omni1525_v2.bin.list";
 
+#eclipse test. smithre
 
 $input{dbname} = "g1k_archive_staging_track";
 $input{dbport} = 4197;
