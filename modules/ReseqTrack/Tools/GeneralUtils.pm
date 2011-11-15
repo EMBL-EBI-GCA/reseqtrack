@@ -29,7 +29,7 @@ use vars qw (@ISA  @EXPORT);
 @EXPORT = qw(current_time parse_movelist get_input_arg create_lock_string
              delete_lock_string is_locked useage convert_to_giga current_date 
 	     create_filename calculate_coverage trim_spaces execute_system_command
-	     get_params);
+	     get_params get_open_file_handle);
 
 
 
@@ -290,7 +290,7 @@ sub get_params {
         chomp $_;
         next if ( !$_ );
         my @aa = split /=/;
-        $aa[1] =~ s/\s+//g;
+        $aa[1] =~ s/\s+$//g;
 
         if (defined  $$input{ $aa[0] }){
           print "$aa[0] already set. Skipping cfg entry\n";
@@ -303,6 +303,37 @@ sub get_params {
 
     return ( $input );
 }
+
+
+=head2 get_open_file_handle
+
+  Arg [1]   : file name
+  Function  : check file extension and open file handle
+  Returntype: file handle
+  Exceptions: none
+  Example   : get_open_file_handle ( file_name);
+
+=cut
+
+
+sub get_open_file_handle {
+
+  my $filename = shift;
+  my $fh_in;
+
+  die "No file found: $filename" if (! -e $filename );
+
+  if ( $filename =~ /\.gz$/i ) {
+    open( $fh_in, "zcat $filename | " )
+      or die("failed zcat $filename: $!");
+  }
+  else {
+    open( $fh_in, '<', $filename) or die("failed open $filename: $!");
+  }
+
+  return $fh_in;
+}
+
 
 
 
