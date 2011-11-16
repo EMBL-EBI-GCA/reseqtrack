@@ -456,26 +456,62 @@ sub get_study_descriptions{
   return \%hash;
 }
 
+
+sub convert_center_name{
+  my ($name) = @_;
+  if($name && $name eq 'ABHTD'){
+    return 'ABI';
+  }else{
+    return $name;
+  }
+}
+
+
+
 sub convert_population{
-  my ($string, $run_id) = @_;
+  my ($string, $run_id, $study_id) = @_;
+  throw("Can't convert an empty string for ".$run_id." ".$study_id)
+    unless($string);
   my $pop;
   if($string =~ /yri/i){
     $pop = 'YRI';
+  }elsif($string =~ /PEL/i){
+    $pop = 'PEL';
+  }elsif($string =~ /KHV/){
+    $pop = 'KHV';
   }elsif($string =~ /yoruba/i){
     $pop = 'YRI';
+  }elsif($string =~ /ACB/){
+    $pop = 'ACB';
+  }elsif($string =~ /southern\s+han\s+chinese/i){
+    $pop = 'CHS';
+  }elsif($string =~ /CHS/i){
+    $pop = 'CHS';
   }elsif($string =~ /han chinese/i){
+    $pop = 'CHB';
+  }elsif($string =~ /CHB/i){
     $pop = 'CHB';
   }elsif($string =~ /japan/i){
     $pop = 'JPT';
+  }elsif($string =~ /JPT/i){
+    $pop = 'JPT';
   }elsif($string =~ /CEU/i){
-    $pop = 'CEU';
+    $pop = 'CEU'; 
   }elsif($string =~ /CEPH/i){
     $pop = 'CEU';
   }elsif($string =~ /tuscan/i){
     $pop = 'TSI';
+  }elsif($string =~ /toscan/i){
+    $pop = 'TSI';
+  }elsif($string =~ /TSI/i){
+    $pop = 'TSI';
   }elsif($string =~ /denver/i){
     $pop = 'CHD';
+  }elsif($string =~ /CHD/i){
+    $pop = 'CHD';
   }elsif($string =~ /Luhya/i){
+    $pop = 'LWK';
+  }elsif($string =~ /LWK/i){
     $pop = 'LWK';
   }elsif($string =~ /UTAH/i){
     $pop = 'CEU';
@@ -488,27 +524,52 @@ sub convert_population{
   }elsif($string =~ /Mexican-American/){
     $pop = 'MXL';
   }elsif($string =~ /UK/){
-    $pop = 'GBR'; 
-  }
-  
-  else{
-    #print STDERR "Failed to find pop for ".$string." ".$run_id."\n";
-    #throw("Failed to find pop for ".$string);
-    return $string;
+    $pop = 'GBR';	
+  }elsif($string =~ /British/){
+    $pop = 'GBR';
+  }elsif($string =~ /British\s+\(GBR\)/){
+    $pop = 'GBR';
+  }elsif($string =~ /GBR/i){
+    $pop = 'GBR';
+  }elsif($string =~ /FIN/i){
+    $pop = 'FIN';
+  }elsif($string =~ /SHC/){
+    $pop = 'CHS';
+  }elsif($string =~ /Puerto\s+Rican/i){
+    $pop = 'PUR';
+  }elsif($string =~ /pur/i){
+    $pop = 'PUR';
+  }elsif($string =~ /Colombian/){
+    $pop = 'CLM';
+  }elsif($string =~ /CLM/){
+    $pop = 'CLM';
+  }elsif($string =~ /Gujarati/){
+    $pop = 'GIH';
+  }elsif($string =~ /GIH/){
+    $pop = 'GIH';
+  }elsif($string =~ /Maasai/){
+    $pop = 'MKK';
+  }elsif($string =~ /Spanish/i){
+    $pop = 'IBS';
+  }elsif($string =~ /IBS/i){
+    $pop = 'IBS';
+  }elsif($string =~ /CDX/i){
+    $pop = 'CDX';
+  }elsif($string =~ /GWD/i){
+    $pop = 'GWD';
+  }elsif($string =~ /GHN/i){
+    $pop = 'GHN';
+  }elsif($string =~ /MAB/i){
+    $pop = 'MAB';
+  }elsif($string =~ /AJM/i){
+    $pop = 'AJM';
+  }elsif($string =~ /ACB/i){
+    $pop = 'ACB';
+  }else{
+    throw("Failed to find pop for ".$string." ".$run_id." ".$study_id);
    }
   return $pop;
 }
-
-sub convert_center_name{
-  my ($name) = @_;
-  if($name && $name eq 'ABHTD'){
-    return 'ABI';
-  }else{
-    return $name;
-  }
-}
-
-
 
 
 
