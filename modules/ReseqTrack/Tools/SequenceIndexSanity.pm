@@ -537,6 +537,7 @@ sub check_population{
   $hash{'PEL'} = 1;
   $hash{'PUR'} = 1;
   $hash{'CDX'} = 1;
+  $hash{'GIH'} = 1;
   while(<FH>){
     chomp;
     next if(/SUBMISSION_ID/);
@@ -545,7 +546,7 @@ sub check_population{
     my $pop = $values[10];
     if($pop){
       unless($hash{$pop}){
-        my $problem = $key." has a population which isn't recognised";
+        my $problem = $key." ".$pop." has a population which isn't recognised";
         $sanity_hash{$key} = $problem;
       }
     }else{
