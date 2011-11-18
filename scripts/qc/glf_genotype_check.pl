@@ -91,7 +91,6 @@ my ($align_these,$need_to_sample) =
   decide_file_skip ($collection,$input{subsample_size})   unless ($input{no_skip_files}) ;
 
 
- 
 my $max_read    = get_max_read_length ($collection, $align_these, 1);
 
 
@@ -102,6 +101,7 @@ $db->dbc->disconnect_when_inactive(2);
 
 
 unless ( $input{no_subsample}) {
+ print "In here\n";
   if ($need_to_sample){
     ($align_these, $files_to_delete) =
       sample_array_list_of_files( $align_these, $input{subsample_size} , $tmp_dir);
@@ -238,6 +238,13 @@ foreach my $bam_file (@$bams){
 				   -skip_others   => "1",
 				  );
 
+   if ($prev_result ){
+    if ($prev_result->verdict ne $genotype_results->verdict){
+      dump_comparison ($prev_result, $genotype_results );			
+    }		
+  }
+
+
 
   my  $gra = $db->get_GenotypeResultsAdaptor;
 
@@ -343,6 +350,29 @@ sub get_db_adaptors {
   return ($db, $ca,$fa,$gr,$rmi_a) ;
 }
 
+
+sub dump_comparison{
+  my ($prev, $new_results) = @_;
+
+  print "\n================================================\n";
+  print "STATUS CHANGE FOR ", $input{name},"\n";
+	
+  my @cols = qw(top_hit second_hit ratio_2_to_1 ratio_claimed
+                percent_mapped verdict);
+
+  print "                  WAS:    NOW\n";      
+  foreach my $col ( @cols){
+    printf "%15s:",$col;
+    print $prev->$col, "\t" ,$new_results->$col,"\n";	            	   
+  }
+      
+  print "\nSNPS used\n";
+  print "old:",$prev->snps_bin,"\n";
+  print "new:",$new_results->snps_bin,"\n";
+	
+  print "\n================================================\n";
+ return;
+}
 
 
 
