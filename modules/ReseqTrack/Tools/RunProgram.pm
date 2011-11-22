@@ -194,13 +194,14 @@ sub echo_cmd_line {
   Arg [2]   : string, optional, program (if in $PATH) or path to program
   Function  : accessor method for the program
   Returntype: string
-  Exceptions: 
+  Exceptions: throws if executable does not exist
   Example   : my $program = $self->program;
 =cut
 
 sub program {
   my ( $self, $arg ) = @_;
   if ($arg) {
+    check_file_exists($arg);
     $self->{'program'} = $arg;
   }
   return $self->{'program'};

@@ -41,8 +41,8 @@ sub new {
 	my ( $class, @args ) = @_;
 	my $self = $class->SUPER::new(@args);
 
-	my ( $samse_options, $sampe_options, $aln_options, $paired_length) =
-	  rearrange( [qw(SAMSE_OPTIONS SAMPE_OPTIONS ALN_OPTIONS PAIRED_LENGTH)], @args );
+	my ( $samse_options, $sampe_options, $aln_options) =
+	  rearrange( [qw(SAMSE_OPTIONS SAMPE_OPTIONS ALN_OPTIONS)], @args );
 
 	#setting defaults
 	$self->program('bwa') unless ( $self->program );
@@ -52,7 +52,6 @@ sub new {
 	$self->samse_options($samse_options);
 	$self->sampe_options($sampe_options);
 	$self->aln_options($aln_options);
-	$self->paired_length ( $paired_length);
 
 	return $self;
 }

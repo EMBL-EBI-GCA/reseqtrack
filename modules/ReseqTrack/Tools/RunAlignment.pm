@@ -24,7 +24,8 @@ use warnings;
 
 use ReseqTrack::Tools::Exception qw(throw warning stack_trace_dump);
 use ReseqTrack::Tools::Argument qw(rearrange);
-use ReseqTrack::Tools::SequenceIndexUtils;
+use ReseqTrack::Tools::SequenceIndexUtils qw(assign_files);
+use ReseqTrack::Tools::FileSystemUtils qw(check_file_exists);
 use File::Basename;
 use ReseqTrack::Tools::RunSamtools;
 
@@ -73,10 +74,10 @@ sub new {
   my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
 
-  my ( $reference, $samtools, $mate1_file, $mate2_file, $fragment_file,
+  my ( $reference, $samtools, $mate1_file, $mate2_file, $fragment_file, $paired_length,
         $merge_bams, $sort_bams, $index_bams, $convert_sam_to_bam)
         = rearrange( [
-             qw( REFERENCE SAMTOOLS MATE1_FILE MATE2_FILE FRAGMENT_FILE
+             qw( REFERENCE SAMTOOLS MATE1_FILE MATE2_FILE FRAGMENT_FILE PAIRED_LENGTH
              MERGE_BAMS SORT_BAMS INDEX_BAMS CONVERT_SAM_TO_BAM)
                     ], @args);
 
@@ -84,6 +85,8 @@ sub new {
   $self->mate2_file($mate2_file);
   $self->fragment_file($fragment_file);
   $self->reference($reference);
+  $self->samtools($samtools);
+  $self->paired_length($paired_length);
 
   if ( $fragment_file or $mate1_file or $mate2_file) {
       foreach my $file ($fragment_file, $mate1_file, $mate2_file) {
@@ -101,40 +104,18 @@ sub new {
   }
 
   if ( defined($convert_sam_to_bam) && ! $convert_sam_to_bam) {
-      $merge_bams = 0;
-      $sort_bams = 0;
-      $index_bams = 0;
+      $self->flag_sam_to_bam(0);
+      $self->flag_merge_bams(0);
+      $self->flag_sort_bams(0);
+      $self->flag_index_bams(0);
   }
   else {
-      $convert_sam_to_bam = 1;
-
-      if ( ! defined($merge_bams) ) {
-          $merge_bams = 1;
-      }
-      if ( ! defined($sort_bams) ) {
-          $sort_bams = 1;
-      }
-      if ( ! defined($index_bams) ) {
-          $index_bams = 1;
-      }
+      $self->flag_sam_to_bam(1);
+      $self->flag_merge_bams( defined($merge_bams) ? $merge_bams : 1);
+      $self->flag_sort_bams( defined($sort_bams) ? $sort_bams : 1);
+      $self->flag_index_bams( defined($sort_bams) ? $sort_bams : 1);
   }
-
-  my $samtools_object = ReseqTrack::Tools::RunSamtools->new(
-                        -program                 => $samtools,
-                        -working_dir             => $self->working_dir,
-                        -echo_cmd_line           => $self->echo_cmd_line,
-                        -save_files_for_deletion => $self->save_files_for_deletion,
-                        -job_name                => $self->job_name,
-                        -reference               => $reference,
-                        -output_to_working_dir   => 1,
-                        -replace_files           => 1,
-                        -flag_merge              => $merge_bams,
-                        -flag_sort               => $sort_bams,
-                        -flag_index              => $index_bams,
-                        -flag_sam_to_bam         => $convert_sam_to_bam,
-                        );
-
-  $self->samtools($samtools_object);
+  
 
 
   return $self;
@@ -152,13 +133,27 @@ sub new {
 sub run_samtools {
     my $self = shift;
 
-    my $samtools = $self->samtools;
+    my $samtools_object = ReseqTrack::Tools::RunSamtools->new(
+                        -program                 => $self->samtools,
+                        -working_dir             => $self->working_dir,
+                        -echo_cmd_line           => $self->echo_cmd_line,
+                        -save_files_for_deletion => $self->save_files_for_deletion,
+                        -job_name                => $self->job_name,
+                        -reference               => $self->reference,
+                        -output_to_working_dir   => 1,
+                        -replace_files           => 1,
+                        -flag_merge              => $self->flag_merge,
+                        -flag_sort               => $self->flag_sort,
+                        -flag_index              => $self->flag_index,
+                        -flag_sam_to_bam         => $self->flag_sam_to_bam,
+                        );
 
-    $samtools->input_files( $self->sam_files );
 
-    $samtools->run();
+    $samtools_object->input_files( $self->sam_files );
 
-    $self->output_files( $samtools->output_files );
+    $samtools_object->run();
+
+    $self->output_files( $samtools_object->output_files );
 
     return;
 
@@ -186,119 +181,6 @@ sub generate_job_name {
 }
 
 
-=head2 samtools
-
-  Arg [1]   : ReseqTrack::Tools::RunAlignment
-  Arg [2]   : a ReseqTrack::Tools::Samtools object
-  Function  : accessor method for samtools
-  Returntype: string
-  Exceptions: n/a
-  Example   : my $samtools = $self->samtools
-
-=cut
-
-sub samtools {
-    my ($self, $samtools) = @_;
-    if ($samtools) {
-        $self->{'samtools'} = $samtools;
-    }
-    return $self->{'samtools'};
-}
-
-=head2 reference
-
-  Arg [1]   : ReseqTrack::Tools::RunAlignment
-  Arg [2]   : string, path of reference file
-  Function  : accessor method for reference file
-  Returntype: string
-  Exceptions: n/a
-  Example   : my $reference = $self->reference;
-
-=cut
-sub reference {
-    my ($self, $reference) = @_;
-    if ($reference) {
-        $self->{'reference'} = $reference;
-    }
-    return $self->{'reference'};
-}
-
-=head2 fragment_file
-
-  Arg [1]   : ReseqTrack::Tools::RunAlignment
-  Arg [2]   : string, path of fragment file
-  Function  : accessor method for fragment file
-  Returntype: string
-  Exceptions: n/a
-  Example   : my $fragment_file = $self->fragment_file;
-
-=cut
-sub fragment_file {
-  my ($self, $fragment_file) = @_;
-  if ($fragment_file) {
-    $self->{'fragment_file'} = $fragment_file;
-  }
-  return $self->{'fragment_file'};
-}
-
-=head2 mate1_file
-
-  Arg [1]   : ReseqTrack::Tools::RunAlignment
-  Arg [2]   : string, path of mate1 file
-  Function  : accessor method for mate1 file
-  Returntype: string
-  Exceptions: n/a
-  Example   : my $mate1_file = $self->mate1_file;
-
-=cut
-
-sub mate1_file {
-  my ($self, $mate1_file) = @_;
-  if ($mate1_file) {
-    $self->{'mate1_file'} = $mate1_file;
-  }
-  return $self->{'mate1_file'};
-}
-
-=head2 paired_length
-
-  Arg [1]   : ReseqTrack::Tools::RunAlignment
-  Arg [2]   : integer, value of paired_length
-  Function  : accessor method for paired_length
-  Returntype: integer
-  Exceptions: n/a
-  Example   : $self->paired_length(2000);
-
-=cut
-
-sub paired_length {
-    my $self = shift;
-
-    if (@_) {
-        $self->{paired_length} = shift;
-    }
-    return $self->{paired_length};
-}
-
-
-=head2 mate2_file
-
-  Arg [1]   : ReseqTrack::Tools::RunAlignment
-  Arg [2]   : string, path of mate2 file
-  Function  : accessor method for mate2 file
-  Returntype: string
-  Exceptions: n/a
-  Example   : my $mate2_file = $self->mate2_file;
-
-=cut
-
-sub mate2_file {
-  my ($self, $mate2_file) = @_;
-  if ($mate2_file) {
-    $self->{'mate2_file'} = $mate2_file;
-  }
-  return $self->{'mate2_file'};
-}
 
 =head2 sam_files
 
@@ -422,5 +304,96 @@ sub output_bai_files {
     return \@output_bai_files;
 }
 
-1;
 
+=head2 accessor methods
+
+  Arg [1]   : ReseqTrack::Tools::RunAlignment
+  Arg [2]   : variable
+  Function  : store variable in object
+  Returntype: variable
+  Exceptions: n/a
+  Example   :
+
+=cut
+
+sub samtools {
+    my ($self, $samtools) = @_;
+    if ($samtools) {
+        check_file_exists($samtools);
+        $self->{'samtools'} = $samtools;
+    }
+    return $self->{'samtools'};
+}
+
+sub reference {
+    my ($self, $reference) = @_;
+    if ($reference) {
+        check_file_exists($reference);
+        $self->{'reference'} = $reference;
+    }
+    return $self->{'reference'};
+}
+
+sub fragment_file {
+  my ($self, $fragment_file) = @_;
+  if ($fragment_file) {
+    $self->{'fragment_file'} = $fragment_file;
+  }
+  return $self->{'fragment_file'};
+}
+
+sub mate1_file {
+  my ($self, $mate1_file) = @_;
+  if ($mate1_file) {
+    $self->{'mate1_file'} = $mate1_file;
+  }
+  return $self->{'mate1_file'};
+}
+
+sub mate2_file {
+  my ($self, $mate2_file) = @_;
+  if ($mate2_file) {
+    $self->{'mate2_file'} = $mate2_file;
+  }
+  return $self->{'mate2_file'};
+}
+
+sub paired_length {
+    my $self = shift;
+
+    if (@_) {
+        $self->{paired_length} = shift;
+    }
+    return $self->{paired_length};
+}
+
+sub flag_merge_bams {
+    my $self = shift;
+    if (@_) {
+        $self->{flag_merge_bams} = shift;
+    }
+    return $self->{flag_merge_bams};
+}
+sub flag_sort_bams {
+    my $self = shift;
+    if (@_) {
+        $self->{flag_sort_bams} = shift;
+    }
+    return $self->{flag_sort_bams};
+}
+sub flag_index_bams {
+    my $self = shift;
+    if (@_) {
+        $self->{flag_index_bams} = shift;
+    }
+    return $self->{flag_index_bams};
+}
+sub flag_sam_to_bam {
+    my $self = shift;
+    if (@_) {
+        $self->{flag_sam_to_bam} = shift;
+    }
+    return $self->{flag_sam_to_bam};
+}
+
+1;
