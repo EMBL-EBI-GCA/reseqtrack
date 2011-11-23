@@ -44,13 +44,12 @@ use ReseqTrack::HasHistory;
 
   Arg [1]   : ReseqTrack::Event
   Arg [2]   : string, program name
-  Arg [3]   : string, program version
-  Arg [4]   : string, options for program
-  Arg [5]   : string, command line flag for input string
-  Arg [6]   : string, options for batch submission system
-  Arg [7]   : int, batchsize this determines how many inputs will be run as part of the same
-  farm job, this defaults to 0
-  Arg [8]   : string, path to where output files should be written
+  Arg [3]   : string, options for program
+  Arg [4]   : string, command line flag for input string
+  Arg [5]   : string, options for batch submission system
+  Arg [6]   : string, options for runner script
+  Arg [7]   : int, maximum size of job array in the batch submission system
+  Arg [8]   : string, directory for the output files and batch submission system log files
   Arg [9]   : string, type the type string for the input from the given table
   Arg [10]   : string, table name to retrieve input from
   Arg [11]   : timestamp, time object was first stored in database
@@ -67,19 +66,19 @@ sub new {
     my $self = $class->SUPER::new(@args);
 
     my (
-        $name,       $program,      $program_version, $options,
-        $input_flag, $farm_options, $batch_size,      $output_path,
+        $name,       $program,      $options,       $input_flag,
+        $farm_options, $runner_options, $max_array_size, $output_path,
         $type,       $table_name,   $created,         $updated
       )
       = rearrange(
         [
             qw(NAME
               PROGRAM
-              PROGRAM_VERSION
               OPTIONS
               INPUT_FLAG
               FARM_OPTIONS
-              BATCH_SIZE
+              RUNNER_OPTIONS
+              MAX_ARRAY_SIZE
               OUTPUT_PATH
               TYPE
               TABLE_NAME
@@ -90,15 +89,20 @@ sub new {
       );
 
     throw("Can't create ReseqTrack::Event without a name") unless ($name);
+    
+    # value of the LSF parameter MAX_JOB_ARRAY_SIZE (check using bparams -l | grep ARRAY)
+    if (! defined $max_array_size) {
+        $max_array_size = 50000;
+    }
 
     ######
     $self->name($name);                          #1
     $self->program($program);                    #2
-    $self->program_version($program_version);    #3
-    $self->options($options);                    #4
-    $self->input_flag($input_flag);              #5
-    $self->farm_options($farm_options);          #6
-    $self->batch_size($batch_size);              #7
+    $self->options($options);                    #3
+    $self->input_flag($input_flag);              #4
+    $self->farm_options($farm_options);          #5
+    $self->runner_options($runner_options);      #6
+    $self->max_array_size($max_array_size);      #7
     $self->output_path($output_path);            #8
     $self->type($type);                          #9
     $self->table_name($table_name);              #10
@@ -106,8 +110,6 @@ sub new {
     $self->updated($updated);                    #12
 
     #########
-
-    $self->batch_size(0) if ( !defined( $self->batch_size ) );
 
     return $self;
 }
@@ -141,15 +143,6 @@ sub program {
     return $self->{program};
 }
 
-sub program_version {
-    my ( $self, $arg ) = @_;
-
-    if ($arg) {
-        $self->{program_version} = $arg;
-    }
-    return $self->{program_version};
-}
-
 sub options {
     my ( $self, $arg ) = @_;
     if ($arg) {
@@ -174,12 +167,20 @@ sub farm_options {
     return $self->{farm_options};
 }
 
-sub batch_size {
+sub runner_options {
     my ( $self, $arg ) = @_;
-    if ( defined($arg) ) {
-        $self->{batch_size} = $arg;
+    if ($arg) {
+        $self->{runner_options} = $arg;
     }
-    return $self->{batch_size};
+    return $self->{runner_options};
+}
+
+sub max_array_size {
+    my ( $self, $arg ) = @_;
+    if (defined $arg) {
+        $self->{max_array_size} = $arg;
+    }
+    return $self->{max_array_size};
 }
 
 sub output_path {

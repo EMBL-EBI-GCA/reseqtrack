@@ -37,7 +37,6 @@ my $do_md5;
 my $md5_program = 'md5sum';
 my $help;
 my $assign_types = 1;
-my $check_types = 1;
 my $debug = 0;
 &GetOptions(
   'dbhost=s'       => \$dbhost,
@@ -61,7 +60,6 @@ my $debug = 0;
   'md5_program=s' => \$md5_program,
   'help!' => \$help,
   'assign_types!' => \$assign_types,
-  'check_types!' => \$check_types,
   'debug' =>\$debug, 
    );
 
@@ -85,7 +83,6 @@ my $loader = ReseqTrack::Tools::Loader::File->new(
 						  -dbport  => $dbport,
 						  -debug => $debug,
 						  -assign_types => $assign_types,
-						  -check_types=>$check_types,
 						  -do_md5  => $do_md5,
 						  -update_existing=>$update_existing,
 						  -store_new=>$store_new,
@@ -185,8 +182,6 @@ still store a brand new line unless the md5s are the same
 
 -assign_types, This uses the ReseqTrack::Tools::FileUtils assign_type method to 
 specify file types on the basis of the file path, this is on by default but it can be switched off by using -noassign_types
-
--check_types, This checks the type of each file object against an acceptable list, this is on by default but it can be switched off with -nocheck_types
 
 -help, This makes the script print out its options
 

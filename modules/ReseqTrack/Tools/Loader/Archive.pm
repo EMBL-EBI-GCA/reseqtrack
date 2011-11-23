@@ -10,8 +10,6 @@ use ReseqTrack::Tools::GeneralUtils;
 use File::Basename;
 use ReseqTrack::Tools::Argument qw(rearrange);
 use ReseqTrack::Tools::Exception qw(throw warning stack_trace_dump);
-use ReseqTrack::Tools::FileUtils qw(create_objects_from_path_list create_history 
-				    assign_type check_type);
 use ReseqTrack::Tools::Loader;
 
 use Data::Dumper;

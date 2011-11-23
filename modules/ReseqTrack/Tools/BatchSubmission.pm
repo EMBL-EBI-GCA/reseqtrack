@@ -191,7 +191,7 @@ sub check_for_awol_jobs{
 }
 
 
-=head2 has_to_many_jobs
+=head2 job_slots_available
 
   Arg [1]   : ReseqTrack::Tools::BatchSubmission
   Arg [2]   : int, maximum number of jobs
@@ -199,7 +199,7 @@ sub check_for_awol_jobs{
   Arg [4]   : string, username
   Function  : calculate how many jobs are running and only continue if the number
   is less than maximum after sleeping for an appropriate amount of time
-  Returntype: n/a
+  Returntype: int, the number of job slots that are available
   Exceptions: n/a
   Example   : 
 
@@ -207,20 +207,36 @@ sub check_for_awol_jobs{
 
 
 
-sub has_to_many_jobs{
+sub job_slots_available{
   my ($self, $max, $sleep, $user) = @_;
   $user = $self->user unless($user);
-  my $total = get_total_job_number($user);
+  my $total = $self->get_total_job_number($user);
   $max = $self->max_job_number unless($max);
   $sleep = $self->sleep unless($sleep);
   if($total < $max){
-    return 0;
+    return $max - $total;
   }else{
     print STDERR "Have ".$total." jobs compared to ".$max." going to sleep for ".
         $sleep." seconds\n";
     CORE::sleep($sleep);
-    return has_to_many_jobs($max, $sleep, $user);
+    return self->($max, $sleep, $user);
   }
+}
+
+=head2 get_job_info
+
+  Arg [1]   : ReseqTrack::Tools::BatchSubmission
+  Function  : This should return information on a submitted job (e.g. bjobs -l)
+  Returntype: ref to array of strings
+  Exceptions: 
+  Example   : my $cmd = get_total_job_number();
+  Example   : my $info = ReseqTrack::Tools::BatchSubmission->get_job_info();
+
+=cut
+
+sub get_job_info{
+  my ($self) = @_;
+  throw($self." must implement get_job_info");
 }
 
 1;

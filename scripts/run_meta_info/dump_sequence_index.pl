@@ -244,7 +244,7 @@ my %index_lines;
      	}
      		
        #print STDERR "Have ".@$files." for ".$meta_info->run_id."\n";
-       my ($mate1, $mate2, $frag) = assign_file_objects($files);
+       my ($mate1, $mate2, $frag) = assign_files($files);
        #print STDERR "Mate 1 ".$mate1->name."\n" if($mate1);
        #print STDERR "Mate 2 ".$mate2->name."\n" if($mate2);
        #print STDERR "Frag ".$frag->name."\n" if($frag);

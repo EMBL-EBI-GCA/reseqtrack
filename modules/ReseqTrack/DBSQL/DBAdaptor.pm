@@ -25,6 +25,7 @@ use ReseqTrack::DBSQL::MetaAdaptor;
 use ReseqTrack::DBSQL::GenotypeResultsAdaptor;
 use ReseqTrack::DBSQL::VerifyBamIDReadGroupAdaptor;
 use ReseqTrack::DBSQL::VerifyBamIDSampleAdaptor;
+use ReseqTrack::DBSQL::FileTypeRuleAdaptor;
 
 sub new {
   my($class, @args) = @_;
@@ -266,6 +267,16 @@ sub get_VerifyBamIDReadGroupAdaptor{
 
   return $self->{VerifyBamIDReadGroupAdaptor};
 }
+
+sub get_FileTypeRuleAdaptor{
+  my ($self) = @_;
+  if(!$self->{file_type_rule_adaptor}){
+    $self->{file_type_rule_adaptor} = ReseqTrack::DBSQL::FileTypeRuleAdaptor->
+        new($self);
+  }
+  return $self->{file_type_rule_adaptor};
+}
+
 
 
 1;

@@ -5,7 +5,7 @@ use warnings;
 use ReseqTrack::Tools::Loader;
 use ReseqTrack::Tools::Exception qw(throw warning stack_trace_dump);
 use ReseqTrack::Tools::FileUtils qw(create_objects_from_path_list );
-use ReseqTrack::Tools::FileUtils qw(create_history assign_type check_type );
+use ReseqTrack::Tools::FileUtils qw(create_history assign_type assign_type_by_filename );
 use ReseqTrack::Tools::FileSystemUtils
   qw( get_lines_from_file run_md5 get_md5hash);
 use ReseqTrack::Tools::HostUtils qw(get_host_object);
@@ -25,7 +25,7 @@ sub new {
  my (
       $md5_file,        $hostname,  $die_for_problems,
       $update_existing, $store_new, $assign_types,
-      $check_types,     $do_md5,    $md5_program,
+      $do_md5,    $md5_program,
       $remote, 
    )
    = rearrange(
@@ -33,7 +33,7 @@ sub new {
    qw(
      MD5_FILE        HOSTNAME
      DIE_FOR_PROBLEMS    UPDATE_EXISTING     STORE_NEW
-     ASSIGN_TYPES     CHECK_TYPES     DO_MD5
+     ASSIGN_TYPES     DO_MD5
      MD5_PROGRAM REMOTE
      )
   ],
@@ -42,12 +42,10 @@ sub new {
 
  #Defaults
  $self->assign_types('1');
- $self->check_types('1');
  $self->md5_program("md5sum");
 #####
 
  $self->assign_types($assign_types);
- $self->check_types($check_types);
  $self->md5_program($md5_program);
  $self->md5_file($md5_file);
  $self->hostname($hostname);
@@ -146,25 +144,6 @@ print "Sanity check\n" if $self->verbose;
   throw "Fix file path problems";
  }
   
- if ( $self->check_types ) {
-  print "Checking types ....\n"   if  $self->verbose ;
-  my @wrong;
-  my $file_objs = $self->objects() ;
-  foreach my $file ( @$file_objs ) {
-   push( @wrong, $file ) unless ( check_type($file) );
-  }
-
-  print STDERR "There are " . @wrong . " files with the wrong type\n"
-    if ( $self->verbose );
-
-  foreach my $file (@wrong) {
-   print STDERR $file->name . " " . $file->type . " is wrong\n";
-  }
-  throw("There are problems with the file types") if ( @wrong >= 1 );
- }
-
-
- 
 
 
 
@@ -236,12 +215,12 @@ sub create_objects {
  my $objects =
    create_objects_from_path_list( $self->file_paths, $self->type, $self->host );
 
- my $objs = scalar(@$objects);
+ #my $objs = scalar(@$objects);
  #print "Created $objs file objects\n";
 
  if ( $self->assign_types ) {
   #print "Assigning types\n";
-  $objects = assign_type($objects);
+  $objects = assign_type($objects, $self->db);
  }
  $self->objects($objects);
  return;
@@ -398,12 +377,6 @@ sub assign_types {
  my ( $self, $arg ) = @_;
  $self->{assign_types} = $arg if ( defined $arg );
  return $self->{assign_types};
-}
-
-sub check_types {
- my ( $self, $arg ) = @_;
- $self->{check_types} = $arg if ( defined $arg );
- return $self->{check_types};
 }
 
 sub remote {

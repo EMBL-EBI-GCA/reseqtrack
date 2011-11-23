@@ -67,12 +67,13 @@ sub new{
   Arg [1]   : ReseqTrack::Tools::BatchSubmission::LSF
   Arg [2]   : string, command line that should be submitted 
   Arg [3]   : string, commandline options for bsub
-  Arg [4]   : ReseqTrack::Job object associated with job
+  Arg [4]   : string, file path to use for LSF output
   Arg [5]   : string to use as job name if not already part of options
+  Arg [6]   : int, size of lsf job array (0 implies it is not an array)
   Function  : construct bsub command
   Returntype: string, bsub command
   Exceptions: n/a
-  Example   : my $bsub_cmd = $lsf->construct_command_line($to_run, $options, $job);
+  Example   : my $bsub_cmd = $lsf->construct_command_line($to_run, $options, $farm_log_file, $name, $array_size);
                                                             
 
 =cut
@@ -80,15 +81,23 @@ sub new{
 
 
 sub construct_command_line{
-  my ($self, $to_run, $options, $job, $name) = @_;
+  my ($self, $to_run, $options, $farm_log_file, $name, $array_size) = @_;
 
   $to_run = $self->cmd unless($to_run);
   $options = $self->options unless($options);
-  if($name){
-    $options .= " -J ".$name unless($options =~ /\-J\s+\S+/);
+  if ($options =~ /\-J\s+(\S+)/) {
+      my ($prematch, $postmatch, $options_name) = ($`, $', $1);
+      if ($array_size >0 && $options_name !~ /\[\d+\-\d+\]$/ ) {
+          $options = $prematch . '-J '.$options_name.'[1-'.$array_size.']' . $postmatch;
+      }
   }
-  my $cmd = $self->program." ".$options." -oo ".$job->stdout_file." -eo ".$job->stderr_file.
-      " ".$to_run;
+  else {
+      $options .= ' -J '.$name;
+      if ($array_size >0) {
+          $options .= '[1-'.$array_size.']';
+      }
+  }
+  my $cmd = $self->program." ".$options." -o ".$farm_log_file." ".$to_run;
   #print "LSF cmd ".$cmd."\n";
   return $cmd;
 }
@@ -191,5 +200,43 @@ sub run_bjobs{
   close(CMD);
   return \%hash;
 }
+
+
+=head2 get_job_info
+
+  Arg [1]   : ReseqTrack::Tools::BatchSubmission::LSF
+  Arg [2]   : int, submission_id
+  Arg [3]   : int, submission_index
+  Function  : run 'bjobs -l id[index]'
+  Returntype: arrayref of strings containing all of the output from 'bjobs -l id[index]'
+  Exceptions: throws if fails to run command
+  Example   : ReseqTrack::Tools::BatchSubmission::LSF->get_job_info($id, $index)
+
+=cut
+
+sub get_job_info{
+    my ($self, $submission_id, $submission_index) = @_;
+
+    my $cmd = 'bjobs -l ' . $submission_id;
+    if ($submission_index) {
+        $cmd .= "[" . $submission_index . "]";
+    }
+
+  open(CMD, $cmd." |") or throw("ReseqTrack::Tools::BatchSubmission::LSF ".
+                                "Failed to run $cmd $!");
+
+  my @job_info;
+
+  $cmd .= "\n";
+  push(@job_info, $cmd);
+
+  while (my $line = <CMD>) {
+      push(@job_info, $line);
+  }
+  close CMD;
+
+  return \@job_info;
+}
+
 
 1;

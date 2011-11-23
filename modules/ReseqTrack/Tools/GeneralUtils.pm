@@ -155,17 +155,22 @@ sub is_locked{
     $started = scalar localtime $started;
     my $dbname = $ma->dbc->dbname;
     my $dbhost = $ma->dbc->host;
-    my $error_str = ("Error: $name in place\n\n".
+    print STDERR "$name in place\n\n".
                      "\tdb       $dbname\@$dbhost\n".
                      "\tpid      $pid on ".
                      "host $host\n\tstarted  $started\n\n".
-                     "The process above must be terminated before this ".
-                     "script can be run.\nIf the process does not exist, ".
+                     "There may be another process running\n".
+                     "If the process does not exist, ".
                      "remove the lock by removing the lock from the ".
                      "database:\n\ndelete from meta where ".
-                     "meta_key = '$name';\n\n\n\n" );
-    print STDERR $error_str;
-    throw("Can't run there may be another process running");
+                     "meta_key = '$name';\n\n\n\n" ;
+    my $error_str =  "There may be another process running; " .
+                     "it must be terminated before this script can be run.\n" .
+                     "If the process does not exist, ".
+                     "remove the lock by removing the lock from the ".
+                     "database:\n\ndelete from meta where ".
+                     "meta_key = '$name';\n\n\n\n" ;
+    throw("There may be another process running");
   }
 }
 

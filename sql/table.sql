@@ -40,11 +40,11 @@ CREATE TABLE event(
        event_id int(10) unsigned NOT NULL AUTO_INCREMENT,
        name VARCHAR(100) NOT NULL,
        program VARCHAR(255),
-       program_version VARCHAR(50),
        options VARCHAR(1000),
        input_flag  VARCHAR(40),
        farm_options VARCHAR(255),
-       batch_size   MEDIUMINT(10) unsigned NOT NULL default 0,       
+       runner_options VARCHAR(255),
+       max_array_size MEDIUMINT(10) unsigned NOT NULL default 0,
        output_path  VARCHAR(255),
        type    VARCHAR(50),
        table_name enum('file', 'collection', 'run_meta_info', 'input_string'),
@@ -156,10 +156,11 @@ create table alignment_meta_info(
 CREATE TABLE job(
    job_id            int(10) unsigned NOT NULL AUTO_INCREMENT,
    submission_id     mediumint(10) unsigned,   
+   submission_index  mediumint(10) unsigned,   
    event_id        SMALLINT UNSIGNED NOT NULL,
    input_string      VARCHAR(255) NOT NULL, 
-   stdout_file       varchar(200) NOT NULL,
-   stderr_file       varchar(200) NOT NULL,
+   output_file   varchar(200) NOT NULL,
+   farm_log_file varchar(200) NOT NULL,
    exec_host           varchar(20),
    retry_count       tinyint(2) unsigned default 0,
 
@@ -273,7 +274,17 @@ CREATE TABLE `genotype_results` (
   `performed` datetime NOT NULL,
   PRIMARY KEY (`genotype_results_id`),
   UNIQUE KEY `name` (`name`)
-) 
+) ;
+
+CREATE TABLE file_type_rule (
+       rule_block_order int(10) unsigned NOT NULL,
+       rule_order int(10) unsigned NOT NULL,
+       file_type  VARCHAR(50),
+       match_regex  VARCHAR(1000),
+
+       PRIMARY KEY (rule_block_order, rule_order)
+);
+
 
 
 #Now to add entries to the two standard tables

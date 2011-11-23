@@ -101,7 +101,7 @@ if($rmi->status ne 'public'){
   exit(0);
 }
 #Check you have the correct input files
-my ($mate1, $mate2, $frag) = assign_file_objects($others);
+my ($mate1, $mate2, $frag) = assign_files($others);
 if($rmi->library_layout eq 'SINGLE'){
   if(!$frag || ($mate1 || $mate2)){
     print STDERR "There is a problem for ".$rmi->run_id." is has the wrong files\n";
@@ -191,7 +191,7 @@ my $filtered_collection = ReseqTrack::Collection->new(
 						     );
 #Store the collection
 $db->get_CollectionAdaptor->store($filtered_collection);
-my ($filt_m1, $filt_m2, $filt_f) = assign_file_objects($file_objects);
+my ($filt_m1, $filt_m2, $filt_f) = assign_files($file_objects);
 #Update statistics
 my @objects_to_update;
 if($mate1 && $mate2){

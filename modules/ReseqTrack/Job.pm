@@ -39,10 +39,11 @@ use ReseqTrack::Tools::Argument qw(rearrange);
 
   Arg [1]   : ReseqTrack::Job
   Arg [2]   : int, submission id from the batch submission system used
-  Arg [3]   : ReseqTrack::Event object
-  Arg [4]   : string, input string
-  Arg [5]   : string, stdout filepath
-  Arg [6]   : string, stderr filepath
+  Arg [3]   : int, submission array index from the batch submission system used
+  Arg [4]   : ReseqTrack::Event object
+  Arg [5]   : string, input string
+  Arg [6]   : string, filepath for the program output
+  Arg [7]   : string, filepath for the batch submission system log file
   Arg [8]   : string, the machine the job is run on
   Arg [9]   : int, retry count, how many times the job has been attempted
   Arg [10]  : string, current status, the current status of the job, this is stored
@@ -61,14 +62,17 @@ sub new {
     my ( $p, $f, $l ) = caller;
 
     my (
-        $submission_id, $event,          $input,
-        $stdout,        $stderr,         $host,
-        $retry_count,   $current_status, $time
+        $submission_id, $submission_index, $event,
+        $input,         $output_file,      $farm_log_file,
+        $host,          $retry_count,      $current_status,
+        $time,
       )
       = rearrange(
         [
-            qw( SUBMISSION_ID EVENT INPUT_STRING
-              STDOUT STDERR EXEC_HOST RETRY_COUNT CURRENT_STATUS TIME)
+            qw( SUBMISSION_ID SUBMISSION_INDEX EVENT
+              INPUT_STRING OUTPUT_FILE FARM_LOG_FILE
+              EXEC_HOST RETRY_COUNT CURRENT_STATUS
+              TIME)
         ],
         @args
       );
@@ -78,15 +82,16 @@ sub new {
     throw("Can't create a job without a input string")  unless ($input);
     #####
 
-    $self->{input_string}   = $input;
-    $self->{submission_id}  = $submission_id;
-    $self->{event}          = $event;
-    $self->{stdout_file}    = $stdout;
-    $self->{stderr_file}    = $stderr;
-    $self->{host}           = $host;
-    $self->{retry_count}    = $retry_count;
-    $self->{current_status} = $current_status;
-    $self->{time}           = $time;
+    $self->{input_string}     = $input;
+    $self->{submission_id}    = $submission_id;
+    $self->{submission_index} = $submission_index;
+    $self->{event}            = $event;
+    $self->{output_file}      = $output_file;
+    $self->{farm_log_file}    = $farm_log_file;
+    $self->{host}             = $host;
+    $self->{retry_count}      = $retry_count;
+    $self->{current_status}   = $current_status;
+    $self->{time}             = $time;
     return $self;
 }
 
@@ -107,6 +112,14 @@ sub submission_id {
         $self->{submission_id} = $arg;
     }
     return $self->{submission_id};
+}
+
+sub submission_index {
+    my ( $self, $arg ) = @_;
+    if ($arg) {
+        $self->{submission_index} = $arg;
+    }
+    return $self->{submission_index};
 }
 
 sub event {
@@ -149,11 +162,11 @@ sub retry_count {
     return $self->{retry_count};
 }
 
-=head2 stdout/err_file
+=head2 output files
 
   Arg [1]   : ReseqTrack::Job
-  Arg [2]   : string, path to stdout or err file
-  Function  : set and return the string for the stdout or err files. It will also
+  Arg [2]   : string, path to program output file or batch submission system log file
+  Function  : set and return the string for the program output or batch submission system log files. It will also
   remove any // from the paths
   Returntype: string
   Exceptions: 
@@ -161,22 +174,22 @@ sub retry_count {
 
 =cut
 
-sub stdout_file {
+sub farm_log_file {
     my ( $self, $arg ) = @_;
     if ($arg) {
         $arg =~ s/\/\//\//g;
-        $self->{stdout_file} = $arg;
+        $self->{farm_log_file} = $arg;
     }
-    return $self->{stdout_file};
+    return $self->{farm_log_file};
 }
 
-sub stderr_file {
+sub output_file {
     my ( $self, $arg ) = @_;
     if ($arg) {
         $arg =~ s/\/\//\//g;
-        $self->{stderr_file} = $arg;
+        $self->{output_file} = $arg;
     }
-    return $self->{stderr_file};
+    return $self->{output_file};
 }
 
 =head2 current_status

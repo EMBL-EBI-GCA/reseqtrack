@@ -22,8 +22,8 @@ sub new {
 
 
 sub columns{
-  return "job.job_id, job.submission_id, job.event_id, ".
-      "job.stdout_file, job.stderr_file, job.input_string, job.exec_host, ".
+  return "job.job_id, job.submission_id, job.submission_index, job.event_id, ".
+      "job.output_file, job.farm_log_file, job.input_string, job.exec_host, ".
       "job.retry_count, job_status.status, job_status.time ";
 }
 
@@ -146,19 +146,20 @@ sub fetch_status{
 sub store{
   my ($self, $job) = @_;
   my $job_insert_sql = "insert into job ".
-      "(submission_id, event_id, input_string, stdout_file, stderr_file, ".
+      "(submission_id, submission_index, event_id, input_string, output_file, farm_log_file, ".
       "exec_host, retry_count)".
-      "values(?, ?, ?, ?, ?, ?, ?)";
+      "values(?, ?, ?, ?, ?, ?, ?, ?)";
   throw("Can't store ".$job." without an event ".$job->event->name." dbID") 
       if(!$job->event->dbID);
   my $sth = $self->prepare($job_insert_sql);
   $sth->bind_param(1, $job->submission_id);
-  $sth->bind_param(2, $job->event->dbID);
-  $sth->bind_param(3, $job->input_string);
-  $sth->bind_param(4, $job->stdout_file);
-  $sth->bind_param(5, $job->stderr_file);
-  $sth->bind_param(6, $job->host);
-  $sth->bind_param(7, $job->retry_count);
+  $sth->bind_param(2, $job->submission_index);
+  $sth->bind_param(3, $job->event->dbID);
+  $sth->bind_param(4, $job->input_string);
+  $sth->bind_param(5, $job->output_file);
+  $sth->bind_param(6, $job->farm_log_file);
+  $sth->bind_param(7, $job->host);
+  $sth->bind_param(8, $job->retry_count);
   $sth->execute;
   my $dbID = $sth->{'mysql_insertid'};
   $sth->finish();
@@ -173,29 +174,31 @@ sub update{
   my ($self, $job) = @_;
   my $job_update_sql = "update job ".
       "set submission_id = ?, ".
+      "submission_index = ?, ".
       "event_id = ?, ".
       "input_string = ?, ".
-      "stdout_file = ? ,".
-      "stderr_file = ?,".
+      "output_file = ? ,".
+      "farm_log_file = ?,".
       "exec_host = ?, ".
       "retry_count = ? ".
       " where job_id = ? ";
   my $sth = $self->prepare($job_update_sql);
   $sth->bind_param(1, $job->submission_id);
-  $sth->bind_param(2, $job->event->dbID);
-  $sth->bind_param(3, $job->input_string);
-  $sth->bind_param(4, $job->stdout_file);
-  $sth->bind_param(5, $job->stderr_file);
-  $sth->bind_param(6, $job->host);
-  $sth->bind_param(7, $job->retry_count);
-  $sth->bind_param(8, $job->dbID);
+  $sth->bind_param(2, $job->submission_index);
+  $sth->bind_param(3, $job->event->dbID);
+  $sth->bind_param(4, $job->input_string);
+  $sth->bind_param(5, $job->output_file);
+  $sth->bind_param(6, $job->farm_log_file);
+  $sth->bind_param(7, $job->host);
+  $sth->bind_param(8, $job->retry_count);
+  $sth->bind_param(9, $job->dbID);
   $sth->execute;
   $sth->finish;
 }
 
 sub unset_submission_id{
   my ($self, $job) = @_;
-  my $sql = "update job set submission_id = NULL";
+  my $sql = "update job set submission_id = NULL, submission_index = NULL";
   my $sth = $self->prepare($sql);
   $sth->execute;
   $sth->finish;
@@ -251,9 +254,10 @@ sub object_from_hashref{
        -adaptor => $self,
        -input_string => $hashref->{input_string},
        -submission_id => $hashref->{submission_id},
+       -submission_index => $hashref->{submission_index},
        -event => $event,
-       -stdout => $hashref->{stdout_file},
-       -stderr => $hashref->{stderr_file},
+       -output_file => $hashref->{output_file},
+       -farm_log_file => $hashref->{farm_log_file},
        -host => $hashref->{host},
        -current_status => $hashref->{status},
        -time => $hashref->{time},

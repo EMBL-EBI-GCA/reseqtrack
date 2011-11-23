@@ -22,7 +22,6 @@ use vars qw (@ISA  @EXPORT);
              return_header_string
              get_index_hash_on_column
              assign_files
-             assign_file_objects
              get_run_to_file_hash
              get_withdrawn_and_active_hash
 	    );
@@ -245,53 +244,44 @@ sub standard_index_methods{
 }
 
 
-sub assign_file_objects{
-  my ($files) = @_;
-  my ($mate1, $mate2, $frag);
-  foreach my $file(@$files){
-    my $name = basename($file->name);
-    if($name =~ /[E|S]RR\d+\.fastq\.gz/i
-       || $name =~ /[E|S]RR\d+\.recal\.fastq\.gz/i
-       || $name =~ /[E|S]RR\d+\.filt\.fastq\.gz/i){
-      $frag = $file;
-    }elsif($name =~ /[E|S]RR\d+\_1\.fastq\.gz/i
-           || $name =~ /[E|S]RR\d+\_1\.recal\.fastq\.gz/i
-           || $name =~ /[E|S]RR\d+\_1\.filt\.fastq\.gz/i){
-      $mate1 = $file;
-    }elsif($name =~ /[E|S]RR\d+\_2\.fastq\.gz/i || 
-           $name =~ /[E|S]RR\d+\_2\.recal\.fastq\.gz/i
-           || $name =~ /[E|S]RR\d+_2\.filt\.fastq\.gz/i){
-      $mate2 = $file;
-    }else{
-      throw("Can't figure out where ".$file->name." ".$file->type." belongs");
-    }
-  }
-  return ($mate1, $mate2, $frag);
-}
+=head2 assign_files
 
+  Arg [1]   : Arrayref of either ReseqTrack::File objects or filename strings
+  Arg [2]   : optional, arrayref of regular expressions
+  Function  : assigns files as mate1, mate2 or frag based on their filename
+  Returntype: arrayref of either ReseqTrack::File objects or filename strings, depends on input
+              The return order is mate1, mate2, frag (for the default regular expresions)
+  Example   : ($mate1, $mate2, $frag) = assign_files(\@files);
 
+=cut
 sub assign_files{
-  my ($names) = @_;
-  my ($mate1, $mate2, $frag);
-  foreach my $file(@$names){
-    my $name = basename($file);
-    if($name =~ /[E|S]RR\d+\.fastq\.gz/i
-       || $name =~ /[E|S]RR\d+\.recal\.fastq\.gz/i 
-       || $name =~ /[E|S]RR\d+\.filt\.fastq\.gz/i){
-      $frag = $file;
-    }elsif($name =~ /[E|S]RR\d+\_1\.fastq\.gz/i
-           || $name =~ /[E|S]RR\d+\_1\.recal\.fastq\.gz/i
-           || $name =~ /[E|S]RR\d+\_1\.filt\.fastq\.gz/i){
-      $mate1 = $file;
-    }elsif($name =~ /[E|S]RR\d+\_2\.fastq\.gz/i || 
-           $name =~ /[E|S]RR\d+\_2\.recal\.fastq\.gz/i || 
-           $name =~ /[E|S]RR\d+\_2\.filt\.fastq\.gz/i ){
-      $mate2 = $file;
-    }else{
-      throw("Can't figure out where ".$file." belongs");
-    }
+  my ($files, $regexs) = @_;
+  if (! $regexs) {
+      my @regexs = ('/[E|S]RR\d+_1\.((filt|recal)\.)?fastq\.gz/i',
+                    '/[E|S]RR\d+_2\.((filt|recal)\.)?fastq\.gz/i',
+                    '/[E|S]RR\d+\.((filt|recal)\.)?fastq\.gz/i');
+      $regexs = \@regexs;
   }
-  return ($mate1, $mate2, $frag);
+
+  my @return_files;
+  foreach my $file(@$files){
+    my $filename = (ref $file eq 'ReseqTrack::File') ? $file->name : $file;
+    my $match_found = 0;
+    REGEX:
+    foreach my $i (0..@$regexs-1) {
+        my $perl_condition = '$filename =~ ' . $regexs->[$i];
+        if (eval "$perl_condition") {
+            throw("More than one file matched " . $regexs->[$i]) if $return_files[$i];
+            $return_files[$i] = $file;
+            $match_found = 1;
+            last REGEX;
+        }
+    }
+    throw("File did not match any regular expression: $filename") if (!$match_found);
+  }
+
+  #this returns ($mate1, $mate2, $frag) when default regexs are used
+  return @return_files;
 }
 
 

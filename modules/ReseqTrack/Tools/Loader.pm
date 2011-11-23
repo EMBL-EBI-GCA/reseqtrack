@@ -15,7 +15,7 @@ use strict;
 use warnings;
 use ReseqTrack::Tools::Exception qw(throw warning stack_trace_dump);
 use ReseqTrack::Tools::FileUtils
-  qw(create_objects_from_path_list create_history assign_type check_type);
+  qw(create_objects_from_path_list create_history assign_type);
 use ReseqTrack::Tools::HostUtils qw(get_host_object);
 use ReseqTrack::Tools::Argument qw(rearrange);
 use ReseqTrack::Tools::FileSystemUtils qw( get_lines_from_file get_md5hash list_files_in_dir);

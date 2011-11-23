@@ -121,6 +121,7 @@ my $clean_archiver  = ReseqTrack::Tools::Loader::Archive->new(
 							      -no_lock=>1,
 							      -action=>'archive',
 							     );
+
 my $continue = clean_archive_table($clean_archiver, 10, 360, $log_fh);
 unless($continue){
   print STDERR "Stopping tree process as there are still objects in the archive table and ".
@@ -196,6 +197,9 @@ if ($new_tree_md5 ne $old_tree_md5) {
   my $DIFFTREE="ReseqTrack::Tools::AutoDiffTree";
 
 
+  my $ftra = $dbA->get_FileTypeRuleAdaptor;
+  my $file_type_rules = $ftra->fetch_all_in_order;
+
 
   my $tree_diffs = $DIFFTREE->new(
 				  -verbose       => $verbose,
@@ -205,6 +209,7 @@ if ($new_tree_md5 ne $old_tree_md5) {
 				  -staging_dir   => $STAGING_DIR,
                                   -date          => $date,
 				  -changelog_header =>$changelog_header,
+                                  -ordered_file_type_rules =>$file_type_rules,
 				 );
 
   $tree_diffs->create_log_files;

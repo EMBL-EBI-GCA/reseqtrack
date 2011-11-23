@@ -27,7 +27,7 @@ sub new {
 
 sub columns{
 
-  return  " event.event_id, event.name, event.program,  event.program_version, event.batch_size, event.options, event.input_flag, event.farm_options, event.output_path, event.type,event.table_name, event.created, event.updated ";
+  return  " event.event_id, event.name, event.program,  event.options, event.input_flag, event.farm_options, event.runner_options, event.max_array_size, event.output_path, event.type,event.table_name, event.created, event.updated ";
   
 }
 
@@ -59,8 +59,8 @@ sub store{
   my ($self, $event) = @_;
   my $sql = 
       "INSERT INTO  event " 
-      . "(name, program, program_version, options,
-          input_flag, farm_options, batch_size, output_path,
+      . "(name, program, options,
+          input_flag, farm_options, runner_options, max_array_size, output_path,
           type, table_name, created, updated) "
       . "values(?, ?, ?, ?, ?, ?, ?, ?,?, ?, now(), now() ) ";
  
@@ -68,11 +68,11 @@ sub store{
 
   $sth->bind_param(1,  $event->name);
   $sth->bind_param(2,  $event->program);
-  $sth->bind_param(3,  $event->program_version);
-  $sth->bind_param(4,  $event->options);
-  $sth->bind_param(5,  $event->input_flag);
-  $sth->bind_param(6,  $event->farm_options);
-  $sth->bind_param(7,  $event->batch_size);
+  $sth->bind_param(3,  $event->options);
+  $sth->bind_param(4,  $event->input_flag);
+  $sth->bind_param(5,  $event->farm_options);
+  $sth->bind_param(6,  $event->runner_options);
+  $sth->bind_param(7,  $event->max_array_size);
   $sth->bind_param(8,  $event->output_path);
   $sth->bind_param(9,  $event->type);
   $sth->bind_param(10, $event->table_name);
@@ -96,11 +96,11 @@ sub update{
   
   my $sql = 
       "UPDATE event SET program   = ?, ".
-      "program_version = ?, ".
       "options     = ?, ".
       "input_flag = ?, ".
       "farm_options = ?,  ".
-      "batch_size = ?, ". 
+      "runner_options = ?,  ".
+      "max_array_size = ?,  ".
       "output_path = ?, ".
       "type  = ?, ".
       "table_name   = ?,  ".
@@ -113,11 +113,11 @@ sub update{
   
   
   $sth->bind_param(1,  $event->program);
-  $sth->bind_param(2,  $event->program_version);
-  $sth->bind_param(3,  $event->options);
-  $sth->bind_param(4,  $event->input_flag);
-  $sth->bind_param(5,  $event->farm_options);
-  $sth->bind_param(6,  $event->batch_size);
+  $sth->bind_param(2,  $event->options);
+  $sth->bind_param(3,  $event->input_flag);
+  $sth->bind_param(4,  $event->farm_options);
+  $sth->bind_param(5,  $event->runner_options);
+  $sth->bind_param(6,  $event->max_array_size);
   $sth->bind_param(7,  $event->output_path);
   $sth->bind_param(8,  $event->type);
   $sth->bind_param(9,  $event->table_name);
@@ -144,11 +144,11 @@ sub object_from_hashref{
          -adaptor => $self,
 	 -name            =>$hashref->{name},
 	 -program         =>$hashref->{program},
-	 -program_version =>$hashref->{program_version},
 	 -options         =>$hashref->{options},
 	 -input_flag      =>$hashref->{input_flag},
 	 -farm_options    =>$hashref->{farm_options},
-	 -batch_size        =>$hashref->{batch_size},
+	 -runner_options  =>$hashref->{runner_options},
+	 -max_array_size  =>$hashref->{max_array_size},
 	 -output_path      =>$hashref->{output_path},
 	 -type                 =>$hashref->{type},
 	 -table_name     =>$hashref->{table_name},

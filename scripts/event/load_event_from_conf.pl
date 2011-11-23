@@ -85,15 +85,15 @@ sub dump_event_table_contents {
     foreach my $ievent (@$events) {
         printf OUT "[$ievent->{name}]\n"          if $ievent->{name};
         printf OUT "program=$ievent->{program}\n" if $ievent->{program};
-        printf OUT "program_version=$ievent->{program_version}\n"
-          if $ievent->{program_version};
         printf OUT "options=$ievent->{options}\n" if $ievent->{options};
         printf OUT "input_flag=$ievent->{input_flag}\n"
           if $ievent->{input_flag};
         printf OUT "farm_options=$ievent->{farm_options}\n"
           if $ievent->{farm_options};
-        printf OUT "batch_size=$ievent->{batch_size}\n"
-          if $ievent->{batch_size};
+        printf OUT "runner_options=$ievent->{runner_options}\n"
+          if $ievent->{runner_options};
+        printf OUT "max_array_size=$ievent->{max_array_size}\n"
+          if $ievent->{max_array_size};
         printf OUT "output_path=$ievent->{output_path}\n"
           if $ievent->{output_path};
         printf OUT "type=$ievent->{type}\n" if $ievent->{type};
@@ -218,16 +218,16 @@ sub parse_files {
       throw("you seem to have no table name for $h can't ".
             "create a an event object without an table name");
     }
-    
+
     my $analysis = ReseqTrack::Event->new
       (
        -program         => $config->{$h}->{program},
-       -program_version => $config->{$h}->{program_version},
        -options      => $config->{$h}->{options},
        -name      => $h,
        -input_flag => $config->{$h}->{input_flag},
        -farm_options => $config->{$h}->{farm_options},
-       -batch_size => $config->{$h}->{batch_size},
+       -runner_options => $config->{$h}->{runner_options},
+       -max_array_size => $config->{$h}->{max_array_size},
        -output_path => $config->{$h}->{output_path},
        -type => $config->{$h}->{type},
        -table_name => $config->{$h}->{table_name},
@@ -256,12 +256,12 @@ ReseqTrack/scripts/event/load_event_from_conf.pl
 
         [event_name]
         program=/path/to/program
-        program_version=program version
-        options=command line options for version
+        options=command line options for program
         input_flag=command line flag to associate with input
         farm_options=options for LSF submission of event
-        batch_size=number of inputs to associate in a single LSF submission
-        output_path=where to direct the stdout and stderr of the file
+        runner_options=options for the runner script
+        max_array_size=maximum size of LSF job array (0 to submit as separate jobs)
+        output_path=directory for output_files and farm_log_files
         type=the type of the input data required by the event
         table_name=the table name needed to retrieve the input data
 

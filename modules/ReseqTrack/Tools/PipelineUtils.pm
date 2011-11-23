@@ -179,33 +179,28 @@ sub get_input_string_inputs{
   return \@inputs;
 }
 
+
 =head2 create_event_commandline
 
-  Arg [1]   : $tevent = event reference
-  Arg [2]   : $input_string = file name
+  Arg [1]   : ReseqTrack::Event object
+  Arg [2]   : input_string
   Function  : Create a command line from event table fields
   Returntype: string
-  Exceptions: $event reference must be valid
-              $input string must be provide and a valid path to a file
   Example   : create_event_commandline($tevent, $file);
 
 =cut
 
 sub create_event_commandline{
+    my ($event, $input_string) = @_;
 
-  my  $event        = shift;
-  my  $input_string = shift;
+    my $cmd = $event->program . " ";
+    $cmd .= $event->options . " "    if ($event->options);
+    $cmd .= $event->input_flag . " " if ($event->input_flag);
+    $cmd .= $input_string;
 
-  throw "Invalid event reference" if (!$event);
-  throw "No input specified"  if (!$input_string);
-
-  my $cmd = $event->program." ";
-  $cmd .= $event->options." " if($event->options);
-  $cmd .= $event->input_flag." " if($event->input_flag);
-  $cmd .= $input_string;
- 
-  return $cmd ;
+    return $cmd;
 }
+
 
 
 =head2  get_random_input_string
@@ -521,8 +516,8 @@ sub create_job_object{
         );
   }
   my $stem = create_job_output_stem($job->input_string, $event, $num_output_dirs);
-  $job->stderr_file($stem.".err") unless($job->stderr_file);
-  $job->stdout_file($stem.".out") unless($job->stdout_file);
+  $job->output_file($stem.".out") unless($job->output_file);
+  $job->farm_log_file($stem.".log") unless($job->farm_log_file);
   if($update){
     $ja->update($job);
     $job->current_status('CREATED');
@@ -577,11 +572,11 @@ sub create_job_output_stem{
   Arg [4]   : path to the runner script, it should point to 
     ReseqTrack/scripts/event/runner.pl
   Arg [5]   : ReseqTrack::Event object
-  Function  : create batch submission cmds for the passed in objects
+  Function  : create batch submission cmds for the Job objects
   Returntype: hashref, keyed on command values are an arrayref of associated job 
   objects
   Exceptions: n/a
-  Example   : my $cmds = create_submission_cmds($jobs, $db, $lsf, $runner);
+  Example   : my $cmds = create_submission_cmds($jobs, $db, $lsf, $runner, $event);
 
 =cut
 
@@ -589,63 +584,57 @@ sub create_job_output_stem{
 sub create_submission_cmds{
   my ($jobs, $db, $batch_object, $runner, $event) = @_;
   my $wrapper = "perl ".$runner." -dbhost ".$db->dbc->host." -dbuser ".$db->dbc->username." -dbpass ".$db->dbc->password." -dbport ".$db->dbc->port." -dbname ".$db->dbc->dbname." -name ".$event->name;
+
+  if ($event->runner_options) {
+      $wrapper .= " ".$event->runner_options;
+  }
+
   my $job_count = 0;
-  my $batch_count = 0;
-  my @inputs_to_run;
+  my @submission_jobs;
+
   my $ja = $db->get_JobAdaptor;
   my %cmds;
   
-  my $temp_wrapper = $wrapper;
-  my @batch;
+  my $submission_wrapper = $wrapper;
   my %jobs;
- JOB:foreach my $job(@$jobs){
-   if(!$job->dbID){
-     $job->current_status('CREATED');
-     $ja->store($job);
-   }
-   unless($jobs{$job->dbID}){
-     $jobs{$job->dbID} = 1;
-   }else{
-     throw("Duplicate version of ".$job->dbID);
-   }
-   $temp_wrapper .= " ".$job->dbID;
-   $batch_count++;
-   $job_count++;
-   if($batch_count >= $event->batch_size || $job_count >= @$jobs){
-     if(@batch == 0){
-       push(@batch, $job);
-     }
-     foreach my $batch_job(@batch){
-       $batch_job->stderr_file($job->stderr_file);
-       $batch_job->stdout_file($job->stdout_file);
-       $ja->update($batch_job);
-     }
-     
-     my $cmd = $batch_object->construct_command_line($temp_wrapper, 
-                                                     $job->event->farm_options,
-                                                     $job,
-                                                     $job->event->name);
-     push(@{$cmds{$cmd}}, @batch);
-     @batch = ();
-     $batch_count = 0;
-     $temp_wrapper = $wrapper;
-   }else{
-     $batch_count++;
-     push(@batch, $job);
-   }
- }
-  if(@batch){
-    my $job = $batch[0];
-    foreach my $batch_job(@batch){
-      $batch_job->stderr_file($job->stderr_file);
-      $batch_job->stdout_file($job->stdout_file);
-      $ja->update($batch_job);
-    }
-    my $cmd = create_submission_command('bsub', $event->farm_options, $event->name, $job->stdout_file, $job->stderr_file,  $temp_wrapper);
-    push(@{$cmds{$cmd}}, @batch);
+  JOB:
+  foreach my $job(@$jobs){
+      if(!$job->dbID){
+          $job->current_status('CREATED');
+          $ja->store($job);
+      }
+      unless($jobs{$job->dbID}){
+          $jobs{$job->dbID} = 1;
+      }
+      else{
+          throw("Duplicate version of ".$job->dbID);
+      }
+      $submission_wrapper .= " ".$job->dbID;
+
+      push(@submission_jobs, $job);
+      $job_count++;
+
+      if (scalar @submission_jobs >= $event->max_array_size || $job_count >= @$jobs) {
+          foreach my $submission_job (grep {$_ != $job} @submission_jobs) {
+              $submission_job->farm_log_file($job->farm_log_file);
+              $ja->update($submission_job);
+          }
+          my $submission_array_size = $event->max_array_size > 0 ? @submission_jobs : 0;
+          my $cmd = $batch_object->construct_command_line($submission_wrapper, 
+                                                          $job->event->farm_options,
+                                                          $job->farm_log_file,
+                                                          $job->event->name,
+                                                          $submission_array_size);
+          push(@{$cmds{$cmd}}, @submission_jobs);
+
+          @submission_jobs = ();
+          $submission_wrapper = $wrapper;
+      }
   }
+
   return(\%cmds);
 }
+
 
 
 =head2 has_to_many_jobs

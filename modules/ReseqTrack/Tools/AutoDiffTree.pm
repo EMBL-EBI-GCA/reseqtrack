@@ -17,7 +17,8 @@ sub new {
   bless $self, $class;
 
   my ( $old_tree_file, $new_tree_file, $changelog, 
-       $staging_dir, $verbose,$date, $changelog_header ) = rearrange(
+       $staging_dir, $verbose,$date, $changelog_header,
+       $ordered_file_type_rules ) = rearrange(
 					    [
 					     qw(
                           OLD_TREE_FILE
@@ -27,6 +28,7 @@ sub new {
 			  VERBOSE
                           DATE
                           CHANGELOG_HEADER
+                          ORDERED_FILE_TYPE_RULES
 			  )
 					    ],
 					    @args
@@ -51,12 +53,14 @@ sub new {
   }  
 
   $self->staging_dir($staging_dir);
+
+  $self->ordered_file_type_rules($ordered_file_type_rules);
 	
 
   $self->new_tree( ( $self->get_tree_hash($new_tree_file) ) );
   $self->old_tree( ( $self->get_tree_hash($old_tree_file) ) );
-  $self->assign_g1k_types( $self->new_tree() );
-  $self->assign_g1k_types( $self->old_tree() );
+  $self->assign_types( $self->new_tree() );
+  $self->assign_types( $self->old_tree() );
 
   $self->delete_identical( $self->new_tree, $self->old_tree );
 
@@ -247,7 +251,7 @@ sub flag_new {
 		
     $$new{$f}{change} = "new";
     #print "new:: $$new{$f}{change}\n";
-    $self->modified_type_hash( $$new{$f}{g1k_type}, "new" );		
+    $self->modified_type_hash( $$new{$f}{type}, "new" );		
   }
 
   return;
@@ -303,19 +307,19 @@ sub output_changelog_files {
 	}
 				#print $change, "\n";
 	next if ( $change ne "$action" );
-	next if $$hash{$f}{g1k_type} ne "$key";
+	next if $$hash{$f}{type} ne "$key";
 
-	my $i_type = $$hash{$f}{g1k_type};
+	my $i_type = $$hash{$f}{type};
 	my @aa;
 	if ( defined( $$all_modifications{$action} ) ) {
 	  @aa = grep /$i_type/, @{ $$all_modifications{$action} };
 	}
 	if ( $#aa == -1 ) {
 
-	  # print "adding $action g1k_type\n";
+	  # print "adding $action type\n";
 	  push(
 	       @{ $$all_modifications{$action} },
-	       $$hash{$f}{g1k_type} );
+	       $$hash{$f}{type} );
 	}
 	$f =~ s/^ftp\///;
 
@@ -375,25 +379,25 @@ sub output_moved_changelog_files {
       foreach my $f ( keys %$new ) {
 
 	#print $f, "\n";
-	#print $$new{$f}{g1k_type}, "\n";
+	#print $$new{$f}{type}, "\n";
 	next if ( ( $$new{$f}{type} ) eq ("directory") );
 	next if ( $$new{$f}{change} ne "moved" );
-	next if $$new{$f}{g1k_type} ne "$key";
+	next if $$new{$f}{type} ne "$key";
 
-	my $i_type = $$new{$f}{g1k_type};
+	my $i_type = $$new{$f}{type};
 	my @aa;
 	if ( defined( $$all_modifications{moved} ) ) {
 	  @aa = grep /$i_type/, @{ $$all_modifications{moved} };
 	}
 	if ( $#aa == -1 ) {
 
-	  #  print "adding moved g1k_type\n";
+	  #  print "adding moved type\n";
 	  push( @{ $$all_modifications{moved} },
-		$$new{$f}{g1k_type} );
+		$$new{$f}{type} );
 	}
 
 	#   print Dumper( $new{$f});
-	#   print $f,"\t", $new{$f}{change},"\t", $new{$f}{g1k_type},"\n";
+	#   print $f,"\t", $new{$f}{change},"\t", $new{$f}{type},"\n";
 
 	my $old = $$new{$f}{old_location};
 	my $new = $$new{$f}{new_location};
@@ -476,10 +480,10 @@ sub was_moved {
 	$$new_hash{$key}{old_location} = $f_name;
 
 
-	$self->modified_type_hash( $$new_hash{$key}{g1k_type},
+	$self->modified_type_hash( $$new_hash{$key}{type},
 				   $$new_hash{$key}{change} );
 
-	$self->modified_type_hash( $$old_hash{$f_name}{g1k_type},
+	$self->modified_type_hash( $$old_hash{$f_name}{type},
 				   $$old_hash{$f_name}{change} );
 	return 1;
       }
@@ -502,11 +506,11 @@ sub was_moved {
 	$$new_hash{$key}{old_location} = $f_name;
 
 	$self->modified_type_hash(
-				  $$old_hash{$f_name}{g1k_type},
+				  $$old_hash{$f_name}{type},
 				  $$old_hash{$f_name}{change}
 				 );
 	$self->modified_type_hash( 
-				  $$new_hash{$key}{g1k_type},
+				  $$new_hash{$key}{type},
 				  $$new_hash{$key}{change} );
 
 				#  print "Do not know for this case\n";
@@ -574,7 +578,7 @@ sub was_withdrawn {
 
   if ( $k == 0 ) {
     $$old_hash{$f_name}{change} = "withdrawn";
-    $self->modified_type_hash( $$old_hash{$f_name}{g1k_type},
+    $self->modified_type_hash( $$old_hash{$f_name}{type},
 			       $$old_hash{$f_name}{change} );
     return 1;
   }
@@ -587,7 +591,7 @@ sub was_withdrawn {
     #print "$f_name has been withdrawn\n";
     $$old_hash{$f_name}{change} = "withdrawn";
 
-     $self->modified_type_hash( $$old_hash{$f_name}{g1k_type},
+     $self->modified_type_hash( $$old_hash{$f_name}{type},
 				$$old_hash{$f_name}{change} );
 
     return 1;		     
@@ -607,18 +611,18 @@ sub was_withdrawn {
       print "Have matching md5 \n" if($self->verbose);
       print $key, "\n$old_md5", $$new_hash{$key}->{md5}, "\n" if($self->verbose);
 
-      $ignore = 1 if ( $$old_hash{$f_name}{g1k_type} =~ /BAI/ );
-      $ignore = 1 if ( $$old_hash{$f_name}{g1k_type} =~ /BAS/ );
+      $ignore = 1 if ( $$old_hash{$f_name}{type} =~ /BAI/ );
+      $ignore = 1 if ( $$old_hash{$f_name}{type} =~ /BAS/ );
       $ignore = 1 if ( $$old_hash{$f_name}{size} == 0 );
 
     }
 
     if ( $ignore == 0 ) {
-      print "withdrawn:\n$f_name   ", $$old_hash{$f_name}{g1k_type},
+      print "withdrawn:\n$f_name   ", $$old_hash{$f_name}{type},
 	"\n\n" if($self->verbose);
       $$old_hash{$f_name}{change} = "withdrawn";
 
-      $self->modified_type_hash( $$old_hash{$f_name}{g1k_type},
+      $self->modified_type_hash( $$old_hash{$f_name}{type},
 				 $$old_hash{$f_name}{change} );
 
       return 1;
@@ -653,11 +657,11 @@ sub was_replaced {
       $$old_hash{$f_name}{change} = "replacement";
       $$new_hash{$f_name}{change} = "replacement";
 
-      $self->modified_type_hash( $$old_hash{$f_name}{g1k_type},
+      $self->modified_type_hash( $$old_hash{$f_name}{type},
 				 $$old_hash{$f_name}{change} );
 
       $self->modified_type_hash (
-				 $$new_hash{$f_name}{g1k_type},
+				 $$new_hash{$f_name}{type},
 				 $$new_hash{$f_name}{change}
 				);
 
@@ -748,13 +752,13 @@ sub delete_identical {
   return 0;
 }
 
-sub assign_g1k_types {
+sub assign_types {
 
   my ( $self, $tree_hash ) = @_;
 
   foreach my $key ( keys %$tree_hash ) {
-    my $type = assign_type_by_filename ($key);
-    $$tree_hash{$key}{g1k_type} = $type;  
+    my $type = assign_type_by_filename ($key, $self->ordered_file_type_rules);
+    $$tree_hash{$key}{type} = $type;  
   }
 
   return 0;
@@ -945,6 +949,14 @@ sub files_to_archive_array{
   }
  
   return $self->{files_to_archive_array};
+}
+
+sub ordered_file_type_rules {
+  my ( $self, $arg ) = @_;
+  if ($arg) {
+    $self->{'ordered_file_type_rules'} = $arg;
+  }
+  return $self->{'ordered_file_type_rules'};
 }
 
 1;
