@@ -304,6 +304,8 @@ sub convert_population{
     $pop = 'CLM';
   }elsif($string =~ /Gujarati/){
     $pop = 'GIH';
+  }elsif($string =~ /GIH/){
+    $pop = 'GIH';
   }elsif($string =~ /Maasai/){
     $pop = 'MKK';
   }elsif($string =~ /Spanish/i){

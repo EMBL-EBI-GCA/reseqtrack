@@ -538,9 +538,9 @@ sub check_read{
   #print "Checking ".$header."\n";
   #print $seq."\n";
   unless($self->check_base_comp($seq, $header)){
-    print STDERR $header."\n";
-    print STDERR "Sequence string  for ".$filename." ".$read_count.
-      " contains to many runs of the same base ".$header."\n"; 
+    #print STDERR $header."\n";
+    #print STDERR "Sequence string  for ".$filename." ".$read_count.
+    #  " contains to many runs of the same base ".$header."\n"; 
     $self->add_to_error_hash("To many bases of same type");
     return 0;
   }

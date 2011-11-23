@@ -380,7 +380,7 @@ sub check_status{
     foreach my $file(@$files){
       next unless($file->name =~ /$ftp_root/);
       next if($file->name =~ /withdrawn/);
-      print "Looking at ".$file->name." ".$file->dbID." ".$file->type."\n";
+      #print "Looking at ".$file->name." ".$file->dbID." ".$file->type."\n";
       my $new = $file->name;
       $new =~ s/ftp/withdrawn/;
       next if($new eq $file->name);
