@@ -142,9 +142,9 @@ sub run_samtools {
                         -reference               => $self->reference,
                         -output_to_working_dir   => 1,
                         -replace_files           => 1,
-                        -flag_merge              => $self->flag_merge,
-                        -flag_sort               => $self->flag_sort,
-                        -flag_index              => $self->flag_index,
+                        -flag_merge              => $self->flag_merge_bams,
+                        -flag_sort               => $self->flag_sort_bams,
+                        -flag_index              => $self->flag_index_bams,
                         -flag_sam_to_bam         => $self->flag_sam_to_bam,
                         );
 
