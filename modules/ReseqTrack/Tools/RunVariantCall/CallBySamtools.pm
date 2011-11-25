@@ -23,8 +23,7 @@ use base qw(ReseqTrack::Tools::RunVariantCall);
       Here is a list of options: bcftools view [-AbFGNQSucgv] [-D seqDict] [-l listLoci] [-i gapSNPratio] [-t mutRate] [-p varThres] [-P prior] [-1 nGroup1] [-d minFrac] [-U nPerm] [-X permThres] [-T trioType] 
   Arg [-vcfutils]   :
       string, command line options to use with "vcfutils.pl"
-  Arg [-replace_files]   :
-      boolean, default 1, any input / intermediate file will be deleted after output is created.
+
   + Arguments for ReseqTrack::Tools::RunProgram parent class
 
   Function  : Creates a new ReseqTrack::Tools::RunVariantCall::CallBySamtools object.
@@ -42,7 +41,6 @@ use base qw(ReseqTrack::Tools::RunVariantCall);
                 -vcfutils 				=> '-D 100',
                 -chrom					=> '1',
                 -region					=> '1-1000000',
-                -replace_files 			=> 1,
                 -output_to_working_dir 	=> 1 );
 =cut
 
@@ -54,19 +52,18 @@ sub new {
   		$vcfutils_path, 
   		$mpileup, 
   		$bcfview, 
-  		$vcfutils, 
-        $replace_files)
+  		$vcfutils)
     = rearrange( [
          qw( 	BCFTOOLS_PATH 
          		VCFUTILS_PATH 
          		MPILEUP 
          		BCFVIEW 
-         		VCFUTILS
-                REPLACE_FILES)
+         		VCFUTILS)
 		], @args);	
   
   ## Set defaults
   $self->program("/nfs/1000g-work/G1K/work/bin/samtools/samtools") if (! $self->program);
+  $self->reference("/nfs/1000g-work/G1K/scratch/zheng/reference_genomes/human_g1k_v37.fasta") if (! $self->reference);
   
   $self->{'options'}->{'mpileup'} = '-ug' unless ($mpileup);
   $self->{'options'}->{'bcfview'} = '-bvcg' unless ($bcfview);
@@ -154,10 +151,16 @@ sub run_variant_calling {
     }  
 
 	$cmd .= " - > $output_raw_bcf";
-	
-    $self->execute_command_line($cmd);
+	print "Running command.................................\n";
+	my $exit;
+	eval{
+		$exit = $self->execute_command_line($cmd);
+	};
+	if($exit > 0){
+		throw("Failed to run command\n$cmd\n". @_  . " exit code $exit");
+	}
 
-    return $self->output_files($output_raw_bcf);
+	return $self->intermediate_output_file($output_raw_bcf);
 }
 
 =head2 run_variant_filtering
@@ -185,10 +188,17 @@ sub run_variant_filtering {
     }   
     
     $cmd .= " > $output_filtered_vcf ";
-    
-    $self->execute_command_line($cmd);
+	
+	print "Running command.................................\n";
+	my $exit;
+	eval{
+		$exit = $self->execute_command_line($cmd);
+	};
+	if( $exit > 0 ){
+		throw("Failed to run command\n$cmd\n". @_  . " exit code $exit");
+	} 
 
-    return $self->output_files($output_filtered_vcf);
+	return $self;
 }
     
 
@@ -218,14 +228,16 @@ sub run {
 		$region = "chr" . $chr;
 	}	
 		
-	my $out1 = $self->derive_output_file_name("samtools")->[0];
+	my $flt_out = $self->derive_output_file_name->[0];
 	
-	my $out2 = $out1;
-	$out2 =~ s/raw/flt/;
-	$out2 =~ s/bcf/vcf/;
+	my $raw_out = $flt_out;
+	$raw_out =~ s/flt/raw/;
+	$raw_out =~ s/vcf/bcf/;
 	
-	$self->run_variant_calling($input_bams, $out1);
-	$self->run_variant_filtering($out1, $out2);
+	$self->run_variant_calling($input_bams, $raw_out);
+	$self->run_variant_filtering($raw_out, $flt_out);
+	
+	$self->files_to_delete($self->intermediate_output_file);
 
     return $self;
 
@@ -272,25 +284,36 @@ sub vcfutils_path {
 }
 
 
-=head2 replace_files   ### FIXME: can delete this, it is not much use
+=head2 derive_output_file_name 
 
-  Arg [1]   : ReseqTrack::Tools::RunSamtools
-  Arg [2]   : boolean, optional, value of replace_files flag
-  Function  : accessor method for replace_files flag
-  Returntype: boolean, replace_files flag
-  Exceptions: n/a
-  Example   : $self->replace_files(1);
-
+  Arg [1]   : ReseqTrack::Tools::RunVariantCall::CallBySamtools object
+  Function  : create an output VCF name based on input file information
+  Returntype: file path
+  Exceptions: 
+  Example   : my $output_file = $self->derive_output_file_name->[0];
+  
 =cut
 
-sub replace_files {
-    my $self = shift;
-    
-    if (@_) {
-        $self ->{'replace_files'} = (shift) ? 1 : 0;
-    }
-    return $self->{'replace_files'};
-}
+
+sub derive_output_file_name {  
+	my ( $self ) = @_;		
+	my $first_bam = basename($self->input_files->[0]);
+	my @tmp = split(/\./, $first_bam);
+	my $first_sample = $tmp[0];
+	my $sample_cnt = @{$self->input_files} - 1;
+	
+	my $output_file;
+
+
+	if ($self->region) {
+		$output_file = $self->working_dir . "/$first_sample" . "_and_" . $sample_cnt . "_others.chr" . $self->chrom . "_" . $self->region . ".samtools.flt.vcf";
+	}
+	else {
+		$output_file = $self->working_dir . "/$first_sample" . "_and_" . $sample_cnt . "_others.samtools.flt.vcf";
+	}
+
+	return $self->output_files($output_file);
+}	
 
 1;
 

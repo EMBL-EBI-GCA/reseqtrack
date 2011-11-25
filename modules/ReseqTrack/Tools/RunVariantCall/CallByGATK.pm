@@ -51,8 +51,6 @@ use base qw(ReseqTrack::Tools::RunVariantCall);
   Arg [-alleles]				:
   		The set of alleles at which to genotype when in GENOTYPE_MODE = GENOTYPE_GIVEN_ALLELES. 
   
-  Arg [-replace_files]   :
-      boolean, default 1, any input / intermediate file will be deleted after output is created.
   + Arguments for ReseqTrack::Tools::RunProgram parent class
 
   Please see GATK website for detailed descriptions about the paramenters:
@@ -73,7 +71,6 @@ use base qw(ReseqTrack::Tools::RunVariantCall);
                 -glm					=> 'BOTH',
                 -chrom					=> '1',
                 -region					=> '1-1000000',
-                -replace_files 			=> 1,
                 -output_to_working_dir 	=> 1 );
 =cut
 
@@ -101,8 +98,7 @@ sub new {
   		$heterozygosity,
   		$group,
   		$annotation,
-  		$alleles,
-        $replace_files)
+  		$alleles)
     = rearrange( [ qw( 	DBSNP 
     					DCOV 
     					COMPUTESLOD 
@@ -123,24 +119,18 @@ sub new {
     					HETEROZYGOSITY 
     					GROUP 
     					ANNOTATION 
-    					ALLELES
-    					REPLACE_FILES) ], @args);
+    					ALLELES) ], @args);
   
   my $gatk_path = $self->program;
 
   ## Set defaults	 
   $self->program("/nfs/1000g-work/G1K/work/bin/gatk/dist/GenomeAnalysisTK.jar") if (! $self->program);
+  $self->reference("/nfs/1000g-work/G1K/scratch/zheng/reference_genomes/human_g1k_v37.fasta") if (! $self->reference);
   
   $self->{'options'}->{'dcov'} = 50 unless ($dcov);
   $self->{'options'}->{'stand_emit_conf'} = 10.0 unless ($stand_emit_conf);
   $self->{'options'}->{'stand_call_conf'} = 50.0 unless ($stand_call_conf);
   $self->{'options'}->{'glm'} = 'SNP' unless ($glm);
-
-  if (! defined $replace_files) {
-      $replace_files = 1;
-  }
-  
-  $self->replace_files($replace_files);
   
   $self->dbSNP($dbSNP);		
   $self->options('dcov', $dcov);
@@ -210,7 +200,7 @@ sub run {
 		$region = "chr" . $self->chrom;
 	}	
 
-	my $outfile = $self->derive_output_file_name("GATK")->[0];
+	my $outfile = $self->derive_output_file_name->[0];
 	
 	$cmd .= "-o $outfile "; 
 	
@@ -229,11 +219,16 @@ sub run {
     	}
     }	        
 	
-    $self->execute_command_line($cmd);
-
-    #$self->output_files($outfile);
+	print "Running command.................................\n";
+	my $exit;
+	eval{
+		$exit = $self->execute_command_line($cmd);
+	};
+	if( $exit > 0 ){
+		throw("Failed to run command\n$cmd\n". @_  . " exit code $exit");
+	} 
     
-    return;
+    return $self;
 }
 
 =head2 dbSNP
@@ -256,25 +251,33 @@ sub dbSNP {
 }
 
 
-=head2 replace_files
+=head2 derive_output_file_name 
 
-  Arg [1]   : ReseqTrack::Tools::RunSamtools
-  Arg [2]   : boolean, optional, value of replace_files flag
-  Function  : accessor method for replace_files flag
-  Returntype: boolean, replace_files flag
-  Exceptions: n/a
-  Example   : $self->replace_files(1);
-
+  Arg [1]   : ReseqTrack::Tools::RunVariantCall::CallByGATK object
+  Arg [2]	: algorithm name
+  Function  : create an output VCF name based on input file information
+  Returntype: file path
+  Exceptions: 
+  Example   : my $output_file = $self->derive_output_file_name->[0];
 =cut
 
-sub replace_files {
-    my $self = shift;
-    
-    if (@_) {
-        $self ->{'replace_files'} = (shift) ? 1 : 0;
-    }
-    return $self->{'replace_files'};
-}
+sub derive_output_file_name {  
+	my ( $self ) = @_;		
+	my $first_bam = basename($self->input_files->[0]);
+	my @tmp = split(/\./, $first_bam);
+	my $first_sample = $tmp[0];
+	my $sample_cnt = @{$self->input_files} - 1;
+	
+	my $output_file;
+	if ($self->region) {
+		$output_file = $self->working_dir . "/$first_sample" . "_and_" . $sample_cnt . "_others.chr" . $self->chrom . "_" . $self->region . ".gatk.vcf";
+	}
+	else {
+		$output_file = $self->working_dir . "/$first_sample" . "_and_" . $sample_cnt . "_others.gatk.vcf";
+	}
+	
+	return $self->output_files($output_file);
+}	
 
 1;
 

@@ -24,8 +24,6 @@ use base qw(ReseqTrack::Tools::RunVariantCall);
   	  integer,option for EXOME sequencing, extend target by given # of bases	
   Arg [-target_bed]	:
   	  string, 	  	  
-  Arg [-replace_files]   :
-      boolean, default 1, any input / intermediate file will be deleted after output is created.
   + Arguments for ReseqTrack::Tools::RunProgram parent class
 
   Function  : Creates a new ReseqTrack::Tools::RunVariantCall::CallByUmake object.
@@ -44,7 +42,6 @@ use base qw(ReseqTrack::Tools::RunVariantCall);
                 -FFILTER_MIN_SAMPLE_DP	=> 0.5,
                 -chrom					=> '1',
                 -region					=> '1-1000000',
-                -replace_files 			=> 1,
                 -output_to_working_dir 	=> 1 );
 
 =cut
@@ -57,7 +54,6 @@ sub new {
 
   my ( 	$offset_off_target, 
   		$dbSNP, 
-  		$replace_files, 
   		$target_bed, 
   		$indel_prefix, 
   		$hm3_prefix, 
@@ -65,7 +61,6 @@ sub new {
   		$FILTER_MIN_SAMPLE_DP)
     = rearrange( [ qw( 	OFFSET_OFF_TARGET 
     					DBSNP 
-    					REPLACE_FILES 
     					TARGET_BED 
     					INDEL_PREFIX 
     					HM3_PREFIX 
@@ -77,32 +72,28 @@ sub new {
 	$self->{'options'}->{'FILTER_MAX_SAMPLE_DP'} = 20 unless ($FILTER_MAX_SAMPLE_DP);
 	$self->{'options'}->{'FILTER_MIN_SAMPLE_DP'} = 0.5 unless ($FILTER_MIN_SAMPLE_DP);
  
-	$self->reference("/nfs/1000g-work/G1K/work/bin/umake-resources/ref/human.g1k.v37.fa") if ( $self->reference eq "/nfs/1000g-work/G1K/scratch/zheng/reference_genomes/human_g1k_v37.fasta");	#overwrite the reference if use umake
+	$self->reference("/nfs/1000g-work/G1K/work/bin/umake-resources/ref/human.g1k.v37.fa") if ( !$self );  
 	$self->dbSNP("/nfs/1000g-work/G1K/work/bin/umake-resources/dbSNP/dbsnp_129_b37.rod") if (!$dbSNP);
 	$self->hm3_prefix("/nfs/1000g-work/G1K/work/bin/umake-resources/HapMap3/hapmap3_r3_b37_fwd.consensus.qc.poly") if (!$hm3_prefix);
 	$self->indel_prefix("/nfs/1000g-work/G1K/work/bin/umake-resources/indels/1kg.pilot_release.merged.indels.sites.hg19") if (!$indel_prefix);
  
- 	$self->program("/nfs/1000g-work/G1K/work/bin/umake") if (!$self->program); 
- 
-  #if (! defined $replace_files) {
-  #    $replace_files = 1;
-  #}
+	$self->program("/nfs/1000g-work/G1K/work/bin/umake") if (!$self->program); 
   
-  #$self->replace_files($replace_files);
-  
-  $self->dbSNP($dbSNP) if ($dbSNP);
-  $self->indel_prefix($indel_prefix) if ($indel_prefix);
-  $self->hm3_prefix($hm3_prefix) if ($hm3_prefix);
-  	
-  $self->options('offset_off_target', $offset_off_target);
-  $self->options('FILTER_MAX_SAMPLE_DP', $FILTER_MAX_SAMPLE_DP);
-  $self->options('FILTER_MIN_SAMPLE_DP', $FILTER_MIN_SAMPLE_DP);
-  
-  if (! $self->job_name) {
-      $self->generate_job_name;
-  }
-
-  return $self;
+	$self->dbSNP($dbSNP) if ($dbSNP);
+	$self->indel_prefix($indel_prefix) if ($indel_prefix);
+	$self->hm3_prefix($hm3_prefix) if ($hm3_prefix);
+	  	
+	$self->options('offset_off_target', $offset_off_target);
+	$self->options('FILTER_MAX_SAMPLE_DP', $FILTER_MAX_SAMPLE_DP);
+	$self->options('FILTER_MIN_SAMPLE_DP', $FILTER_MIN_SAMPLE_DP);
+	  
+	throw("When run umake, please specify a chromosome") if (!$self->chrom ); 
+	  
+	if (! $self->job_name) {
+		$self->generate_job_name;
+	}
+	
+	return $self;
 }
 
 sub print_bam_index_file {
@@ -131,7 +122,7 @@ sub print_bam_index_file {
 	close INDEX;
 	$self->bam_index($bam_index);
 
-	return;
+	return $self;
 }	
 
 
@@ -197,7 +188,7 @@ sub print_config_file {
 	print CONFIG $fixed_text2;
 
 	print CONFIG "WRITE_TARGET_LOCI = TRUE\n"; # FOR TARGETED SEQUENCING ONLY -- Write loci file when performing pileup
-	print CONFIG "UNIFORM_TARGET_BED = " . $self->target_bed($self->chrom, $self->region) . "\n" if ($self->chrom); # FIXME, please check if this is used correctly.  path for target bed file
+	print CONFIG "UNIFORM_TARGET_BED = " . $self->print_target_bed($self->chrom, $self->region) . "\n" if ($self->chrom); # FIXME, please check if this is used correctly.  path for target bed file
 	print CONFIG "OFFSET_OFF_TARGET = " . $self->options('offset_off_target') . "\n" if ($self->options('offset_off_target') ); # Extend target by given # of bases
 	print CONFIG "MULTIPLE_TARGET_MAP = \n"; # Target per individual : Each line contains [SM_ID] [TARGET_BED]
 	print CONFIG "TARGET_DIR = target\n"; # Directory to store target information
@@ -293,16 +284,23 @@ REMOTE_PREFIX =  # REMOTE_PREFIX : Set if cluster node see the directory differe
 	$self->config($config);
 }	
 
-sub target_bed {
+sub print_target_bed {
 	my ($self, $chr, $region) = @_;
 	my $bed_file = $self->working_dir . "/test.bed";
 	open (BED, ">", $bed_file) || throw("Cannot open bed file $bed_file\n");
 	print BED "chr$chr\t";
 	$region =~ s/-/\t/ if ($region);
 	print BED $region . "\n" if ($region);
-	$self->{'target_bed'} = $bed_file;
-	return $self->{'target_bed'};
+	return $self->target_bed($bed_file);
 }	
+
+sub target_bed {
+	my ($self, $bed_file) = @_;
+	if ($bed_file) {
+		$self->{'target_bed'} = $bed_file;
+	}	
+	return 	$self->{'target_bed'};
+}
 
 sub indel_prefix {
 	my ($self, $indel_prefix) = @_;
@@ -357,13 +355,33 @@ sub run {
 	
 	my $cmd = "/nfs/1000g-work/G1K/work/bin/local-perl/bin/perl " . $self->program . "/scripts/umake.pl --conf " .  $self->config . " --snpcall";
 	
-	$self->execute_command_line($cmd);
+	print "Running command.............................................................................................\n";
+	my $exit;
+	eval{
+		$exit = $self->execute_command_line($cmd);
+	};
+	if( $exit > 0 ){
+		throw("Failed to run command\n$cmd\n". @_  . " exit code $exit");
+	} 
     
     my $cmd2 = "make -f " . $self->bam_index . ".Makefile -j 2"; ## FIXME: 2 is a magic number; should take user input
     
-    $self->execute_command_line($cmd2);
+    print "Running command...............................................................................................\n";
+	eval{
+		$exit = $self->execute_command_line($cmd2);
+	};
+	if( $exit > 0 ){
+		throw("Failed to run command\n$cmd2\n". @_  . " exit code $exit");
+	} 
     
-    return;
+    $self->files_to_delete($self->config);
+    $self->files_to_delete($self->bam_index);
+    $self->files_to_delete($self->bam_index . ".Makefile");
+    $self->files_to_delete($self->target_bed)  if ($self->target_bed);
+    
+	#files stored in hash files_to_delete will be deleted at the end of the run, by destructor DESTROY 
+    
+    return $self;
 }	
 	
 
@@ -387,26 +405,6 @@ sub dbSNP {
   return $self->{'dbSNP'};
 }
 
-
-=head2 replace_files
-
-  Arg [1]   : ReseqTrack::Tools::RunSamtools
-  Arg [2]   : boolean, optional, value of replace_files flag
-  Function  : accessor method for replace_files flag
-  Returntype: boolean, replace_files flag
-  Exceptions: n/a
-  Example   : $self->replace_files(1);
-
-=cut
-
-sub replace_files {
-    my $self = shift;
-    
-    if (@_) {
-        $self ->{'replace_files'} = (shift) ? 1 : 0;
-    }
-    return $self->{'replace_files'};
-}
 
 1;
 

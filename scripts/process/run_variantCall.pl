@@ -6,11 +6,13 @@ use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::FileUtils;
 use ReseqTrack::Tools::FileSystemUtils;
 use ReseqTrack::Tools::HostUtils qw(get_host_object);
+use ReseqTrack::Tools::GeneralUtils;
 use Getopt::Long;
 use ReseqTrack::Tools::BamUtils;
 use File::Basename;
+use ReseqTrack::Tools::Loader::File;
 
-use ReseqTrack::Tools::RunVariantCallUtils qw(validate_input_string);
+#use ReseqTrack::Tools::RunVariantCallUtils qw(validate_input_string);
 
 $| = 1;
 
@@ -21,53 +23,58 @@ my (
     $dbport,
     $dbname,
 	
-	$sample_string,
-	$bam_type,
-	$analysis_grp,
-	$seq_platform,
-
+	$collection_name,
+    $collection_type,
+    $file_name_pattern,
 	$bam_list,
+
+	$reference,	
+	$module_name,
 	$program_path,
     $chrom,
     $region,
     $algorithm,
     $parameters,
 	
+	@bams,
 	$verbose,
 	$store,
-	$help
+	$help,
    );
  
-my $reference = "/nfs/1000g-work/G1K/scratch/zheng/reference_genomes/human_g1k_v37.fasta";    
 my $update = 0;
 my $output_dir = `pwd`;
 chomp $output_dir;
 my $host_name = '1000genomes.ebi.ac.uk';
+my $output_file_type = "VCF";
+my $module_path = 'ReseqTrack::Tools::RunVariantCall';
+my $keep_intermediate_file = 0;
 
 &GetOptions( 
-  'dbhost=s'      => \$dbhost,
-  'dbname=s'      => \$dbname,
-  'dbuser=s'      => \$dbuser,
-  'dbpass=s'      => \$dbpass,
-  'dbport=s'      => \$dbport,
+  'dbhost=s'      		=> \$dbhost,
+  'dbname=s'      		=> \$dbname,
+  'dbuser=s'      		=> \$dbuser,
+  'dbpass=s'      		=> \$dbpass,
+  'dbport=s'      		=> \$dbport,
   
-  'samples=s'		=> \$sample_string, # $samples (samples separated by , or space -- NA12345,NA12456)
-  'bam_type=s'		=> \$bam_type,
-  'analysis=s'		=> \$analysis_grp,
-  'platform=s'		=> \$seq_platform,
+  'collection_name=s' 	=> \$collection_name,
+  'collection_type=s' 	=> \$collection_type,
+  'file_name_pattern=s' => \$file_name_pattern,
+  'bam_list=s'			=> \$bam_list,
   
-  'bam_list=s'		=> \$bam_list,
-  'program=s'		=> \$program_path,
-  'output_dir=s'	=> \$output_dir,
-  'reference:s' 	=> \$reference,
-  'chrom:s'			=> \$chrom,
-  'region:s'		=> \$region,
-  'algorithm=s'		=> \$algorithm,
-  'parameters:s'	=> \$parameters,
-  'store!' 			=> \$store,
-  'update!' 		=> \$update,
-  'host:s'			=> \$host_name,
-  'help!'			=> \$help,
+  'program=s'			=> \$program_path,
+  'output_dir=s'		=> \$output_dir,
+  'reference:s' 		=> \$reference,
+  'chrom:s'				=> \$chrom,
+  'region:s'			=> \$region,
+  'algorithm=s'			=> \$algorithm,
+  'parameters|options=s'=> \$parameters,
+  'output_file_type:s'	=>\$output_file_type,
+  'store!' 				=> \$store,
+  'update!' 			=> \$update,
+  'host:s'				=> \$host_name,
+  'keep_intermediate_file!'	=>\$keep_intermediate_file,
+  'help!'				=> \$help,
 );
 
 if ($help) {
@@ -78,15 +85,13 @@ if ( !$algorithm || $algorithm !~ /samtools|umake|gatk/i ) {
 	throw("Please provide snp calling algorithm you wish to use, can be samtools, gatk, or umake\n");
 }
 
-if ( $algorithm =~ /umake/i && ! $chrom) {
-	throw("When run umake, please specify a chromosome");
+if ( !$reference) {
+	warn("No reference genome is provided, will use the default reference genome");
 }	
 
-if (!$sample_string && !$bam_list) {
-	throw("Please provide sample name(s) and associated BAM type, analysis type and seq platform type; or provide a list of bam files.Examples:
--bam_list /nfs/1000g-work/G1K/work/zheng/snp_calling/bam_list 
-or
--samples NA19240.chrom22 -bam_type BAM -analysis high_coverage -platform ILLUMINA \n");
+if(!($collection_name && $collection_type) && !$bam_list && !$file_name_pattern){
+  throw("Please provide some input arguments either -collection_name and ".
+        "-collection_type, -bam_list or -file_name_pattern");
 }
 
 my $db = ReseqTrack::DBSQL::DBAdaptor->new(
@@ -99,48 +104,37 @@ my $db = ReseqTrack::DBSQL::DBAdaptor->new(
 
 my $fa = $db->get_FileAdaptor;
 
-my 	@bams;
-if ( $sample_string ) {
-
-	my @samples;
-	if ($sample_string =~ /,/ ) {
-		@samples = split(/,/, $sample_string);
-	}
-	elsif ($sample_string =~ /\s/) {
-		@samples = split(/\s+/, $sample_string);
-	}		
-	else {		## when input is a single sample
-		@samples = ($sample_string);
-	}
-	
-	my @files;
-	foreach my $sample ( @samples ) {	 
-		@files = @{$fa->fetch_all_like_name($sample)};
-		foreach my $file ( @files ) {
-			next if ( $file->type ne $bam_type );
-			my $bam_base = basename($file->name);
-			my ($collection_name, $sam, $platform, $algo, $project, $analysis, $chr, $date) 
-				= get_collection_name_from_file_name($bam_base);
-			#print "analysis in file name is $analysis\nanalysis in input is $analysis_grp\n";	
-			next if ($analysis !~ $analysis_grp) ;	
-			next if ($platform !~ $seq_platform);
-			push @bams, $file->name;
-		}
-	}		 
+if($collection_type && $collection_name){
+  my $collection =
+    $db->get_CollectionAdaptor->fetch_by_name_and_type($collection_name,
+                                                        $collection_type);
+  foreach my $file (@{$collection->others}){
+    next if ( check_file_sanity($file->name, $chrom) eq 'skip' );
+    push(@bams, $file->name);
+  }
 }
 
 if($bam_list){
   my $lines = get_lines_from_file($bam_list);
-  foreach my $path (@$lines){
-    throw("Can't process ".$path." as it doesn't exist") unless(-e $path);
-    push(@bams, $path);
+  foreach my $line(@$lines){
+    next if ( check_file_sanity($line, $chrom) eq 'skip');
+    push(@bams, $line);
   }
 }
+
+if($file_name_pattern){
+  my $files = $db->get_FileAdaptor->fetch_all_like_name($file_name_pattern);
+  foreach my $file(@$files){
+    next if ( check_file_sanity($file->name, $chrom) eq 'skip' );
+    push(@bams, $file->name);
+  }
+}
+
+$db->dbc->disconnect_when_inactive(1);
 
 print "Input BAMs are:\n";
 print join ("\n", @bams), "\n";
 
-my $module_name;
 if ($algorithm =~ /samtools/i) {
 	$module_name = "CallBySamtools";
 }	
@@ -154,7 +148,7 @@ else {
 	throw("Please use one of the 3 algorithms to make variant calls - samtools, gatk or umake\n");
 }
 
-my $varCalling_module = 'ReseqTrack::Tools::RunVariantCall::'.$module_name;
+my $varCalling_module = $module_path . '::'. $module_name;
 
 my $constructor_hash = parameters_hash($parameters, $algorithm);
 $constructor_hash->{-input_files} = \@bams;
@@ -163,27 +157,45 @@ $constructor_hash->{-working_dir} = $output_dir;
 $constructor_hash->{-reference} = $reference;
 $constructor_hash->{-chrom} = $chrom if ($chrom);
 $constructor_hash->{-region} = $region if ($region);
+$constructor_hash->{-save_files_for_deletion} = $keep_intermediate_file;
 
 my $object = construct_new_object($varCalling_module, $constructor_hash);
 
 $object->run;
 
-my $flt_vcf = $object->output_flt_vcf;
-my $host = get_host_object($host_name, $db);
-my $flt_vcf_obj = create_objects_from_path_list($flt_vcf, 'VCF', $host); 
+my $flt_vcf = $object->output_files;
 
-foreach my $fo ( @$flt_vcf_obj ) {  
-	if ( -e $fo->name ) {
-		my $md5 = run_md5($fo->name) if ($store);
-		$fo->md5($md5);
-		$fa->store($fo, $update) if ($store);
-		print "*****************************************************************\n";
-		print "Output filtered VCF file path is " . $fo->name . "\n";
-		print "Output filtered VCF file " . $fo->name . "has been stored in the database\n" if ($store);
-		print "*****************************************************************\n";  
+$db->dbc->disconnect_when_inactive(0);
+
+foreach my $fo ( @$flt_vcf ) {  
+	if ( -e $fo ) {
+				
+		my $loader = ReseqTrack::Tools::Loader::File->new
+		  (
+		   -file => [$fo],
+		   -do_md5 => 1,
+		   -hostname => $host_name,
+		   -db => $db,
+		   -assign_types => 0,
+		   -check_types => 0,
+		   -type => $output_file_type,
+		   -update_existing => $update,
+		  );
+		
+		if($store){
+		  $loader->process_input();
+		  $loader->create_objects();
+		  $loader->sanity_check_objects();
+		  my $file_objects = $loader->load_objects();
+		}
+		
+		print "*********************************************************************************************************************************\n";
+		print "**** Output filtered VCF file path is $fo\n";
+		print "**** Output filtered VCF file $fo has been stored in the database\n" if ($store);
+		print "*********************************************************************************************************************************\n";  
 	}	
 	else {
-		throw("Output file " . $fo->name . " does not exist");
+		throw("Output file " . $fo . " does not exist");
 	}	
 }
 
@@ -218,8 +230,8 @@ sub parameters_hash{
           $value =~ s/\s+$//g;
           $key = "-" . $key;
           $parameters_hash{$key} = $value;
-          print "key is $key, value is $value\n";
-          validate_input_string($key, $algorithm);		 
+#          print "key is $key, value is $value\n";
+#         validate_input_string($key, $algorithm);		 
     }#end of foreach pairs
   }# end of if ($string)
   
@@ -240,6 +252,21 @@ sub construct_new_object {
   my %constructor_args = %$args;
   my $object = $module->new(%constructor_args);
   return $object;
+}
+
+sub check_file_sanity{
+  my ($file, $chrom) = @_;
+  my $flag = 'ok';
+ 
+  throw($file." does not exist on the current filesystem") unless(-e $file);
+ 
+  $flag = 'skip' if ($file !~ /\.bam$/);
+ 
+  if ($chrom) {
+      my $chr = "chrom" . $chrom;
+      $flag = 'skip' if ( $file !~ /$chr/ );
+  }     
+  return $flag;
 }
 			    
 sub help_info {
@@ -269,23 +296,22 @@ sub help_info {
 	-chrom,				for umake, chr is mandatory; otherwise the makefile would have nothing. For samtools and gatk, it is optional
 	
 =head2 Optional arguments:		
-
-	-samples,			one or more sample ids separated by , or space
-	-bam_type,			type of BAM
-	-analysis,			can be one of the four: low_coverage, high_coverage, exome, exon_targetted
-	-paltform,			can be one of the three: ILLUMINA, SOLID, 454 (check exact words)			 
-
+			 
+	-collection_name		Name of a BAM collection
+	-collection_type		Type of BAM collection
+	-file_name_pattern		Any text string that exist in file names
 	-bam_list,			Instead of providing sample names, a list of paths to BAM files can be used as input
-
 	-chrom,				optional for samtools and gatk but mandatory for umake
 	-region,			Format: 1000000-2000000
 	-reference,			Reference genome; default is ncbi build 37  
-	-output_dir,		This is where all temporary files and output files will be written to
+	-output_dir,			This is where all temporary files and output files will be written to
 	-store,				To store the output VCF file in the database
 	-update,			To replace an output VCF file in the database
+	-keep_intermediate_file		Do not delete intermediate files
 	
-	-parameters,		Key and value pairs to pass options to different variant calling algorithms. Options are different for each algorithm:
-	
+	-parameters,			Key and value pairs to pass options to different variant calling algorithms. Options are different for each algorithm:
+	-options,			same as -parameters
+
 		Samtools:
 		
 		parameter keys have to be one or more of the followings. Please see Samtools page for details -
@@ -379,6 +405,7 @@ sub help_info {
 perl ~/ReseqTrack/scripts/process/run_variantCall.pl \
 -dbhost mysql-g1kdcc-public -dbname g1k_archive_staging_track -dbuser g1krw -dbpass thousandgenomes -dbport 4197 \
 -algorithm samtools \
+-ref /nfs/1000g-work/G1K/scratch/zheng/reference_genomes/human_g1k_v37.fasta \
 -bam_list /nfs/1000g-work/G1K/work/zheng/snp_calling/bam_list \
 -parameters 'mpileup=>-ug,bcfview=>-bvcg,vcfutils=>-D 100' \
 -store \
@@ -387,20 +414,18 @@ perl ~/ReseqTrack/scripts/process/run_variantCall.pl \
 perl ~/ReseqTrack/scripts/process/run_variantCall.pl \
 -dbhost mysql-g1kdcc-public -dbname g1k_archive_staging_track -dbuser g1krw -dbpass thousandgenomes -dbport 4197 \
 -algorithm samtools \
--samples NA19240.chrom22 \
--bam_type BAM \
--analysis high_coverage \
--platform ILLUMINA \
+-ref /nfs/1000g-work/G1K/scratch/zheng/reference_genomes/human_g1k_v37.fasta \
+-file_name_pattern NA06985.chrom11.ILLUMINA.bwa.CEU.low_coverage.2011b \
+-chrom 11 \
 -parameters 'mpileup=>-ug,bcfview=>-bvcg,vcfutils=>-D 100' &
 	
 An example that is quick to run:	
 perl ~/ReseqTrack/scripts/process/run_variantCall.pl \
 -dbhost mysql-g1kdcc-public -dbname g1k_archive_staging_track -dbuser g1krw -dbpass thousandgenomes -dbport 4197 \
 -algorithm samtools \
--samples NA06985.chrom10.ILLUMINA.bwa.CEU.low_coverage.2011b \
--bam_type TEST_BAM \
--analysis low_coverage \
--platform ILLUMINA \
+-ref /nfs/1000g-work/G1K/scratch/zheng/reference_genomes/human_g1k_v37.fasta \
+-collection_name NA06985.ILLUMINA.bwa.low_coverage \
+-collection_type TEST_BAM \
 -parameters 'mpileup=>-ug,bcfview=>-bvcg,vcfutils=>-D 100' \
 -chrom 10 \
 -region 1000000-2000000 &	
@@ -410,10 +435,8 @@ perl ~/ReseqTrack/scripts/process/run_variantCall.pl \
 perl ~/ReseqTrack/scripts/process/run_variantCall.pl \
 -dbhost mysql-g1kdcc-public -dbname g1k_archive_staging_track -dbuser g1krw -dbpass thousandgenomes -dbport 4197 \
 -algorithm gatk \
--samples NA06985.chrom10.ILLUMINA.bwa.CEU.low_coverage.2011b \
--bam_type TEST_BAM \
--analysis low_coverage \
--platform ILLUMINA \
+-ref /nfs/1000g-work/G1K/scratch/zheng/reference_genomes/human_g1k_v37.fasta \
+-bam_list /nfs/1000g-work/G1K/work/zheng/snp_calling/bam_list \
 -chrom 10 -region 10000000-15000000 \
 -parameters 'dcov=>10,stand_emit_conf=>10.0,stand_call_conf=>50.0,glm=>BOTH,dbSNP=>/nfs/1000g-work/G1K/scratch/zheng/reference_genomes/dbsnp132_20101103.vcf.gz' &
 
@@ -423,13 +446,10 @@ perl ~/ReseqTrack/scripts/process/run_variantCall.pl \
 perl ~/ReseqTrack/scripts/process/run_variantCall.pl \
 -dbhost mysql-g1kdcc-public -dbname g1k_archive_staging_track -dbuser g1krw -dbpass thousandgenomes -dbport 4197 \
 -algorithm umake \
--samples NA12340.chrom20.ILLUMINA.bwa.CEU.low_coverage.20101123 \
--bam_type BAM \
--analysis low_coverage \
--platform ILLUMINA \
+-bam_list /nfs/1000g-work/G1K/work/zheng/snp_calling/bam_list \
 -parameters 'dbSNP=>/nfs/1000g-work/G1K/work/bin/umake-resources/dbSNP/dbsnp_129_b37.rod,hm3_prefix=>/nfs/1000g-work/G1K/work/bin/umake-resources/HapMap3/hapmap3_r3_b37_fwd.consensus.qc.poly,indel_prefix=>/nfs/1000g-work/G1K/work/bin/umake-resources/indels/1kg.pilot_release.merged.indels.sites.hg19' \
 -reference /nfs/1000g-work/G1K/work/bin/umake-resources/ref/human.g1k.v37.fa \
--chrom 20 -region 1-10000000 \
+-chrom 10 -region 1-10000000 \
 -output_dir /nfs/1000g-work/G1K/work/zheng/snp_calling/umake/1103 & 
  
  

@@ -148,98 +148,22 @@ sub options {
     return $self->{'options'}->{$option_name};
 }
 
-
-=head2 output_raw_bcf
-
-  Arg [1]   : ReseqTrack::Tools::RunVariantCall
-  Function  : gets raw bcf file from the list of output files
-  Returntype: arrayref of filepaths
-  Exceptions: 
-  Example   : my $bcf = $self->output_raw_bcf;
-
-=cut
-
-sub output_raw_bcf {
-    my $self = shift;
-	
-    my @output_bcfs;
-    foreach my $file (@{$self->output_files}) {
-        if ( $file =~ /raw/ ) {
-            push( @output_bcfs, $file);
-        }
-    }
-
-    return \@output_bcfs;
-}
-
-=head2 output_flt_vcf
+=head2 intermediate_output_file
 
   Arg [1]   : ReseqTrack::Tools::RunVariantCall
-  Function  : gets filtered vcf files from the list of output files
-  Returntype: arrayref of filepaths
+  Function  : stores/gets intermediate output file such as raw vcf
+  Returntype: filepaths
   Exceptions: 
-  Example   : my $flt_vcfs = $self->output_flt_vcf;
+  Example   : my $bcf = $self->intermediate_output_file;
 
 =cut
 
-sub output_flt_vcf {
-    my $self = shift;
-
-    my @output_flt_vcf;
-    foreach my $file (@{$self->output_files}) {
-        if ( $file !~ /raw/ && $file =~ /vcf/i  ) {
-            push @output_flt_vcf, $file;
-        }
-    }
-
-    return \@output_flt_vcf;
-}
-
-
-=head2 derive_output_file_name 
-
-  Arg [1]   : ReseqTrack::Tools::RunVariantCall::CallByGATK or CallBySamtools or CallByUmake object
-  Arg [2]	: algorithm name
-  Function  : create an output VCF name based on input file information
-  Returntype: file path
-  Exceptions: 
-  Example   : my $output_file = $self->derive_output_file_name("GATK")->[0];
-=cut
-
-
-sub derive_output_file_name {  
-	my ( $self, $algorithm ) = @_;		
-	my $first_bam = basename($self->input_files->[0]);
-	my @tmp = split(/\./, $first_bam);
-	my $first_sample = $tmp[0];
-	my $sample_cnt = @{$self->input_files} - 1;
-	
-	my $output_file;
-	if ( $algorithm =~ /gatk/i ) {
-		if ($self->region) {
-			$output_file = $self->working_dir . "/$first_sample" . "_and_" . $sample_cnt . "_others.chr" . $self->chrom . "_" . $self->region . ".gatk.vcf";
-		}
-		else {
-			$output_file = $self->working_dir . "/$first_sample" . "_and_" . $sample_cnt . "_others.gatk.vcf";
-		}
+sub intermediate_output_file { ### FIXME: should this be an array?
+	my ($self, $file) = @_;
+	if ($file) {
+		$self->{'intermediate_output_file'} = $file;
 	}
-	elsif ( $algorithm =~ /samtools/i ) {
-		if ($self->region) {
-			$output_file = $self->working_dir . "/$first_sample" . "_and_" . $sample_cnt . "_others.chr" . $self->chrom . "_" . $self->region . ".samtools.raw.bcf";
-		}
-		else {
-			$output_file = $self->working_dir . "/$first_sample" . "_and_" . $sample_cnt . "_others.samtools.raw.bcf";
-		}
-	}
-	elsif ($algorithm =~ /umake/i ) {  ## these are not used, UMAKE has its own naming scheme
-		if ($self->region) {
-			$output_file = $self->working_dir . "/$first_sample" . "_and_" . $sample_cnt . "_others.chr" . $self->chrom . "_" . $self->region . ".umake.vcf";
-		}
-		else {
-			$output_file = $self->working_dir . "/$first_sample" . "_and_" . $sample_cnt . "_others.umake.vcf";
-		}
-	}	
-	return $self->output_files($output_file);
+	return 	$self->{'intermediate_output_file'};
 }	
 
 
