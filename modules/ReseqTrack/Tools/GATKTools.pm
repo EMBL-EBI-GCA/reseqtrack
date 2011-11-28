@@ -9,10 +9,10 @@ use ReseqTrack::Tools::Argument qw(rearrange);
 use File::Basename;
 
 use ReseqTrack::Tools::RunProgram;
-use ReseqTrack::Tools::AlignmentBase;
+use ReseqTrack::Tools::RunAlignment;
 use vars qw(@ISA);
 
-@ISA = qw(ReseqTrack::Tools::AlignmentBase);
+@ISA = qw(ReseqTrack::Tools::RunAlignment);
 
 sub new {
 	my ( $class, @args ) = @_;
@@ -34,13 +34,17 @@ sub new {
 	#defaults
 	$self->java_exe("/usr/bin/java");
 	$self->jvm_args("-Xmx4g");
-	$self->gatk_path($gatk_path);
+	#$self->samtools("/home/smithre/Work/bin/samtools/samtools");
+	$self->gatk_path("/home/smithre/Work/bin/GenomeAnalysisTK-1.2-61-g86871bd");
 
 	$self->options($options);
 	$self->java_exe($java_exe);
 	$self->jvm_args($jvm_args);
 	$self->gatk_path($gatk_path);
 	$self->jar_file($jar_file);
+
+	print Dumper $self;
+	exit;
 
 	return $self;
 }
