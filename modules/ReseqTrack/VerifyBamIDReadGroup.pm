@@ -1,4 +1,4 @@
-package ReseqTrack::VerifyBamIDReadGroup;
+ package ReseqTrack::VerifyBamIDReadGroup;
  
 use strict;
 use warnings;
@@ -19,12 +19,12 @@ sub new {
 	my (
 		$other_id,
 		$run_id,
-		$SELFIBD,
-		$SELFMIX,
-		$BEST_SM,
-		$BESTIBD,
-		$BESTMIX,
-	        $status
+		$selfibd,
+		$selfmix,
+		$best_sample,
+		$bestibd,
+		$bestmix,
+	    $status
 
 	  ) = rearrange(
 		[
@@ -33,10 +33,10 @@ sub new {
 			  RUN_ID
 			  SELFIBD
 			  SELFMIX
-			  BEST_SM
+			  BEST_SAMPLE
 			  BESTIBD
 			  BESTMIX
-                          STATUS
+              STATUS
 			  )
 		],
 		@args
@@ -44,11 +44,11 @@ sub new {
 	$self->other_id($other_id);
 	$self->run_id($run_id);
     
-	$self->SELFIBD($SELFIBD);
-	$self->SELFMIX($SELFMIX);
-	$self->BEST_SM($BEST_SM);
-	$self->BESTIBD($BESTIBD);
-	$self->BESTMIX($BESTMIX);
+	$self->selfibd($selfibd);
+	$self->selfmix($selfmix);
+	$self->best_sample($best_sample);
+	$self->bestibd($bestibd);
+	$self->bestmix($bestmix);
 	$self->status($status);	
 
 
@@ -82,13 +82,13 @@ sub other_id {
 }
 
 
-#4. SELFIBD/BESTIBD
-sub SELFIBD {
+#4. SELFIBD/bestibd
+sub selfibd {
 	my ( $self, $arg ) = @_;
 	if ( defined $arg ) {
-		$self->{SELFIBD} = $arg;
+		$self->{selfibd} = $arg;
 	}
-	return $self->{SELFIBD};
+	return $self->{selfibd};
 }
 
 
@@ -104,37 +104,37 @@ sub swap_candidate {
 
 
 
-sub SELFMIX {
+sub selfmix {
     my ( $self, $arg ) = @_;
     if ( defined $arg ) {
-        $self->{SELFMIX} = $arg;
+        $self->{selfmix} = $arg;
     }
-    return $self->{SELFMIX};
+    return $self->{selfmix};
 }
 
-sub BEST_SM {
+sub best_sample {
     my ( $self, $arg ) = @_;
     if ( defined $arg ) {
-        $self->{BEST_SM} = $arg;
+        $self->{best_sample} = $arg;
     }
-    return $self->{BEST_SM};
+    return $self->{best_ssample};
 }
 
-sub BESTIBD {
+sub bestibd {
     my ( $self, $arg ) = @_;
     if ( defined $arg ) {
-        $self->{BESTIBD} = $arg;
+        $self->{bestibd} = $arg;
     }
-    return $self->{BESTIBD};
+    return $self->{bestibd};
 }
 
 
-sub BESTMIX {
+sub bestmix {
     my ( $self, $arg ) = @_;
     if ( defined $arg ) {
-        $self->{BESTMIX} = $arg;
+        $self->{bestmix} = $arg;
     }
-    return $self->{BESTMIX};
+    return $self->{bestmix};
 }
 
 
