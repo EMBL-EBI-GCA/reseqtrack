@@ -90,7 +90,7 @@ sub new {
 
   if ( $fragment_file or $mate1_file or $mate2_file) {
       foreach my $file ($fragment_file, $mate1_file, $mate2_file) {
-          if ($file && ! scalar grep {$_ == $file} @{$self->input_files}) {
+          if ($file && ! scalar grep {$_ eq $file} @{$self->input_files}) {
               $self->input_files($file);
           }
       }
