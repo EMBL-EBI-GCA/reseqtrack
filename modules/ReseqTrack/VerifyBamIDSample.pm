@@ -9,100 +9,95 @@ use ReseqTrack::Tools::Argument qw(rearrange);
 use File::Basename;
 use Data::Dumper;
 
-  
 @ISA = qw(ReseqTrack::Base);
 
 sub new {
 
-    my ( $class, @args ) = @_;
-    my $self = $class->SUPER::new(@args);
+	my ( $class, @args ) = @_;
+	my $self = $class->SUPER::new(@args);
 
-    my (
-        $other_id,
-        $table_name,
-        $SEQ_SM,
-        $SELFIBD,
-        $SELFIBDLLK,
-        $SELFIBDLLKdiff,
-        $HET_A1,
-        $ALT_A1,
-        $DP,
-        $MIX,
-        $HOM,
-        $BESTHOMMIXLLK,
-        $BESTHOMMIXLLKdiff,
-        $num_run_ids,
-        $num_low_selfIBD_run_ids,
-	$sequence_index,
-	$analysis_group,
-	$chr20,
-        $failed,
-        $status,
-        $performed,
+	my (
+		$other_id,
+		$table_name,
+		$sample_name,
+		$selfibd,
+		$selfibdllk,
+		$selfibdllkdiff,
+		$het_a1,
+		$alt_a1,
+		$dp,
+		$mix,
+		$hom,
+		$besthommixllk,
+		$besthommixllkdiff,
+		$num_run_ids,
+		$num_low_selfibd_run_ids,
+		$sequence_index,
+		$analysis_group,
+		$chr20,
+		$failed,
+		$status,
+		$performed,
 
-      ) = rearrange(
-        [
-            qw(
-              other_id
-              table_name
-              SEQ_SM
-              SELFIBD
-              SELFIBDLLK
-              SELFIBDLLKdiff
-              HET_A1
-              ALT_A1
-              DP
-              MIX
-              HOM  
-              BESTHOMMIXLLK
-              BESTHOMMIXLLKdiff
-              num_run_ids
-              num_low_selfIBD_run_ids
-              sequence_index
-              analysis_group
-              chr20
-              FAILED
-              STATUS
-              performed
-              )
-        ],
-        @args
-      );
+	  ) = rearrange(
+		[
+			qw(
+			  OTHER_ID
+			  TABLE_NAME
+			  SAMPLE_NAME
+			  SELFIBD
+			  SELFIBDLLK
+			  SELFIBDLLKDIFF
+			  HET_A1
+			  ALT_A1
+			  DP
+			  MIX
+			  HOM
+			  BESTHOMMIXLLK
+			  BESTHOMMIXLLKDIFF
+			  NUM_RUN_IDS
+			  NUM_LOW_SELFIBD_RUN_IDS
+			  SEQUENCE_INDEX
+			  ANALYSIS_GROUP
+			  CHR20
+			  FAILED
+			  STATUS
+			  PERFORMED
+			  )
+		],
+		@args
+	  );
 
-    print "CHROM20 =$chr20\n";
-
-
-    $self->other_id ($other_id);
-    $self->table_name($table_name);
-    $self->SEQ_SM($SEQ_SM);
-    $self->SELFIBD($SELFIBD);
-    $self->SELFIBDLLK($SELFIBDLLK);
-    $self->SELFIBDLLKdiff($SELFIBDLLKdiff);
-    $self->HET_A1($HET_A1);
-    $self->ALT_A1($ALT_A1);
-    $self->DP($DP);
-    $self->MIX($MIX);
-    $self->HOM($HOM);
-    $self->BESTHOMMIXLLK($BESTHOMMIXLLK);
-    $self->BESTHOMMIXLLKdiff($BESTHOMMIXLLKdiff);
-    $self->num_run_ids($num_run_ids);
-    $self->num_low_selfIBD_run_ids($num_low_selfIBD_run_ids);
-    $self->sequence_index($sequence_index);
-    $self->analysis_group($analysis_group);
-    $self->chr20($chr20);
-    $self->failed($failed);
-    $self->status($status);
-    $self->performed($performed);
-    return $self;
+	$self->other_id($other_id);
+	$self->table_name($table_name);
+	$self->sample_name($sample_name);
+	$self->selfibd($selfibd);
+	$self->selfibdllk($selfibdllk);
+	$self->selfibdllkdiff($selfibdllkdiff);
+	$self->het_a1($het_a1);
+	$self->alt_a1($alt_a1);
+	$self->dp($dp);
+	$self->mix($mix);
+	$self->hom($hom);
+	$self->besthommixllk($besthommixllk);
+	$self->besthommixllkdiff($besthommixllkdiff);
+	$self->num_run_ids($num_run_ids);
+	$self->num_low_selfibd_run_ids($num_low_selfibd_run_ids);
+	$self->sequence_index($sequence_index);
+	$self->analysis_group($analysis_group);
+	$self->chr20($chr20);
+	$self->failed($failed);
+	$self->status($status);
+	$self->performed($performed);
+	return $self;
 }
 
-
 sub status {
-  my ( $self, $arg ) = @_;
-  if ( defined $arg ) {
-	  $self->{status} = $arg;
+	my ( $self, $arg ) = @_;
+	if ( defined $arg ) {
+		$self->{status} = $arg;
 	}
-  return $self->{status};
+	return $self->{status};
 }
 
 sub performed {
@@ -113,188 +108,178 @@ sub performed {
 	return $self->{performed};
 }
 
-#5. SELFIBDLLK/BESTIBDLLK : Log likelihood of the sequence reads
-# given the MLE SELFIBD/BESTIBD with SELF_SM/BEST_SM
-sub SELFIBDLLK {
+#5. selfibdllk/BESTIBDllk : Log likelihood of the sequence reads
+# given the MLE selfibd/BESTIBD with SELF_SM/BEST_SM
+sub selfibdllk {
 	my ( $self, $arg ) = @_;
 	if ( defined $arg ) {
-		$self->{SELFIBDLLK} = $arg;
+		$self->{selfibdllk} = $arg;
 	}
-	return $self->{SELFIBDLLK};
+	return $self->{selfibdllk};
 }
 
-#6. SELFIBDLK-/BESTIBDLK- : Difference of log-likelihood between
-# SELFIBDLLK/BESTIBDLLK and the likelihood of reads under no contamination (SELFIBD=1)
-sub SELFIBDLLKdiff {
+#6. selfibdLK-/BESTIBDLK- : Difference of log-likelihood between
+# selfibdllk/BESTIBDllk and the likelihood of reads under no contamination (selfibd=1)
+sub selfibdllkdiff {
 	my ( $self, $arg ) = @_;
 	if ( defined $arg ) {
-		$self->{SELFIBDLLKdiff} = $arg;
+		$self->{selfibdllkdiff} = $arg;
 	}
-	return $self->{SELFIBDLLKdiff};
+	return $self->{selfibdllkdiff};
 }
 
-
-#4. SELFIBD/BESTIBD
-sub SELFIBD {
+#4. selfibd/BESTIBD
+sub selfibd {
 	my ( $self, $arg ) = @_;
 	if ( defined $arg ) {
-		$self->{SELFIBD} = $arg;
+		$self->{selfibd} = $arg;
 	}
-	return $self->{SELFIBD};
+	return $self->{selfibd};
 }
 
-#SEQ_SM : Sample ID of the sequenced sample. Obtained from @RG header / SM tag in the BAM file
-sub SEQ_SM {
+#sample_name : Sample ID of the sequenced sample. Obtained from @RG header / SM tag in the BAM file
+sub sample_name {
 	my ( $self, $arg ) = @_;
 	if ( defined $arg ) {
-		$self->{SEQ_SM} = $arg;
+		$self->{sample_name} = $arg;
 	}
-	return $self->{SEQ_SM};
+	return $self->{sample_name};
 }
 
-#25. %MIX : Maximum-likelihood estimate of % of contamination based on
+#25. %mix : Maximum-likelihood estimate of % of contamination based on
 # two-sample mixture model from population allele frequency.
-sub MIX {
+sub mix {
 	my ( $self, $arg ) = @_;
 	if ( defined $arg ) {
-		$self->{MIX} = $arg;
+		$self->{mix} = $arg;
 	}
-	return $self->{MIX};
+	return $self->{mix};
 }
 
-
-
-sub HOM {
+sub hom {
 	my ( $self, $arg ) = @_;
 	if ( defined $arg ) {
-		$self->{HOM} = $arg;
+		$self->{hom} = $arg;
 	}
-	return $self->{HOM};
+	return $self->{hom};
 }
-
 
 #HET-A1% : Fraction of reference bases in Heterozygous site
-sub HET_A1 {
+sub het_a1 {
 	my ( $self, $arg ) = @_;
 	if ( defined $arg ) {
-		$self->{HET_A1} = $arg;
+		$self->{het_a1} = $arg;
 	}
-	return $self->{HET_A1};
+	return $self->{het_a1};
 }
 
-
-#21.#DP>1 : Number of sites with depth of 2 or greater
-sub DP {
+#21.#dp>1 : Number of sites with depth of 2 or greater
+sub dp {
 	my ( $self, $arg ) = @_;
 	if ( defined $arg ) {
-		$self->{DP} = $arg;
+		$self->{dp} = $arg;
 	}
-	return $self->{DP};
+	return $self->{dp};
 }
 
-sub BESTHOMMIXLLKdiff {
+sub besthommixllkdiff {
 	my ( $self, $arg ) = @_;
 	if ( defined $arg ) {
-		$self->{BESTHOMMIXLLKdiff} = $arg;
+		$self->{besthommixllkdiff} = $arg;
 	}
-	return $self->{BESTHOMMIXLLKdiff};
+	return $self->{besthommixllkdiff};
 }
 
-
-sub BESTHOMMIXLLK {
+sub besthommixllk {
 	my ( $self, $arg ) = @_;
 	if ( defined $arg ) {
-		$self->{BESTHOMMIXLLK} = $arg;
+		$self->{besthommixllk} = $arg;
 	}
-	return $self->{BESTHOMMIXLLK};
+	return $self->{besthommixllk};
 }
 
 #ALT-A1% : Fraction of reference bases in HomAlt site
-sub ALT_A1 {
+sub alt_a1 {
 	my ( $self, $arg ) = @_;
 	if ( defined $arg ) {
-		$self->{ALT_A1} = $arg;
+		$self->{alt_a1} = $arg;
 	}
-	return $self->{ALT_A1};
+	return $self->{alt_a1};
 }
 
 sub num_run_ids {
-    my ( $self, $arg ) = @_;
-    if ( defined $arg ) {
-        $self->{num_run_ids} = $arg;
-    }
-    return $self->{num_run_ids};
+	my ( $self, $arg ) = @_;
+	if ( defined $arg ) {
+		$self->{num_run_ids} = $arg;
+	}
+	return $self->{num_run_ids};
 }
-sub  num_low_selfIBD_run_ids{
-    my ( $self, $arg ) = @_;
-    if ( defined $arg ) {
-        $self->{num_low_selfIBD_run_ids} = $arg;
-    }
-    return $self->{num_low_selfIBD_run_ids};
+
+sub num_low_selfibd_run_ids {
+	my ( $self, $arg ) = @_;
+	if ( defined $arg ) {
+		$self->{num_low_selfibd_run_ids} = $arg;
+	}
+	return $self->{num_low_selfibd_run_ids};
 }
 
 sub failed {
-    my ( $self, $arg ) = @_;
-    if ( defined $arg ) {
-        $self->{failed} = $arg;
-    }
-    return $self->{failed};
+	my ( $self, $arg ) = @_;
+	if ( defined $arg ) {
+		$self->{failed} = $arg;
+	}
+	return $self->{failed};
 }
-    
 
 sub other_id {
-    my ( $self, $arg ) = @_;
-    if ( defined $arg ) {
-        $self->{other_id} = $arg;
-    }
-    return $self->{other_id};
+	my ( $self, $arg ) = @_;
+	if ( defined $arg ) {
+		$self->{other_id} = $arg;
+	}
+	return $self->{other_id};
 }
 
 sub table_name {
-    my ( $self, $arg ) = @_;
-    if ( defined $arg ) {
-        $self->{table_name} = $arg;
-    }
-    return $self->{table_name};
+	my ( $self, $arg ) = @_;
+	if ( defined $arg ) {
+		$self->{table_name} = $arg;
+	}
+	return $self->{table_name};
 }
-
 
 sub sequence_index {
 
-    my ( $self, $arg ) = @_;
-    if ( defined $arg ) {
-        $self->{sequence_index} = $arg;
-    }
-    return $self->{sequence_index};
+	my ( $self, $arg ) = @_;
+	if ( defined $arg ) {
+		$self->{sequence_index} = $arg;
+	}
+	return $self->{sequence_index};
 
 }
 
 sub analysis_group {
 
-    my ( $self, $arg ) = @_;
-    if ( defined $arg ) {
-        $self->{analysis_group} = $arg;
-    }
-    return $self->{analysis_group};
+	my ( $self, $arg ) = @_;
+	if ( defined $arg ) {
+		$self->{analysis_group} = $arg;
+	}
+	return $self->{analysis_group};
 
 }
 
 sub chr20 {
-    my ( $self, $arg ) = @_;
-    if ( defined $arg ) {
-        $self->{chr20} = $arg;
-    }
-    return $self->{chr20};
+	my ( $self, $arg ) = @_;
+	if ( defined $arg ) {
+		$self->{chr20} = $arg;
+	}
+	return $self->{chr20};
 
 }
-
-
 
 #INFO extracted from results files
 
 #cat HG00308.selfRG  | cut -f 1,4,5,6,17,19,21,25,26,27,28
-#SEQ_RG  SELFIBD SELFIBDLLK      SELFIBDLLK-     HET-A1% ALT-A1% #DP     %MIX    %HOM    BESTHOMMIXLLK   BESTHOMMIXLLK-
+#SEQ_RG  SELFIBD SELFIBDLLK      SELFIBDLLK-     HET-A1% ALT-A1% #DP     %MIX    %HOM    besthomMIXLLK   besthomMIXLLK-
 #HG00308 0.680   7.305e+04       2.892e+03       0.64466 0.32623 0.294   0.180   0.000   -4.718e+03      2.480e+01
-
 
 1;
