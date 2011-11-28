@@ -3,7 +3,6 @@ package ReseqTrack::Tools::RunVariantCallUtils;
 use strict;
 use warnings;
 
-#use ReseqTrack::Tools::FastQ qw (sample);
 use ReseqTrack::Tools::Exception qw(throw warning stack_trace_dump);
 use ReseqTrack::Tools::Argument qw(rearrange);
 
