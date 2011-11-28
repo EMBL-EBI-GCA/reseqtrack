@@ -241,6 +241,7 @@ sub useage{
   exec('perldoc', $0);
   exit(0);
 }
+
 =pod
 
 =head1 NAME
@@ -283,6 +284,6 @@ ReseqTrack/scripts/files/retype_collection.pl
     -new_type WITHDRAWN_FILTERED_FASTQ  -run
      
     
-  
+
 =cut
- 
+

@@ -159,3 +159,4 @@ will only update those objects which have type FASTQ
 perl ReseqTrack/scripts/file/update_md5.pl -dbhost myhost -dbuser g1krw -dbpass XXXX -dbport 4197 -dbname my_database -md5_file files.md5 -type FASTQ
 
 =cut
+

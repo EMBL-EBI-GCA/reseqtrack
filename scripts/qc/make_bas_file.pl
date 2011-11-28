@@ -289,6 +289,7 @@ correct_bas_file_convention ($md5 , $file_base, "$process_dir\/$new_bas_file") i
 
 
 =pod
+
 if ( $store) {
 
   my $ha = $db->get_HostAdaptor;
@@ -360,6 +361,7 @@ if (-e "$file_name\.bas"){
   print "$file_name\.bas:\n exists could cross-compare\n";
 }
 }
+
 =cut
 
 print "$ file_name:    We are GOOD\n";

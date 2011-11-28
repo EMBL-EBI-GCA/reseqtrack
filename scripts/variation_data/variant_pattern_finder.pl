@@ -289,10 +289,11 @@ sub post_processing {
 }
 	
 ##################################################################################################################################
+
 =pod
 
 =head1 NAME 
-	
+
 	variant_pattern_finder.pl
 
 =head1 SYNOPSIS
@@ -354,7 +355,7 @@ sub post_processing {
 				sites with no genotype data and REF|REF for homozygous reference sites. 
  	
 	Sample section:		This section contains samples that have the given pattern of variants. The samples are organized by population. 
-	
+
 =head1 EXAMPLE
 
 perl ~/ReseqTrack/scripts/variation_data/variant_pattern_finder.pl \

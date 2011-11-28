@@ -10,6 +10,7 @@ use File::Basename qw(basename fileparse);
 use base qw(ReseqTrack::Tools::RunVariantCall);
 
 =head2 new
+
   Arg [-dbSNP]   :
       string, path to dbsnp vcf file	
   Arg [-dcov]   :
@@ -72,6 +73,7 @@ use base qw(ReseqTrack::Tools::RunVariantCall);
                 -chrom					=> '1',
                 -region					=> '1-1000000',
                 -output_to_working_dir 	=> 1 );
+
 =cut
 
 sub new {
@@ -174,7 +176,7 @@ sub new {
   Returntype: 
   Exceptions: 
   Example   : $self->run();
-  
+
 =cut
 
 sub run {
@@ -259,6 +261,7 @@ sub dbSNP {
   Returntype: file path
   Exceptions: 
   Example   : my $output_file = $self->derive_output_file_name->[0];
+
 =cut
 
 sub derive_output_file_name {  

@@ -33,7 +33,7 @@ use ReseqTrack::Tools::Argument qw(rearrange);
 
 
 =head2 new
-  
+
   Arg [1]    : ReseqTrack::FileTypeRule
   Arg [2]    : int, order in which a block of rules must be considered
   Arg [3]    : int, order in which the rule must be considered with the block
@@ -130,6 +130,7 @@ sub match_regex {
   Example   : my $perl_condition = $file_type_rule->perl_condition('filename');
 
 =cut
+
 sub perl_condition {
     my ( $self, $perl_variable_name ) = @_;
     $perl_variable_name = $perl_variable_name || 'filename';

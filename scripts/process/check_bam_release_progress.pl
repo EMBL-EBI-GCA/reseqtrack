@@ -264,6 +264,7 @@ sub get_completed_event_hash {
 }
 
 =head
+
 perl ~/reseq-personal/zheng/bin/check_bam_release_status.pl -dbhost mysql-g1kdcc -dbname g1k_archive_staging_track -dbuser g1krw -dbpass thousandgenomes -dbport 4197 -host_name sanger -date 20101123 > status
 
 TEST:

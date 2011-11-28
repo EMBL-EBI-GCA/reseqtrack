@@ -95,3 +95,4 @@ sub useage{
     perl ReseqTrack/scripts/file/cleanup_archive.pl -dbhost myhost -dbuser g1krw -dbpass XXXX -dbport 4197 -dbname my_database 
 
 =cut
+

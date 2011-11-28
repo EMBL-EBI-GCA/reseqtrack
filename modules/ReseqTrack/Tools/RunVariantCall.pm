@@ -28,6 +28,7 @@ use base qw(ReseqTrack::Tools::RunProgram);
                 -reference 		=> '/path/to/ref.fa',
 				-chrom			=> 20,
 				-region			=> 1000000-2000000 );
+
 =cut
 
 sub new {
@@ -185,3 +186,4 @@ such as Samtools mpileup and GATK Unified Genotyper.
 Child classes should wrap specific alignment algorithms.
 
 =cut
+

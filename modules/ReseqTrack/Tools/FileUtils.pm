@@ -408,7 +408,7 @@ sub assign_type_by_filename {
   Exceptions: 
   			  
   Example   : move_file_in_db_and_dir($others, $dir, $new_file_type, $db);
- 
+
 =cut
 
 sub move_file_in_db_and_dir { 

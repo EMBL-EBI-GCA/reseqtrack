@@ -8,6 +8,7 @@ use ReseqTrack::DBSQL::StatementHandle;
 
 use ReseqTrack::Tools::Exception qw(throw warning stack_trace_dump);
 use ReseqTrack::Tools::Argument qw(rearrange);
+
 =head2 new
 
   Arg [DBNAME] : string

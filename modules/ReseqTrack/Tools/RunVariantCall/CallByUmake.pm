@@ -10,6 +10,7 @@ use File::Basename qw(basename fileparse);
 use base qw(ReseqTrack::Tools::RunVariantCall);
 
 =head2 new
+
   Arg [-dbSNP]   :
       string, path to prefix of dbsnp vcf rod files	
   Arg [-hm3_prefix]   :
@@ -343,6 +344,7 @@ sub config {
   Returntype: 
   Exceptions: 
   Example   : $self->run();
+
 =cut
 
 

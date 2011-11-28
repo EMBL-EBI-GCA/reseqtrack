@@ -111,6 +111,7 @@ sub new {
   Returntype: string, path of bam file
   Exceptions: 
   Example   : my $bam = $self->run_sam_to_bam($sam);
+
 =cut
 
 sub run_sam_to_bam {
@@ -143,6 +144,7 @@ sub run_sam_to_bam {
   Returntype: string, path of sorted bam file
   Exceptions: 
   Example   : my $sorted_bam = $self->run_sort($bam);
+
 =cut
 
 sub run_sort {
@@ -179,6 +181,7 @@ sub run_sort {
   Returntype: string, path of index file
   Exceptions: 
   Example   : my $bai = $self->run_index($bam);
+
 =cut
 
 sub run_index {
@@ -202,6 +205,7 @@ sub run_index {
   Returntype: string, path of merged bam file
   Exceptions: 
   Example   : my $merged_bam = $self->run_index([$bam1, $bam2]);
+
 =cut
 
 sub run_merge {
@@ -238,6 +242,7 @@ sub run_merge {
   Returntype: 
   Exceptions: 
   Example   : $self->run();
+
 =cut
 
 sub run {

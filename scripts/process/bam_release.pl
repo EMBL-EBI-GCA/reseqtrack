@@ -175,7 +175,9 @@ foreach my $host ( @$remote_hosts ) {
 							push @{$dir_file_hash{$new_directory}}, $new_f_obj;
 						}		
 						write_log($file, $loga);
+
 =head
+
 						if ($run) {
 							if ( $new_f_obj->type =~ /BAS/ && check_bas($new_f_obj->name) == 1) {
 								write_log($file, $loga, "PREP: bas file has content inconsistency");
@@ -183,7 +185,9 @@ foreach my $host ( @$remote_hosts ) {
 								move_bam_to_trash($db, $new_f_obj, $new_f_obj->name, $run);
 							}
 						}		
+
 =cut					
+
 						####### FIXME: use above lines when doing changing file names for TGEN	
 					}
 				}
@@ -278,6 +282,7 @@ foreach my $host ( @$remote_hosts ) {
 		`$command`;
 
 =head										
+
 		foreach my $directory ( keys %dir_file_hash) {
 			foreach my $f ( @{$dir_file_hash{$directory}} ) {
 				my $file_to_archive = $f->name;
@@ -288,7 +293,9 @@ foreach my $host ( @$remote_hosts ) {
 				# use the -run option after test!!  
 			}
 		}			
+
 =cut
+
 ###FIXME: comment out above lines after testing
 	}
 	else {
@@ -555,6 +562,7 @@ sub help_info {
 
 
 #############################################################################################
+
 =pod
 
 =head1 NAME
@@ -562,7 +570,7 @@ sub help_info {
  ~/ReseqTrack/scripts/process/bam_release.pl
 
 =head2 Required arguments:
-   
+
 	-dbhost, 			the name of the mysql-host
 	-dbname, 			the name of the mysql database
 	-dbuser, 			the name of the mysql user
@@ -571,7 +579,7 @@ sub help_info {
             				 port for mysql-g1kdcc.ebi.ac.uk
 		
 	The script needs to be run on a production node such as ebi-002.
-		 
+
 =head2 Optional arguments:
 
 	-run				when this tag is used, files will be moved and farm jobs will be submitted to check and archive BAMs 
@@ -596,7 +604,7 @@ sub help_info {
 	 	- for unmapped BAM, if no bai file exist, create one for 
 	 	- check md5 for each file
 	 	- archive files that have passed md5 check
- 	
+
 =head1 Example:
 
  perl ~/ReseqTrack/scripts/process/bam_release.pl -dbhost mysql-g1kdcc-public -dbname g1k_archive_staging_track -dbuser g1krw -dbpass thousandgenomes -dbport 4197 -verbose -out /nfs/nobackup/resequencing_informatics/zheng/bam_release -run &

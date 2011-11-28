@@ -27,7 +27,7 @@ ReseqTrack::Tools::Scalar;
 	assert_ref([], 'ARRAY'); #Returns true
 	assert_ref({}, 'ARRAY'); #throws an exception
 	assert_ref($dba, 'Bio::EnsEMBL::Gene'); #throws an exception if $dba is not a Gene  
-	
+
 =head1 DESCRIPTION
 
 A collection of subroutines aimed to helping Scalar based operations

@@ -277,12 +277,13 @@ sub help_info {
 
 
 #############################################################################################
+
 =pod
 
 =head1 NAME
 
 	~/ReseqTrack/scripts/process/run_variantCall.pl
-	
+
 =head2 Required arguments:
 
 	-dbhost, 			the name of the mysql-host
@@ -294,7 +295,7 @@ sub help_info {
     
 	-algorithm,			can be one of the three: samtools, gatk, umake
 	-chrom,				for umake, chr is mandatory; otherwise the makefile would have nothing. For samtools and gatk, it is optional
-	
+
 =head2 Optional arguments:		
 			 
 	-collection_name		Name of a BAM collection
@@ -373,9 +374,9 @@ sub help_info {
   		FILTER_MAX_SAMPLE_DP=> 
   		FILTER_MIN_SAMPLE_DP=>
 		
-		
+
 =head1 SYNOPSIS
-	
+
 	This is a generic script to call variants from BAM files. Algorthms that can be used for making varaint call include: 
 	samtools (http://samtools.sourceforge.net/mpileup.shtml)   
 	gatk (http://www.broadinstitute.org/gsa/wiki/index.php/Unified_genotyper)
@@ -383,9 +384,9 @@ sub help_info {
 	
 	Input BAMs are defined either by a list of file paths, or sample names, BAM type, analysis group, and sequence platform, 
 	which can be used to query the database to get a list of BAM file path.  Output is variants discovered in the format of VCF file. 
-	
+
 =head1	OUTPUT
-	
+
 	Output files from samtools and gatk can be found in the user-specified output_dir; if an output_dir is not specified, the current 
 	directory is the output_dir.
 	
@@ -399,7 +400,7 @@ sub help_info {
 	
 	The script run_variantCall.pl will print the path to the most relevant output file when a run is done.  Output VCF files will be stored 
 	in the database as type "VCF" if option '-store' is specified.
-	
+
 =head1 SAMTOOLS EXAMPLES
 
 perl ~/ReseqTrack/scripts/process/run_variantCall.pl \
@@ -429,7 +430,7 @@ perl ~/ReseqTrack/scripts/process/run_variantCall.pl \
 -parameters 'mpileup=>-ug,bcfview=>-bvcg,vcfutils=>-D 100' \
 -chrom 10 \
 -region 1000000-2000000 &	
- 	
+
 =head1 GATK EXAMPLES
 
 perl ~/ReseqTrack/scripts/process/run_variantCall.pl \
@@ -442,7 +443,7 @@ perl ~/ReseqTrack/scripts/process/run_variantCall.pl \
 
 
 =head1 UMAKE EXAMPLES
- 
+
 perl ~/ReseqTrack/scripts/process/run_variantCall.pl \
 -dbhost mysql-g1kdcc-public -dbname g1k_archive_staging_track -dbuser g1krw -dbpass thousandgenomes -dbport 4197 \
 -algorithm umake \

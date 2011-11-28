@@ -35,6 +35,7 @@ use Data::Dumper;
                       -reference => '/path/to/reference',
                       -samtools => '/path/to/samtools',
                       );
+
 =cut
 
 sub new {

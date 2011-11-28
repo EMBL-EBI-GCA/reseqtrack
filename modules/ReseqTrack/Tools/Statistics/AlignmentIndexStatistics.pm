@@ -320,13 +320,16 @@ sub make_stats{
   }
 
 =head
+
  my %h = %$sample_cnt_hash;
  my $c = 1;
  foreach my $s ( keys %{$h{"SOLiD"}{"total"}} ) {
      print "sample $c is $s\n";
      $c++;
  }     
+
 =cut
+
 ## FIXME: remove above lines after testing
 
 }
@@ -366,7 +369,7 @@ sub get_population {
   Returntype: array of hashrefs
   Exceptions: throw if a run doesn't have a base count
   Example   : my ($bp_cnt_hash, $bp_cnt_by_pop_hash, $sample_cnt_hash) = $self->parse_bas($self->new_index);
-  			
+
 =cut
 
 
@@ -421,7 +424,7 @@ sub parse_bas {
 	return (\%bp_hash, \%bp_by_pop_hash, \%sample_cnt_hash); 
 }		
 
-	
+
 =head2 calculate_summary_stats
 
   Arg [1]   : ReseqTrack::Tools::Statistics::AlignmentIndexStatistics

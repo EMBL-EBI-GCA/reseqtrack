@@ -42,6 +42,7 @@ use base qw(ReseqTrack::Tools::RunVariantCall);
                 -chrom					=> '1',
                 -region					=> '1-1000000',
                 -output_to_working_dir 	=> 1 );
+
 =cut
 
 sub new {
@@ -118,6 +119,7 @@ sub new {
   Returntype: string, path of raw vcf file before filtering
   Exceptions: 
   Example   : my $raw_vcf = $self->run_variant_calling($bams);
+
 =cut
 
 sub run_variant_calling {
@@ -172,6 +174,7 @@ sub run_variant_calling {
   Returntype: string, path of raw vcf file before filtering
   Exceptions: 
   Example   : my $filtered_vcf = $self->run_variant_filtering($raw_bcf);
+
 =cut
 
 #bcftools view var.raw.bcf | vcfutils.pl varFilter -D 100 > var.flt.vcf
@@ -210,6 +213,7 @@ sub run_variant_filtering {
   Returntype: 
   Exceptions: 
   Example   : $self->run();
+
 =cut
 
 sub run {
@@ -242,7 +246,7 @@ sub run {
     return $self;
 
 }
-	
+
 =head2 bcftools_path
 
   Arg [1]   : ReseqTrack::Tools::RunVariantCall::CallBySamtools
@@ -291,7 +295,7 @@ sub vcfutils_path {
   Returntype: file path
   Exceptions: 
   Example   : my $output_file = $self->derive_output_file_name->[0];
-  
+
 =cut
 
 

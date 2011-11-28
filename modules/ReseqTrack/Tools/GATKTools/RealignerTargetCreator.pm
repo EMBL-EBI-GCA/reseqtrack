@@ -13,7 +13,9 @@ use vars qw(@ISA);
 sub new {
 	my ( $class, @args ) = @_;
 	my $self = $class->SUPER::new(@args);
+
 =head	
+
 	  my (   )
     = rearrange(
 		[
@@ -23,8 +25,9 @@ sub new {
 		],
 		@args
 	       );
+
 =cut	
-	
+
 	$self->gatk_tool("RealignerTargetCreator");
 	$self->check_jar_file_exists();
 	return $self;

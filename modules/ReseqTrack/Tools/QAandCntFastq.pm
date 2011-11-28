@@ -228,9 +228,12 @@ sub check_paired_fastq {
 		$line_d =~ s/^\s+|\s+$//g;
 
 =head		
+
 		print "processed mate1 line 1: $line1\n";
 		print "processed mate2 line a: $line_a\n";
+
 =cut	
+
 		my $mate1_read_len = getReadLen(\$line2, $instrument);
 		my $mate2_read_len = getReadLen(\$line_b, $instrument);	
 			
@@ -241,6 +244,7 @@ sub check_paired_fastq {
 		$unflt_base_cnt2 = $unflt_base_cnt2 + $$mate2_read_len;
 
 =head						
+
 		print "mate1 read len: $$mate1_read_len\n";
 		print "mate1 unfilter read cnt: $unflt_read_cnt1\n";
 		print "mate1 unfilter base cnt: $unflt_base_cnt1\n";
@@ -248,7 +252,9 @@ sub check_paired_fastq {
 		print "mate2 read len: $$mate2_read_len\n";
 		print "mate2 unfilter read cnt: $unflt_read_cnt2\n";
 		print "mate2 unfilter base cnt: $unflt_base_cnt2\n";	
+
 =cut	
+
 		print $log_fh "Filtering ".$line1."\n";
 		print $log_fh "Filtering ".$line_a."\n";
 		if ( QA(\$line1, \$line2, \$line3, \$line4, \$unflt_read_cnt1, $instrument, $len_limit, $run_id, $log_fh) eq "Fail" ) {
@@ -280,12 +286,16 @@ sub check_paired_fastq {
 		$flt_base_cnt1 = $flt_base_cnt1 + $$mate1_read_len;
 		$flt_read_cnt2++;
 		$flt_base_cnt2 = $flt_base_cnt2 + $$mate2_read_len;
+
 =head		
+
 		print "mate1 filtered read cnt: $flt_read_cnt1\n";
 		print "mate1 filter base cnt: $flt_base_cnt1\n";
 		print "mate2 filtered read cnt: $flt_read_cnt2\n";
 		print "mate2 filter base cnt: $flt_base_cnt2\n";	
+
 =cut		
+
 		print $OUT_mate1 "$line1\n$line2\n$line3\n$line4\n";	
 		print $OUT_mate2 "$line_a\n$line_b\n$line_c\n$line_d\n";	
 	}
@@ -356,11 +366,15 @@ sub check_single_fastq {
 		 	
 		$flt_read_cnt++;
 		$flt_base_cnt = $flt_base_cnt + $$read_len;		
+
 =head	
+
 		#print "read len: $$read_len\n";
 		#print "filtered read cnt: $flt_read_cnt\n";
 		#print "filter base cnt: $flt_base_cnt\n\n";					
+
 =cut		
+
 		print $OUT_fastq "$line1\n$line2\n$line3\n$line4\n";
 	}
 

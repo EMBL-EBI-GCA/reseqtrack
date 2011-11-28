@@ -182,12 +182,13 @@ sub useage {
 		ReseqTrack/scripts/run_meta_info/create_withdraw_list_from_run_ids.pl
 
 =head1 SYNOPSIS
+
 		Create a move list to withdraw files based on run_id (and type). You cannot
 		just give type. It will not work.
 
 
 =head1 OPTIONS
-		
+
 		-dbhost, the name of the mysql-host
 		-dbname, the name of the mysql database
 		-dbuser, the name of the mysql user
@@ -202,7 +203,7 @@ sub useage {
 
 
 =head1 Examples
-		
+
 perl $RESEQTRACK/scripts/ create_withdraw_list_from_run_ids.pl 
 -dbhost mysql-g1kdcc.ebi.ac.uk -dbport 4197 -dbuser g1krw -dbpass xxxxxxxxxx
 -dbname g1k_archive_staging_track -file bad_run_ids.lst -type FILTERED_FASTQ
@@ -218,6 +219,6 @@ perl $RESEQTRACK/scripts/ create_withdraw_list_from_run_ids.pl
 perl $RESEQTRACK/scripts/ create_withdraw_list_from_run_ids.pl 
 -dbhost mysql-g1kdcc.ebi.ac.uk -dbport 4197 -dbuser g1krw -dbpass xxxxxxxxxx
 -dbname g1k_archive_staging_track -run_id SRR013914 
-    
+
 =cut
 

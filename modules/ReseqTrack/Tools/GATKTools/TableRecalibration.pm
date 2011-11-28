@@ -89,6 +89,7 @@ sub covariates_file {
 }
 
 =head
+
 sub bam_recalibrate_quality_scores {
  
   $self->check_bai_present ($self->bam);
@@ -112,6 +113,7 @@ sub bam_recalibrate_quality_scores {
 
   return ($recal_bam);
 }
+
 =cut
 
 1;

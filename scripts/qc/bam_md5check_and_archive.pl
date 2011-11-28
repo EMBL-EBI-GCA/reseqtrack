@@ -362,6 +362,7 @@ sub check_this_md5 {
 }
 
 #############################################################################################
+
 =pod
 
 =head1 NAME
@@ -369,7 +370,7 @@ sub check_this_md5 {
  perl -w ~/ReseqTrack/scripts/qc/bam_md5check_and_archive.pl
 
 =head2 Required arguments:
-   
+
 	-dbhost, 			the name of the mysql-host
 	-dbname, 			the name of the mysql database
 	-dbuser, 			the name of the mysql user
@@ -378,7 +379,7 @@ sub check_this_md5 {
             				 port for mysql-g1kdcc.ebi.ac.uk
 
 	-bam,				a full path of BAM in archive staging area
-			 
+
 =head2 Optional arguments:
 
 	-run				when this tag is used, BAM files that have passed md5 check will be archived 
@@ -396,11 +397,13 @@ sub check_this_md5 {
  	- if no bas file, create bas file
  	- check md5 for each file
  	- archive files that have passed md5 check
- 	
+
 =head1 Example:
 
 /usr/bin/perl ~/ReseqTrack/scripts/qc/bam_md5check_and_archive.pl -dbhost mysql-g1kdcc-public -dbname g1k_archive_staging_track -dbuser g1krw -dbpass thousandgenomes -dbport 4197 -bam /nfs/1000g-work/G1K/archive_staging/test/NA06985/alignment/NA06985.chrom11.ILLUMINA.bwa.SRP0000testArchive.20091216.bam -out somewhere_the_farm_job_writes_log_to -run -priority 99  
 
 /usr/bin/perl ~/ReseqTrack/scripts/qc/bam_md5check_and_archive.v2.pl -dbhost mysql-g1kdcc-public -dbname g1k_archive_staging_track -dbuser g1krw -dbpass thousandgenomes -dbport 4197 -bam 
 /nfs/1000g-work/G1K/archive_staging/test/NA06985/alignment/NA06985.chrom10.ILLUMINA.bwa.CEU.low_coverage.2011b.bam -out /tmp 
+
 =cut
+

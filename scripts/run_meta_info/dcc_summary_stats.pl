@@ -177,8 +177,10 @@ STDOUT
 =head1 Examples
 
 perl ReseqTrack/scripts/run_meta_info/dcc_summary_stats.pl -dbhost myhost -dbuser myuser -dbport 3306 -dbname mydatabase -index 20100311.sequence.index -output_file /path/to/output_file
+
 =head1 Other useful scripts
 
 ReseqTrack/scripts/dump_sequence_index.pl
 
 =cut
+

@@ -120,6 +120,7 @@ sub history_objects_with_no_assoc_obj {
 
 
 =cut
+
 sub failed_glf_but_FILTERED_FASTQ {
 	my ( $db, $verbose ) = @_;
 	my  @results;

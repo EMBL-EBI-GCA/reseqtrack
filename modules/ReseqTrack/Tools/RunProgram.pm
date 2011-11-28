@@ -54,6 +54,7 @@ my $num_run_programs = 0;
                 -job_name => "my_job",
                 -echo_cmd_line => 0,
                 -save_files_for_deletion => 0 );
+
 =cut
 
 sub new {
@@ -92,6 +93,7 @@ sub new {
   Returntype: 
   Exceptions: 
   Example   : 
+
 =cut
 
 sub DESTROY {
@@ -113,6 +115,7 @@ sub DESTROY {
   Returntype: 
   Exceptions: throws as this method should be implemented in the child class
   Example   : 
+
 =cut
 
 sub run {
@@ -130,6 +133,7 @@ sub run {
   Returntype: exit code
   Exceptions: throws if execution of command fails
   Example   : $self->execute_command_line('/path/to/program -options > output');
+
 =cut
 
 sub execute_command_line {
@@ -159,6 +163,7 @@ sub execute_command_line {
   Returntype: boolean
   Exceptions: 
   Example   : my $flag = $self->save_files_for_deletion;
+
 =cut
 
 sub save_files_for_deletion {
@@ -178,6 +183,7 @@ sub save_files_for_deletion {
   Returntype: boolean
   Exceptions: 
   Example   : my $flag = $self->echo_cmd_line;
+
 =cut
 
 sub echo_cmd_line {
@@ -196,6 +202,7 @@ sub echo_cmd_line {
   Returntype: string
   Exceptions: throws if executable does not exist
   Example   : my $program = $self->program;
+
 =cut
 
 sub program {
@@ -215,6 +222,7 @@ sub program {
   Returntype: string
   Exceptions: 
   Example   : my $job_name = $self->job_name;
+
 =cut
 
 sub job_name {
@@ -233,6 +241,7 @@ sub job_name {
   Returntype: arrayref of strings
   Exceptions: 
   Example   : my $first_command = ${$self->command_history}[0];
+
 =cut
 
 sub command_history {
@@ -252,6 +261,7 @@ sub command_history {
   Returntype: string
   Exceptions: 
   Example   : $self->generate_job_name();
+
 =cut
 
 sub generate_job_name {
@@ -347,6 +357,7 @@ sub output_files {
   Returntype: arrayref of strings
   Exceptions: throws if file does not exist
   Example   : $self->input_files('path/to/file');
+
 =cut
 
 sub input_files {
@@ -381,6 +392,7 @@ sub input_files {
   Returntype: arrayref of strings
   Exceptions: n/a
   Example   : $self->files_to_delete('path/to/file');
+
 =cut
 
 sub files_to_delete {

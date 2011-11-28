@@ -128,6 +128,7 @@ sub new {
   Returntype: 
   Exceptions: 
   Example   : $self->run_samtools;
+
 =cut
 
 sub run_samtools {
@@ -166,6 +167,7 @@ sub run_samtools {
   Returntype: string
   Exceptions: 
   Example   : $self->generate_job_name();
+
 =cut
 
 sub generate_job_name {
@@ -190,6 +192,7 @@ sub generate_job_name {
   Returntype: arrayref of strings
   Exceptions: 
   Example   : $self->sam_files('path/to/file');
+
 =cut
 
 sub sam_files {

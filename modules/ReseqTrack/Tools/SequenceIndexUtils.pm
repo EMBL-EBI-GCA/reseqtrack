@@ -254,6 +254,7 @@ sub standard_index_methods{
   Example   : ($mate1, $mate2, $frag) = assign_files(\@files);
 
 =cut
+
 sub assign_files{
   my ($files, $regexs) = @_;
   if (! $regexs) {

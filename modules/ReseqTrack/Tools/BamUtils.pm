@@ -27,7 +27,9 @@ use vars qw (@ISA  @EXPORT);
   Returntype: reference to hash containings count keys by CHR designation
   Exceptions: throw if file does not exist
   Example   : sum_bam_reads( $bam , 16) or sum_bam_reads( $bam , 16, 1);
+
 =cut
+
 sub sum_bam_reads {
 #Note: Probably not quickest way to do this. Effectively cat'ing potentially, very
 #      large files 22 times might be slow

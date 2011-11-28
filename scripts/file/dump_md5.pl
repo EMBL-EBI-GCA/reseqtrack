@@ -110,3 +110,4 @@ perl ReseqTrack/scripts/file/dump_md5.pl -dbhost myhost -dbuser g1krw -dbpass XX
 dump the md5s of all files with type FASTQ into afile named files.md5
 
 =cut
+

@@ -213,3 +213,4 @@ the database
 perl ReseqTrack/scripts/process/get_fastq.pl -output scratch/staging_area/sequence_staging/ -clobber -dbhost host -dbuser user -dbpass **** -dbport 4197 -dbname staging_db -host 1000genomes.ebi.ac.uk -file_type ARCHIVE_FASTQ -load -run_id SRR031624 -era_dbuser username -era_dbpass *****
 
 =cut
+

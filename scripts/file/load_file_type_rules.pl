@@ -80,6 +80,7 @@ sub perldocs {
     exec('perldoc', $0);
     exit(0);
 }
+
 =pod
 
 =head1 NAME
