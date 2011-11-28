@@ -4,7 +4,7 @@ use strict;
 use warnings;
 
 use ReseqTrack::Tools::RunProgram;
-use ReseqTrack::Tools::AlignmentBase;
+use ReseqTrack::Tools::RunAlignment;
 use ReseqTrack::Tools::Argument qw(rearrange);
 
 use vars qw(@ISA);
