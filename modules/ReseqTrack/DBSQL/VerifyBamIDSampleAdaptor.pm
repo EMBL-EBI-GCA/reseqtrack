@@ -27,137 +27,137 @@ sub new {
 
 sub columns {
   return "
-        verifybamid_Sample.verifybamid_Sample_id,
-        verifybamid_Sample.other_id,
-        verifybamid_Sample.table_name,
-        verifybamid_Sample.SEQ_SM,
-        verifybamid_Sample.SELFIBD, 
-        verifybamid_Sample.SELFIBDLLK,
-        verifybamid_Sample.SELFIBDLLKdiff,
-        verifybamid_Sample.HET_A1,
-        verifybamid_Sample.ALT_A1,
-        verifybamid_Sample.DP,
-        verifybamid_Sample.MIX,
-        verifybamid_Sample.HOM  ,
-        verifybamid_Sample.BESTHOMMIXLLK,
-        verifybamid_Sample.BESTHOMMIXLLKdiff,
-        verifybamid_Sample.num_run_ids,
-        verifybamid_Sample.num_low_selfIBD_run_ids,
-        verifybamid_Sample.sequence_index,
-        verifybamid_Sample.analysis_group,
-        verifybamid_Sample.chr20,  
-        verifybamid_Sample.failed,
-        verifybamid_Sample.status,
-        verifybamid_Sample.performed    "
+        verifybamid_sample.verifybamid_sample_id,
+        verifybamid_sample.other_id,
+        verifybamid_sample.table_name,
+        verifybamid_sample.sample_name,
+        verifybamid_sample.selfibd, 
+        verifybamid_sample.selfibdllk,
+        verifybamid_sample.selfibdllkdiff,
+        verifybamid_sample.het_a1,
+        verifybamid_sample.alt_a1,
+        verifybamid_sample.dp,
+        verifybamid_sample.mix,
+        verifybamid_sample.hom  ,
+        verifybamid_sample.besthommixllk,
+        verifybamid_sample.besthommixllkdiff,
+        verifybamid_sample.num_run_ids,
+        verifybamid_sample.num_low_selfibd_run_ids,
+        verifybamid_sample.sequence_index,
+        verifybamid_sample.analysis_group,
+        verifybamid_sample.chr20,  
+        verifybamid_sample.failed,
+        verifybamid_sample.status,
+        verifybamid_sample.performed    "
 }
 
 sub table_name {
-  return "verifybamid_Sample";
+  return "verifybamid_sample";
 }
 
 sub store {
-  my ( $self, $verifybamid_Sample ) = @_;
+  my ( $self, $verifybamid_sample ) = @_;
 
 
-  # print Dumper $verifybamid_Sample;
+  # print Dumper $verifybamid_sample;
 
   throw(  "Can't store "
-	  . $verifybamid_Sample
+	  . $verifybamid_sample
 	  . " using ReseqTrack::DBSQL::VerifyBamIDSampleAdaptor" )
     unless (
-	    $verifybamid_Sample->isa(
+	    $verifybamid_sample->isa(
 				     "ReseqTrack::VerifyBamIDSample")
 	   );
 
   my $sql =
-    "insert into verifybamid_Sample (other_id, table_name,"
-      . "SEQ_SM, SELFIBD, SELFIBDLLK, SELFIBDLLKdiff,HET_A1, ALT_A1,"
-	. "DP, MIX,HOM  , BESTHOMMIXLLK, BESTHOMMIXLLKdiff,"
-	  . "num_run_ids, num_low_selfIBD_run_ids, sequence_index,analysis_group, " 
+    "insert into verifybamid_sample (other_id, table_name,"
+      . "sample_name, selfibd, selfibdllk, selfibdllkdiff,het_a1, alt_a1,"
+	. "dp, mix,hom  , besthommixllk, besthommixllkdiff,"
+	  . "num_run_ids, num_low_selfibd_run_ids, sequence_index,analysis_group, " 
 	    . " chr20, failed, status,performed ) "
 	      . " values( ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,now() ) ";
 
   my $sth = $self->prepare($sql);
-  $sth->bind_param( 1,  $verifybamid_Sample->other_id );
-  $sth->bind_param( 2,  $verifybamid_Sample->table_name );
-  $sth->bind_param( 3,  $verifybamid_Sample->SEQ_SM );
-  $sth->bind_param( 4,  $verifybamid_Sample->SELFIBD );
-  $sth->bind_param( 5,  $verifybamid_Sample->SELFIBDLLK );
-  $sth->bind_param( 6,  $verifybamid_Sample->SELFIBDLLKdiff );
-  $sth->bind_param( 7,  $verifybamid_Sample->HET_A1 );
-  $sth->bind_param( 8,  $verifybamid_Sample->ALT_A1 );
-  $sth->bind_param( 9,  $verifybamid_Sample->DP );
-  $sth->bind_param( 10, $verifybamid_Sample->MIX );
-  $sth->bind_param( 11, $verifybamid_Sample->HOM );
-  $sth->bind_param( 12, $verifybamid_Sample->BESTHOMMIXLLK );
-  $sth->bind_param( 13, $verifybamid_Sample->BESTHOMMIXLLKdiff );
-  $sth->bind_param( 14, $verifybamid_Sample->num_run_ids );
-  $sth->bind_param( 15, $verifybamid_Sample->num_low_selfIBD_run_ids );
+  $sth->bind_param( 1,  $verifybamid_sample->other_id );
+  $sth->bind_param( 2,  $verifybamid_sample->table_name );
+  $sth->bind_param( 3,  $verifybamid_sample->sample_name );
+  $sth->bind_param( 4,  $verifybamid_sample->selfibd );
+  $sth->bind_param( 5,  $verifybamid_sample->selfibdllk );
+  $sth->bind_param( 6,  $verifybamid_sample->selfibdllkdiff );
+  $sth->bind_param( 7,  $verifybamid_sample->het_a1 );
+  $sth->bind_param( 8,  $verifybamid_sample->alt_a1 );
+  $sth->bind_param( 9,  $verifybamid_sample->dp );
+  $sth->bind_param( 10, $verifybamid_sample->mix );
+  $sth->bind_param( 11, $verifybamid_sample->hom );
+  $sth->bind_param( 12, $verifybamid_sample->besthommixllk );
+  $sth->bind_param( 13, $verifybamid_sample->besthommixllkdiff );
+  $sth->bind_param( 14, $verifybamid_sample->num_run_ids );
+  $sth->bind_param( 15, $verifybamid_sample->num_low_selfibd_run_ids );
 
-  $sth->bind_param( 16, $verifybamid_Sample->sequence_index );
-  $sth->bind_param( 17, $verifybamid_Sample->analysis_group );
-  $sth->bind_param( 18, $verifybamid_Sample->chr20 );
-  $sth->bind_param( 19, $verifybamid_Sample->failed );
-  $sth->bind_param( 20, $verifybamid_Sample->status );
+  $sth->bind_param( 16, $verifybamid_sample->sequence_index );
+  $sth->bind_param( 17, $verifybamid_sample->analysis_group );
+  $sth->bind_param( 18, $verifybamid_sample->chr20 );
+  $sth->bind_param( 19, $verifybamid_sample->failed );
+  $sth->bind_param( 20, $verifybamid_sample->status );
 
   my $rows_inserted = $sth->execute();
   my $dbID          = $sth->{'mysql_insertid'};
 
-  $verifybamid_Sample->dbID($dbID);
-  $verifybamid_Sample->adaptor($self);
+  $verifybamid_sample->dbID($dbID);
+  $verifybamid_sample->adaptor($self);
   $sth->finish();
 
-  return $verifybamid_Sample;
+  return $verifybamid_sample;
 }
 
 sub update {
 
-  my ( $self, $verifybamid_Sample ) = @_;
+  my ( $self, $verifybamid_sample ) = @_;
 	
   throw(  "Can't update "
-	  . $verifybamid_Sample
+	  . $verifybamid_sample
 	  . " using ReseqTrack::DBSQL::VerifyBamIDSampleAdaptor" )
     unless (
-	    $verifybamid_Sample->isa(
+	    $verifybamid_sample->isa(
 				     "ReseqTrack::VerifyBamIDSample")
 	   );
 
   my $sql =
-    " update verifybamid_Sample  set SEQ_SM = ?, SELFIBD = ? ,"
-      . " SELFIBDLLK = ? , SELFIBDLLKdiff = ? ,HET_A1 = ? , ALT_A1 = ?,"
-	. " DP = ? , MIX = ? ,HOM = ?   , BESTHOMMIXLLK = ? , "
-	  . " BESTHOMMIXLLKdiff = ?, num_run_ids = ? , "
-	    . " num_low_selfIBD_run_ids = ?, sequence_index = ? , anaysis_group = ? , "
+    " update verifybamid_sample  set sample_name = ?, selfibd = ? ,"
+      . " selfibdllk = ? , selfibdllkdiff = ? ,het_a1 = ? , alt_a1 = ?,"
+	. " dp = ? , mix = ? ,hom = ?   , besthommixllk = ? , "
+	  . " besthommixllkdiff = ?, num_run_ids = ? , "
+	    . " num_low_selfibd_run_ids = ?, sequence_index = ? , anaysis_group = ? , "
 	      . " chr20 = ? ,failed = ? , status = ? " 
 	      . ", performed = now()  where other_id  = ? and table_name = ?";
 
   my $sth = $self->prepare($sql);
 
-  $sth->bind_param( 1,  $verifybamid_Sample->SEQ_SM );
-  $sth->bind_param( 2,  $verifybamid_Sample->SELFIBD );
-  $sth->bind_param( 3,  $verifybamid_Sample->SELFIBDLLK );
-  $sth->bind_param( 4,  $verifybamid_Sample->SELFIBDLLKdiff );
-  $sth->bind_param( 5,  $verifybamid_Sample->HET_A1 );
-  $sth->bind_param( 6,  $verifybamid_Sample->ALT_A1 );
-  $sth->bind_param( 7,  $verifybamid_Sample->DP );
-  $sth->bind_param( 8,  $verifybamid_Sample->MIX );
-  $sth->bind_param( 9,  $verifybamid_Sample->HOM );
-  $sth->bind_param( 10, $verifybamid_Sample->BESTHOMMIXLLK );
-  $sth->bind_param( 11, $verifybamid_Sample->BESTHOMMIXLLKdiff );
-  $sth->bind_param( 12, $verifybamid_Sample->num_run_ids );
-  $sth->bind_param( 13, $verifybamid_Sample->num_low_selfIBD_run_ids );
-  $sth->bind_param( 14, $verifybamid_Sample->sequence_index );
-  $sth->bind_param( 15, $verifybamid_Sample->analysis_group );
-  $sth->bind_param( 16, $verifybamid_Sample->chr20 );
-  $sth->bind_param( 17, $verifybamid_Sample->failed );
-  $sth->bind_param( 18, $verifybamid_Sample->status );
-  $sth->bind_param( 19, $verifybamid_Sample->other_id );
-  $sth->bind_param( 20, $verifybamid_Sample->table_name );
+  $sth->bind_param( 1,  $verifybamid_sample->sample_name );
+  $sth->bind_param( 2,  $verifybamid_sample->selfibd );
+  $sth->bind_param( 3,  $verifybamid_sample->selfibdllk );
+  $sth->bind_param( 4,  $verifybamid_sample->selfibdllkdiff );
+  $sth->bind_param( 5,  $verifybamid_sample->het_a1 );
+  $sth->bind_param( 6,  $verifybamid_sample->alt_a1 );
+  $sth->bind_param( 7,  $verifybamid_sample->dp );
+  $sth->bind_param( 8,  $verifybamid_sample->mix );
+  $sth->bind_param( 9,  $verifybamid_sample->hom );
+  $sth->bind_param( 10, $verifybamid_sample->besthommixllk );
+  $sth->bind_param( 11, $verifybamid_sample->besthommixllkdiff );
+  $sth->bind_param( 12, $verifybamid_sample->num_run_ids );
+  $sth->bind_param( 13, $verifybamid_sample->num_low_selfibd_run_ids );
+  $sth->bind_param( 14, $verifybamid_sample->sequence_index );
+  $sth->bind_param( 15, $verifybamid_sample->analysis_group );
+  $sth->bind_param( 16, $verifybamid_sample->chr20 );
+  $sth->bind_param( 17, $verifybamid_sample->failed );
+  $sth->bind_param( 18, $verifybamid_sample->status );
+  $sth->bind_param( 19, $verifybamid_sample->other_id );
+  $sth->bind_param( 20, $verifybamid_sample->table_name );
 
   $sth->execute();
   $sth->finish();
 
-  return $verifybamid_Sample;
+  return $verifybamid_sample;
 }
 
 sub object_from_hashref {
@@ -172,25 +172,25 @@ sub object_from_hashref {
   my $obj = $OBJ->new(
 
 		      -adaptor               => $self,
-		      -dbID => $hashref->{verifybamid_Sample_id},
+		      -dbID                  => $hashref->{verifybamid_sample_id},
 		      -other_id              => $hashref->{other_id},
 		      -table_name            => $hashref->{table_name},
-		      -SEQ_SM                => $hashref->{SEQ_SM},
-		      -SELFIBD               => $hashref->{SELFIBD},
-		      -SELFIBDLLK            => $hashref->{SELFIBDLLK},
-		      -SELFIBDLLKdiff        => $hashref->{SELFIBDLLKdiff},
-		      -HET_A1                => $hashref->{HET_A1},
-		      -ALT_A1                => $hashref->{ALT_A1},
-		      -DP                    => $hashref->{DP},
-		      -MIX                   => $hashref->{MIX},
-		      -HOM                   => $hashref->{HOM},
-		      -BESTHOMMIXLLK         => $hashref->{BESTHOMMIXLLK},
-		      -BESTHOMMIXLLKdiff     => $hashref->{BESTHOMMIXLLKdiff},
+		      -sample_name           => $hashref->{sample_name},
+		      -selfibd               => $hashref->{selfibd},
+		      -selfibdllk            => $hashref->{selfibdllk},
+		      -selfibdllkdiff        => $hashref->{selfibdllkdiff},
+		      -het_a1                => $hashref->{het_a1},
+		      -alt_a1                => $hashref->{alt_a1},
+		      -dp                    => $hashref->{dp},
+		      -mix                   => $hashref->{mix},
+		      -hom                   => $hashref->{hom},
+		      -besthommixllk         => $hashref->{besthommixllk},
+		      -besthommixllkdiff     => $hashref->{besthommixllkdiff},
 		      -num_run_ids           => $hashref->{num_run_ids},
-		      -num_low_selfIBD_run_ids =>$hashref->{num_low_selfIBD_run_ids},
+		      -num_low_selfibd_run_ids =>$hashref->{num_low_selfibd_run_ids},
 		      -sequence_index        =>$hashref->{sequence_index},
 		      -analysis_group        =>$hashref->{analysis_group},
-                      -chr20                  =>$hashref->{chr20},
+              -chr20                  =>$hashref->{chr20},
 		      -failed    => $hashref->{failed},
 		      -status    => $hashref->{status},
 		      -performed => $hashref->{performed},
@@ -203,7 +203,7 @@ sub object_from_hashref {
 sub fetch_by_other_id{
 	
   my ($self, $other_id) = @_;
-  my $sql = "select ".$self->columns." from  verifybamid_Sample ".
+  my $sql = "select ".$self->columns." from  verifybamid_sample ".
     "where other_id = ? ";
       
      
