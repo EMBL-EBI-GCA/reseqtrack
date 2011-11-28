@@ -183,11 +183,11 @@ foreach my $key ( keys %rg_info ) {
   my $rg_obj = $RG_OBJ->new(
 			    -other_id => $bam_file_obj->dbID,
 			    -run_id   => $key,
-			    -SELFIBD  => $rg_info{$key}{'SELFIBD'},
-			    -SELFMIX  => $rg_info{$key}{'SELFMIX'},
-			    -BEST_SM  => $rg_info{$key}{'BEST_SM'},
-			    -BESTIBD  => $rg_info{$key}{'BESTIBD'},
-			    -BESTMIX  => $rg_info{$key}{'BESTMIX'},
+			    -selfibd  => $rg_info{$key}{'SELFIBD'},
+			    -selfmix  => $rg_info{$key}{'SELFMIX'},
+			    -best_sample  => $rg_info{$key}{'BEST_SM'},
+			    -bestibd  => $rg_info{$key}{'BESTIBD'},
+			    -bestmix  => $rg_info{$key}{'BESTMIX'},
 			   );
 	
   my $got_result = $RG_adaptor->fetch_by_other_id_and_run_id( $bam_file_obj->dbID, $key );
@@ -274,7 +274,7 @@ sub check_SELFIBD_in_selfRG {
     if ( $sibd eq "N\/A" || $sibd < 0.98 ) {
       $ctr++;
       print
-	"$key (SELFIBD threshold  < 0.98) SELFIBD $sibd \%mix $mix ($ctr\/$totalRG)\n";
+	"$key (selfibd threshold  < 0.98) selfibd $sibd \%mix $mix ($ctr\/$totalRG)\n";
       $BAD++;
     }
   }
@@ -314,7 +314,7 @@ sub check_for_sample_swaps {
 
     if ( ( $claimed ne $best ) && ( $bibd > 0.98 ) ) {
       print
-	"$key possible sample swap. Claimed = $claimed Best = $best BESTIBD $bibd  \n";
+	"$key possible sample swap. Claimed = $claimed Best = $best bestibd $bibd  \n";
       $contam++;
       $BAD++;
       next;
@@ -388,7 +388,7 @@ sub check_selfRG_data {
   #	}
 
   $Sample->num_run_ids($totalRG);
-  $Sample->num_low_selfIBD_run_ids($low_mix);
+  $Sample->num_low_selfibd_run_ids($low_mix);
 
 
   return $BAD;
@@ -413,17 +413,17 @@ sub create_Sample_object_step1 {
     $Sample = $OBJ->new(
 			-table_name        => "file",
 			-other_id          => $bam_file_obj->dbID,
-			-SEQ_SM            => $$a_ref[ $$selfSM{header}{'SEQ_SM'} ],
-			-SELFIBD           => $$a_ref[ $$selfSM{header}{'SELFIBD'} ],
-			-SELFIBDLLK        => $$a_ref[ $$selfSM{header}{'SELFIBDLLK'} ],
-			-SELFIBDLLKdiff    => $$a_ref[ $$selfSM{header}{'SELFIBDLLK-'} ],
-			-HET_A1            => $$a_ref[ $$selfSM{header}{'HET-A1%'} ],
-			-ALT_A1            => $$a_ref[ $$selfSM{header}{'ALT-A1%'} ],
-			-DP                => $$a_ref[ $$selfSM{header}{'#DP'} ],
-			-MIX               => $$a_ref[ $$selfSM{header}{'%MIX'} ],
-			-HOM               => $$a_ref[ $$selfSM{header}{'%HOM'} ],
-			-BESTHOMMIXLLK     => $$a_ref[ $$selfSM{header}{'BESTHOMMIXLLK'} ],
-			-BESTHOMMIXLLKdiff => $$a_ref[ $$selfSM{header}{'BESTHOMMIXLLK-'} ],
+			-sample_name       => $$a_ref[ $$selfSM{header}{'SEQ_SM'} ],
+			-selfibd           => $$a_ref[ $$selfSM{header}{'SELFIBD'} ],
+			-selfibdllk        => $$a_ref[ $$selfSM{header}{'SELFIBDLLK'} ],
+			-selfibdllkdiff    => $$a_ref[ $$selfSM{header}{'SELFIBDLLK-'} ],
+			-het_a1            => $$a_ref[ $$selfSM{header}{'HET-A1%'} ],
+			-alt_a1            => $$a_ref[ $$selfSM{header}{'ALT-A1%'} ],
+			-dp                => $$a_ref[ $$selfSM{header}{'#DP'} ],
+			-mix               => $$a_ref[ $$selfSM{header}{'%MIX'} ],
+			-hom               => $$a_ref[ $$selfSM{header}{'%HOM'} ],
+			-besthommixllk     => $$a_ref[ $$selfSM{header}{'BESTHOMMIXLLK'} ],
+			-besthommixllkdiff => $$a_ref[ $$selfSM{header}{'BESTHOMMIXLLK-'} ],
 			-analysis_group     => $analysis_group, 
 			-sequence_index     => $sequence_index,
 			-chr20             => $chr20,
@@ -621,4 +621,3 @@ example
 
 
 =cut
-
