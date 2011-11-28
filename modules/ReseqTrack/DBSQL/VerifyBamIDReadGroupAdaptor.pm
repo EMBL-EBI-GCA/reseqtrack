@@ -25,93 +25,93 @@ sub new {
 
 sub columns {
   return "
-        verifybamid_ReadGroup.verifybamid_ReadGroup_id,
-        verifybamid_ReadGroup.other_id,
-        verifybamid_ReadGroup.run_id,
-        verifybamid_ReadGroup.SELFIBD, 
-        verifybamid_ReadGroup.SELFMIX, 
-        verifybamid_ReadGroup.BEST_SM,
-        verifybamid_ReadGroup.BESTIBD,
-        verifybamid_ReadGroup.BESTMIX,
-        verifybamid_ReadGroup.status
+        verifybamid_readgroup.verifybamid_readgroup_id,
+        verifybamid_readgroup.other_id,
+        verifybamid_readgroup.run_id,
+        verifybamid_readgroup.selfibd, 
+        verifybamid_readgroup.selfmix, 
+        verifybamid_readgroup.best_sample,
+        verifybamid_readgroup.bestibd,
+        verifybamid_readgroup.bestmix,
+        verifybamid_readgroup.status
     ";
 }
 
 sub table_name {
-  return "verifybamid_ReadGroup";
+  return "verifybamid_readgroup";
 }
 
 sub store {
-  my ( $self, $verifybamid_ReadGroup ) = @_;
+  my ( $self, $verifybamid_readgroup ) = @_;
 
   throw(  "Can't store "
-	  . $verifybamid_ReadGroup
+	  . $verifybamid_readgroup
 	  . " using ReseqTrack::DBSQL::VerifyBamIDReadGroupAdaptor" )
     unless (
-	    $verifybamid_ReadGroup->isa(
+	    $verifybamid_readgroup->isa(
 					"ReseqTrack::VerifyBamIDReadGroup")
 	   );
 
   my $sql =
-    "insert into verifybamid_ReadGroup (other_id, "
-      . "run_id, SELFIBD, SELFMIX ,BEST_SM,BESTIBD,BESTMIX,status) "
+    "insert into verifybamid_readgroup (other_id, "
+      . "run_id, selfibd, selfmix ,best_sample,bestibd,bestmix,status) "
 	. " values( ?,?,?,?,?,?,?,?) ";
 
   my $sth = $self->prepare($sql);
 
-  $sth->bind_param( 1, $verifybamid_ReadGroup->other_id );
-  $sth->bind_param( 2, $verifybamid_ReadGroup->run_id );
-  $sth->bind_param( 3, $verifybamid_ReadGroup->SELFIBD );
-  $sth->bind_param( 4, $verifybamid_ReadGroup->SELFMIX );
-  $sth->bind_param( 5, $verifybamid_ReadGroup->BEST_SM );
-  $sth->bind_param( 6, $verifybamid_ReadGroup->BESTIBD );
-  $sth->bind_param( 7, $verifybamid_ReadGroup->BESTMIX );
-  $sth->bind_param( 8, $verifybamid_ReadGroup->status );
+  $sth->bind_param( 1, $verifybamid_readgroup->other_id );
+  $sth->bind_param( 2, $verifybamid_readgroup->run_id );
+  $sth->bind_param( 3, $verifybamid_readgroup->selfibd );
+  $sth->bind_param( 4, $verifybamid_readgroup->selfmix );
+  $sth->bind_param( 5, $verifybamid_readgroup->best_sample );
+  $sth->bind_param( 6, $verifybamid_readgroup->bestibd );
+  $sth->bind_param( 7, $verifybamid_readgroup->bestmix );
+  $sth->bind_param( 8, $verifybamid_readgroup->status );
 
   my $rows_inserted = $sth->execute();
   my $dbID          = $sth->{'mysql_insertid'};
 
-  $verifybamid_ReadGroup->dbID($dbID);
-  $verifybamid_ReadGroup->adaptor($self);
+  $verifybamid_readgroup->dbID($dbID);
+  $verifybamid_readgroup->adaptor($self);
   $sth->finish();
 
-  return $verifybamid_ReadGroup;
+  return $verifybamid_readgroup;
 }
 
 sub update {
-  my ( $self, $verifybamid_ReadGroup ) = @_;
+  my ( $self, $verifybamid_readgroup ) = @_;
 
   throw(  "Can't store "
-	  . $verifybamid_ReadGroup
+	  . $verifybamid_readgroup
 	  . " using ReseqTrack::DBSQL::VerifyBamIDReadGroupAdaptor" )
     unless (
-	    $verifybamid_ReadGroup->isa(
+	    $verifybamid_readgroup->isa(
 					"ReseqTrack::VerifyBamIDReadGroup"
 				       )
 	   );
 
   my $sql =
-    "update verifybamid_ReadGroup set "
-      . " SELFIBD = ? , SELFMIX = ? , BEST_SM = ?, "
-	. "BESTIBD  = ? ,BESTMIX = ?, status = ? where  other_id = ?  and run_id = ?";
+    "update verifybamid_readgroup set "
+      . " selfibd = ? , selfmix = ? , best_sample = ?, "
+	. "bestibd  = ? ,bestmix = ?, status = ? where  other_id = ?  and run_id = ?";
 
  
   
   my $sth = $self->prepare($sql);
 
-  $sth->bind_param( 1, $verifybamid_ReadGroup->SELFIBD );
-  $sth->bind_param( 2, $verifybamid_ReadGroup->SELFMIX );
-  $sth->bind_param( 3, $verifybamid_ReadGroup->BEST_SM );
-  $sth->bind_param( 4, $verifybamid_ReadGroup->BESTIBD );
-  $sth->bind_param( 5, $verifybamid_ReadGroup->BESTMIX );
-  $sth->bind_param( 6, $verifybamid_ReadGroup->status );
-  $sth->bind_param( 7, $verifybamid_ReadGroup->other_id );
-  $sth->bind_param( 8, $verifybamid_ReadGroup->run_id );
+  $sth->bind_param( 1, $verifybamid_readgroup->selfibd );
+  $sth->bind_param( 2, $verifybamid_readgroup->selfmix );
+  $sth->bind_param( 3, $verifybamid_readgroup->best_sample );
+  $sth->bind_param( 4, $verifybamid_readgroup->bestibd );
+  $sth->bind_param( 5, $verifybamid_readgroup->bestmix );
+  $sth->bind_param( 6, $verifybamid_readgroup->status );
+  $sth->bind_param( 7, $verifybamid_readgroup->other_id );
+  $sth->bind_param( 8, $verifybamid_readgroup->run_id );
 
   $sth->execute();
   $sth->finish();
 
-  return $verifybamid_ReadGroup;
+  return $verifybamid_readgroup;
 }
 
 
@@ -128,14 +128,14 @@ sub object_from_hashref {
   my $obj = $OBJ->new(
 
 		      -adaptor               => $self,
-		      -dbID                  => $hashref->{verifybamid_ReadGroup_id},
+		      -dbID                  => $hashref->{verifybamid_readgroup_id},
 		      -other_id              => $hashref->{other_id},
 		      -run_id                => $hashref->{run_id},
-		      -SELFIBD               => $hashref->{SELFIBD},
-		      -SELFMIX               => $hashref->{SELFMIX},
-		      -BEST_SM               => $hashref->{BEST_SM},
-		      -BESTIBD               => $hashref->{BESTIBD},
-		      -BESTMIX               => $hashref->{BESTMIX},
+		      -selfibd               => $hashref->{selfibd},
+		      -selfmix               => $hashref->{selfmix},
+		      -best_sample           => $hashref->{best_sample},
+		      -bestibd               => $hashref->{bestibd},
+		      -bestmix               => $hashref->{bestmix},
 		      -status                => $hashref->{status},
 		     );
   return $obj;
@@ -284,29 +284,29 @@ sub fetch_by_run_id {
 
 sub update_run_id {
 
-  my ( $self, $verifybamid_ReadGroup ) = @_;
+  my ( $self, $verifybamid_readgroup ) = @_;
   
   throw(  "Can't store "
-	  . $verifybamid_ReadGroup
+	  . $verifybamid_readgroup
 	  . " using ReseqTrack::DBSQL::VerifyBamIDReadGroupAdaptor" )
     unless (
-	    $verifybamid_ReadGroup->isa(
+	    $verifybamid_readgroup->isa(
 					"ReseqTrack::VerifyBamIDReadGroup"
 				       )
 	   );
 
-  my $sql = "update verifybamid_ReadGroup set  run_id = ? ".
+  my $sql = "update verifybamid_readgroup set  run_id = ? ".
     " where verifybamid_readgroup_id  = ?";
 	        
   my $sth = $self->prepare($sql);
 
-  $sth->bind_param( 1, $verifybamid_ReadGroup->run_id );
-  $sth->bind_param( 2, $verifybamid_ReadGroup->dbID );
+  $sth->bind_param( 1, $verifybamid_readgroup->run_id );
+  $sth->bind_param( 2, $verifybamid_readgroup->dbID );
 
   $sth->execute();
   $sth->finish();
 
-  return $verifybamid_ReadGroup;
+  return $verifybamid_readgroup;
 }
 
 1;
