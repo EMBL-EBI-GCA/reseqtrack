@@ -258,9 +258,9 @@ sub standard_index_methods{
 sub assign_files{
   my ($files, $regexs) = @_;
   if (! $regexs) {
-      my @regexs = ('/[E|S]RR\d+_1\.((filt|recal)\.)?fastq\.gz/i',
-                    '/[E|S]RR\d+_2\.((filt|recal)\.)?fastq\.gz/i',
-                    '/[E|S]RR\d+\.((filt|recal)\.)?fastq\.gz/i');
+      my @regexs = (qr/[E|S]RR\d+_1\.((filt|recal)\.)?fastq\.gz/i,
+                    qr/[E|S]RR\d+_2\.((filt|recal)\.)?fastq\.gz/i,
+                    qr/[E|S]RR\d+\.((filt|recal)\.)?fastq\.gz/i);
       $regexs = \@regexs;
   }
 
@@ -270,8 +270,7 @@ sub assign_files{
     my $match_found = 0;
     REGEX:
     foreach my $i (0..@$regexs-1) {
-        my $perl_condition = '$filename =~ ' . $regexs->[$i];
-        if (eval "$perl_condition") {
+        if ($filename =~ $regexs->[$i]) {
             throw("More than one file matched " . $regexs->[$i]) if $return_files[$i];
             $return_files[$i] = $file;
             $match_found = 1;
