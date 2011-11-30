@@ -141,6 +141,8 @@ sub run{
 sub run_remove_duplicates{
     my ($self) = @_;
 
+    $self->change_dir;
+
     foreach my $input (@{$self->input_files}) {
 
         my $name = fileparse($input, qr/\.[sb]am/);
@@ -205,6 +207,8 @@ sub run_remove_duplicates{
 
 sub run_merge{
     my ($self) = @_;
+
+    $self->change_dir;
 
     my $prefix = $self->working_dir . '/' . $self->job_name;
     $prefix =~ s{//}{/}g;
