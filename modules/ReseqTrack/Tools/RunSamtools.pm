@@ -22,6 +22,7 @@ use warnings;
 use ReseqTrack::Tools::Exception qw(throw);
 use ReseqTrack::Tools::Argument qw(rearrange);
 use File::Basename qw(fileparse);
+use ReseqTrack::Tools::FileSystemUtils qw (check_file_exists);
 
 use base qw(ReseqTrack::Tools::RunProgram);
 
@@ -29,6 +30,8 @@ use base qw(ReseqTrack::Tools::RunProgram);
 
   Arg [-reference_index]   :
       string, path of the reference genome .fai file
+  Arg [-reference]   :
+      string, path of the reference
   Arg [-flag_merge]   :
       boolean, flag to merge all output to a single bam
   Arg [-flag_sort]   :
@@ -70,18 +73,20 @@ sub new {
   my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
 
-  my ( $reference_index,
+  my ( $reference_index, $reference,
         $flag_merge, $flag_sort, $flag_index, $flag_sam_to_bam,
         $options_merge, $options_sort,
         $replace_files, $output_to_working_dir)
     = rearrange( [
-         qw( REFERENCE_INDEX
+         qw( REFERENCE_INDEX REFERENCE
                 FLAG_MERGE FLAG_SORT FLAG_INDEX FLAG_SAM_TO_BAM
                 OPTIONS_MERGE OPTIONS_SORT
                 REPLACE_FILES OUTPUT_TO_WORKING_DIR )
 		], @args);
 
   $self->reference_index($reference_index);
+  $self->reference($reference);
+
   $self->output_to_working_dir($output_to_working_dir);
 
   if (! defined $replace_files) {
@@ -105,6 +110,21 @@ sub new {
   return $self;
 }
 
+sub find_reference_index {
+    my ($self) = @_;
+
+    if (! $self->reference_index) {
+      my $reference_index = $self->reference;
+      $reference_index =~ s/\.gz$//;
+      $reference_index .= '.fai';
+      $self->reference_index($reference_index);
+    }
+
+    check_file_exists($self->reference_index);
+    return;
+  }
+
+
 =head2 run_sam_to_bam
 
   Arg [1]   : ReseqTrack::Tools::RunSamtools
@@ -119,8 +139,7 @@ sub new {
 sub run_sam_to_bam {
     my ($self, $input_sam) = @_;
 
-    throw("cannot run samtools import without a reference index file")
-        if (! $self->reference_index);
+    $self->find_reference_index;
 
     my ($prefix, $dir) = fileparse($input_sam, qr/\.sam/ );
 
@@ -316,6 +335,25 @@ sub run {
 
     return;
 
+}
+
+=head2 reference
+
+  Arg [1]   : ReseqTrack::Tools::RunSamtools
+  Arg [2]   : string, optional, path of genome reference
+  Function  : accessor method for reference
+  Returntype: string
+  Exceptions: n/a
+  Example   : my $reference = $self->reference;
+
+=cut
+
+sub reference {
+  my ($self, $reference) = @_;
+  if ($reference) {
+    $self->{'reference'} = $reference;
+  }
+  return $self->{'reference'};
 }
 
 =head2 reference_index
