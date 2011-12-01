@@ -36,6 +36,8 @@ use base qw(ReseqTrack::Tools::RunProgram);
 
   Arg [-reference]   :
       string, path to the reference genome
+  Arg [-reference_index]   :
+      string, path to the reference genome index file
   Arg [-samtools]   :
       string, the samtools executable (if in $PATH) or path to samtools
   Arg [-mate1_file]   :
@@ -74,10 +76,12 @@ sub new {
   my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
 
-  my ( $reference, $samtools, $mate1_file, $mate2_file, $fragment_file, $paired_length,
+  my ( $reference, $reference_index, $samtools,
+        $mate1_file, $mate2_file, $fragment_file, $paired_length,
         $merge_bams, $sort_bams, $index_bams, $convert_sam_to_bam)
         = rearrange( [
-             qw( REFERENCE SAMTOOLS MATE1_FILE MATE2_FILE FRAGMENT_FILE PAIRED_LENGTH
+             qw( REFERENCE REFERENCE_INDEX SAMTOOLS
+             MATE1_FILE MATE2_FILE FRAGMENT_FILE PAIRED_LENGTH
              MERGE_BAMS SORT_BAMS INDEX_BAMS CONVERT_SAM_TO_BAM)
                     ], @args);
 
@@ -85,6 +89,7 @@ sub new {
   $self->mate2_file($mate2_file);
   $self->fragment_file($fragment_file);
   $self->reference($reference);
+  $self->reference_index($reference_index);
   $self->samtools($samtools);
   $self->paired_length($paired_length);
 
@@ -140,7 +145,7 @@ sub run_samtools {
                         -echo_cmd_line           => $self->echo_cmd_line,
                         -save_files_for_deletion => $self->save_files_for_deletion,
                         -job_name                => $self->job_name,
-                        -reference               => $self->reference,
+                        -reference_index         => $self->reference_index,
                         -output_to_working_dir   => 1,
                         -replace_files           => 1,
                         -flag_merge              => $self->flag_merge_bams,
@@ -326,6 +331,15 @@ sub samtools {
         $self->{'samtools'} = $samtools;
     }
     return $self->{'samtools'};
+}
+
+sub reference_index {
+    my ($self, $reference_index) = @_;
+    if ($reference_index) {
+        check_file_exists($reference_index);
+        $self->{'reference_index'} = $reference_index;
+    }
+    return $self->{'reference_index'};
 }
 
 sub reference {

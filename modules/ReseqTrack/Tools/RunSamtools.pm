@@ -27,6 +27,8 @@ use base qw(ReseqTrack::Tools::RunProgram);
 
 =head2 new
 
+  Arg [-reference_index]   :
+      string, path of the reference genome .fai file
   Arg [-flag_merge]   :
       boolean, flag to merge all output to a single bam
   Arg [-flag_sort]   :
@@ -68,18 +70,18 @@ sub new {
   my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
 
-  my ( $reference,
+  my ( $reference_index,
         $flag_merge, $flag_sort, $flag_index, $flag_sam_to_bam,
         $options_merge, $options_sort,
         $replace_files, $output_to_working_dir)
     = rearrange( [
-         qw( REFERENCE
+         qw( REFERENCE_INDEX
                 FLAG_MERGE FLAG_SORT FLAG_INDEX FLAG_SAM_TO_BAM
                 OPTIONS_MERGE OPTIONS_SORT
                 REPLACE_FILES OUTPUT_TO_WORKING_DIR )
 		], @args);
 
-  $self->reference($reference);
+  $self->reference_index($reference_index);
   $self->output_to_working_dir($output_to_working_dir);
 
   if (! defined $replace_files) {
@@ -109,13 +111,16 @@ sub new {
   Arg [2]   : string, path of sam file
   Function  : uses samtools to convert sam to bam
   Returntype: string, path of bam file
-  Exceptions: 
+  Exceptions: throws if there is no reference index file
   Example   : my $bam = $self->run_sam_to_bam($sam);
 
 =cut
 
 sub run_sam_to_bam {
     my ($self, $input_sam) = @_;
+
+    throw("cannot run samtools import without a reference index file")
+        if (! $self->reference_index);
 
     my ($prefix, $dir) = fileparse($input_sam, qr/\.sam/ );
 
@@ -127,7 +132,7 @@ sub run_sam_to_bam {
     $bam =~ s{//}{/}g;
 
     my $cmd = $self->program . " import ";
-    $cmd .= $self->reference . " ";
+    $cmd .= $self->reference_index . " ";
     $cmd .= $input_sam . " ";
     $cmd .= $bam;
 
@@ -313,23 +318,23 @@ sub run {
 
 }
 
-=head2 reference
+=head2 reference_index
 
   Arg [1]   : ReseqTrack::Tools::RunSamtools
-  Arg [2]   : string, optional, path of reference genome
-  Function  : accessor method for reference
+  Arg [2]   : string, optional, path of reference fai file
+  Function  : accessor method for reference_index
   Returntype: string
   Exceptions: n/a
-  Example   : my $reference = $self->reference;
+  Example   : my $reference_index = $self->reference_index;
 
 =cut
 
-sub reference {
-  my ($self, $reference) = @_;
-  if ($reference) {
-    $self->{'reference'} = $reference;
+sub reference_index {
+  my ($self, $reference_index) = @_;
+  if ($reference_index) {
+    $self->{'reference_index'} = $reference_index;
   }
-  return $self->{'reference'};
+  return $self->{'reference_index'};
 }
 
 

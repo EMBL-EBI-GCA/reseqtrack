@@ -19,6 +19,7 @@ my $run_id;
 my $type;
 my $output_dir;
 my $reference;
+my $reference_index;
 my $module_path;
 my $module_name;
 my $module_constructor_args;
@@ -38,6 +39,7 @@ my $update;
   'type=s' => \$type,
   'output_dir=s' => \$output_dir,
   'reference=s' => \$reference,
+  'reference_index=s' => \$reference_index,
   'module_path=s' => \$module_path,
   'module_name=s' => \$module_name,
   'module_constructor_args=s' => \$module_constructor_args,
@@ -79,6 +81,7 @@ $constructor_hash->{-input_files} = \@input_file_paths;
 $constructor_hash->{-program} = $program_file;
 $constructor_hash->{-working_dir} = $output_dir;
 $constructor_hash->{-reference} = $reference;
+$constructor_hash->{-reference_index} = $reference_index;
 $constructor_hash->{-samtools} = $samtools;
 $constructor_hash->{-job_name} = $run_id;
 $constructor_hash->{-paired_length} = $paired_length;
