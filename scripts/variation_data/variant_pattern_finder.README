@@ -19,8 +19,9 @@ Requirements
 See http://www.ensembl.org/info/docs/api/index.html for installation details.
 
 2.  The perl API of VCFtools - Vcf.pm.  Please refer to VCFtools' page for downloading details.  http://vcftools.sourceforge.net/perl_module.html
-
 Once installed, please specify the module paths in the PERL5LIB.
+
+3.  If the script is run using the -cache option, Ensembl variation archvie file needs to be downloaded before hand; see http://www.ensembl.org/info/docs/variation/vep/vep_script.html#cacheopt for details
 
 Documentation
 =============
