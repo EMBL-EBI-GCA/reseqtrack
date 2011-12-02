@@ -24,7 +24,7 @@ sub new {
 		$best_sample,
 		$bestibd,
 		$bestmix,
-	    $status
+	        $status
 
 	  ) = rearrange(
 		[
@@ -36,7 +36,7 @@ sub new {
 			  BEST_SAMPLE
 			  BESTIBD
 			  BESTMIX
-              STATUS
+                          STATUS
 			  )
 		],
 		@args
@@ -117,7 +117,7 @@ sub best_sample {
     if ( defined $arg ) {
         $self->{best_sample} = $arg;
     }
-    return $self->{best_ssample};
+    return $self->{best_sample};
 }
 
 sub bestibd {
