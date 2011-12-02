@@ -63,6 +63,8 @@ $bam_file_obj = $fa->fetch_by_name( $input{name} );
  
 throw ( "Could not get file object for " ,  $input{name},"\n") if ( ! $bam_file_obj);
 
+
+print "Bam file_id = ", $bam_file_obj->dbID,"\n";
 #print Dumper $bam_file_obj; 
 
 $Sample_adaptor = $db->get_VerifyBamIDSampleAdaptor();
@@ -168,14 +170,19 @@ $BAD += &check_SELFIBD_in_selfRG( $selfRG, $Sample->num_run_ids );
 
 
 #Step 4  Check for sample swaps
-$BAD += &check_for_sample_swaps($bestRG, $Sample->SEQ_SM) if ($bestRG) ;
+$BAD += &check_for_sample_swaps($bestRG, $Sample->sample_name) if ($bestRG) ;
 
 print $input{name}, "  is BAD ($BAD)\n" if ($BAD);
 print "\n-----------------------------------------\n";
 
 my $bam_header_info = get_bam_run_id_info ( $bam_file_obj->name);
 
+
+
 foreach my $key ( keys %rg_info ) {
+
+  print $key,"\n";
+
   my $x =  $rg_info{$key};
  
 
@@ -402,7 +409,7 @@ sub create_Sample_object_step1 {
   my ($selfSM,$analysis_group,$sequence_index, $chr20) = @_ ;
   my $passed_step1 = 0;
 
-  print "create_Sample_object_step1  $chr20\n";
+  print "create_Sample_object_step 1 chr20=$chr20\n";
 
 
   foreach my $key ( keys %$selfSM ) {
@@ -429,8 +436,7 @@ sub create_Sample_object_step1 {
 			-chr20             => $chr20,
                         
 		       );
-
-
+ 
     my $selfibd    = $$a_ref[ $$selfSM{header}{'SELFIBD'} ];
     my $selfSM_MIX = $$a_ref[ $$selfSM{header}{'%MIX'} ];
 
