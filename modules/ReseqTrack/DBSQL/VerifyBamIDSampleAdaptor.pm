@@ -11,6 +11,7 @@ use File::Basename;
 use Data::Dumper;
 use ReseqTrack::VerifyBamIDSample;
 use vars qw(@ISA);
+
 @ISA = qw(ReseqTrack::DBSQL::BaseAdaptor);
 
 sub new {
@@ -57,9 +58,6 @@ sub table_name {
 
 sub store {
   my ( $self, $verifybamid_sample ) = @_;
-
-
-  # print Dumper $verifybamid_sample;
 
   throw(  "Can't store "
 	  . $verifybamid_sample
