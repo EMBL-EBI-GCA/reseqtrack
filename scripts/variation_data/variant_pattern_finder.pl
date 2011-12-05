@@ -75,7 +75,7 @@ if ($help) {
 die("please provide vcf file, chromosomal region, and sample panel file") if (!$file || !$region || !$sample_panel);
 
 if (!$outfile) {
-	$outfile =  "$output_dir/chr" . $region . ".csv";
+	$outfile =  "$output_dir/chr" . $region . ".txt";
 	$outfile =~ s/:/_/;
 }
 
@@ -216,6 +216,8 @@ close HEADER;
 
 post_processing($outfile);
 print "Produced ".$outfile."\n";
+
+print "Job done!  Please find the output file in $outfile\n";
 
 ################
 ##### SUBS #####
@@ -495,8 +497,14 @@ sub vcf_to_ensembl {
 	A script allows one to look for patterns of shared variation between individuals in the same vcf file. 
 	To be more specific, in any user-specified chromosomal regions, different samples would have different combination of variations. 
 	The finder looks for distinct variation combinations within the region, as well as individuals associated with each variation 
-	combination pattern. The finder only focuses on variations that change protein coding sequences such as non-synonymous coding SNPs, 
-	splice site changes.
+	combination pattern. The finder can handle SNPs, short indels and structural variations (SV). It uses Ensembl annotations to assess 
+	functional consequences of the variants, the assessment method is more mature for SNPs and indels but less so for SVs.  Users
+	have the option to output all variants or functional significant variants (non-synonymous coding, frame-shift etc.).    
+	
+	If the entire input VCF file is phased, the phasing information of any found pattern is accurate. When the input VCF has both phased and
+	unphased variants, it is important to output ALL variants in the region using the -print_all option, in order to interpret accurately
+	the phase in the found pattern ("/" and "|").  Please see website http://www.broadinstitute.org/gsa/wiki/index.php/Read-backed_phasing_algorithm
+	
 
 =head1	VERSION
 
