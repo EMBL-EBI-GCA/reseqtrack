@@ -25,6 +25,7 @@ use strict;
 use Getopt::Long;
 use Bio::EnsEMBL::Registry;
 use Vcf;
+use File::Copy;
 use Bio::EnsEMBL::Variation::Utils::VEP qw(get_all_consequences);
 
 my (	$file,
@@ -214,6 +215,7 @@ close OUT;
 close HEADER;
 
 post_processing($outfile);
+print "Produced ".$outfile."\n";
 
 ################
 ##### SUBS #####
@@ -365,6 +367,7 @@ sub post_processing {
 	`rm $header`;
 	`rm $outfile.tmp`;
 	`rm $outfile1`;
+	move($outfile.".sorted", $outfile);
 	return 1;
 }
 
