@@ -577,7 +577,7 @@ perl ~/ReseqTrack/scripts/variation_data/variant_pattern_finder.pl \
 -region  17:41256206-41256906
 
 perl ~/ReseqTrack/scripts/variation_data/variant_pattern_finder.pl \
--vcf /nfs/1000g-archive/vol1/ftp/release/20110521/ALL.chr14.phase1_intergrated_calls.20101123.snps_indels_svs.genotypes.vcf.gz \
+-vcf /nfs/1000g-archive/vol1/ftp/release/20110521/ALL.chr14.phase1_integrated_calls.20101123.snps_indels_svs.genotypes.vcf.gz \
 -sample /nfs/1000g-archive/vol1/ftp/release/20110521/phase1_integrated_calls.20101123.ALL.panel \
 -region 14:106329408-106329468 \
 -verbose  \

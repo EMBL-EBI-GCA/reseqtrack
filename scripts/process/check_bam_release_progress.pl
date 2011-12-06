@@ -106,7 +106,7 @@ foreach my $fo (@$file_objs_in_this_release) {
 	my $log_objs 	= $loga->fetch_by_file_id($fo->dbID);
 	
 	if (!$log_objs || @$log_objs == 0) {
-		warning("No reject_log is found for file " . $fo->name . "\n");
+	#	warning("No reject_log is found for file " . $fo->name . "\n");
 	}
 	elsif (@$log_objs >1) {
 		throw("File " . $fo->name . "has more than one log\n");
@@ -135,7 +135,9 @@ foreach my $fo (@$file_objs_in_this_release) {
 		$count_by_status{"Transferred:done"}++;
 	}
 	elsif ($fo->host_id != 1) { #if the host name is remote, not  "1000genome.ebi.ac.uk" 
-		
+		$status{$fo->name} = "Loaded:in_db\t";
+		$count_by_status{"Loaded:in_db"}++;		
+=head
 		my $derived_file_path_in_dropbox = `find $dropbox_dir -name $basename -print`; 
 		chomp $derived_file_path_in_dropbox;
 		
@@ -161,6 +163,7 @@ foreach my $fo (@$file_objs_in_this_release) {
 				$count_by_status{"To be transferred"}++;
 			}
 		}
+=cut
 	}
 	else {
 		$status{$fo->name} = "Status not known\t";
@@ -265,7 +268,7 @@ sub get_completed_event_hash {
 
 =head
 
-perl ~/reseq-personal/zheng/bin/check_bam_release_status.pl -dbhost mysql-g1kdcc -dbname g1k_archive_staging_track -dbuser g1krw -dbpass thousandgenomes -dbport 4197 -host_name sanger -date 20101123 > status
+perl ~/reseq-personal/zheng/bin/check_bam_release_status.pl -dbhost mysql-g1kdcc -dbname g1k_archive_staging_track -dbuser xxxx -dbpass xxxx -dbport 4197 -host_name sanger -date 20101123 > status
 
 TEST:
-perl ~/reseq-personal/zheng/bin/check_bam_release_status.pl -dbhost mysql-g1kdcc -dbname zheng_automation_test -dbuser g1krw -dbpass thousandgenomes -dbport 4197 -host_name sanger -date 2011b
+perl ~/reseq-personal/zheng/bin/check_bam_release_status.pl -dbhost mysql-g1kdcc -dbname zheng_automation_test -dbuser xxxx -dbpass xxxx -dbport 4197 -host_name sanger -date 2011b
