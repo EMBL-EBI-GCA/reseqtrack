@@ -294,6 +294,7 @@ sub get_params {
     while (<$IN>) {
         chomp $_;
         next if ( !$_ );
+        next if ( /^#/ );
         my @aa = split /=/;
         $aa[1] =~ s/\s+$//g;
 
