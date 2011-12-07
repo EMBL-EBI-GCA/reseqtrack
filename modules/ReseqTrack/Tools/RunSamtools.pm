@@ -40,6 +40,8 @@ use base qw(ReseqTrack::Tools::RunProgram);
       boolean, flag to index the bam files
   Arg [-flag_sam_to_bam]   :
       boolean, flag to convert input sams to bams
+  Arg [-flag_use_header]   :
+      boolean, flag to use header in input sams when converting to bam (i.e. don't use an index file)
   Arg [-options_merge]   :
       string, command line options to use with "samtools merge"
   Arg [-options_sort]   :
@@ -74,12 +76,12 @@ sub new {
   my $self = $class->SUPER::new(@args);
 
   my ( $reference_index, $reference,
-        $flag_merge, $flag_sort, $flag_index, $flag_sam_to_bam,
+        $flag_merge, $flag_sort, $flag_index, $flag_sam_to_bam, $flag_use_header,
         $options_merge, $options_sort,
         $replace_files, $output_to_working_dir)
     = rearrange( [
          qw( REFERENCE_INDEX REFERENCE
-                FLAG_MERGE FLAG_SORT FLAG_INDEX FLAG_SAM_TO_BAM
+                FLAG_MERGE FLAG_SORT FLAG_INDEX FLAG_SAM_TO_BAM FLAG_USE_HEADER
                 OPTIONS_MERGE OPTIONS_SORT
                 REPLACE_FILES OUTPUT_TO_WORKING_DIR )
 		], @args);
@@ -101,6 +103,7 @@ sub new {
   $self->flags('sort', $flag_sort);
   $self->flags('index', $flag_index);
   $self->flags('sam_to_bam', $flag_sam_to_bam);
+  $self->flags('use_header', $flag_use_header);
 
   if (! $self->job_name) {
       $self->generate_job_name;
@@ -139,8 +142,6 @@ sub find_reference_index {
 sub run_sam_to_bam {
     my ($self, $input_sam) = @_;
 
-    $self->find_reference_index;
-
     my ($prefix, $dir) = fileparse($input_sam, qr/\.sam/ );
 
     if ($self->output_to_working_dir) {
@@ -150,9 +151,14 @@ sub run_sam_to_bam {
     my $bam = "$dir/$prefix.bam";
     $bam =~ s{//}{/}g;
 
-    my $cmd = $self->program . " import ";
-    $cmd .= $self->reference_index . " ";
-    $cmd .= $input_sam . " ";
+    my $cmd = $self->program . " view -bS ";
+
+    if (! $self->flags('use_header')) {
+        $self->find_reference_index;
+        $cmd .= "-t " . $self->reference_index . " ";
+    }
+
+    $cmd .= $input_sam . " > ";
     $cmd .= $bam;
 
     $self->execute_command_line($cmd);

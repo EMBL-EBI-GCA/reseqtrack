@@ -43,7 +43,7 @@ sub run {
     my $sam = $self->run_postprocess($tmp_baf);
     $self->sam_files($sam);
 
-    $self->run_samtools;
+    $self->run_samtools(1);
 
     $self->files_to_delete( [$tmp_bmf, $tmp_baf] );
 

@@ -138,6 +138,7 @@ sub new {
 
 sub run_samtools {
     my $self = shift;
+    my $sam_has_header = shift;
 
     my $samtools_object = ReseqTrack::Tools::RunSamtools->new(
                         -program                 => $self->samtools,
@@ -153,6 +154,7 @@ sub run_samtools {
                         -flag_sort               => $self->flag_sort_bams,
                         -flag_index              => $self->flag_index_bams,
                         -flag_sam_to_bam         => $self->flag_sam_to_bam,
+                        -flag_use_header         => $sam_has_header,
                         );
 
 

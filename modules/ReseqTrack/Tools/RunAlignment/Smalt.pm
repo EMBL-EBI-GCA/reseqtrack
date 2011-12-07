@@ -53,7 +53,7 @@ sub run {
         $self->sam_files($sam);
     }
 
-    $self->run_samtools;
+    $self->run_samtools(0);
 
     return;
 }
