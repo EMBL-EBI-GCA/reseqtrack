@@ -125,7 +125,7 @@ sub update {
       . " selfibdllk = ? , selfibdllkdiff = ? ,het_a1 = ? , alt_a1 = ?,"
 	. " dp = ? , mix = ? ,hom = ?   , besthommixllk = ? , "
 	  . " besthommixllkdiff = ?, num_run_ids = ? , "
-	    . " num_low_selfibd_run_ids = ?, sequence_index = ? , anaysis_group = ? , "
+	    . " num_low_selfibd_run_ids = ?, sequence_index = ? , analysis_group = ? , "
 	      . " chr20 = ? ,failed = ? , status = ? " 
 	      . ", performed = now()  where other_id  = ? and table_name = ?";
 
