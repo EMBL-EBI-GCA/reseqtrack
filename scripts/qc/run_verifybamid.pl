@@ -173,7 +173,7 @@ $BAD += &check_SELFIBD_in_selfRG( $selfRG, $Sample->num_run_ids );
 $BAD += &check_for_sample_swaps($bestRG, $Sample->sample_name) if ($bestRG) ;
 
 print $input{name}, "  is BAD ($BAD)\n" if ($BAD);
-print "\n-----------------------------------------\n";
+
 
 my $bam_header_info = get_bam_run_id_info ( $bam_file_obj->name);
 
@@ -243,8 +243,6 @@ sub correct_run_id_pu_mismatch{
   my ($rg_obj ,$bam_header_info) = @_;
   my $rg = $rg_obj->run_id;
 
-  print "=========== $rg ==========\n";
-
   if ( ! ( $rg =~ /^[E|S]RR/ ) ) {
 
     if ( defined $$bam_header_info{$rg_obj->run_id}) {
@@ -269,7 +267,7 @@ sub check_SELFIBD_in_selfRG {
   my ( $selfRG, $totalRG ) = @_;
   my $ctr = 0;
   my $BAD = 0;
-  print "In  check_SELFIBD_in_selfRG\n";
+#  print "In  check_SELFIBD_in_selfRG\n";
 
   foreach my $key ( keys %$selfRG ) {
     next if ( $key =~ /header/ );
@@ -295,7 +293,7 @@ sub check_SELFIBD_in_selfRG {
 
 sub check_for_sample_swaps {
 
-  print "Step 4  Check for swaps ------------\n";
+#  print "Step 4  Check for swaps ------------\n";
 
   my ($bestRG) = shift;
   my $BAD    = 0;
@@ -341,11 +339,8 @@ sub check_selfRG_data {
   $totalRG = scalar( keys %$selfRG );
   $totalRG--;
      
-  #if ( !$passed_step1 ) {
 
-  print "Step 2 Check selfRG\n";
-
-
+#  print "Step 2 Check selfRG\n";
  # print "total RG = $totalRG\n";
 
   my $high_mix = 0;
@@ -389,10 +384,9 @@ sub check_selfRG_data {
 
   }
 
-  print
-    "\% (high SM mix\/low RG mix)  $low_mix \/ $totalRG = $poss_contam\n";
+#  print
+#    "\% (high SM mix\/low RG mix)  $low_mix \/ $totalRG = $poss_contam\n";
 
-  #	}
 
   $Sample->num_run_ids($totalRG);
   $Sample->num_low_selfibd_run_ids($low_mix);
@@ -409,7 +403,7 @@ sub create_Sample_object_step1 {
   my ($selfSM,$analysis_group,$sequence_index, $chr20) = @_ ;
   my $passed_step1 = 0;
 
-  print "create_Sample_object_step 1 chr20=$chr20\n";
+#  print "create_Sample_object_step 1 chr20=$chr20\n";
 
 
   foreach my $key ( keys %$selfSM ) {
@@ -440,8 +434,8 @@ sub create_Sample_object_step1 {
     my $selfibd    = $$a_ref[ $$selfSM{header}{'SELFIBD'} ];
     my $selfSM_MIX = $$a_ref[ $$selfSM{header}{'%MIX'} ];
 
-    print "Step 1:  :";
-    print "selfSM $key : SELFIBD $selfibd \%MIX $selfSM_MIX.\n";
+#    print "Step 1:  :";
+#    print "selfSM $key : SELFIBD $selfibd \%MIX $selfSM_MIX.\n";
 
     if ( $selfibd eq "N/A") {
       print "Possible no snps for sample\n";
@@ -474,7 +468,7 @@ sub get_verifybamid_file {
   my @header;
   my %dat;
 
-  print "Reading $file data\n";
+#  print "Reading $file data\n";
 
 
   if (!-e $file) {
@@ -541,7 +535,6 @@ sub assign_output_files {
   }
 
   return ( $selfSM, $selfRG, $bestRG, $bestSM );
-  exit;
 }
 
 sub get_db_adaptors {
