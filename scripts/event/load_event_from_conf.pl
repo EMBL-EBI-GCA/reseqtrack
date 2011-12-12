@@ -94,6 +94,8 @@ sub dump_event_table_contents {
           if $ievent->{runner_options};
         printf OUT "max_array_size=$ievent->{max_array_size}\n"
           if $ievent->{max_array_size};
+        printf OUT "job_slot_limit=$ievent->{job_slot_limit}\n"
+          if $ievent->{job_slot_limit};
         printf OUT "output_path=$ievent->{output_path}\n"
           if $ievent->{output_path};
         printf OUT "type=$ievent->{type}\n" if $ievent->{type};
@@ -228,6 +230,7 @@ sub parse_files {
        -farm_options => $config->{$h}->{farm_options},
        -runner_options => $config->{$h}->{runner_options},
        -max_array_size => $config->{$h}->{max_array_size},
+       -job_slot_limit => $config->{$h}->{job_slot_limit},
        -output_path => $config->{$h}->{output_path},
        -type => $config->{$h}->{type},
        -table_name => $config->{$h}->{table_name},
@@ -261,6 +264,7 @@ ReseqTrack/scripts/event/load_event_from_conf.pl
         farm_options=options for LSF submission of event
         runner_options=options for the runner script
         max_array_size=maximum size of LSF job array (0 to submit as separate jobs)
+        job_slot_limit=maximum number job in the LSF array that are allowed to run at any one time
         output_path=directory for output_files and farm_log_files
         type=the type of the input data required by the event
         table_name=the table name needed to retrieve the input data

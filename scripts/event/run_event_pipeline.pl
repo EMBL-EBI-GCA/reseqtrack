@@ -210,6 +210,10 @@ while(1){
 
 
                 } # end of EVENT loop
+                if ($term_sig) {
+                    print "Have term_sig so exiting loop\n";
+                    last LOOP;
+                }
             } # end of INPUT loop
         } # end of INPUT_TYPE loop
     } # end of TABLE_NAME loop

@@ -583,7 +583,9 @@ sub create_job_output_stem{
 
 sub create_submission_cmds{
   my ($jobs, $db, $batch_object, $runner, $event) = @_;
-  my $wrapper = "perl ".$runner." -dbhost ".$db->dbc->host." -dbuser ".$db->dbc->username." -dbpass ".$db->dbc->password." -dbport ".$db->dbc->port." -dbname ".$db->dbc->dbname." -name ".$event->name;
+  my $wrapper = "perl ".$runner." -dbhost ".$db->dbc->host." -dbuser ".$db->dbc->username
+            ." -dbpass ".$db->dbc->password." -dbport ".$db->dbc->port
+            ." -dbname ".$db->dbc->dbname." -name ".$event->name;
 
   if ($event->runner_options) {
       $wrapper .= " ".$event->runner_options;
@@ -621,10 +623,11 @@ sub create_submission_cmds{
           }
           my $submission_array_size = $event->max_array_size > 0 ? @submission_jobs : 0;
           my $cmd = $batch_object->construct_command_line($submission_wrapper, 
-                                                          $job->event->farm_options,
+                                                          $event->farm_options,
                                                           $job->farm_log_file,
-                                                          $job->event->name,
-                                                          $submission_array_size);
+                                                          $event->name,
+                                                          $submission_array_size,
+                                                          $event->job_slot_limit);
           push(@{$cmds{$cmd}}, @submission_jobs);
 
           @submission_jobs = ();

@@ -49,11 +49,12 @@ use ReseqTrack::HasHistory;
   Arg [5]   : string, options for batch submission system
   Arg [6]   : string, options for runner script
   Arg [7]   : int, maximum size of job array in the batch submission system
-  Arg [8]   : string, directory for the output files and batch submission system log files
-  Arg [9]   : string, type the type string for the input from the given table
-  Arg [10]   : string, table name to retrieve input from
-  Arg [11]   : timestamp, time object was first stored in database
-  Arg [12]   : timestamp, time object was last updated
+  Arg [8]   : int, maximum number of jobs in an array that are allowed to run at any one time
+  Arg [9]   : string, directory for the output files and batch submission system log files
+  Arg [10]   : string, type the type string for the input from the given table
+  Arg [11]   : string, table name to retrieve input from
+  Arg [12]   : timestamp, time object was first stored in database
+  Arg [13]   : timestamp, time object was last updated
   Function  : Create a ReseqTrack::Event object
   Returntype: ReseqTrack::Event
   Exceptions: throws if no name is defined
@@ -67,7 +68,7 @@ sub new {
 
     my (
         $name,       $program,      $options,       $input_flag,
-        $farm_options, $runner_options, $max_array_size, $output_path,
+        $farm_options, $runner_options, $max_array_size, $job_slot_limit, $output_path,
         $type,       $table_name,   $created,         $updated
       )
       = rearrange(
@@ -79,6 +80,7 @@ sub new {
               FARM_OPTIONS
               RUNNER_OPTIONS
               MAX_ARRAY_SIZE
+              JOB_SLOT_LIMIT
               OUTPUT_PATH
               TYPE
               TABLE_NAME
@@ -103,11 +105,12 @@ sub new {
     $self->farm_options($farm_options);          #5
     $self->runner_options($runner_options);      #6
     $self->max_array_size($max_array_size);      #7
-    $self->output_path($output_path);            #8
-    $self->type($type);                          #9
-    $self->table_name($table_name);              #10
-    $self->created($created);                    #11
-    $self->updated($updated);                    #12
+    $self->job_slot_limit($job_slot_limit);      #8
+    $self->output_path($output_path);            #9
+    $self->type($type);                          #10
+    $self->table_name($table_name);              #11
+    $self->created($created);                    #12
+    $self->updated($updated);                    #13
 
     #########
 
@@ -181,6 +184,14 @@ sub max_array_size {
         $self->{max_array_size} = $arg;
     }
     return $self->{max_array_size};
+}
+
+sub job_slot_limit {
+    my ( $self, $arg ) = @_;
+    if (defined $arg) {
+        $self->{job_slot_limit} = $arg;
+    }
+    return $self->{job_slot_limit};
 }
 
 sub output_path {

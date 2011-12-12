@@ -27,7 +27,7 @@ sub new {
 
 sub columns{
 
-  return  " event.event_id, event.name, event.program,  event.options, event.input_flag, event.farm_options, event.runner_options, event.max_array_size, event.output_path, event.type,event.table_name, event.created, event.updated ";
+  return  " event.event_id, event.name, event.program,  event.options, event.input_flag, event.farm_options, event.runner_options, event.max_array_size, event.job_slot_limit,  event.output_path, event.type,event.table_name, event.created, event.updated ";
   
 }
 
@@ -60,9 +60,9 @@ sub store{
   my $sql = 
       "INSERT INTO  event " 
       . "(name, program, options,
-          input_flag, farm_options, runner_options, max_array_size, output_path,
+          input_flag, farm_options, runner_options, max_array_size, job_slot_limit, output_path,
           type, table_name, created, updated) "
-      . "values(?, ?, ?, ?, ?, ?, ?, ?,?, ?, now(), now() ) ";
+      . "values(?, ?, ?, ?, ?, ?, ?, ?, ?,?, ?, now(), now() ) ";
  
   my $sth = $self->prepare($sql);
 
@@ -73,9 +73,10 @@ sub store{
   $sth->bind_param(5,  $event->farm_options);
   $sth->bind_param(6,  $event->runner_options);
   $sth->bind_param(7,  $event->max_array_size);
-  $sth->bind_param(8,  $event->output_path);
-  $sth->bind_param(9,  $event->type);
-  $sth->bind_param(10, $event->table_name);
+  $sth->bind_param(8,  $event->job_slot_limit);
+  $sth->bind_param(9,  $event->output_path);
+  $sth->bind_param(10,  $event->type);
+  $sth->bind_param(11, $event->table_name);
 
   my $rows_inserted = $sth->execute();
   my $dbID = $sth->{'mysql_insertid'};
@@ -101,6 +102,7 @@ sub update{
       "farm_options = ?,  ".
       "runner_options = ?,  ".
       "max_array_size = ?,  ".
+      "job_slot_limit = ?,  ".
       "output_path = ?, ".
       "type  = ?, ".
       "table_name   = ?,  ".
@@ -118,11 +120,12 @@ sub update{
   $sth->bind_param(4,  $event->farm_options);
   $sth->bind_param(5,  $event->runner_options);
   $sth->bind_param(6,  $event->max_array_size);
-  $sth->bind_param(7,  $event->output_path);
-  $sth->bind_param(8,  $event->type);
-  $sth->bind_param(9,  $event->table_name);
-  $sth->bind_param(10, $event->name);
-  $sth->bind_param(11, $event->dbID);
+  $sth->bind_param(7,  $event->job_slot_limit);
+  $sth->bind_param(8,  $event->output_path);
+  $sth->bind_param(9,  $event->type);
+  $sth->bind_param(10,  $event->table_name);
+  $sth->bind_param(11, $event->name);
+  $sth->bind_param(12, $event->dbID);
  
   $sth->execute();
   $sth->finish();
@@ -149,6 +152,7 @@ sub object_from_hashref{
 	 -farm_options    =>$hashref->{farm_options},
 	 -runner_options  =>$hashref->{runner_options},
 	 -max_array_size  =>$hashref->{max_array_size},
+	 -job_slot_limit  =>$hashref->{job_slot_limit},
 	 -output_path      =>$hashref->{output_path},
 	 -type                 =>$hashref->{type},
 	 -table_name     =>$hashref->{table_name},

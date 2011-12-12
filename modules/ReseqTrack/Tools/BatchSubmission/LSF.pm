@@ -81,22 +81,20 @@ sub new{
 
 
 sub construct_command_line{
-  my ($self, $to_run, $options, $farm_log_file, $name, $array_size) = @_;
+  my ($self, $to_run, $options, $farm_log_file, $name, $array_size, $job_slot_limit) = @_;
 
   $to_run = $self->cmd unless($to_run);
   $options = $self->options unless($options);
-  if ($options =~ /\-J\s+(\S+)/) {
-      my ($prematch, $postmatch, $options_name) = ($`, $', $1);
-      if ($array_size >0 && $options_name !~ /\[\d+\-\d+\]$/ ) {
-          $options = $prematch . '-J '.$options_name.'[1-'.$array_size.']' . $postmatch;
+
+  $options =~ s/\-J\s+\S+//;
+  $options .= ' -J '.$name;
+  if ($array_size >0) {
+      $options .= '[1-'.$array_size.']';
+      if ($job_slot_limit) {
+          $options .= '%'.$job_slot_limit;
       }
   }
-  else {
-      $options .= ' -J '.$name;
-      if ($array_size >0) {
-          $options .= '[1-'.$array_size.']';
-      }
-  }
+
   my $cmd = $self->program." ".$options." -o ".$farm_log_file." ".$to_run;
   #print "LSF cmd ".$cmd."\n";
   return $cmd;

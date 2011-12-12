@@ -45,6 +45,7 @@ CREATE TABLE event(
        farm_options VARCHAR(255),
        runner_options VARCHAR(255),
        max_array_size MEDIUMINT(10) unsigned NOT NULL default 0,
+       job_slot_limit MEDIUMINT(10) unsigned,
        output_path  VARCHAR(255),
        type    VARCHAR(50),
        table_name enum('file', 'collection', 'run_meta_info', 'input_string'),
