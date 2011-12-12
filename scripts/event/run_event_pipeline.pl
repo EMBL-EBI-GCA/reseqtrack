@@ -176,23 +176,23 @@ while(1){
     my %submitted_hash;
     my $input_hash = get_inputs($db, $events);
     my %event_to_submit;
+    my $check_allowed_table_name = scalar keys %allowed_inputs ? 1 : 0;
     TABLE_NAME:
     foreach my $table_name(keys(%$input_hash)){
-        next TABLE_NAME if (keys %allowed_inputs && !$allowed_inputs{$table_name});
+        next TABLE_NAME if ($check_allowed_table_name && ! exists $allowed_inputs{$table_name});
+        my $check_allowed_type = $check_allowed_table_name && scalar keys %{$allowed_inputs{$table_name}} ? 1 : 0;
         print "TABLE NAME ".$table_name."\n" if($verbose);
         my %type_hash = %{$input_hash->{$table_name}};
         INPUT_TYPE:
         foreach my $input_type(keys(%type_hash)){
-            next INPUT_TYPE if ($allowed_inputs{$table_name} && keys %{$allowed_inputs{$table_name}}
-                                && !$allowed_inputs{$table_name}{$input_type});
+            next INPUT_TYPE if ($check_allowed_type && ! exists $allowed_inputs{$table_name}{$input_type});
+            my $check_allowed_input = $check_allowed_type && scalar keys %{$allowed_inputs{$table_name}{$input_type}} ? 1 : 0;
             my $inputs = $type_hash{$input_type};
             print "INPUT TYPE ".$input_type."\n" if($verbose);
             my $events_for_input_type = $type_event_hash->{$input_type};
             INPUT:
             foreach my $input (@$inputs) {
-                next INPUT if ($allowed_inputs{$table_name}{$input_type} &&
-                                keys %{$allowed_inputs{$table_name}{$input_type}}
-                                && !$allowed_inputs{$table_name}{$input_type}{$input});
+                next INPUT if ($check_allowed_input && ! exists $allowed_inputs{$table_name}{$input_type}{$input});
                 EVENT:
                 foreach my $event(@$events_for_input_type){
                     next EVENT if($event->table_name ne $table_name);
