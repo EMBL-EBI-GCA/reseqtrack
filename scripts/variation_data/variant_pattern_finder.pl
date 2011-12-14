@@ -24,6 +24,7 @@
 use strict;
 use Getopt::Long;
 use Bio::EnsEMBL::Registry;
+use Net::FTP;
 use Vcf;
 use File::Copy;
 use Bio::EnsEMBL::Variation::Utils::VEP qw(get_all_consequences);
@@ -57,7 +58,7 @@ my $cache_dir = '/nfs/1000g-work/G1K/work/zheng/.vep/homo_sapiens/64';
 	'user=s'		=>\$user,
 	'vcf=s'			=>\$file,
 	'region=s'		=>\$region,
-	'sample=s'		=>\$sample_panel,
+	'sample_panel_file=s'		=>\$sample_panel,
 	'output_dir=s'	=>\$output_dir,
 	'output_file=s'	=>\$outfile,
 	'expanded_view!'	=>\$expanded_view,
@@ -65,7 +66,7 @@ my $cache_dir = '/nfs/1000g-work/G1K/work/zheng/.vep/homo_sapiens/64';
 	'help!'			=>\$help,
 	'verbose!'		=>\$verbose,
 	'cache!'		=>\$cache,
-	'caches_dir=s'	=>\$cache_dir,
+	'cache_dir=s'	=>\$cache_dir,
 );
 
 if ($help) {
@@ -222,6 +223,7 @@ print "Job done!  Please find the output file in $outfile\n";
 ################
 ##### SUBS #####
 ################
+=head
 sub parse_sample_file {
 	my ($sample_panel) = @_;
 	open(SAM, "<", $sample_panel) || die("Cannot open sample panel file $sample_panel"); ## FIXME: allow open a URL
@@ -236,6 +238,47 @@ sub parse_sample_file {
 	my $total_sample_count = keys %total_sample_cnt_hash;
 	return $total_sample_count;
 }
+=cut
+
+sub parse_sample_file {
+	my ($sample_panel) = @_;
+	
+	my @sample_panel_lines;
+	my %total_sample_cnt_hash;
+	if ($sample_panel =~ /ftp:\/\/([\w.]+)(\/\S+)/) {
+		my $ftp_host = $1;
+		my $path = $2;
+		
+        my $ftp = Net::FTP->new($ftp_host);
+        die("Cannot build ftp object, please provide proper ftp path\n") if (!$ftp);
+        $ftp->login or die('Cannot login ' , $ftp->message);
+
+        my $sample_panel_content;
+        open my $PANEL, '>', \$sample_panel_content;
+        $ftp->get($path, $PANEL) or die ("could not open $sample_panel " , $ftp->message);
+        $ftp->quit;
+
+        @sample_panel_lines = split(/\n/, $sample_panel_content);
+        close $PANEL;
+    }
+    else {
+        open my $FILE, '<', $sample_panel
+            or die("cannot open $sample_panel $!");
+        @sample_panel_lines = <$FILE>;
+        close $FILE;
+    }
+    
+    foreach ( @sample_panel_lines ) {
+    	chomp;
+		s/^\s+|\s+$//g;
+		my ($sam, $pop, $plat) = split(/\t/, $_);
+		$sample_pop{$sam} = $pop;	
+		$total_sample_cnt_hash{$sam} = 1;
+	} 
+	my $total_sample_count = keys %total_sample_cnt_hash;
+	return $total_sample_count;
+}  
+
 
 sub populate_snp_impact_hash {
 	my ($y, $identifier, $cache, $cache_dir1) = @_;
@@ -312,7 +355,7 @@ sub predict_snp_func_in_cache {
 		push @{$tc_consequence{$line_hash->{Feature}}}, $value;
 =head			
 		print join ("\t", (
-			$new_vf->variation_name,
+			#$new_vf->variation_name,
 			$line_hash->{Feature},
 			$line_hash->{Consequence},
 			$line_hash->{Amino_acids}
@@ -517,7 +560,7 @@ sub vcf_to_ensembl {
 			files.
 	-region		Chromosomal region in the format of chr:start-end (1:1000000-100500). As the longer the region is, the more distinctive variant 
 			patterns may exist, it is best to work with small regions shorter than several kb.  
-	-sample		Path to a tab-delimited file containing sample to population mapping. This information helps to organize the output by population.
+	-sample_panel_file		Path to a tab-delimited file containing sample to population mapping. This information helps to organize the output by population.
 			A few lines of example is below:
 				
 				HG00098 GBR     ILLUMINA
@@ -567,19 +610,27 @@ sub vcf_to_ensembl {
 
 perl ~/ReseqTrack/scripts/variation_data/variant_pattern_finder.pl \
 -vcf ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20101123/interim_phase1_release/ALL.chr14.phase1.projectConsensus.genotypes.vcf.gz \
--sample /nfs/1000g-archive/vol1/ftp/release/20101123/interim_phase1_release/interim_phase1.20101123.ALL.panel \
+-sample_panel_file /nfs/1000g-archive/vol1/ftp/release/20101123/interim_phase1_release/interim_phase1.20101123.ALL.panel \
 -region 14:106329408-106329468 \
 -verbose
 
 perl ~/ReseqTrack/scripts/variation_data/variant_pattern_finder.pl \
 -vcf /nfs/1000g-archive/vol1/ftp/release/20100804/ALL.2of4intersection.20100804.genotypes.vcf.gz \
--sample /nfs/1000g-archive/vol1/ftp/release/20100804/20100804.ALL.panel \
+-sample_panel_file /nfs/1000g-archive/vol1/ftp/release/20100804/20100804.ALL.panel \
 -region  17:41256206-41256906
 
 perl ~/ReseqTrack/scripts/variation_data/variant_pattern_finder.pl \
 -vcf /nfs/1000g-archive/vol1/ftp/release/20110521/ALL.chr14.phase1_integrated_calls.20101123.snps_indels_svs.genotypes.vcf.gz \
--sample /nfs/1000g-archive/vol1/ftp/release/20110521/phase1_integrated_calls.20101123.ALL.panel \
+-sample_panel_file /nfs/1000g-archive/vol1/ftp/release/20110521/phase1_integrated_calls.20101123.ALL.panel \
 -region 14:106329408-106329468 \
 -verbose  \
 -cache \
 -print_all
+
+ perl ~/ReseqTrack/scripts/variation_data/variant_pattern_finder.v2.pl \
+ -vcf /nfs/1000g-archive/vol1/ftp/release/20110521/ALL.chr14.phase1_integrated_calls.20101123.snps_indels_svs.genotypes.vcf.gz \
+ -sample_panel_file ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20110521/phase1_integrated_calls.20101123.ALL.panel \
+ -region 14:106329408-106329468 \
+ -verbose \
+ -cache \
+ -print_all
