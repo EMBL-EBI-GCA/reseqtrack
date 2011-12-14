@@ -101,7 +101,6 @@ $db->dbc->disconnect_when_inactive(2);
 
 
 unless ( $input{no_subsample}) {
- print "In here\n";
   if ($need_to_sample){
     ($align_these, $files_to_delete) =
       sample_array_list_of_files( $align_these, $input{subsample_size} , $tmp_dir);
