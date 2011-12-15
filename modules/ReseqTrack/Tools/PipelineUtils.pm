@@ -52,14 +52,14 @@ use vars qw (@ISA  @EXPORT);
 sub get_all_inputs{
   my ($db) = @_;
   my $events = $db->get_EventAdaptor->fetch_all();
-  my $input_hash = get_inputs($db, $events);
-  my @inputs;
-  foreach my $table_name(keys(%$input_hash)){
-    foreach my $type(keys(%{$input_hash->{$table_name}})){
-      my $strings = $input_hash->{$table_name}->{$type};
-      push(@inputs, @$strings);
-    }
+  my %input_hash;
+  foreach my $event (@$events) {
+      my $event_inputs = get_inputs($db, $event);
+      foreach my $input (@$event_inputs) {
+          $input_hash{$input} = 1;
+      }
   }
+  my @inputs = keys %input_hash;
   return \@inputs;
 }
 
@@ -68,15 +68,13 @@ sub get_all_inputs{
 =head2 get_inputs
 
   Arg [1]   : ReseqTrack::DBSQL::DBAdaptor;
-  Arg [2]   : arrayref of ReseqTrack::Event objects
-  Function  : If not passed events, it fetches them all from the database. The
-  is uses the table names and types associated with each event to fetch input strings
-  that each event should be run on
-  Returntype: hashref, returns a hashref, this is a hash of hashes keyed first on 
-  table name then on input type the values are arrayrefs of input strings
+  Arg [2]   : ReseqTrack::Event object
+  Function  : Uses the table name and type associated with event to fetch input strings
+  that the event should be run on
+  Returntype: arrayref of input strings
   Exceptions: throws if doesn't recognise a table name and how to fetch inputs from
   that table
-  Example   : my $input_hash = get_inputs($db, $event); 
+  Example   : my $inputs_array = get_inputs($db, $event); 
 
 =cut
 
@@ -94,6 +92,20 @@ sub get_inputs{
   
   return $inputs
 }
+
+=head2 get_incomplete_inputs
+
+  Arg [1]   : ReseqTrack::DBSQL::DBAdaptor;
+  Arg [2]   : ReseqTrack::Event object
+  Function  : Uses the table name and type associated with event to fetch input strings
+  that the event should be run on and which are not already complete
+  Returntype: arrayref of input strings
+  Exceptions: throws if doesn't recognise a table name and how to fetch inputs from
+  that table
+  Example   : my $inputs_array = get_incomplete_inputs($db, $event); 
+
+=cut
+
 
 sub get_incomplete_inputs{
   my ($db, $event) = @_;
@@ -117,6 +129,17 @@ sub get_incomplete_inputs{
   Returntype: arrayref
   Exceptions:
   Example   : my $file_inputs = get_file_inputs($db, $type); 
+
+=cut
+
+=head2 get_incomplete_XXXX_inputs
+
+  Arg [1]   : ReseqTrack::DBSQL::DBAdaptor
+  Arg [2]   : ReseqTrack::Event
+  Function  : to fetch input strings that are not already complete for the event
+  Returntype: arrayref
+  Exceptions:
+  Example   : my $file_inputs = get_incomplete_file_inputs($db, $event); 
 
 =cut
 
@@ -349,14 +372,14 @@ sub setup_workflow{
 =head2 check_workflow
 
   Arg [1]   : ReseqTrack::Workflow
-  Arg [2]   : ReseqTrack::Event
+  Arg [2]   : arrayref of input strings
   Arg [3]   : hashref. hash of hashes, first keyed on table name, then event type
-  values being arrays of input string
-  Arg [4]   : ReseqTrack::DBSQL::EventCompleteAdaptor
-  Function  : check if conditions of workflow has been met
-  Returntype: binary 0/1
-  Exceptions: n/a
-  Example   : if(check_workflow($workflow, $event, $input, $input_hash, $eca));
+  values being arrays of input string. This can also be an empty or incomplete hashref; it will be filled in if needed.
+  Arg [4]   : ReseqTrack::DBSQL::DBAdaptor
+  Arg [5]   : boolean, verbose
+  Function  : check if conditions of workflow has been met. 
+  Returntype: arrayref of input strings. These are the input strings for which the conditions have been met
+  Example   : my $good_inputs = check_workflow($workflow, $all_inputs, $input_type_hash, $db, $verbose);
 
 =cut
 
@@ -437,6 +460,18 @@ sub check_workflow{
   print $goal_event->name." can run on ".join(' ', @inputs_passed)."\n" if ($verbose);
   return \@inputs_passed;
 }
+
+=head2 check_existing_jobs
+
+  Arg [1]   : arrayref of input strings
+  Arg [2]   : arrayref of ReseqTrack::Job objects
+  Arg [3]   : int, maximum retry count for a job
+  Arg [4]   : boolean, verbose
+  Function  : checks which of the input strings are already being run by an existing job
+  Returntype: arrayref of input strings. These are the input strings for which no active job already exists
+  Example   : my $good_inputs = check_existing_jobs($all_inputs, $existing_jobs, $retry_max, $verbose);
+
+=cut
 
 sub check_existing_jobs{
   my ($inputs, $jobs, $retry_max, $verbose) = @_;
