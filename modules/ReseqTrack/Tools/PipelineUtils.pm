@@ -33,10 +33,10 @@ use vars qw (@ISA  @EXPORT);
 
 @ISA = qw(Exporter);
 
-@EXPORT = qw(get_inputs get_all_inputs create_event_commandline
-          get_random_input_string setup_event_objects setup_batch_submission_system
-          can_run check_workflow create_job_object create_submission_cmds
-          has_to_many_jobs setup_workflow check_if_done create_job_output_stem);
+@EXPORT = qw(get_inputs get_all_inputs get_incomplete_inputs create_event_commandline
+          get_random_input_string setup_batch_submission_system setup_event_objects
+          setup_workflow check_workflow check_existing_jobs create_job_object create_submission_cmds
+          has_to_many_jobs check_if_done create_job_output_stem);
 
 =head2 get_all_inputs
 
@@ -83,42 +83,29 @@ sub get_all_inputs{
 
 
 sub get_inputs{
-  my ($db, $events) = @_;
-  if(!$events){
-    $events = $db->get_EventAdaptor->fetch_all();
-  }
+  my ($db, $event) = @_;
 
-  my %tables_to_input;
-
-  foreach my $event(@$events){
-    $tables_to_input{$event->table_name}{$event->type} = [] 
-        if(!$tables_to_input{$event->table_name}{$event->type});
-
-    next if(@{$tables_to_input{$event->table_name}{$event->type}});
-
-    if($event->table_name eq 'file'){
-      my $inputs = get_file_inputs($db, $event->type);
-      $tables_to_input{$event->table_name}{$event->type} = $inputs;
-    }
-    elsif($event->table_name eq 'collection'){
-      my $inputs = get_collection_inputs($db, $event->type);
-      $tables_to_input{$event->table_name}{$event->type} = $inputs;
-    }
-    elsif($event->table_name eq 'run_meta_info'){
-      my $inputs = get_run_meta_info_inputs($db, $event->type);
-      $tables_to_input{$event->table_name}{$event->type} = $inputs;
-    }
-    elsif($event->table_name eq 'input_string'){
-      my $inputs = get_input_string_inputs($db, $event->type);
-      $tables_to_input{$event->table_name}{$event->type} = $inputs;
-    }
-    else{
-      throw("Don't know what sort of inputs to fetch for ".$event->name." ".
-            $event->table_name);
-    }
-  }
+  my $inputs =
+      $event->table_name eq 'file' ? get_file_inputs($db, $event)
+      : $event->table_name eq 'collection' ? get_collection_inputs($db, $event)
+      : $event->table_name eq 'run_meta_info' ? get_run_meta_info_inputs($db, $event)
+      : $event->table_name eq 'input_string' ? get_input_string_inputs($db, $event)
+      : throw("Don't know what sort of inputs to fetch for " . $event->name . " " . $event->table_name);
   
-  return \%tables_to_input;
+  return $inputs
+}
+
+sub get_incomplete_inputs{
+  my ($db, $event) = @_;
+
+  my $inputs =
+      $event->table_name eq 'file' ? get_incomplete_file_inputs($db, $event)
+      : $event->table_name eq 'collection' ? get_incomplete_collection_inputs($db, $event)
+      : $event->table_name eq 'run_meta_info' ? get_incomplete_run_meta_info_inputs($db, $event)
+      : $event->table_name eq 'input_string' ? get_incomplete_input_string_inputs($db, $event)
+      : throw("Don't know what sort of inputs to fetch for " . $event->name . " " . $event->table_name);
+  
+  return $inputs
 }
 
 
@@ -146,6 +133,14 @@ sub get_file_inputs{
   return \@inputs;
 }
 
+sub get_incomplete_file_inputs{
+    my ($db, $event) = @_;
+    my $fa = $db->get_FileAdaptor;
+    my $files = $fa->fetch_incomplete_by_event($event);
+    my @inputs = map {$_->full_path} @$files;
+    return \@inputs;
+}
+
 sub get_collection_inputs{
   my ($db, $type) = @_;
   my $ca = $db->get_CollectionAdaptor;
@@ -156,6 +151,15 @@ sub get_collection_inputs{
   }
   return \@inputs;
 }
+
+sub get_incomplete_collection_inputs{
+    my ($db, $event) = @_;
+    my $ca = $db->get_CollectionAdaptor;
+    my $collections = $ca->fetch_incomplete_by_event($event);
+    my @inputs = map {$_->name} @$collections;
+    return \@inputs;
+}
+
 
 sub get_run_meta_info_inputs{
   my ($db, $type) = @_;
@@ -168,6 +172,15 @@ sub get_run_meta_info_inputs{
   return \@inputs;
 }
 
+sub get_incomplete_run_meta_info_inputs{
+    my ($db, $event) = @_;
+    my $adaptor = $db->get_RunMetaInfoAdaptor;
+    my $run_meta_infos = $adaptor->fetch_incomplete_by_event($event);
+    my @inputs = map {$_->run_id} @$run_meta_infos;
+    return \@inputs;
+}
+
+
 sub get_input_string_inputs{
   my ($db, $type) = @_;
   my $ca = $db->get_InputStringAdaptor;
@@ -177,6 +190,14 @@ sub get_input_string_inputs{
     push(@inputs, $run_meta_info->name);
   }
   return \@inputs;
+}
+
+sub get_incomplete_input_string_inputs{
+    my ($db, $event) = @_;
+    my $adaptor = $db->get_InputStringAdaptor;
+    my $input_strings = $adaptor->fetch_incomplete_by_event($event);
+    my @inputs = map {$_->name} @$input_strings;
+    return \@inputs;
 }
 
 
@@ -325,72 +346,6 @@ sub setup_workflow{
 
 
 
-=head2 can_run
-
-  Arg [1]   : string, input string
-  Arg [2]   : ReseqTrack::Event
-  Arg [3]   : ReseqTrack::DBSQL::DBAdaptor;
-  Arg [4]   : ReseqTrack::Workflow
-  Arg [5]   : hashref, hash of hashes, first keyed on table name, then event type
-  values being arrays of input string
-  Arg [6]   : int, maximum retry count for a job
-  Function  : check if a particular event/input string combination can run
-  Returntype: binary, 0/1 if true the job can run
-  Exceptions: n/a
-  Example   : if(can_run($input, $event, $db, $workflow, $input_hash, $max_retry));
-
-=cut
-
-
-sub can_run{
-  my ($input, $event, $db, $workflow, $input_hash, $retry_max, $verbose) = @_;
-  print "Trying to see if we can run ".$event->name." with ".$input."\n" 
-      if($verbose);
-  my $csa = $db->get_EventCompleteAdaptor;
-  throw("Don't see to have an EventCompleteAdaptor") if(!$csa);
-  
-  my $ja = $db->get_JobAdaptor;
-  
-  if($csa->fetch_by_input_string_and_event($input, $event)){
-    print $input." ".$event->name." is already complete\n" if($verbose);
-    return 0;
-  }else{
-    my $workflow_conditions_fulfilled = 0;
-    if($workflow){
-      if(check_workflow($workflow, $event, $input, $input_hash, $csa, $verbose)){
-        $workflow_conditions_fulfilled = 1;
-      }
-    }else{
-      $workflow_conditions_fulfilled = 1;
-    }
-    unless($workflow_conditions_fulfilled){
-      return 0;
-    }
-    my $job = $ja->fetch_by_name_and_input_string
-        ($event->name, $input);
-    print "No job in system can run ".$input." ".$event->name."\n" if($verbose && !$job);
-    return 1 if(!$job);
-    print "Have job ".$job->dbID." ".$job->current_status."\n" if($verbose);
-    $job->current_status(undef, 1);
-    if($job->current_status ne 'FAILED' &&
-       $job->current_status ne 'AWOL' && 
-       $job->current_status ne 'CREATED'){
-      return 0;
-    }elsif($job->current_status eq "FAILED" || 
-           $job->current_status eq "AWOL"){
-      return 0 if($job->retry_count && $job->retry_count >= $retry_max);
-    }
-    if($csa->fetch_by_input_string_and_event($input, $event)){
-      print $input." ".$event->name." is already complete\n" if($verbose);
-      return 0;
-    }
-    return 1;
-  }
-  throw("ReseqTrack::Tools::EventUtils:can_run, shouldn't of got this far ".
-        "in can run");
-}
-
-
 =head2 check_workflow
 
   Arg [1]   : ReseqTrack::Workflow
@@ -406,71 +361,107 @@ sub can_run{
 =cut
 
 
-
 sub check_workflow{
-  my ($workflow, $event, $input, $input_type_hash, $csa, $verbose) = @_;
+  my ($workflow, $inputs, $input_type_hash, $db, $verbose) = @_;
   print "Checking workflow\n" if($verbose);
+  my $goal_event = $workflow->goal_event;
   my $conditions = $workflow->conditions;
-  unless($conditions && $conditions >= 1){
+  if(!$conditions || ! scalar @$conditions){
     print "There are no conditions for workflow with ".
-        $workflow->goal_event->name."\n" if($verbose);
-    return 1;
-  }else{
-    print "There are ".@$conditions." associated with workflow for ".
-        $workflow->goal_event->name."\n" if($verbose);
+        $goal_event->name."\n" if($verbose);
+    return $inputs;
   }
-  #Checking conditions
-  print "Checking conditions for ".$event->name."\n" if($verbose);
-  foreach my $condition(@$conditions){
-    print "Looking at ".$condition->name."\n" if($verbose);
-    my $checked = 0;
-    if($condition->table_name eq $event->table_name){
-      if($condition->type eq $event->type){
-        print "table names and types match\n" if($verbose);
-        $checked = 1;
-        unless($csa->fetch_by_input_string_and_event($input, $condition)){
-          print $condition->name." isn't complete on ".$input." can't run ".$event->name."\n"
-              if($verbose);
-          return 0;
+  print "There are ".@$conditions." associated with workflow for ".
+      $goal_event->name."\n" if($verbose);
+  print "Checking conditions for ".$goal_event->name."\n" if($verbose);
+
+  my @matching_conditions;
+  my @other_conditions;
+  foreach my $condition (@$conditions) {
+    if($condition->table_name eq $goal_event->table_name
+            && $condition->type eq $goal_event->type){
+      push(@matching_conditions, $condition);
+    }
+    else {
+      push(@other_conditions, $condition);
+    }
+  }
+
+  print "Looking at conditions".join(' ', map {$_->name} @matching_conditions)."\n" if ($verbose);
+  my $csa = $db->get_EventCompleteAdaptor;
+  my @inputs_passed;
+  INPUT:
+  foreach my $input(@$inputs) {
+    foreach my $condition(@matching_conditions){
+      if (! $csa->fetch_by_input_string_and_event($input, $condition)){
+        print $condition->name." isn't complete on ".$input." can't run ".$goal_event->name."\n"
+            if($verbose);
+        next INPUT;
+      }
+    }
+    push(@inputs_passed, $input);
+  }
+
+  if (! @inputs_passed) {
+      return [];
+  }
+
+  foreach my $condition (@other_conditions) {
+    print "Looking at condition ".$condition->name."\n" if($verbose);
+    if (! exists $input_type_hash->{$condition->table_name}->{$condition->type}) {
+      my $condition_inputs = get_inputs($db, $condition);
+      $input_type_hash->{$condition->table_name}->{$condition->type} = $condition_inputs;
+    }
+
+    my $completed_inputs = $csa->fetch_by_event($condition);
+    my $total_inputs = $input_type_hash->{$condition->table_name}->{$condition->type};
+    if(@$total_inputs != @$completed_inputs){
+      print "Total inputs don't match the number of completed strings can't run\n" 
+          if($verbose);
+      return [];
+    }
+
+    my $input_set = ReseqTrack::Tools::Intersection->new(
+      -list => $total_inputs
+        );
+    my $completed_set = ReseqTrack::Tools::Intersection->new(
+      -list => $completed_inputs
+        );
+    my $only_input = $input_set->not($completed_set);
+    if(@{$only_input->list}){
+      print "There are to many ids which are only on the input set can't run\n"
+          if($verbose);
+      return [];
+    }
+  }
+  print $goal_event->name." can run on ".join(' ', @inputs_passed)."\n" if ($verbose);
+  return \@inputs_passed;
+}
+
+sub check_existing_jobs{
+  my ($inputs, $jobs, $retry_max, $verbose) = @_;
+  my %jobs_hash;
+  map {$jobs_hash{$_->input_string} = $_} @$jobs;
+
+  my @inputs_passed;
+  INPUT:
+  foreach my $input (@$inputs) {
+    my $job = $jobs_hash{$input};
+    if ($job) {
+      print "Have job ".$job->dbID." ".$job->current_status."\n" if ($verbose);
+      if ($job->current_status eq 'FAILED' || $job->current_status eq 'AWOL') {
+        if ($job->retry_count && $job->retry_count >= $retry_max) {
+          print "Job ".$job->dbID." has reached retry_max\n" if ($verbose);
+          next INPUT;
         }
       }
-    }
-    unless($checked){
-      my $completed_strings = $csa->fetch_by_event($condition);
-      my $total_inputs = 
-          $input_type_hash->{$condition->table_name}->{$condition->type};
-      if(@$total_inputs != @$completed_strings){
-        print "Total inputs don't match the number of completed strings can't run\n" 
-            if($verbose);
-        return 0;
-      }else{
-         my %hash;
-         foreach my $input_string(@$total_inputs){
-           $hash{$input_string} = 1;
-         }
-         my @input_list = keys(%hash);
-         %hash = ();
-         foreach my $input_string(@$completed_strings){
-           $hash{$input_string->other->name} = 1;
-         }
-         my @completed_list = keys(%hash);
-         my $input_set = ReseqTrack::Tools::Intersection->new(
-           -list => \@input_list,
-             );
-         my $completed_set = ReseqTrack::Tools::Intersection->new(
-           -list => \@completed_list,
-             );
-         my $only_input = $input_set->not($completed_set);
-         if(@{$only_input->list} >= 1){
-           print "There are to many ids which are only on the input set can'trun\n"
-               if($verbose);
-           return 0;
-         }
+      elsif ($job->current_status eq 'CREATED') {
+        next INPUT;
       }
     }
+    push(@inputs_passed, $input);
   }
-  print $input." can run ".$workflow->goal_event->name." ".$event->name."\n" if($verbose);
-  return 1;
+  return \@inputs_passed;
 }
 
 

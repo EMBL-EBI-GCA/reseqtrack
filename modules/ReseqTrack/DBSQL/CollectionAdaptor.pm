@@ -62,6 +62,29 @@ sub fetch_by_type{
   return \@collections;
 }
 
+sub fetch_incomplete_by_event{
+  my ($self, $event) = @_;
+  throw($event->name . " table name is not " . $self->table_name) if ($event->table_name ne $self->table_name);
+  my $table_name = $self->table_name;
+  my $sql = "select ".$self->columns." from $table_name ".
+      "left outer join (select event_complete.other_id ".
+      "from event_complete where event_complete.event_id = ?) as e ".
+      "on $table_name.collection_id = e.other_id ".
+      "where $table_name.type=? and e.other_id is null";
+  my $sth = $self->prepare($sql);
+  $sth->bind_param(1, $event->dbID);
+  $sth->bind_param(2, $event->type);
+  $sth->execute;
+  my @collections;
+  while(my $hashref = $sth->fetchrow_hashref){
+    my $collection = $self->object_from_hashref($hashref);
+    push(@collections, $collection);
+  }
+  
+  $sth->finish;
+  return \@collections;
+}
+
 sub fetch_by_name_and_type{
   my ($self, $name, $type) = @_;
   my $sql = "select ".$self->columns." from ".$self->table_name.

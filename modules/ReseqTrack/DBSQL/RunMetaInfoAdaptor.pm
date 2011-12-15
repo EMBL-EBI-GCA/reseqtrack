@@ -59,6 +59,28 @@ sub fetch_by_run_id{
  
 }
 
+sub fetch_incomplete_by_event{
+  my ($self, $event) = @_;
+  throw($event->name . " table name is not " . $self->table_name) if ($event->table_name ne $self->table_name);
+  my $table_name = $self->table_name;
+  my $sql = "select ".$self->columns." from $table_name ".
+      "left outer join (select event_complete.other_id ".
+      "from event_complete where event_complete.event_id = ?) as e ".
+      "on $table_name.run_meta_info_id = e.other_id ".
+      "where e.other_id is null";
+  my $sth = $self->prepare($sql);
+  $sth->bind_param(1, $event->dbID);
+  $sth->execute;
+  my @run_meta_infos;
+  while(my $hashref = $sth->fetchrow_hashref){
+    my $run_meta_info = $self->object_from_hashref($hashref);
+    push(@run_meta_infos, $run_meta_info);
+  }
+  
+  $sth->finish;
+  return \@run_meta_infos;
+}
+
 sub fetch_by_sample_name{
   my ($self, $sample_name) = @_;
   my $sql = "select ".$self->columns." from ".$self->table_name.

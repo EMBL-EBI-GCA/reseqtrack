@@ -80,6 +80,29 @@ sub fetch_by_type{
   return \@files;
 }
 
+sub fetch_incomplete_by_event{
+  my ($self, $event) = @_;
+  throw($event->name . " table name is not " . $self->table_name) if ($event->table_name ne $self->table_name);
+  my $table_name = $self->table_name;
+  my $sql = "select ".$self->columns." from $table_name ".
+      "left outer join (select event_complete.other_id ".
+      "from event_complete where event_complete.event_id = ?) as e ".
+      "on $table_name.file_id = e.other_id ".
+      "where $table_name.type=? and e.other_id is null";
+  my $sth = $self->prepare($sql);
+  $sth->bind_param(1, $event->dbID);
+  $sth->bind_param(2, $event->type);
+  $sth->execute;
+  my @files;
+  while(my $hashref = $sth->fetchrow_hashref){
+    my $file = $self->object_from_hashref($hashref);
+    push(@files, $file);
+  }
+  
+  $sth->finish;
+  return \@files;
+}
+
 sub fetch_by_filename{
   my ($self, $name) = @_;
   my $sql = "select ".$self->columns." from file ".

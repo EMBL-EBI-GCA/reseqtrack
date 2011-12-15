@@ -72,8 +72,6 @@ my $inputs_file;
 	   );
 
 
-
-
 if ($help) {
     perldocs();
 }
@@ -162,11 +160,6 @@ my $workflow_hash = setup_workflow($db);
 print "Have ".keys(%$workflow_hash)." workflow objects to use\n" if($verbose);
 my $total_submission_count = 0;
 
-my %event_hash;
-foreach my $event (@$events) {
-    $event_hash{$event->name} = $event;
-}
-
 my $loop_count = 1;
 LOOP:
 while(1){
@@ -174,70 +167,44 @@ while(1){
     $loop_count++;
     my $submitted_count = 0;
     my %submitted_hash;
-    my $input_hash = get_inputs($db, $events);
-    my %event_to_submit;
-    my $check_allowed_table_name = scalar keys %allowed_inputs ? 1 : 0;
-    TABLE_NAME:
-    foreach my $table_name(keys(%$input_hash)){
-        next TABLE_NAME if ($check_allowed_table_name && ! exists $allowed_inputs{$table_name});
-        my $check_allowed_type = $check_allowed_table_name && scalar keys %{$allowed_inputs{$table_name}} ? 1 : 0;
-        print "TABLE NAME ".$table_name."\n" if($verbose);
-        my %type_hash = %{$input_hash->{$table_name}};
-        INPUT_TYPE:
-        foreach my $input_type(keys(%type_hash)){
-            next INPUT_TYPE if ($check_allowed_type && ! exists $allowed_inputs{$table_name}{$input_type});
-            my $check_allowed_input = $check_allowed_type && scalar keys %{$allowed_inputs{$table_name}{$input_type}} ? 1 : 0;
-            my $inputs = $type_hash{$input_type};
-            print "INPUT TYPE ".$input_type."\n" if($verbose);
-            my $events_for_input_type = $type_event_hash->{$input_type};
-            INPUT:
-            foreach my $input (@$inputs) {
-                next INPUT if ($check_allowed_input && ! exists $allowed_inputs{$table_name}{$input_type}{$input});
-                EVENT:
-                foreach my $event(@$events_for_input_type){
-                    next EVENT if($event->table_name ne $table_name);
-                    next EVENT if(@event_names && !$event_name_hash{$event->name});
-                    my $workflow = $workflow_hash->{$event->name};
-                    print "Checking if ".$event->name." can run on ".$input."\n" if($verbose);
-                    if (can_run($input, $event, $db, $workflow, $input_hash, $retry_max, $verbose)) {
-                        if (!$event_to_submit{$event->name}) {
-                            $event_to_submit{$event->name} = [];
-                        }
-                        push(@{$event_to_submit{$event->name}}, $input);
-                    } else {
-                        print "Cant run\n" if($verbose);
-                    }
+    my %input_hash;
+    EVENT:
+    foreach my $event (@$events) {
+        print "\nConsidering event ".$event->name."\n" if($verbose);
+        my $existing_jobs = $ja->fetch_by_event($event);
+        my $inputs = get_incomplete_inputs($db, $event);
+        print "There are ".@$inputs." inputs that are not complete\n" if ($verbose);
+        next EVENT if (!@$inputs);
 
+        $inputs = check_existing_jobs($inputs, $existing_jobs, $retry_max, $verbose);
+        print "There are ".@$inputs." inputs after filtering for existing jobs\n" if ($verbose);
+        next EVENT if (!@$inputs);
 
-                } # end of EVENT loop
-                if ($term_sig) {
-                    print "Have term_sig so exiting loop\n";
-                    last LOOP;
-                }
-            } # end of INPUT loop
-        } # end of INPUT_TYPE loop
-    } # end of TABLE_NAME loop
+        my $workflow = $workflow_hash->{$event->name};
+        if ($workflow) {
+            $inputs = check_workflow($workflow, $inputs, \%input_hash, $db, $verbose);
+            print "There are ".@$inputs." inputs after checking the workflow\n" if ($verbose);
+            next EVENT if (!@$inputs);
+        }
 
-    EVENT_NAME:
-    foreach my $name(keys(%event_to_submit)){
-        print "\nConsidering event ".$name."\n";# if($verbose);
+        if ($term_sig) {
+            print "Have term_sig so exiting loop\n";
+            last LOOP;
+        }
 
-        my $inputs_to_submit = $event_to_submit{$name};
-        my $event = $event_hash{$name};
-        my @jobs_to_submit;
-        my %input_strings;
-    
-        print "Have ".@$inputs_to_submit." inputs to submit\n"; # if($verbose);
-    
+        next EVENT if (!@$inputs);
+        print "Have ".@$inputs." inputs to submit for ".$event->name."\n";
+
         if ($test) {
-            foreach my $input (@$inputs_to_submit) {
+            foreach my $input (@$inputs) {
                 my $cmd = create_event_commandline($event, $input);
                 print $cmd, "\n";
             }
-            next EVENT_NAME;
+            next EVENT;
         }
     
-        foreach my $input (@$inputs_to_submit) {
+        my @jobs_to_submit;
+        foreach my $input (@$inputs) {
             my $job = create_job_object($event, $input, $db, $num_output_dirs, $retry_max);
             push(@jobs_to_submit, $job) if($job);
         }
@@ -288,7 +255,7 @@ while(1){
             }
 
         } # end of SUBMIT loop
-    } # end of EVENT_NAME loop
+    } # end of EVENT loop
 
 
     #check if pipeline is finished
