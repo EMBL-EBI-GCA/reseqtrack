@@ -42,6 +42,7 @@ my (	$file,
 		%unique_allele_strings,
 		$help,
 		$cache,
+		$cache_dir,
 		$outfile,
 );
 
@@ -51,7 +52,7 @@ my $expanded_view = 0;
 my $verbose = 0;
 my $host = 'ensembldb.ensembl.org';
 my $user = 'anonymous';
-my $cache_dir = '/nfs/1000g-work/G1K/work/zheng/.vep/homo_sapiens/64';
+
 
 &GetOptions( 
 	'host=s'		=>\$host,
@@ -106,7 +107,7 @@ while (my $x=$vcf->next_data_hash()) {
 		
 		my $is_functional = populate_snp_impact_hash($x, $identifier, $cache, $cache_dir);
 		
-		next if ($is_functional == 0 && !$print_all);
+		next if ( !$is_functional && !$print_all);
 		
         for my $individual (keys %{$$x{gtypes}}) {
             my ($al1,$sep,$al2) = $vcf->parse_alleles($x,$individual);
@@ -223,23 +224,6 @@ print "Job done!  Please find the output file in $outfile\n";
 ################
 ##### SUBS #####
 ################
-=head
-sub parse_sample_file {
-	my ($sample_panel) = @_;
-	open(SAM, "<", $sample_panel) || die("Cannot open sample panel file $sample_panel"); ## FIXME: allow open a URL
-	my %total_sample_cnt_hash;
-	while (<SAM>) {
-		chomp;
-		s/^\s+|\s+$//g;
-		my ($sam, $pop, $plat) = split(/\t/, $_);
-		$sample_pop{$sam} = $pop;	
-		$total_sample_cnt_hash{$sam} = 1;
-	} 
-	my $total_sample_count = keys %total_sample_cnt_hash;
-	return $total_sample_count;
-}
-=cut
-
 sub parse_sample_file {
 	my ($sample_panel) = @_;
 	
@@ -289,6 +273,7 @@ sub populate_snp_impact_hash {
 	## Make sure indels get the correct ensembl-style coordinates	
 	my ($s, $e, $allele_string) = vcf_to_ensembl($y); ### FIXME, when Will has appropriate documentation for VEP.pm, 
 													  ### will use parse_line function to create VariationFeature objects from VCF line by line.
+													  ### variant_pattern.finder.v2.pl uses the VEP functions 
 	
 	if ( $cache ) {
 		$snp_func_ref = predict_snp_func_in_cache($y->{CHROM}, $s, $e, $allele_string, $cache_dir1);
@@ -528,7 +513,6 @@ sub vcf_to_ensembl {
 }    
 	
 ##################################################################################################################################
-
 =pod
 
 =head1 NAME 
@@ -555,14 +539,13 @@ sub vcf_to_ensembl {
 
 =head1	REQUIRED ARGUMENTS
 
-	-vcf		Path to a locally or remotely accessible tabix indexed vcf file. The vcf format is a tab format for presenting variation sites and 
+	-vcf		Path to a locally or remotely accessible tabix indexed vcf file. The vcf format is a tab delimited format for presenting variation sites and 
 			genotypes data and is described at http://vcftools.sourceforge.net/specs.html. This tool takes both vcf4.0 and vcf4.1 format 
 			files.
 	-region		Chromosomal region in the format of chr:start-end (1:1000000-100500). As the longer the region is, the more distinctive variant 
 			patterns may exist, it is best to work with small regions shorter than several kb.  
-	-sample_panel_file		Path to a tab-delimited file containing sample to population mapping. This information helps to organize the output by population.
-			A few lines of example is below:
-				
+	-sample_panel_file	Path to a tab-delimited file containing sample to population mapping; the file can be either local or remotely accessible. This information 
+				helps to organize the output by population.  A few lines of example is below:
 				HG00098 GBR     ILLUMINA
 				HG00100 GBR     ILLUMINA
 				HG00106 GBR     ILLUMINA
@@ -578,15 +561,16 @@ sub vcf_to_ensembl {
 				therefore the number of distinctive combinations of variations is minimized; it offers a simplified and clear variation landscape 
 				in the region. The expanded view treats homozygous reference sites and no genotype data sites differently; allows one to see the 
 				data with more accuracy. 
+	-cache			When database connection is not stable or not desired, the script can be run at -cache mode.  Ensembl variation archive file needs 
+				to be downloaded before hand to run in the cache mode, see http://www.ensembl.org/info/docs/variation/vep/vep_script.html#cacheopt for details
+	-cache_dir		Directory where the Ensembl archive file is
 	-verbose		print progress along the way				
 	-help			Print out help menu
-	-cache			Ensembl variation archive file needs to be downloaded before hand to run in the cache mode, see http://www.ensembl.org/info/docs/variation/vep/vep_script.html#cacheopt for details
-	-cache_dir		Directory where the Ensembl archive file is
-			
+				
 =head1	OUTPUT FILE
 
-	The output file is a tab delimited file. If user did not specify an output file name, an output file can be found in the output_dir with this naming convention: chr_start-end.csv.sorted. 
-	An example is chr17_41256206-41257206.csv.sorted.  It has two lines of headers.
+	The output file is a tab delimited file. If user did not specify an output file name, an output file can be found in the output_dir with this naming convention: chr_start-end.txt. 
+	An example is chr17_41256206-41257206.txt.  It has two lines of headers.
 
 	Header line 1,		chromosome and chromosomal position of the variation, separated by ":", followed by variation rs number and the reference allele in a 
 				square parenthesis.  When rs number is not available, a "." is used instead.
@@ -625,12 +609,14 @@ perl ~/ReseqTrack/scripts/variation_data/variant_pattern_finder.pl \
 -region 14:106329408-106329468 \
 -verbose  \
 -cache \
+-cache_dir /nfs/1000g-work/G1K/work/zheng/.vep/homo_sapiens/65 \
 -print_all
 
- perl ~/ReseqTrack/scripts/variation_data/variant_pattern_finder.v2.pl \
- -vcf /nfs/1000g-archive/vol1/ftp/release/20110521/ALL.chr14.phase1_integrated_calls.20101123.snps_indels_svs.genotypes.vcf.gz \
- -sample_panel_file ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20110521/phase1_integrated_calls.20101123.ALL.panel \
- -region 14:106329408-106329468 \
- -verbose \
- -cache \
- -print_all
+perl ~/ReseqTrack/scripts/variation_data/variant_pattern_finder.pl \
+-vcf /nfs/1000g-archive/vol1/ftp/release/20110521/ALL.chr14.phase1_integrated_calls.20101123.snps_indels_svs.genotypes.vcf.gz \
+-sample_panel_file ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20110521/phase1_integrated_calls.20101123.ALL.panel \
+-region 14:106329408-106329468 \
+-verbose \
+-cache \
+-cache_dir /nfs/1000g-work/G1K/work/zheng/.vep/homo_sapiens/65 \
+-print_all
