@@ -35,7 +35,8 @@ use vars qw (@ISA  @EXPORT);
 
 @EXPORT = qw(get_inputs get_all_inputs get_incomplete_inputs create_event_commandline
           get_random_input_string setup_batch_submission_system setup_event_objects
-          setup_workflow check_workflow check_existing_jobs create_job_object create_submission_cmds
+          setup_workflow check_workflow check_existing_jobs create_job_object
+          create_submission_cmds create_test_submission_cmd
           has_to_many_jobs check_if_done create_job_output_stem);
 
 =head2 get_all_inputs
@@ -663,6 +664,34 @@ sub create_submission_cmds{
 
   return(\%cmds);
 }
+
+sub create_test_submission_cmd{
+  my ($db, $batch_object, $runner, $event, $num_inputs) = @_;
+  my $wrapper = "perl ".$runner." -dbhost ".$db->dbc->host." -dbuser ".$db->dbc->username
+            ." -dbpass ".$db->dbc->password." -dbport ".$db->dbc->port
+            ." -dbname ".$db->dbc->dbname." -name ".$event->name;
+
+  if ($event->runner_options) {
+      $wrapper .= " ".$event->runner_options;
+  }
+  $wrapper .= " 'dbID'";
+
+  my $stem = create_job_output_stem('input_string', $event, 1);
+  my $farm_log_file = "$stem.log";
+
+  my $submission_array_size = $num_inputs > $event->max_array_size
+                            ? $event->max_array_size
+                            : $num_inputs;
+  my $cmd = $batch_object->construct_command_line($wrapper, 
+                                                  $event->farm_options,
+                                                  $farm_log_file,
+                                                  $event->name,
+                                                  $submission_array_size,
+                                                  $event->job_slot_limit);
+
+  return $cmd;
+}
+
 
 
 

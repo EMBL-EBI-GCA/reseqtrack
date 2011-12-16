@@ -196,6 +196,9 @@ while(1){
         print "Have ".@$inputs." inputs to submit for ".$event->name."\n";
 
         if ($test) {
+            my $submission_cmd =
+                    create_test_submission_cmd($db, $batch_submission_object, $runner, $event, scalar @$inputs);
+            print $submission_cmd, "\n";
             foreach my $input (@$inputs) {
                 my $cmd = create_event_commandline($event, $input);
                 print $cmd, "\n";
