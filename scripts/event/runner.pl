@@ -68,6 +68,7 @@ my $submission_id = $ENV{'LSB_JOBID'};
 
 print "$commandline\n";
 print "LSB_JOBINDEX: $submission_index\n";
+print "\n\n";
 
 &GetOptions(
     'dbhost=s' => \$dbhost,
@@ -163,15 +164,14 @@ $job->current_status('RUNNING');
 $ja->set_status($job);
 
 my $cmd = create_event_commandline($event, $input_string);
-print $cmd. "\n";
 my $exit;
 eval {
-    print "\n*****" . $cmd . " output******\n";
+    print "\n*****" . $cmd . "******\n\n";
     $exit = system($cmd);
     if ($exit >= 1) {
         throw($cmd . " returned exit code " . $exit);
     }
-    print "**********\n";
+    print "\n**********\n";
 };
 if ($@) {
     my $warning = $cmd . " failed with $@ error";
