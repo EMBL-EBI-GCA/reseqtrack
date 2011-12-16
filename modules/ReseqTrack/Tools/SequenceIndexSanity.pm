@@ -182,7 +182,7 @@ sub type_file{
 }
 
 sub compare_index_to_era{
-  my( $dbhost,$dbname,$dbuser,$dbpass,$dbport,$index_file) = @_;
+  my( $dbhost,$dbname,$dbuser,$dbpass,$dbport,$index_file, $population_rules, $study_ids) = @_;
   my $db = ReseqTrack::DBSQL::ERADBAdaptor->new(
     -host => $dbhost,
     -user => $dbuser,
@@ -194,6 +194,8 @@ sub compare_index_to_era{
   my $run_hash = get_index_hash_on_column($index_file, 2);
   
   my $g1k_index_adaptor = $db->get_ERARunMetaInfoAdaptor;
+  $g1k_index_adaptor->population_rules($population_rules);
+  $g1k_index_adaptor->study_ids($study_ids);
   my $indexes = $g1k_index_adaptor->fetch_all;
   
   my %era_index_hash;

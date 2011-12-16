@@ -32,10 +32,12 @@ sub new{
   bless $self, $class;
   my ($era_db, $dcc_db, $era_dbuser, $era_dbpass, $dbname, $dbuser, $dbport, $dbpass,
       $dbhost, $store_new, $update, $study_id_file, $log_dir, $verbose, 
-      $collection_type, $filtered_fastq_type, $ftp_root, $other_types) = 
+      $collection_type, $filtered_fastq_type, $ftp_root, $other_types,
+      $population_rules, $study_ids) = 
 	rearrange([qw(ERA_DB DCC_DB ERA_DBUSER ERA_DBPASS DBNAME DBUSER DBPORT 
 		      DBPASS DBHOST STORE_NEW UPDATE STUDY_ID_FILE LOG_DIR VERBOSE 
-		      COLLECTION_TYPE FILTERED_FASTQ_TYPE FTP_ROOT OTHER_TYPES)], 
+		      COLLECTION_TYPE FILTERED_FASTQ_TYPE FTP_ROOT OTHER_TYPES
+                      POPULATION_RULES STUDY_IDS)], 
 		  @args);
   #SETTING DEFAULTS
   $self->filtered_fastq_type('FILTERED_FASTQ');
@@ -58,6 +60,8 @@ sub new{
   $self->collection_type($collection_type);
   $self->filtered_fastq_type($filtered_fastq_type);
   $self->ftp_root($ftp_root);
+  $self->population_rules($population_rules);
+  $self->study_ids($study_ids);
   
   return $self;
 }
@@ -222,6 +226,24 @@ sub diff_set{
     $self->{diff_set} = $arg;
   }
   return $self->{diff_set};
+}
+
+sub population_rules {
+    my ($self, $rules) = @_;
+    if ($rules) {
+        throw("rules must be an arrayref") if (ref $rules ne 'ARRAY');
+        $self->{population_rules} = $rules;
+    }
+    return $self->{population_rules};
+}
+
+sub study_ids {
+    my ($self, $study_ids) = @_;
+    if ($study_ids) {
+        throw("study_ids must be an arrayref") if (ref $study_ids ne 'ARRAY');
+        $self->{study_ids} = $study_ids;
+    }
+    return $self->{study_ids};
 }
 
 sub find_differences{
@@ -641,7 +663,10 @@ sub get_era_rmis{
     $self->{era_rmis} = $rmis;
   }
   if(!$self->{era_rmis} || $force_update){
-    my $rmis = $self->era_db->get_ERARunMetaInfoAdaptor->fetch_all();
+    my $era_rmia = $self->era_db->get_ERARunMetaInfoAdaptor;
+    $era_rmia->population_rules($self->population_rules);
+    $era_rmia->study_ids($self->study_ids);
+    my $rmis = $era_rmia->fetch_all();
     my @array;
     foreach my $rmi(@$rmis){
       next unless($rmi);

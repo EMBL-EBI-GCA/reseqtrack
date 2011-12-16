@@ -33,6 +33,7 @@ use ReseqTrack::Tools::Exception qw(throw warning stack_trace_dump);
 use ReseqTrack::Tools::Argument qw(rearrange);
 use ReseqTrack::Tools::SequenceIndexUtils;
 use ReseqTrack::Tools::ERAUtils;
+use ReseqTrack::Tools::RunMetaInfoUtils qw(convert_population);
 use ReseqTrack::Tools::GeneralUtils;
 use ReseqTrack::Tools::Statistics;
 
@@ -108,6 +109,26 @@ sub old_index{
     $self->{old_index} = $old_index;
   }
   return $self->{old_index};
+}
+
+=head2 population_rules
+
+  Arg [1]   : ReseqTrack::Tools::Statistics::SequenceIndexStatistics
+  Arg [2]   : arrayref of hashrefs representing rules (see ReseqTrack::Tools::RunMetaInfoUtils::convert_population)
+  Function  : accessor method for population rules. Can be used to override the default rules in convert_population.
+  Returntype: arrayref
+  Exceptions: throws if rules is not an arrayref
+  Example   : $self->population_rules([ {pop => 'YRI', regex => qr/YRI/i} ])
+
+=cut
+
+sub population_rules {
+    my ($self, $rules) = @_;
+    if ($rules) {
+        throw("rules must be an arrayref") if (ref $rules ne 'ARRAY');
+        $self->{population_rules} = $rules;
+    }
+    return $self->{population_rules};
 }
 
 
@@ -356,7 +377,7 @@ sub parse_index{
   foreach my $file(keys(%{$hash})){
     my @values = split /\t/, $hash->{$file};
     next if($values[20]);
-    my $pop = convert_population($values[10], $values[2], 0);
+    my $pop = convert_population($values[10], $values[2], 0, $self->population_rules);
     if($values[5] eq 'ABHTD'){
       $values[5] = 'ABI';
     }

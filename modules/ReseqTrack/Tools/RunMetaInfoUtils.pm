@@ -11,7 +11,13 @@ use File::Basename;
 use vars qw (@ISA  @EXPORT);
 
 @ISA = qw(Exporter);
-@EXPORT = qw(are_run_meta_infos_identical create_object_from_index_line index_to_name_hash get_meta_info_hash create_history_for_run_meta_info create_suppressed_index_line create_index_line get_files_associated_with_run get_file_collections_associated_with_run copy_run_meta_info get_analysis_group get_sequence_index_stats get_withdrawn_summary get_study_descriptions get_index_group_stats get_run_id_from_filename);
+@EXPORT = qw(are_run_meta_infos_identical create_object_from_index_line
+        index_to_name_hash get_meta_info_hash create_history_for_run_meta_info
+        create_suppressed_index_line create_index_line
+        get_files_associated_with_run get_file_collections_associated_with_run
+        copy_run_meta_info get_analysis_group get_sequence_index_stats
+        get_withdrawn_summary get_study_descriptions get_index_group_stats
+        get_run_id_from_filename convert_center_name convert_population);
 
 
 
@@ -376,7 +382,7 @@ sub get_analysis_group{
 }
 
 sub get_sequence_index_stats{
-  my ($index_file, $summary_column, $stats_column, $run_id_hash) = @_;
+  my ($index_file, $summary_column, $stats_column, $run_id_hash, $population_rules) = @_;
   open(FH, $index_file) or 
       throw("ReseqTrack::Tools::RunMetaInfoUtils::get_sequence_index_stats ".
             "failed to open ".$index_file." $!");
@@ -386,7 +392,7 @@ sub get_sequence_index_stats{
     chomp;
     my @values = split /\t/;
     next if($run_id_hash && !($run_id_hash->{$values[2]}));
-    $values[10] = convert_population($values[10], $values[2]);
+    $values[10] = convert_population($values[10], $values[2], undef, $population_rules);
     $values[5] = convert_center_name($values[5]);
     next if($values[20]);
     my $summary = $values[$summary_column];
@@ -402,7 +408,7 @@ sub get_sequence_index_stats{
 }
 
 sub get_index_group_stats{
-  my ($index_file, $first_column, $second_column, $stats_column, $run_id_hash) = @_;
+  my ($index_file, $first_column, $second_column, $stats_column, $run_id_hash, $population_rules) = @_;
    open(FH, $index_file) or 
       throw("ReseqTrack::Tools::RunMetaInfoUtils::get_sequence_index_stats ".
             "failed to open ".$index_file." $!");
@@ -412,7 +418,7 @@ sub get_index_group_stats{
     chomp;
     my @values = split /\t/;
     next if($run_id_hash && !($run_id_hash->{$values[2]}));
-    $values[10] = convert_population($values[10], $values[2]);
+    $values[10] = convert_population($values[10], $values[2], undef, $population_rules);
     $values[5] = convert_center_name($values[5]);
     next if($values[20]);
     $hash{$values[$first_column]}{$values[$second_column]} += $values[$stats_column];
@@ -469,108 +475,63 @@ sub convert_center_name{
 
 
 sub convert_population{
-  my ($string, $run_id, $study_id) = @_;
+  my ($string, $run_id, $study_id, $rules) = @_;
   throw("Can't convert an empty string for ".$run_id." ".$study_id)
     unless($string);
-  my $pop;
-  if($string =~ /yri/i){
-    $pop = 'YRI';
-  }elsif($string =~ /PEL/i){
-    $pop = 'PEL';
-  }elsif($string =~ /KHV/){
-    $pop = 'KHV';
-  }elsif($string =~ /yoruba/i){
-    $pop = 'YRI';
-  }elsif($string =~ /ACB/){
-    $pop = 'ACB';
-  }elsif($string =~ /southern\s+han\s+chinese/i){
-    $pop = 'CHS';
-  }elsif($string =~ /CHS/i){
-    $pop = 'CHS';
-  }elsif($string =~ /han chinese/i){
-    $pop = 'CHB';
-  }elsif($string =~ /CHB/i){
-    $pop = 'CHB';
-  }elsif($string =~ /japan/i){
-    $pop = 'JPT';
-  }elsif($string =~ /JPT/i){
-    $pop = 'JPT';
-  }elsif($string =~ /CEU/i){
-    $pop = 'CEU'; 
-  }elsif($string =~ /CEPH/i){
-    $pop = 'CEU';
-  }elsif($string =~ /tuscan/i){
-    $pop = 'TSI';
-  }elsif($string =~ /toscan/i){
-    $pop = 'TSI';
-  }elsif($string =~ /TSI/i){
-    $pop = 'TSI';
-  }elsif($string =~ /denver/i){
-    $pop = 'CHD';
-  }elsif($string =~ /CHD/i){
-    $pop = 'CHD';
-  }elsif($string =~ /Luhya/i){
-    $pop = 'LWK';
-  }elsif($string =~ /LWK/i){
-    $pop = 'LWK';
-  }elsif($string =~ /UTAH/i){
-    $pop = 'CEU';
-  }elsif($string =~ /ASW/){
-    $pop = 'ASW';
-  }elsif($string =~ /MXL/){
-    $pop = 'MXL';
-  }elsif($string =~ /African-American/){
-    $pop = 'ASW';
-  }elsif($string =~ /Mexican-American/){
-    $pop = 'MXL';
-  }elsif($string =~ /UK/){
-    $pop = 'GBR';	
-  }elsif($string =~ /British/){
-    $pop = 'GBR';
-  }elsif($string =~ /British\s+\(GBR\)/){
-    $pop = 'GBR';
-  }elsif($string =~ /GBR/i){
-    $pop = 'GBR';
-  }elsif($string =~ /FIN/i){
-    $pop = 'FIN';
-  }elsif($string =~ /SHC/){
-    $pop = 'CHS';
-  }elsif($string =~ /Puerto\s+Rican/i){
-    $pop = 'PUR';
-  }elsif($string =~ /pur/i){
-    $pop = 'PUR';
-  }elsif($string =~ /Colombian/){
-    $pop = 'CLM';
-  }elsif($string =~ /CLM/){
-    $pop = 'CLM';
-  }elsif($string =~ /Gujarati/){
-    $pop = 'GIH';
-  }elsif($string =~ /GIH/){
-    $pop = 'GIH';
-  }elsif($string =~ /Maasai/){
-    $pop = 'MKK';
-  }elsif($string =~ /Spanish/i){
-    $pop = 'IBS';
-  }elsif($string =~ /IBS/i){
-    $pop = 'IBS';
-  }elsif($string =~ /CDX/i){
-    $pop = 'CDX';
-  }elsif($string =~ /GWD/i){
-    $pop = 'GWD';
-  }elsif($string =~ /GHN/i){
-    $pop = 'GHN';
-  }elsif($string =~ /MAB/i){
-    $pop = 'MAB';
-  }elsif($string =~ /AJM/i){
-    $pop = 'AJM';
-  }elsif($string =~ /ACB/i){
-    $pop = 'ACB';
-  }else{
-    throw("Failed to find pop for ".$string." ".$run_id." ".$study_id);
-   }
-  return $pop;
+  if (! $rules) {
+      $rules = [];
+      push (@$rules, {pop => 'YRI', regex => qr/YRI/i});
+      push (@$rules, {pop => 'PEL', regex => qr/PEL/i});
+      push (@$rules, {pop => 'KHV', regex => qr/KHV/});
+      push (@$rules, {pop => 'YRI', regex => qr/yoruba/i});
+      push (@$rules, {pop => 'ACB', regex => qr/ACB/});
+      push (@$rules, {pop => 'CHS', regex => qr/southern\s+han\s+chinese/i});
+      push (@$rules, {pop => 'CHS', regex => qr/CHS/i});
+      push (@$rules, {pop => 'CHB', regex => qr/han chinese/i});
+      push (@$rules, {pop => 'CHB', regex => qr/CHB/i});
+      push (@$rules, {pop => 'JPT', regex => qr/japan/i});
+      push (@$rules, {pop => 'JPT', regex => qr/JPT/i});
+      push (@$rules, {pop => 'CEU', regex => qr/CEU/i});
+      push (@$rules, {pop => 'CEU', regex => qr/CEPH/i});
+      push (@$rules, {pop => 'TSI', regex => qr/t[uo]scan/i});
+      push (@$rules, {pop => 'TSI', regex => qr/TSI/i});
+      push (@$rules, {pop => 'CHD', regex => qr/denver/i});
+      push (@$rules, {pop => 'CHD', regex => qr/CHD/i});
+      push (@$rules, {pop => 'LWK', regex => qr/Luhya/i});
+      push (@$rules, {pop => 'LWK', regex => qr/LWK/i});
+      push (@$rules, {pop => 'CEU', regex => qr/UTAH/i});
+      push (@$rules, {pop => 'ASW', regex => qr/ASW/});
+      push (@$rules, {pop => 'MXL', regex => qr/MXL/});
+      push (@$rules, {pop => 'ASW', regex => qr/African-American/});
+      push (@$rules, {pop => 'MXL', regex => qr/Mexican-American/});
+      push (@$rules, {pop => 'GBR', regex => qr/UK/});
+      push (@$rules, {pop => 'GBR', regex => qr/British/});
+      push (@$rules, {pop => 'GBR', regex => qr/GBR/i});
+      push (@$rules, {pop => 'FIN', regex => qr/FIN/i});
+      push (@$rules, {pop => 'CHS', regex => qr/SHC/i});
+      push (@$rules, {pop => 'PUR', regex => qr/Puerto\s+Rican/i});
+      push (@$rules, {pop => 'PUR', regex => qr/PUR/i});
+      push (@$rules, {pop => 'CLM', regex => qr/Colombian/});
+      push (@$rules, {pop => 'CLM', regex => qr/CLM/});
+      push (@$rules, {pop => 'GIH', regex => qr/Gujarati/});
+      push (@$rules, {pop => 'GIH', regex => qr/GIH/});
+      push (@$rules, {pop => 'MKK', regex => qr/Maasai/});
+      push (@$rules, {pop => 'IBS', regex => qr/Spanish/i});
+      push (@$rules, {pop => 'IBS', regex => qr/IBS/i});
+      push (@$rules, {pop => 'CDX', regex => qr/CDX/i});
+      push (@$rules, {pop => 'GWD', regex => qr/GWD/i});
+      push (@$rules, {pop => 'GHN', regex => qr/GHN/i});
+      push (@$rules, {pop => 'MAB', regex => qr/MAB/i});
+      push (@$rules, {pop => 'AJM', regex => qr/AJM/i});
+      push (@$rules, {pop => 'ACB', regex => qr/ACB/i});
+  }
+  foreach my $rule (@$rules) {
+      if ($string =~ $rule->{regex}) {
+          return $rule->{pop};
+      }
+  }
+  throw("Failed to find pop for ".$string." ".$run_id." ".$study_id);
 }
-
 
 
 sub get_run_id_from_filename{
