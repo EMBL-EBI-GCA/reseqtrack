@@ -8,7 +8,7 @@ use ReseqTrack::DBSQL::BaseAdaptor;
 use ReseqTrack::RunMetaInfo;
 use ReseqTrack::Tools::Exception qw(throw warning);
 use ReseqTrack::Tools::Argument qw(rearrange);
-use ReseqTrack::Tools::RunMetaInfoUtils qw (are_run_meta_infos_identical);
+use ReseqTrack::Tools::RunMetaInfoUtils qw (are_run_meta_infos_identical convert_population);
 use ReseqTrack::Tools::ERAUtils;
 use ReseqTrack::Tools::ERARunMetaInfoWhere;
 
@@ -140,7 +140,7 @@ sub object_from_hashref{
   }
   my $population;
   eval{
-    $population = convert_population($hashref->{POPULATION}, $hashref->{RUN_ID}, $hashref->{STUDY_ID});
+    $population = convert_population($hashref->{POPULATION}, $hashref->{RUN_ID}, $hashref->{STUDY_ID}, $self->population_rules);
   };
   if($@){
     print "$@\n";
@@ -227,108 +227,17 @@ sub convert_center_name{
   }
 }
 
-sub convert_population{
-  my ($string, $run_id, $study_id) = @_;
-  throw("Can't convert an empty string for ".$run_id." ".$study_id)
-    unless($string);
-  my $pop;
-  if($string =~ /yri/i){
-    $pop = 'YRI';
-  }elsif($string =~ /PEL/i){
-    $pop = 'PEL';
-  }elsif($string =~ /KHV/){
-    $pop = 'KHV';
-  }elsif($string =~ /yoruba/i){
-    $pop = 'YRI';
-  }elsif($string =~ /ACB/){
-    $pop = 'ACB';
-  }elsif($string =~ /southern\s+han\s+chinese/i){
-    $pop = 'CHS';
-  }elsif($string =~ /CHS/i){
-    $pop = 'CHS';
-  }elsif($string =~ /han chinese/i){
-    $pop = 'CHB';
-  }elsif($string =~ /CHB/i){
-    $pop = 'CHB';
-  }elsif($string =~ /japan/i){
-    $pop = 'JPT';
-  }elsif($string =~ /JPT/i){
-    $pop = 'JPT';
-  }elsif($string =~ /CEU/i){
-    $pop = 'CEU'; 
-  }elsif($string =~ /CEPH/i){
-    $pop = 'CEU';
-  }elsif($string =~ /tuscan/i){
-    $pop = 'TSI';
-  }elsif($string =~ /toscan/i){
-    $pop = 'TSI';
-  }elsif($string =~ /TSI/i){
-    $pop = 'TSI';
-  }elsif($string =~ /denver/i){
-    $pop = 'CHD';
-  }elsif($string =~ /CHD/i){
-    $pop = 'CHD';
-  }elsif($string =~ /Luhya/i){
-    $pop = 'LWK';
-  }elsif($string =~ /LWK/i){
-    $pop = 'LWK';
-  }elsif($string =~ /UTAH/i){
-    $pop = 'CEU';
-  }elsif($string =~ /ASW/){
-    $pop = 'ASW';
-  }elsif($string =~ /MXL/){
-    $pop = 'MXL';
-  }elsif($string =~ /African-American/){
-    $pop = 'ASW';
-  }elsif($string =~ /Mexican-American/){
-    $pop = 'MXL';
-  }elsif($string =~ /UK/){
-    $pop = 'GBR';	
-  }elsif($string =~ /British/){
-    $pop = 'GBR';
-  }elsif($string =~ /British\s+\(GBR\)/){
-    $pop = 'GBR';
-  }elsif($string =~ /GBR/i){
-    $pop = 'GBR';
-  }elsif($string =~ /FIN/i){
-    $pop = 'FIN';
-  }elsif($string =~ /SHC/){
-    $pop = 'CHS';
-  }elsif($string =~ /Puerto\s+Rican/i){
-    $pop = 'PUR';
-  }elsif($string =~ /pur/i){
-    $pop = 'PUR';
-  }elsif($string =~ /Colombian/){
-    $pop = 'CLM';
-  }elsif($string =~ /CLM/){
-    $pop = 'CLM';
-  }elsif($string =~ /Gujarati/){
-    $pop = 'GIH';
-  }elsif($string =~ /GIH/){
-    $pop = 'GIH';
-  }elsif($string =~ /Maasai/){
-    $pop = 'MKK';
-  }elsif($string =~ /Spanish/i){
-    $pop = 'IBS';
-  }elsif($string =~ /IBS/i){
-    $pop = 'IBS';
-  }elsif($string =~ /CDX/i){
-    $pop = 'CDX';
-  }elsif($string =~ /GWD/i){
-    $pop = 'GWD';
-  }elsif($string =~ /GHN/i){
-    $pop = 'GHN';
-  }elsif($string =~ /MAB/i){
-    $pop = 'MAB';
-  }elsif($string =~ /AJM/i){
-    $pop = 'AJM';
-  }elsif($string =~ /ACB/i){
-    $pop = 'ACB';
-  }else{
-    throw("Failed to find pop for ".$string." ".$run_id." ".$study_id);
-   }
-  return $pop;
+sub population_rules {
+    my ($self, $rules) = @_;
+    if ($rules) {
+        throw("rules must be an arrayref") if (ref $rules ne 'ARRAY');
+        $self->{population_rules} = $rules;
+    }
+    return $self->{population_rules};
 }
+
+
+
 
 
 
