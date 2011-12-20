@@ -36,7 +36,8 @@ sub columns{
 }
 
 sub where{
-  return era_run_meta_info_where;
+  my ($self) = @_;
+  return era_run_meta_info_where($self->study_ids);
 }
 
 
@@ -234,6 +235,15 @@ sub population_rules {
         $self->{population_rules} = $rules;
     }
     return $self->{population_rules};
+}
+
+sub study_ids {
+    my ($self, $study_ids) = @_;
+    if ($study_ids) {
+        throw("study_ids must be an arrayref") if (ref $study_ids ne 'ARRAY');
+        $self->{study_ids} = $study_ids;
+    }
+    return $self->{study_ids};
 }
 
 
