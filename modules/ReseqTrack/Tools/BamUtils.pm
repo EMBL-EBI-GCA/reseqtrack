@@ -127,9 +127,8 @@ return  \%chrom_reads, $sex  ;
 }##
 
 sub  move_bam_to_trash {
-	my ($db2, $file, $full_name, $run) = @_;
-	
-	#my $full_name = $file->name;
+	my ($db2, $file, $run) = @_;
+	my $full_name = $file->name;
 	my $filen = basename($full_name);
 
 	##### If a BAM file, remove it from collection
