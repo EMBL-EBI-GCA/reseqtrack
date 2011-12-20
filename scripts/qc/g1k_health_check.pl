@@ -49,7 +49,7 @@ while (<$SNPS>){
   $snps{$_} = 1;
 }
 close $SNPS;
-
+&collections_with_missing_file_objects($db);
 
 &failed_glf_but_FILTERED_FASTQ ($db);
 
@@ -81,6 +81,37 @@ exit if $input{skip_name_check};
 
 print "\n\nDone \n";
 
+sub collections_with_missing_file_objects {
+ my ( $db,$verbose) = shift;
+
+my $sql ="select cg.*, c.name, c.type from collection_group cg,collection c   where cg.other_id not in (select file_id from file) and cg.collection_id not in (55697,55698,55699,55700) and cg.collection_id = c.collection_id" ;
+
+ print "Looking for collections with missing file_ids linked to them\n\n";
+
+ print $sql,"\n\n" if $verbose;
+   
+ my $sth = $db->dbc->prepare($sql);
+ $sth->execute;
+ my $ctr = 0;
+ 
+ print "coll_id cg_other_id coll_name  coll_type\n";
+ print "======= ==========  =========  =========\n";
+ while ( my @row = $sth->fetchrow_array ) {
+   $ctr++;
+   my $line = join ( "\t", @row);
+   print $line ,"\n";
+ }
+
+ print "Found $ctr collections with missing file_id linked to them\n";
+
+  $sth->finish;
+ return;
+
+}
+
+
+
+
 
 =head2 history_objects_with_no_coll_obj 
 
@@ -108,6 +139,7 @@ sub history_objects_with_no_assoc_obj {
     while ( my @row = $sth->fetchrow_array ) {
             $ctr++;
       }
+    $sth->finish;
 
  print "Got $ctr  history (table = $table) objects with no existing $table objects\n";
     return;
