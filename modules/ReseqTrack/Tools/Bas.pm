@@ -16,7 +16,8 @@ package ReseqTrack::Tools::Bas;
 use strict;
 use warnings;
 use Data::Dumper;
-use ReseqTrack::Tools::AlignmentBase;
+use ReseqTrack::Tools::Exception qw(throw warning stack_trace_dump);
+use ReseqTrack::Tools::RunAlignment;
 use ReseqTrack::Tools::Argument qw(rearrange);
 use ReseqTrack::Tools::SequenceIndexUtils;
 use ReseqTrack::Tools::FileSystemUtils qw (create_tmp_process_dir run_md5 delete_directory );
@@ -27,60 +28,64 @@ use File::Copy;
  
 use vars qw(@ISA);
 
-@ISA = qw(ReseqTrack::Tools::AlignmentBase);
+@ISA = qw(ReseqTrack::Tools::RunAlignment);
 
 sub new {
   my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
- 
+
   my (
-      $need_tags,     
-      $working_dir,
+      $need_tags,
       $sequence_index, 
-      $release_date,
       $md5,
       $verbose,
       $in_parent,
       $output_dir,
-    
      )
     =
       rearrange(
 		[
 		 qw(
               NEED_TAGS
-              WORKING_DIR
               SEQUENCE_INDEX
-              RELEASE_DATE
               MD5
               VERBOSE
               IN_PARENT
               OUTPUT_DIR
-             
-)
+      )
 		],
 		@args
 	       );
-  
-  $self->perl_exe ( '/nfs/1000g-work/G1K/work/bin/local-perl/bin/perl');
 
-  $self->working_dir($working_dir);
+  $self->bam ( @{$self->input_files}[0]) if ( defined @{$self->input_files}[0]) ;
+
+
+
+  $self->perl_exe ( '/nfs/1000g-work/G1K/work/bin/local-perl/bin/perl');
   $self->sequence_index($sequence_index);
   $self->need_tags($need_tags);
-  $self->release_date($release_date);
   $self->bam_md5($md5);
-  $self->parse_study_name;
   $self->in_parent($in_parent);
   $self->output_dir($output_dir);
-  $self->set_required_vars;
 
-  if( ! $self->samtools){
-    $self->samtools('/nfs/1000g-work/G1K/work/bin/samtools/samtools');
+  if ( ! defined ($self->samtools)){
+
+    if ( defined $ENV{SAMTOOLS}){
+      my $exe = $ENV{SAMTOOLS} . '/'. "samtools";
+      $exe =~ s/\/\//\//g;
+      print "Setting path to samtools from ENV\n";
+      $self->samtools($exe) if ( -e $exe);
+      if (! -e $exe){
+	throw "Path to samtools not set. Required for processing\n";
+      }
+    }
   }
 
-
+  $self->set_required_vars;
   return $self;
 }
+
+
 
 sub run {
 
@@ -114,7 +119,7 @@ sub run {
        $old_loc =~ s/\/\//\//g;
       my  $fred = copy ( $old_loc, $new_loc);
       print $fred,"\n" if $self->verbose;
-      exit;
+      return;
   }
 
 
@@ -126,10 +131,9 @@ sub run {
     $sanger_inline =~ s/\/\//\//g;
     print  $sanger_inline,"\n" if $self->verbose;
     `chmod -R 775 $sanger_inline` if (-e $sanger_inline);
-
-    delete_directory ($self->tmp_dir);
+    $self->files_to_delete ($self->tmp_dir);
   }
-#  delete_directory ($self->tmp_dir);
+
 
   return;
 }
@@ -149,60 +153,52 @@ sub create_bas {
   chdir ( $go_here);
 
   my $perl = $self->perl_exe;
-  my $release_date = $self->release_date;
+
 
   my $bas =  basename ($bam) .'.bas';
-  
+
+  $bas = $self->tmp_dir . '/' . $bas;
+  $bas =~ s/\/\//\//g;
   print "Making $bas\n" if $self->verbose;
 
-  $bas =~ s/\/\//\//g;
+
   $self->tmp_bas ($bas);
-  
-  my $make_bas_file_cmd ="$perl -MVertRes::Utils::Sam -e \"VertRes::Utils::Sam->new->bas('$bam', '$release_date', '$bas')\" ";
+
+  my $perl_mods =  '-MVRPipe::File -MVRPipe::Steps::bam_stats -e "VRPipe::Steps::bam_stats';
+
+  my $make_bas_file_cmd ="$perl  ${perl_mods}->bas('$bam',  '$bas')\" ";
   print $make_bas_file_cmd,"\n" if $self->verbose;
 
   eval{
     `$make_bas_file_cmd`;
   };
   die "bas creaton failed: $@" if $@;
- 
-  return;
-}
-
-
-
-
-sub parse_study_name{
-  my $self = shift;
-  my @aa = split /\./, $self->bam;
-
-  my ($sample, $platform, $algorithm, $project, $analysis_grp, $chr, $date);
-
-  $analysis_grp = "UNKNOWN_GROUP";
- 
-  ($sample, $platform, $algorithm, $project, $analysis_grp, $chr,$date) = 
-    CHECK_AND_PARSE_FILE_NAME ($self->bam);
-
-  $self->study_name ( $analysis_grp);
-  $self->release_date ( $date);
-
-  print "release date= $date\n" if $self->verbose;
-  print "study name = ",  $self->study_name,"\n" if $self->verbose;
 
   return;
 }
 
 
+
+=head2 add_tags
+
+  Function  : uses samtools add correct NM tags to bam
+  Example   : my $bam = $self->run_sam_to_bam($sam);
+
+=cut
 
 sub add_tags {
   my $self = shift;
 
-  my $sam_exe = $self->samtools;
+
   my $bam     = $self->bam;
   my $ref     = $self->reference;
 
   my $tmp_bam = $self->tmp_dir . '/' . basename($bam) . '_'. $$;
- 
+
+
+
+  my $sam_exe = $self->samtools;
+
   print "Adding tags\n" if $self->verbose;
   print  "$sam_exe fillmd -b  $bam $ref > $tmp_bam\n" if $self->verbose;
 
@@ -227,19 +223,27 @@ sub tmp_process_dir {
   return;
 }
 
+
+=head2 correct_bas_file_convention
+  Arg [1]   : ReseqTrack::Tools::RunSamtools
+  Arg [2]   : string, path of sam file
+  Function  : Picard processed bams can have RG info in PU field of header.
+              Look in PU field SRR/ERR strings
+  Returntype: None
+=cut
+
 sub correct_bas_file_convention{
-
-#BCM SOLID bams have RG info in PU field off header. This is not good.
-
   my $self = shift;
-  
+
+  print "RG check\n";
+
   my $read_group_info = $self->rg_info;
 
   my $bam_name  = basename ($self->bam_to_process);
-  my $bas_file  = $self->tmp_dir . '/' . $self->tmp_bas;
+  my $bas_file  = $self->tmp_bas;
   $bas_file =~ s /\/\//\//g;
   my $bam_md5   = $self->bam_md5;
-  my $study_name = $self->study_name;
+
 
   my @data;
   my @hold;
@@ -249,11 +253,11 @@ sub correct_bas_file_convention{
 
   open (my $IN, '<' ,$bas_file) || die "Failed to open $bas_file";
 
- 
+
   while (<$IN>) {
-   
+
     @data = split /\t/; 
-  
+
 
     if ($data[0] eq "bam_filename") {
       $newline = join ("\t",@data);
@@ -263,32 +267,29 @@ sub correct_bas_file_convention{
 
     $data[0] = $bam_name;	# original bam file name
     $data[1] = $bam_md5 ;	# not tmp bam md5 if you added tags 
-    $data[2] = $study_name;
- 
+
 
     if (! ( $data[6] =~ /^[ERR|SRR]/)) {
-      print "Invalid run id identifier : $data[6]\n";
+      print "Invalid run id identifier : $data[6] :: ";
 
       if (defined  $$read_group_info{$data[6]}) {
+	print "Picard processed bam ??? Checking PU designation .. ";	
+	my $tmp_rg =  $$read_group_info{$data[6]}{PU};
 
-	if ($data[0] =~ /solid/i) {
-	  print "Probably BCM SOLID bam. Assuming run id in PU designation\n";	
-	  my $tmp_rg =  $$read_group_info{$data[6]}{PU};
-
-	  if ( $tmp_rg =~ /^[ERR|SRR]/){
-	    print "Replacing with " , $$read_group_info{$data[6]}{PU},"\n";
-	    $data[6] = $$read_group_info{$data[6]}{PU};
-	  }
-	  else{
-	    print "Do not know what to replace bad identifier with. Ignoring\n";
-	  }
+	if ( $tmp_rg =~ /^[ERR|SRR]/){
+	  print "Replacing $data[6] with " , $$read_group_info{$data[6]}{PU},"\n";
+	  $data[6] = $$read_group_info{$data[6]}{PU};
 	}
-
       }
-
+      else{
+	print "Do not know what to replace bad identifier with. Ignoring\n";
+      }
+    }
+    else{
+      print "$data[6] looks OK\n";
     }
 
-    my $newline = join ( "\t", @data);
+    my $newline = join ("\t", @data);
 
     push (@hold, $newline);
     
@@ -306,7 +307,6 @@ sub correct_bas_file_convention{
   }
   close ($OUT);
 
-  
   my $new_location = $bas_file;
   $new_location =~ s/\.org//;
 
@@ -316,7 +316,9 @@ sub correct_bas_file_convention{
 
   chmod(0775, $bas_file);
 
-  return; 
+  print "Done RG check\n";
+
+  return;
 }
 
 
@@ -324,16 +326,8 @@ sub correct_bas_file_convention{
 
 sub set_required_vars {
   my $self = shift;
-  
 
- 
-
-
-#  $ENV{'PERL5LIB'} = '/nfs/1000g-work/G1K/work/bin/local-perl/local-lib/lib/perl5/x86_64-linux:/nfs/1000g-work/G1K/work/bin/local-perl/local-lib/lib/perl5:/homes/smithre/OneKGenomes/reseqtrack/modules:/nfs/1000g-work/G1K/work/bin/VertebrateResequencing-vr-codebase-3ddb4db/modules/';
-#$ENV{'PERL5LIB'} = '/nfs/1000g-work/G1K/work/bin/local-perl/local-lib/lib/perl5/x86_64-linux:/nfs/1000g-work/G1K/work/bin/local-perl/local-lib/lib/perl5:/homes/smithre/OneKGenomes/reseqtrack/modules:/homes/zheng/reseq-personal/zheng/lib/VertebrateResequencing-vr-codebase-74f9f17/modules/';
-$ENV{'PERL5LIB'} = '/nfs/1000g-work/G1K/work/bin/local-perl/local-lib/lib/perl5/x86_64-linux:/nfs/1000g-work/G1K/work/bin/local-perl/local-lib/lib/perl5:/homes/smithre/OneKGenomes/reseqtrack/modules:/nfs/1000g-work/G1K/work/bin/vr-codebase/modules';
-
-#  print  $ENV{'PERL5LIB'},"\n";
+ $ENV{'PERL5LIB'} = '/nfs/1000g-work/G1K/work/bin/vr-pipe/modules/:/nfs/1000g-work/G1K/work/bin/local-perl/local-lib/lib/perl5/x86_64-linux:/nfs/1000g-work/G1K/work/bin/local-perl/local-lib/lib/perl5';
 
 
   if ( ! (defined $ENV{'PICARD'} )) {
@@ -344,11 +338,11 @@ $ENV{'PERL5LIB'} = '/nfs/1000g-work/G1K/work/bin/local-perl/local-lib/lib/perl5/
     $ENV{'SAMTOOLS'} = '/nfs/1000g-work/G1K/work/bin/samtools';
   }
 
-  if ( ! defined ($ENV{'PERL_INLINE_DIRECTORY'})) {
+  if ( ! (defined $ENV{'PERL_INLINE_DIRECTORY'})) {
     $ENV{'PERL_INLINE_DIRECTORY'} = '/homes/rseqpipe/.Inline';
   }
 
-  if (! ($ENV{'PATH'} =~ /samtools/) ) {
+  if (! ($ENV{'PATH'} =~ /samtools/i) ) {
     $ENV{'PATH'}= $ENV{'PATH'} . ':' . $ENV{'SAMTOOLS'};
   }
 
@@ -368,7 +362,7 @@ sub tmp_dir {
 }
 
 sub bam_to_process {
-  
+
   my ($self, $arg) = @_;
   if ($arg) {
     $self->{'bam_to_process'} = $arg;
@@ -377,23 +371,6 @@ sub bam_to_process {
 
 }
 
-sub study_name {
-  my ($self, $arg) = @_;
-  if ($arg) {
-    $self->{'study_name'} = $arg;
-  }
-  return $self->{'study_name'};
-}
-
-sub release_date {
-  
-  my ($self, $arg) = @_;
-  if ($arg) {
-    $self->{'release_date'} = $arg;
-  }
-  return $self->{'release_date'};
-
-}
 
 sub need_tags{
   my ($self, $arg) = @_;
@@ -411,13 +388,6 @@ sub change_dir {
   return $dir;
 }
 
-sub working_dir{
-  my ($self, $arg) = @_;
-  if ($arg) {
-    $self->{'working_dir'} = $arg;
-  }
-  return $self->{'working_dir'};
-}
 
 sub sequence_index{
   my ($self, $arg) = @_;
@@ -484,6 +454,17 @@ sub output_dir {
   return $self->{'output_dir'};
 }
 
+
+sub bam {
+  my ($self, $arg) = @_;
+  if (defined $arg) {
+    $self->{'bam'} = $arg;
+  }
+  return $self->{'bam'};
+}
+
+
+
 sub get_bam_run_id_info{
 
 #BCM SOLID bams has RG in PU field of bam header. Must catch.
@@ -511,13 +492,14 @@ sub get_bam_run_id_info{
     shift @aa;
 
     my $key = "-";
+
     foreach my $x (@aa) {
       my ($p1, $p2) = split /:/,$x;
       ($key = $p2) if ( $p1 eq "ID");
     }
     die "No ID in RG row \n" if ( $key eq "-");
- 
- 
+
+
     foreach my $x (@aa) {
       my ($p1, $p2) = split /:/,$x;
       next if ($p2 eq $key);
