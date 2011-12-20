@@ -229,9 +229,9 @@ if ( $got_sample_result) {
   $Sample_adaptor->store($Sample) unless ($input{test}) ;
 }
 
-if ( -e $VBAM->{working_dir}){
-  delete_directory ($VBAM->{working_dir}) unless $input{debug};
-}
+#if ( -e $VBAM->{working_dir}){
+#  delete_directory ($VBAM->{working_dir}) unless $input{debug};
+#}
 
 
 #=====================================================
