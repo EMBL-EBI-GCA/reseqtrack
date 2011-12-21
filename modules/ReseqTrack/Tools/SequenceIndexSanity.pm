@@ -11,7 +11,6 @@ use ReseqTrack::Tools::Intersection;
 use ReseqTrack::Tools::Exception qw(throw warning stack_trace_dump);
 use ReseqTrack::Tools::FileSystemUtils qw(list_files_in_dir);
 use ReseqTrack::Tools::SequenceIndexUtils qw(get_index_hash_on_column get_index_hash);
-use ReseqTrack::DBSQL::ERADBAdaptor;
 use ReseqTrack::Tools::RunMetaInfoUtils qw(index_to_name_hash);
 
 use vars qw (@ISA  @EXPORT);
@@ -27,7 +26,6 @@ use vars qw (@ISA  @EXPORT);
       check_column_syntax
       check_index_file_existance_to_ftp
       check_paired_files
-      compare_index_to_era
       check_analysis_group
       check_population
       check_header
@@ -181,75 +179,6 @@ sub type_file{
   return $type;
 }
 
-sub compare_index_to_era{
-  my( $dbhost,$dbname,$dbuser,$dbpass,$dbport,$index_file, $population_rules, $study_ids) = @_;
-  my $db = ReseqTrack::DBSQL::ERADBAdaptor->new(
-    -host => $dbhost,
-    -user => $dbuser,
-    -port => $dbport,
-    -dbname => $dbname,
-    -pass => $dbpass,
-      );
-  
-  my $run_hash = get_index_hash_on_column($index_file, 2);
-  
-  my $g1k_index_adaptor = $db->get_ERARunMetaInfoAdaptor;
-  $g1k_index_adaptor->population_rules($population_rules);
-  $g1k_index_adaptor->study_ids($study_ids);
-  my $indexes = $g1k_index_adaptor->fetch_all;
-  
-  my %era_index_hash;
-  my %log;
-  my $total_count=0;
-  my $faulty_count=0;
-  
-  foreach my $index(@$indexes){
-    $era_index_hash{$index->run_id} = $index;
-  }
-  
-  my $index_to_name_hash = index_to_name_hash();
-  
-  foreach my $run(keys(%$run_hash)){
-    my $lines = $run_hash->{$run};
-    my $index = $era_index_hash{$run};
-    if(!$index){
-      #print STDERR $run." isn't found in the index table\n";
-      next;
-    }
-    foreach my $line(@$lines){
-      $total_count++;
-      my @values = split /\t/, $line;
-      for(my $i=0;$i < @values;$i++){
-        
-        my $name = $index_to_name_hash->{$i};
-        next unless($i == 3);
-        next if($i <= 1 || $i >= 19);
-        next if($i == 7); #submission data
-        next if($i == 12); #insturment platform
-        next if($i == 15); #run name
-        next if($i == 17); #insert size
-        next if($i == 10); #population
-        next if($i == 16); #run block name
-        my $line_string = $values[$i];
-        my $index_string = $index->$name;
-        if($index_string && length($index_string) >= 1){
-          if($line_string ne $index_string){
-            #print $run." has a mismatch for ".$name." ".$i." ftp ".$line_string.
-            " is not era ".$index_string."\n";
-            $log{$run." has a mismatch for ".$name." ".$i." ftp ".$line_string." is not era ".$index_string} = 1;
-            
-            
-          }
-        }
-      }
-    }
-  }
-  $faulty_count = scalar(keys %log);  
-  
-  return ($total_count,$faulty_count,%log);
-  
-
-}
 
 sub check_paired_files{
   my ($file, $ftp_root) = @_;

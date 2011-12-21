@@ -28,10 +28,20 @@ sub new{
 }
 
 sub get_ERARunMetaInfoAdaptor{
-  my ($self) = @_;
-  if(!$self->{run_meta_info_adaptor}){
+  my ($self, @adaptor_args) = @_;
+  my ($study_ids, $population_rules) =
+    rearrange([qw(STUDY_IDS POPULATION_RULES)], @adaptor_args);
+  if($self->{run_meta_info_adaptor}){
+      if ($study_ids) {
+          $self->{run_meta_info_adaptor}->study_ids($study_ids);
+      }
+      if ($population_rules) {
+          $self->{run_meta_info_adaptor}->study_ids($study_ids);
+      }
+  }
+  else {
     $self->{run_meta_info_adaptor} = ReseqTrack::DBSQL::ERARunMetaInfoAdaptor->
-        new($self);
+        new(-db => $self, @adaptor_args);
   }
   return $self->{run_meta_info_adaptor};
 }

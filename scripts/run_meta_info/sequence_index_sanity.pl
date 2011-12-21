@@ -21,7 +21,6 @@ my $ftp_path_must_contain = 'sequence_read';
 my $dir_must_contain = 'ftp/data';
 my $help;
 my $log;
-my ($dbhost, $dbuser, $dbport, $dbname, $dbpass, $era);
 my @command_args = @ARGV;
 
 
@@ -37,25 +36,19 @@ my @command_args = @ARGV;
 &GetOptions( 
   'index_file=s' => \$index_file,
   'ftp_root=s' => \$ftp_root,
-  'dbhost=s' => \$dbhost,
-  'dbuser=s' => \$dbuser,
-  'dbpass=s' => \$dbpass,
-  'dbport=i' => \$dbport,
-  'dbname=s' => \$dbname,  
   'verbose!' => \$verbose,
   'syntax!' => \$syntax,
   'filesystem!' => \$filesystem,
   'log' => \$log,
-  'era'=> \$era, 
   'ftp_path_must_contain=s' => \$ftp_path_must_contain,
    'dir_must_contain=s' => \$dir_must_contain,
   'help!' => \$help,
     )or useage(@command_args);
 
 
-if(!$syntax && !$filesystem && !$era){
+if(!$syntax && !$filesystem){
   warning("Can't run any sanity checks without specifying at least one of ".
-        "-syntax or -filesystem or -era");
+        "-syntax or -filesystem");
   $help = 1;
 }
 
@@ -70,52 +63,6 @@ if($help){
 }
 
 my $index_hash = get_index_hash($index_file);
-
-if($era){
-
-
- #-dbhost ERAPRO -dbuser ops\$laura -dbpass thousandgenomes  -dbname ERAPRO
-  	if(!defined($dbhost) || !defined($dbuser) || !defined($dbpass) || !defined($dbport) || !defined($dbname))
-  	{
-  		warning("Can't sanity check on ERA without DB details: \n -dbhost and -dbuser and -dbpass and -dbport and -dbname");
-  		useage(@command_args);
-  		
-  	}
-  	
-#	my $dbhost = "ERAPRO";
-#	my $dbuser = "ops\$laura";
-#	my $dbpass = "thousandgenomes";
-#	my $dbport = 4175;
-#	my $dbname = "ERAPRO";
- 	my($ERA_total_count,$ERA_faulty_count,%ERA_log) = compare_index_to_era($dbhost,$dbname,$dbuser,$dbpass,$dbport,$index_file);
- 
-  	print "ERA Check:\t".$ERA_faulty_count." files are faulty of a total of ".$ERA_total_count." rows \n";
- 	
- 	#VERBOSE
- 	if($verbose){
-		print "\nFiles not on ERA:\n";
-   		foreach my $file(keys(%ERA_log))
-  		{
-  			print $file."\n";
-  		}
-	}
- 
- 	#General log
- 	open(DAT,">>log_era.csv") || die("Cannot Open File");
-		print DAT $theGMTime ."\t". $ERA_total_count. "\t". $ERA_faulty_count."\n";
-	close(DAT);
- 
- 	#Missing on ERA error log:
- 	if($log && $ERA_faulty_count >0 )
- 	{
-		open(DAT, ">log_filesystem_ERA_$theGMTime.txt");
-		print DAT "ERROR\t File\n";
-    	foreach my $file(keys(%ERA_log)){
-    		print DAT "ERA error:\t".$file."\n";
-    	}
-		close(DAT);
-	}
-}
 
 
 if($filesystem){
@@ -438,12 +385,6 @@ checks on the contents
     -verbose binary flag for additional info about problems
     -syntax binary flag to indicate that the file syntax checks need to be run
     -filesystem binary flag to indicate that the filesystem checks need to be run
-    -era binary flag to indicate that the ERA checks need to be run
-    -dbhost ERA database host, necessary when using era check
-    -dbuser ERA database user, necessary when using era check
-    -dbpass ERA database password, necessary when using era check
-    -dbport ERA database port, necessary when using era check
-    -dbname ERA database database name, necessary when using era check
     -log binary flag for additional infor about problems written to log file
     -ftp_root root path for ftp site
     -ftp_path_must_contain string that the ftp paths must contain, by default it is
@@ -462,10 +403,6 @@ Filesystem
 There is one filesystem check, compare_index_to_ftp. This generates 2 lists of paths
 once based on the ftp_root and one based on the index file and compared them 
 indicating which opaths are missing from the other list
-
-ERA 
-
-There is one ERA check, compare_index_to_era. This checks the files which are listed in the index file and then checks if each of the files is available at the ERA and indicates if a file is missing at the ERA.
 
 Syntax
 
@@ -533,14 +470,6 @@ Problem with some of the columns from data/NA19239/sequence_read/ERR001085_2.rec
 submission_date 7 has 2008-OCT-07 17:00:00 rather that the correct form
 Problem with some of the columns from data/NA19239/sequence_read/ERR001086_1.recal.fastq.gz
 submission_date 7 has 2008-OCT-07 17:00:00 rather that the correct form
-
-sequence_index_sanity.pl -index_file ERA_error.index  -era -verbose -dbhost ERADB -dbuser UserName -dbpass YourPassword -dbname ERAdatabaseName -dbport DBport
-ERA Check:	3 files are faulty of a total of 21986 rows 
-Files not on ERA:
-ERR000312 has a mismatch for study_id 3 ftp SRP000031 is not era SRP000032
-ERR000296 has a mismatch for study_id 3 ftp SRP000031 is not era SRP000032
-ERR000343 has a mismatch for study_id 3 ftp SRP000031 is not era SRP000032
-
 
 =cut
 

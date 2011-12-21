@@ -286,6 +286,18 @@ CREATE TABLE file_type_rule (
        PRIMARY KEY (rule_block_order, rule_order)
 );
 
+CREATE TABLE population_rule (
+       rule_order int(10) unsigned NOT NULL,
+       population  VARCHAR(50),
+       match_regex  VARCHAR(1000),
+       PRIMARY KEY (rule_order)
+);
+
+CREATE TABLE study_id (
+       study_id  VARCHAR(50),
+       PRIMARY KEY (study_id)
+);
+
 
 
 #Now to add entries to the two standard tables

@@ -123,45 +123,29 @@ sub match_regex {
 =head2 perl_condition
 
   Arg [1]   : ReseqTrack::FileTypeRule
-  Arg [2]   : string, perl variable name, defaults to 'filename'
   Function  : gets the filename match condition in the form of perl code. Checks if match_regex has already been converted to perl code.
   Returntype: string, perl code
   Exceptions: none
-  Example   : my $perl_condition = $file_type_rule->perl_condition('filename');
+  Example   : my $perl_condition = $file_type_rule->perl_condition();
 
 =cut
 
 sub perl_condition {
-    my ( $self, $perl_variable_name ) = @_;
-    $perl_variable_name = $perl_variable_name || 'filename';
+    my ( $self ) = @_;
 
-    if (! $self->{'perl_condition'}{$perl_variable_name}) {
-        $self->{'perl_condition'}{$perl_variable_name}
-                = $self->create_perl_condition($perl_variable_name);
-    }
-    return $self->{'perl_condition'}{$perl_variable_name};
-}
-
-sub create_perl_condition {
-    my ($self, $perl_variable_name) = @_;
-    return 1 if (!$self->match_regex);
-
-    my $match_regex = $self->match_regex;
-    $match_regex =~ s/NOT\s+(\/\S*\/i?)/NOT \($1\)/ig;
-
-    my @split_match_regex = split(/(\/\S*\/i?)/, $match_regex);
-    foreach my $match_part (@split_match_regex) {
-        if ($match_part =~ /\/\S*\/i?/) {
-            $match_part = '$' . $perl_variable_name . ' =~ ' . $match_part;
+    if (! $self->{'perl_condition'}) {
+        if (!$self->match_regex) {
+            $self->{'perl_condition'} = 1;
         }
         else {
-            $match_part =~ s/AND/\&\&/ig;
-            $match_part =~ s/OR/\|\|/ig;
-            $match_part =~ s/NOT/!/g;
+            my $perl_condition = $self->match_regex;
+            $perl_condition =~ s/\s+AND\s+/ \&\& /ig;
+            $perl_condition =~ s/\s+OR\s+/ \|\| /ig;
+            $perl_condition =~ s/\s+NOT\s+/ ! /g;
+            $self->{'perl_condition'} = $perl_condition;
         }
     }
-    my $perl_condition = join('', @split_match_regex);
-    return $perl_condition;
+    return $self->{'perl_condition'};
 }
 
 =head2 test_filename
@@ -178,6 +162,7 @@ sub test_filename {
     my ($self, $filename) = @_;
     my $perl_condition = $self->perl_condition('filename');
 
+    $_ = $filename;
     my $matched = eval "$perl_condition";
     return $matched;
 }

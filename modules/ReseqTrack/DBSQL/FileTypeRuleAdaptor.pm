@@ -8,7 +8,6 @@ use ReseqTrack::DBSQL::BaseAdaptor;
 use ReseqTrack::FileTypeRule;
 use ReseqTrack::Tools::Exception qw(throw warning);
 use ReseqTrack::Tools::Argument qw(rearrange);
-use File::Basename;
 
 @ISA = qw(ReseqTrack::DBSQL::BaseAdaptor);
 

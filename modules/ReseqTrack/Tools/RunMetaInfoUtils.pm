@@ -392,7 +392,7 @@ sub get_sequence_index_stats{
     chomp;
     my @values = split /\t/;
     next if($run_id_hash && !($run_id_hash->{$values[2]}));
-    $values[10] = convert_population($values[10], $values[2], undef, $population_rules);
+    $values[10] = convert_population($values[10], $population_rules, $values[2], undef);
     $values[5] = convert_center_name($values[5]);
     next if($values[20]);
     my $summary = $values[$summary_column];
@@ -418,7 +418,7 @@ sub get_index_group_stats{
     chomp;
     my @values = split /\t/;
     next if($run_id_hash && !($run_id_hash->{$values[2]}));
-    $values[10] = convert_population($values[10], $values[2], undef, $population_rules);
+    $values[10] = convert_population($values[10], $population_rules, $values[2], undef);
     $values[5] = convert_center_name($values[5]);
     next if($values[20]);
     $hash{$values[$first_column]}{$values[$second_column]} += $values[$stats_column];
@@ -475,60 +475,13 @@ sub convert_center_name{
 
 
 sub convert_population{
-  my ($string, $run_id, $study_id, $rules) = @_;
+  my ($string, $population_rules, $run_id, $study_id) = @_;
   throw("Can't convert an empty string for ".$run_id." ".$study_id)
     unless($string);
-  if (! $rules) {
-      $rules = [];
-      push (@$rules, {pop => 'YRI', regex => qr/YRI/i});
-      push (@$rules, {pop => 'PEL', regex => qr/PEL/i});
-      push (@$rules, {pop => 'KHV', regex => qr/KHV/});
-      push (@$rules, {pop => 'YRI', regex => qr/yoruba/i});
-      push (@$rules, {pop => 'ACB', regex => qr/ACB/});
-      push (@$rules, {pop => 'CHS', regex => qr/southern\s+han\s+chinese/i});
-      push (@$rules, {pop => 'CHS', regex => qr/CHS/i});
-      push (@$rules, {pop => 'CHB', regex => qr/han chinese/i});
-      push (@$rules, {pop => 'CHB', regex => qr/CHB/i});
-      push (@$rules, {pop => 'JPT', regex => qr/japan/i});
-      push (@$rules, {pop => 'JPT', regex => qr/JPT/i});
-      push (@$rules, {pop => 'CEU', regex => qr/CEU/i});
-      push (@$rules, {pop => 'CEU', regex => qr/CEPH/i});
-      push (@$rules, {pop => 'TSI', regex => qr/t[uo]scan/i});
-      push (@$rules, {pop => 'TSI', regex => qr/TSI/i});
-      push (@$rules, {pop => 'CHD', regex => qr/denver/i});
-      push (@$rules, {pop => 'CHD', regex => qr/CHD/i});
-      push (@$rules, {pop => 'LWK', regex => qr/Luhya/i});
-      push (@$rules, {pop => 'LWK', regex => qr/LWK/i});
-      push (@$rules, {pop => 'CEU', regex => qr/UTAH/i});
-      push (@$rules, {pop => 'ASW', regex => qr/ASW/});
-      push (@$rules, {pop => 'MXL', regex => qr/MXL/});
-      push (@$rules, {pop => 'ASW', regex => qr/African-American/});
-      push (@$rules, {pop => 'MXL', regex => qr/Mexican-American/});
-      push (@$rules, {pop => 'GBR', regex => qr/UK/});
-      push (@$rules, {pop => 'GBR', regex => qr/British/});
-      push (@$rules, {pop => 'GBR', regex => qr/GBR/i});
-      push (@$rules, {pop => 'FIN', regex => qr/FIN/i});
-      push (@$rules, {pop => 'CHS', regex => qr/SHC/i});
-      push (@$rules, {pop => 'PUR', regex => qr/Puerto\s+Rican/i});
-      push (@$rules, {pop => 'PUR', regex => qr/PUR/i});
-      push (@$rules, {pop => 'CLM', regex => qr/Colombian/});
-      push (@$rules, {pop => 'CLM', regex => qr/CLM/});
-      push (@$rules, {pop => 'GIH', regex => qr/Gujarati/});
-      push (@$rules, {pop => 'GIH', regex => qr/GIH/});
-      push (@$rules, {pop => 'MKK', regex => qr/Maasai/});
-      push (@$rules, {pop => 'IBS', regex => qr/Spanish/i});
-      push (@$rules, {pop => 'IBS', regex => qr/IBS/i});
-      push (@$rules, {pop => 'CDX', regex => qr/CDX/i});
-      push (@$rules, {pop => 'GWD', regex => qr/GWD/i});
-      push (@$rules, {pop => 'GHN', regex => qr/GHN/i});
-      push (@$rules, {pop => 'MAB', regex => qr/MAB/i});
-      push (@$rules, {pop => 'AJM', regex => qr/AJM/i});
-      push (@$rules, {pop => 'ACB', regex => qr/ACB/i});
-  }
-  foreach my $rule (@$rules) {
-      if ($string =~ $rule->{regex}) {
-          return $rule->{pop};
-      }
+  foreach my $pr (@$population_rules) {
+    if ($pr->test_description($string)) {
+      return $pr->population;
+    }
   }
   throw("Failed to find pop for ".$string." ".$run_id." ".$study_id);
 }

@@ -60,8 +60,8 @@ sub new{
   $self->collection_type($collection_type);
   $self->filtered_fastq_type($filtered_fastq_type);
   $self->ftp_root($ftp_root);
-  $self->population_rules($population_rules);
-  $self->study_ids($study_ids);
+  $self->population_rules($population_rules) if $population_rules;
+  $self->study_ids($study_ids) if $study_ids;
   
   return $self;
 }
@@ -229,21 +229,27 @@ sub diff_set{
 }
 
 sub population_rules {
-    my ($self, $rules) = @_;
-    if ($rules) {
-        throw("rules must be an arrayref") if (ref $rules ne 'ARRAY');
-        $self->{population_rules} = $rules;
-    }
-    return $self->{population_rules};
+  my ($self, $rules, $force_update) = @_;
+  if ($rules) {
+    throw("rules must be an arrayref") if (ref $rules ne 'ARRAY');
+    $self->{population_rules} = $rules;
+  }
+  if (!$self->{rules} || $force_update){
+    $self->{population_rules} = $self->dcc_db->get_PopulationRuleAdaptor->fetch_all_in_order();
+  }
+  return $self->{population_rules};
 }
 
 sub study_ids {
-    my ($self, $study_ids) = @_;
-    if ($study_ids) {
-        throw("study_ids must be an arrayref") if (ref $study_ids ne 'ARRAY');
-        $self->{study_ids} = $study_ids;
-    }
-    return $self->{study_ids};
+  my ($self, $study_ids, $force_update) = @_;
+  if ($study_ids) {
+    throw("study_ids must be an arrayref") if (ref $study_ids ne 'ARRAY');
+    $self->{study_ids} = $study_ids;
+  }
+  if(!$self->{study_ids} || $force_update){
+    $self->{study_ids} = $self->dcc_db->get_StudyIDAdaptor->fetch_all();
+  }
+  return $self->{study_ids};
 }
 
 sub find_differences{
@@ -663,9 +669,9 @@ sub get_era_rmis{
     $self->{era_rmis} = $rmis;
   }
   if(!$self->{era_rmis} || $force_update){
-    my $era_rmia = $self->era_db->get_ERARunMetaInfoAdaptor;
-    $era_rmia->population_rules($self->population_rules);
-    $era_rmia->study_ids($self->study_ids);
+    my $era_rmia = $self->era_db->get_ERARunMetaInfoAdaptor(
+                    -study_ids => $self->study_ids,
+                    -population_rules => $self->population_rules);
     my $rmis = $era_rmia->fetch_all();
     my @array;
     foreach my $rmi(@$rmis){

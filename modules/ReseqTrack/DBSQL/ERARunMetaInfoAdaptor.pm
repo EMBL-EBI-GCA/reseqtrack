@@ -8,18 +8,22 @@ use ReseqTrack::DBSQL::BaseAdaptor;
 use ReseqTrack::RunMetaInfo;
 use ReseqTrack::Tools::Exception qw(throw warning);
 use ReseqTrack::Tools::Argument qw(rearrange);
-use ReseqTrack::Tools::RunMetaInfoUtils qw (are_run_meta_infos_identical convert_population);
+use ReseqTrack::Tools::RunMetaInfoUtils qw (are_run_meta_infos_identical convert_population convert_center_name);
 use ReseqTrack::Tools::ERAUtils;
-use ReseqTrack::Tools::ERARunMetaInfoWhere;
 
 use File::Basename;
 
 @ISA = qw(ReseqTrack::DBSQL::BaseAdaptor);
 
 sub new {
-  my ($class, $db) = @_;
+  my ( $class, @args ) = @_;
+  my ($db, $study_ids, $population_rules) =
+    rearrange([qw(DB STUDY_IDS POPULATION_RULES)], @args);
 
   my $self = $class->SUPER::new($db);
+
+  $self->study_ids($study_ids);
+  $self->population_rules($population_rules);
 
   return $self;
 }
@@ -36,8 +40,12 @@ sub columns{
 }
 
 sub where{
-  my ($self) = @_;
-  return era_run_meta_info_where($self->study_ids);
+  my $self = shift;
+  my $study_ids = $self->study_ids;
+  throw "no study_ids" if (!$study_ids || !@$study_ids);
+  my $where =  "era.g1k_sequence_index_all.study_id in ('"
+            . join("', '", @{$self->study_ids}) . "')";
+  return $where;
 }
 
 
@@ -141,7 +149,7 @@ sub object_from_hashref{
   }
   my $population;
   eval{
-    $population = convert_population($hashref->{POPULATION}, $hashref->{RUN_ID}, $hashref->{STUDY_ID}, $self->population_rules);
+    $population = convert_population($hashref->{POPULATION}, $self->population_rules, $hashref->{RUN_ID}, $hashref->{STUDY_ID});
   };
   if($@){
     print "$@\n";
@@ -219,13 +227,9 @@ sub date_hash{
   $hash{'DEC'} = 12;
   return \%hash;
 }
-sub convert_center_name{
-  my ($name) = @_;
-  if($name && $name eq 'ABHTD'){
-    return 'ABI';
-  }else{
-    return uc($name);
-  }
+
+sub store{
+  throw("ReseqTrack::DBSQL::ERARunMetaInfoAdaptor can't store information");
 }
 
 sub population_rules {
@@ -244,15 +248,6 @@ sub study_ids {
         $self->{study_ids} = $study_ids;
     }
     return $self->{study_ids};
-}
-
-
-
-
-
-
-sub store{
-  throw("ReseqTrack::DBSQL::ERARunMetaInfoAdaptor can't store information");
 }
 
 1;

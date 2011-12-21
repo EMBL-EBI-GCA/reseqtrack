@@ -89,13 +89,14 @@ foreach my $rmi(@rmis){
   #print $rmi->run_id . "\t" . $rmi->study_id . "\t" . $collection_name . "\n";  
 }
 
+my $population_rules = $db->get_PopulationRuleAdaptor->fetch_all_in_order();
 
 my $withdrawn_hash = get_withdrawn_summary($index_file, \%run_id_hash);
-my $study_hash = get_sequence_index_stats($index_file, 3, 24, \%run_id_hash);
+my $study_hash = get_sequence_index_stats($index_file, 3, 24, \%run_id_hash, $population_rules);
 my $study_desc = get_study_descriptions($index_file);
-my $center_hash = get_index_group_stats($index_file, 5, 3, 24, \%run_id_hash);
-my $pop_hash = get_sequence_index_stats($index_file, 10, 24, \%run_id_hash);
-my $sample_hash = get_sequence_index_stats($index_file, 9, 24, \%run_id_hash);
+my $center_hash = get_index_group_stats($index_file, 5, 3, 24, \%run_id_hash, $population_rules);
+my $pop_hash = get_sequence_index_stats($index_file, 10, 24, \%run_id_hash, $population_rules);
+my $sample_hash = get_sequence_index_stats($index_file, 9, 24, \%run_id_hash, $population_rules);
 
 open(FH, ">".$full_output_path) or throw("Failed to open ".$full_output_path." $!");
 #print withdrawn summary
