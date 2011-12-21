@@ -36,7 +36,7 @@ print "release data is $date2\ninput file is $input_bam_name\n";
 
 my $bas =  ReseqTrack::Tools::Bas->new (
                      -reference => $reference,
-                     -bam => $input_bam_name,
+                     -input_files => $input_bam_name,
                      -working_dir => $working_dir,
                      -need_tags=> $need_tags,
                      -release_date => $date2,
