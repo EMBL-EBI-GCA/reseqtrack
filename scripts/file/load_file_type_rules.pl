@@ -49,11 +49,10 @@ my $db = ReseqTrack::DBSQL::DBAdaptor->new(
 );
 my $ftra = $db->get_FileTypeRuleAdaptor;
 
-if ($clear) {
-    $ftra->delete_all;
-}
-
 if ($read) {
+    if ($clear) {
+        $ftra->delete_all;
+    }
     parse_file();
 }
 
@@ -173,7 +172,7 @@ ReseqTrack/scripts/files/load_file_type_rules.pl
         -file, name of file to read from or write to
         -read, flag to read file and insert into database
         -write, flag to write database file_type_rules to the file
-        -clear, flag to delete all existing file_type_rules from the database
+        -clear, flag to delete all existing file_type_rules from the database. Only used with the -read flag.
         -help, flag to print this help and exit
 
 

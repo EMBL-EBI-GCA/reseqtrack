@@ -76,5 +76,14 @@ sub fetch_all_in_order{
     return \@ordered_rules;
 }
 
+sub delete_all{
+  my $self = shift;
+  my $sql = "delete from population_rule";
+  my $sth = $self->prepare($sql);
+  $sth->execute();
+  $sth->finish();
+  delete $ARRAY_CACHE{$self->db};
+}
+
 
 1;
