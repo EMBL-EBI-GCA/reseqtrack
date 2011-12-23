@@ -46,6 +46,8 @@ use ReseqTrack::Tools::Argument qw(rearrange);
   Arg [8]   : binary, 0/1 to indicate sucess (not yet properly implemented)
   Arg [9]   : time, the time the object was created
   Arg [10]  : string, other name this should be the name associated with the other object
+  Arg [11]  : string, the name of the host on which the event ran
+  Arg [12]	: int, the time it took for the job to run in seconds
   Function  : create EventComplete object
   Returntype: ReseqTrack::EventComplete
   Exceptions: throws if table name doesn't match expectation and if dbIDs have
@@ -59,12 +61,12 @@ sub new {
     my $self = $class->SUPER::new(@args);
     my (
         $event,      $event_id, $other, $other_id, $type,
-        $table_name, $success,  $time,  $other_name
+        $table_name, $success,  $time,  $other_name, $exec_host, $time_elapsed 
       )
       = rearrange(
         [
             qw(EVENT EVENT_ID OTHER OTHER_ID TYPE TABLE_NAME
-              SUCCESS TIME OTHER_NAME)
+              SUCCESS TIME OTHER_NAME EXEC_HOST TIME_ELAPSED)
         ],
         @args
       );
@@ -100,6 +102,8 @@ sub new {
     $self->type($type);
     $self->success($success);
     $self->time($time);
+	$self->exec_host($exec_host);
+	$self->time_elapsed($time_elapsed);
     return $self;
 }
 
@@ -144,6 +148,22 @@ sub time {
         $self->{'time'} = $arg;
     }
     return $self->{'time'};
+}
+
+sub time_elapsed {
+    my ( $self, $arg ) = @_;
+    if ($arg) {
+        $self->{'time_elapsed'} = $arg;
+    }
+    return $self->{'time_elapsed'};
+}
+
+sub exec_host {
+    my ( $self, $arg ) = @_;
+    if ($arg) {
+        $self->{'exec_host'} = $arg;
+    }
+    return $self->{'exec_host'};
 }
 
 =head2 event

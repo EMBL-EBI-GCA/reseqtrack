@@ -64,6 +64,8 @@ CREATE TABLE event_complete(
    type VARCHAR(50),       
    success int(1) unsigned NOT NULL,
    time datetime NOT NULL,
+   time_elapsed int(10) unsigned,
+   exec_host varchar(20),
 
    unique(event_id, other_id, table_name)
 );

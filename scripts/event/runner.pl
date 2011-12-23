@@ -45,6 +45,7 @@ use ReseqTrack::EventComplete;
 use ReseqTrack::Tools::Exception;
 use ReseqTrack::Tools::FileSystemUtils qw( delete_file );
 use ReseqTrack::Tools::PipelineUtils qw( create_event_commandline );
+use ReseqTrack::Tools::GeneralUtils qw( execute_system_command );
 use Getopt::Long;
 use Sys::Hostname;
 use File::Basename;
@@ -165,12 +166,12 @@ $ja->set_status($job);
 
 my $cmd = create_event_commandline($event, $input_string);
 my $exit;
+my $time_elapsed;
 eval {
     print "\n*****" . $cmd . "******\n\n";
-    $exit = system($cmd);
-    if ($exit >= 1) {
-        throw($cmd . " returned exit code " . $exit);
-    }
+	my $start_time = time;
+    $exit = execute_system_command($cmd);
+	$time_elapsed = time - $start_time;
     print "\n**********\n";
 };
 if ($@) {
@@ -179,7 +180,6 @@ if ($@) {
 } elsif ($exit != 0) {
     my $warning = $cmd . " failed with " . $exit . " exit code";
     job_failed($job, $warning, $ja);
-    next JOB;
 } else {
     $job->current_status('SUCCESSFUL');
     $ja->set_status($job);
@@ -187,10 +187,12 @@ if ($@) {
 my $ca               = $db->get_EventCompleteAdaptor;
 my $other_name       = $job->input_string;
 my $completed_string = ReseqTrack::EventComplete->new(
-    -event      => $event,
-    -other_name => $job->input_string,
-    -success    => 0,
-    -adaptor    => $ca,
+    -event        => $event,
+    -other_name   => $job->input_string,
+    -success      => 0,
+    -adaptor      => $ca,
+	-time_elapsed => $time_elapsed,
+	-exec_host	  => $host,
 );
 eval {
     $ca->store($completed_string)
