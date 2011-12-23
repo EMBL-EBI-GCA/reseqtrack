@@ -91,34 +91,33 @@ my $bam_basename = basename($bam);
 my @name_bits = split (/\./, $bam_basename);
 my $ind = $name_bits[0];
 
-my $bam_ftp_path;
+###FIXME: fiddle for phase2 BAMs
 my $bas_type = "BAS";
 if ($file_type eq "NCBI_BAM" )  { ## if it is NCBI BAMs
-	$bam_ftp_path = "/nfs/1000g-archive/vol1/ftp/technical/ncbi_varpipe_data/alignment/" . $ind . "/" . $bam_basename;
 	$bas_type = "NCBI_BAS";
 }
-elsif ($file_type eq "EXOME_BI_BAM" || ($file_type eq "EXOME_BC_BAM" && $bam =~ /solid/i) )  { ## if it is Broad bams or BC SOLID BAM
-	$bam_ftp_path = "/nfs/1000g-archive/vol1/ftp/technical/other_exome_alignments/" . $ind . "/exome_alignment/" . $bam_basename;
-	$bas_type = "EXOME_BI_BAS" if ($file_type eq "EXOME_BI_BAM");
-	$bas_type = "EXOME_BC_BAS" if ($file_type eq "EXOME_BC_BAM");
+elsif ($file_type eq "EXOME_BAM" ) {
+	$bas_type = "EXOME_BAS";
+}	
+elsif ($file_type eq "EXOME_BI_BAM" ) {
+	$bas_type = "EXOME_BI_BAS";
 }
-elsif (  ($file_type eq "EXOME_BC_BAM" && $bam =~ /illumina/i) || $file_type eq "EXOME_BCM_BAM" )  { ## if BC illumina mosaik BAMs or baylor solid BAMs
-	$bam_ftp_path = "/nfs/1000g-archive/vol1/ftp/data/" . $ind . "/exome_alignment/" . $bam_basename;
-	$bas_type = "EXOME_BC_BAS" if ($file_type eq "EXOME_BC_BAM");
-	$bas_type = "EXOME_BCM_BAS" if ($file_type eq "EXOME_BCM_BAM");
+elsif (	$file_type eq "EXOME_BC_BAM")
+	$bas_type = "EXOME_BC_BAS";
+}
+elsif 	($file_type eq "EXOME_BCM_BAM") {
+	$bas_type = "EXOME_BCM_BAS";
 }
 elsif ( $file_type eq "TEST_BAM" ) {
-	$bam_ftp_path = "/nfs/1000g-archive/vol1/test/" . $ind . "/alignment/" . $bam_basename;
-	$bas_type = "TEST_BAS"
+	$bas_type = "TEST_BAS";
 }
-else {
-	$bam_ftp_path = "/nfs/1000g-archive/vol1/ftp/data/" . $ind . "/alignment/" . $bam_basename;
+elsif ($file_type eq "TEST_EXOME_BAM" ) {
+	$bas_type = "TEST_EXOME_BAS";
 }
 
-#print "BAM path on ftp site: $bam_ftp_path\n" if ($verbose);
-
-unless ($bam =~ /\/nfs\/1000g-work\/G1K\/archive_staging\/ftp\// ) {
+#unless ($bam =~ /\/nfs\/1000g-work\/G1K\/archive_staging\/ftp\// ) {
 #unless ($bam =~ /\/nfs\/1000g-work\/G1K\/archive_staging\/test/ ) {  ###FIXME: change after testing
+unless ($bam =~ /\/nfs\/1000g-work\/G1K\/archive_staging\// ) {
 	throw("BAM file $bam has to be in archive staging area in order for it to be archived\n");
 }
 
@@ -155,11 +154,12 @@ if (!$bas ) {
 		eval{
 			my $bas =  ReseqTrack::Tools::Bas->new (
                      -reference => '/nfs/1000g-work/G1K/work/REFERENCE/aligners_reference/bwa/grc37/human_g1k_v37.fa',
-                     -bam => $bam,
+
+                     -input_files => $bam,
                      -md5 => $fo->md5,
                      -working_dir => '/nfs/nobackup/resequencing_informatics/zheng/tmp',
                      -need_tags=> 0,
-                     -release_date => $date2,
+
                      -in_parent => 1,
                     );
 			#### FIXME: may have to change -need_tags between 0 or 1
@@ -308,7 +308,6 @@ else {
 	close(LIST);
 
 	my $action_string = "archive";
-	$action_string = "replace" if ( -e $bam_ftp_path  );
 
 	my $max_number = 1000;
 	

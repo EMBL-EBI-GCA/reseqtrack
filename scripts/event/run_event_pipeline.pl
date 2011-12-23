@@ -29,7 +29,7 @@ my $dbport = 4175;
 my $dbname;
 my @event_names;
 my @allowed_inputs;
-my $retry_max = 1;
+my $retry_max = 4;
 my $once = 0;
 my $submission_limit;
 my $submission_total = 25;

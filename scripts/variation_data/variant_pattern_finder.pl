@@ -74,6 +74,17 @@ if ($help) {
 	 exec('perldoc', $0);
 }
 
+if ($cache) {
+	if ( !$cache_dir) {
+		die("When run at -cache mode, -cache_dir needs to be defined to specify the location of Ensembl archive files.
+see http://www.ensembl.org/info/docs/variation/vep/vep_script.html#cacheopt for details\n");
+	}
+	unless ( -e $cache_dir ) {
+		die("-cache_dir defined $cache_dir does not exist\n");
+	}	 
+}
+
+	 
 die("please provide vcf file, chromosomal region, and sample panel file") if (!$file || !$region || !$sample_panel);
 
 if (!$outfile) {

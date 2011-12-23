@@ -31,3 +31,5 @@ Documentation
 For a summary of command line flags, run:
 
 perl variant_pattern_finder.pl -help
+or 
+perldoc variant_pattern_finder.pl

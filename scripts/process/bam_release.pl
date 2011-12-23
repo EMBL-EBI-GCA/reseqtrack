@@ -14,7 +14,9 @@ use File::Path;
 use Getopt::Long;
 use Time::Local;
 
-use lib '/homes/zheng/reseq-personal/zheng/lib/';
+#use lib '/homes/zheng/reseq-personal/zheng/lib/';
+
+use lib '/nfs/1000g-work/G1K/work/zheng/lib';
 use myTIME;
 
 $| = 1; 
@@ -33,6 +35,7 @@ my (
     $run_dir,
     $run,
     $verbose,
+    $analysis_grp,
    );
 
 my $move_to_dir = "/nfs/1000g-work/G1K/archive_staging/ftp/data";
@@ -51,6 +54,7 @@ my $run_farm_job_flag = 0; #when all files have been moved to archive_staging ar
   'verbose!'			=> \$verbose,
   'out=s'				=> \$output_dir,
   'kick_off_farm_job:s'	=> \$run_farm_job_flag, #value is ncbi, sanger, tgen, broad, baylor, boston_college
+  'analysis_grp:s'		=> \$analysis_grp, #value is low_coverage or exome;  this is to provide analysis group when -kick_off_farm_job is used 
 );
 
 if ($help) {
@@ -88,7 +92,11 @@ my $db_parameters = "-dbhost $dbhost -dbuser $dbuser -dbpass $dbpass -dbport $db
 $output_dir =~ s/$\///g;
 	 
 foreach my $host ( @$remote_hosts ) {
-
+	
+	if ( $run_farm_job_flag ) {
+		next if ($run_farm_job_flag ne $host_name);
+	}
+		
 	my %dir_hash;	
 	my %dir_file_hash;
 
@@ -113,6 +121,8 @@ foreach my $host ( @$remote_hosts ) {
 	my $files = $fa->fetch_by_host($host_id);
 	warning ("No file object is found; please check the host $host_name\n") if (!$files || @$files == 0 );
 	
+	my %analysis_group;
+	
 	foreach my $file ( @$files ) {
 		
 		print "Host $host_name: ". $file->name . "\n" if ($verbose);
@@ -129,7 +139,14 @@ foreach my $host ( @$remote_hosts ) {
 			print STDERR "PREP: more than one file have the same name $file_name\n";
 			next;
 		}	
-			
+
+		if ( $file->type =~ /EXOME/ ) {
+			$analysis_group{'exome'} = 1;
+		}
+		else {
+			$analysis_group{'low_coverage'} = 1;
+		}
+				
 		my $aspx = $file_name . ".aspx" if ($file_name);
 		
 		if ($file->type =~ /BAM/ || $file->type =~ /BAI/ || $file->type =~ /BAS/) {
@@ -167,7 +184,7 @@ foreach my $host ( @$remote_hosts ) {
 						move_bam_to_trash($db, $file, $file_name, $run);
 					}	
 					else {	
-						my ($new_directory, $new_f_obj) = check_name_and_move_file($file, $file_name, $move_to_dir, $run); 	
+						my ($new_directory, $new_f_obj) = check_name_and_move_file($file, $file_name, $move_to_dir, $host, $run); 	
 						# $new_directory is where the file is after loaded
 						if ($new_directory && $run) {
 							$move_flag = 1;
@@ -242,6 +259,17 @@ foreach my $host ( @$remote_hosts ) {
 		}	
 	}
 	
+	my @groups = keys %analysis_group;
+	#my $analysis_grp;
+	if ( @groups > 1 ) {
+		throw("Host $host_name has both EXOME and LOW_COVERAGE BAMs");
+	}
+	elsif ( @groups == 1 ) {
+		$analysis_grp = $groups[0];
+	}
+	
+	print "analysis group is $analysis_grp\n";
+	
 	if ($move_flag == 1) {			
 		foreach my $alignment_dir (keys %dir_hash) {
 			create_and_load_collection($run, $db, $alignment_dir, $log, $withdrawn_list_fh, $withdraw_file);
@@ -249,26 +277,43 @@ foreach my $host ( @$remote_hosts ) {
 	}
 
 	my $command = "perl /homes/zheng/ReseqTrack/scripts/event/run_event_pipeline.pl ";
-	$command = $command . "-dbhost mysql-g1kdcc-public -dbname g1k_archive_staging_track -dbuser g1krw -dbpass thousandgenomes -dbport 4197 ";
-	$command = $command . "-once -runner /homes/zheng/ReseqTrack/scripts/event/runner.pl "; 
+	$command .= "-dbhost mysql-g1kdcc-public -dbname g1k_archive_staging_track -dbuser g1krw -dbpass thousandgenomes -dbport 4197 ";
+	$command .= "-once -runner /homes/zheng/ReseqTrack/scripts/event/runner.pl "; 
 	
-	## FIXME, need more work, change this after NCBI starts to deliver exome BAMs
-	if ($host_name eq "ncbi") {
-		$command = $command . "-name ncbi_bam_release & ";
-	}
+	## FIXME, sanger and tgen will provide exome bams
+
+	
+	if ( ($host_name eq "sanger" || $host_name eq "tgen") && defined $analysis_grp && $analysis_grp eq "low_coverage" ) {
+		$command .= "-name bam_release & ";
+	}	
+	elsif ( $host_name eq "sanger" && defined $analysis_grp && $analysis_grp eq "exome" ) {
+		$command .= "-name exome_bam_release & ";
+	}	
+	elsif ($host_name eq "baylor" && defined $analysis_grp && $analysis_grp eq "exome" ) {
+		$command .= "-name exome_bam_release & ";
+	}	
+	elsif ($host_name eq "ncbi") {
+		$command .= "-name ncbi_bam_release & ";
+	}	
+	elsif ($host_name eq "boston_college" && defined $analysis_grp && $analysis_grp eq "exome" ) {
+		$command .= "-name exome_bam_release_boston_college & ";
+	}	
 	elsif ( $host_name eq "broad") { 
-		$command = $command . "-name exome_bam_release_broad & ";
+		$command .= "-name exome_bam_release_broad & ";
 	}	
-	elsif ($host_name eq "baylor") {
-		$command = $command . "-name exome_bam_release_baylor & ";
+	elsif ( $host_name eq "tgen" && defined $analysis_grp && $analysis_grp eq "exome" ) {
+		throw("Don't know how to handle tgen submission of exome bams yet"); 
+	}
+	elsif ( ! $analysis_grp ) {
+		warning("For host $host_name no analysis group has been parsed out, please provide -analysis_grp to -kick_off_farm_job\n");
 	}	
-	elsif ($host_name eq "boston_college") {
-		$command = $command . "-name exome_bam_release_boston_college & ";
-	}	
-	elsif ($host_name eq "sanger" || $host_name eq "tgen" ) {
-		$command = $command . "-name bam_release & ";
+	else {
+		warning("Problem - don't know what to do with host $host_name"); 
 	}	
 
+
+
+		
 	if ( $move_flag == 1  || $run_farm_job_flag eq $host_name ) {	# sometimes the files have been moved to archive staging but 
 																	# farm jobs did not get sent due to various reasons
 																	# the -kick_off_farm_jobs option allows run_event_pipeline to run
@@ -468,7 +513,7 @@ sub create_and_load_collection {
 			
 sub check_name_and_move_file {
 	
-	my ($file, $full_name, $move_to_dir, $run) = @_; #$full_name is actual file path
+	my ($file, $full_name, $move_to_dir, $host, $run) = @_; #$full_name is actual file path
 		
 	my $filen = basename($full_name);
 	my @tmp = split(/\./, $filen);
@@ -482,18 +527,32 @@ sub check_name_and_move_file {
 	
 	my $new_dir;
 	
+	#### FIXME: make sure these rules and file type assignment rules still apply to phase 2 data!!
 	if ($filen =~ /mosaik/ && $filen !~ /exome/ ) { # For NCBI bams
 		$move_to_dir = "/nfs/1000g-work/G1K/archive_staging/ftp/technical/ncbi_varpipe_data";
 		$new_dir = $move_to_dir . "/alignment/" . $ind . "/";
 	}
 	elsif ( $filen =~ /exome/i ) {
-		if ($filen =~ /bwa/i || $filen =~ /solid\.mosaik/i)  { # For Broad EXOME bwa illumina BAMs or Boston college SOLID mosaik BAMs
+		
+		if ( ($filen =~ /bwa/i && $host->name =~ /sanger/i) || ( $filen =~ /bfast/i && $host->name =~ /baylor/i) )  { # FOR sanger exome and Baylor exome
+			 $new_dir = $move_to_dir . "/" . $ind . "/exome_alignment/";
+		}
+		elsif ($filen =~ /solid\.mosaik/i) { # FOR Boston College exome 
 			$move_to_dir = "/nfs/1000g-work/G1K/archive_staging/ftp/technical/other_exome_alignments";
 			$new_dir = $move_to_dir . "/" . $ind . "/exome_alignment/";
 		}
-		else { 
-			$new_dir = $move_to_dir . "/" . $ind . "/exome_alignment/";
-		}
+		else {
+			throw("Cannot tell to where to move file $filen on host " . $host->name);
+		}	
+				
+#		if ($filen =~ /bwa/i || $filen =~ /solid\.mosaik/i)  { # For Broad EXOME bwa illumina BAMs or Boston college SOLID mosaik BAMs
+#			$move_to_dir = "/nfs/1000g-work/G1K/archive_staging/ftp/technical/other_exome_alignments";
+#			$new_dir = $move_to_dir . "/" . $ind . "/exome_alignment/";
+#		}
+#		else { 
+#			$new_dir = $move_to_dir . "/" . $ind . "/exome_alignment/";
+#		}
+
 	}	
 	else {
 		$new_dir = $move_to_dir . "/" . $ind . "/alignment/";
@@ -611,5 +670,6 @@ sub help_info {
  OR
  perl ~/ReseqTrack/scripts/process/bam_release.pl -dbhost mysql-g1kdcc-public -dbname g1k_archive_staging_track -dbuser g1krw -dbpass thousandgenomes -dbport 4197 -move_to_dir /nfs/1000g-work/G1K/archive_staging/ftp/data -verbose -out /nfs/nobackup/resequencing_informatics/zheng/bam_release  -kick_off_farm_job sanger
  
+ perl /nfs/1000g-work/G1K/work/rseqpipe/perl_code/reseqtrack/scripts/process/bam_release.pl
  TEST:
  perl ~/ReseqTrack/scripts/process/bam_release.pl -dbhost mysql-g1kdcc-public -dbname zheng_automation_test -dbuser g1krw -dbpass thousandgenomes -dbport 4197 -move_to_dir /nfs/1000g-work/G1K/archive_staging/test -verbose -run
