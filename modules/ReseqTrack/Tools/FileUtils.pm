@@ -32,6 +32,7 @@ use File::Basename;
 use File::Path;
 use File::Find ();
 use ReseqTrack::Tools::GeneralUtils;
+use Data::Dumper;
 use vars qw (@ISA  @EXPORT);
 
 @ISA = qw(Exporter);
@@ -486,15 +487,50 @@ sub move_file_in_db_and_dir {
 }	
 
 
+
+=head2 get_count_stats
+
+  Arg [1]   : a 'file' type object
+  Function  : retrieve base and read counts stats for a file
+  Returntype: ($read_count, $base_count)
+  Exceptions: No statistics objects found, or base/read count = 0
+  Example   : get_count_stats ($file_obj);
+
+=cut
+
 sub get_count_stats{
   my ($file) = @_;
+	
+  my $file_name = $file->name;
+
+  if ( ! defined $file){
+    throw "No file object passed\n";
+  }
+
   my $stats = $file->statistics;
-  my ($read_count, $base_count);
+
+  if (! scalar(@$stats)){
+    throw "$file_name:\n     has no statstics objects associated with it\n";
+  }
+
+  my $read_count = 0;
+  my $base_count = 0;
+
   foreach my $stat(@$stats){
     $read_count = $stat->attribute_value if($stat->attribute_name eq 'read_count');
     $base_count = $stat->attribute_value if($stat->attribute_name eq 'base_count');
   }
+
+  if ( $read_count == 0 ){
+    throw "Have 0 reads for $file_name";  
+  }
+  if ( $base_count == 0 ){
+    throw "Have 0 base count for $file_name";  
+  }
+
+ 
   return ($read_count, $base_count);
+
 }
 
 sub get_run_id_to_file_hash{
