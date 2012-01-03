@@ -16,7 +16,7 @@ use Time::Local;
 
 #use lib '/homes/zheng/reseq-personal/zheng/lib/';
 
-use lib '/nfs/1000g-work/G1K/work/zheng/lib';
+use lib '/nfs/1000g-work/G1K/work/zheng/reseq-personal/lib';
 use myTIME;
 
 $| = 1; 
@@ -94,7 +94,7 @@ $output_dir =~ s/$\///g;
 foreach my $host ( @$remote_hosts ) {
 	
 	if ( $run_farm_job_flag ) {
-		next if ($run_farm_job_flag ne $host_name);
+		next if ($run_farm_job_flag ne $host->name);
 	}
 		
 	my %dir_hash;	
@@ -276,9 +276,9 @@ foreach my $host ( @$remote_hosts ) {
 		}
 	}
 
-	my $command = "perl /homes/zheng/ReseqTrack/scripts/event/run_event_pipeline.pl ";
+	my $command = "perl /nfs/1000g-work/G1K/work/zheng/reseqtrack/scripts/event/run_event_pipeline.pl ";
 	$command .= "-dbhost mysql-g1kdcc-public -dbname g1k_archive_staging_track -dbuser g1krw -dbpass thousandgenomes -dbport 4197 ";
-	$command .= "-once -runner /homes/zheng/ReseqTrack/scripts/event/runner.pl "; 
+	$command .= "-once -runner /nfs/1000g-work/G1K/work/zheng/reseqtrack/scripts/event/runner.pl "; 
 	
 	## FIXME, sanger and tgen will provide exome bams
 
@@ -669,6 +669,8 @@ sub help_info {
  perl ~/ReseqTrack/scripts/process/bam_release.pl -dbhost mysql-g1kdcc-public -dbname g1k_archive_staging_track -dbuser g1krw -dbpass thousandgenomes -dbport 4197 -verbose -out /nfs/nobackup/resequencing_informatics/zheng/bam_release -run &
  OR
  perl ~/ReseqTrack/scripts/process/bam_release.pl -dbhost mysql-g1kdcc-public -dbname g1k_archive_staging_track -dbuser g1krw -dbpass thousandgenomes -dbport 4197 -move_to_dir /nfs/1000g-work/G1K/archive_staging/ftp/data -verbose -out /nfs/nobackup/resequencing_informatics/zheng/bam_release  -kick_off_farm_job sanger
+ 
+ perl /nfs/1000g-work/G1K/work/zheng/reseqtrack/scripts/process/bam_release.pl -dbhost mysql-g1kdcc-public -dbname g1k_archive_staging_track -dbuser g1krw -dbpass thousandgenomes -dbport 4197 -move_to_dir /nfs/1000g-work/G1K/archive_staging/test -verbose -out /nfs/1000g-work/G1K/scratch/zheng/exome_bam_release -kick_off_farm_job baylor -analysis_grp exome 
  
  perl /nfs/1000g-work/G1K/work/rseqpipe/perl_code/reseqtrack/scripts/process/bam_release.pl
  TEST:
