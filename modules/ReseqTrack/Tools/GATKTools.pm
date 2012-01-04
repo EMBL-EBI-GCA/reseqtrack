@@ -1,3 +1,37 @@
+
+=pod
+
+=head1 NAME
+
+ReseqTrack::Tools::GATKTools
+
+=head1 SYNOPSIS
+
+Object to create a bam file that in realigned around
+known indel sites using GATK RealignerTargetCreator and
+IndelRealigner
+
+ISA = ReseqTrack::Tools::RunAlignment
+
+If ENV's $SAMTOOLS and $GATK are set, then no need to 
+pass to object. They will be assigned accordingly.
+
+SAMTOOLS required to index bams and extract headers.
+
+example
+
+my $GATK = $IR->new(
+		     -java_exe        =>"/usr/bin/java" ,
+		     -jvm_args        =>"-Xmx4g",
+ 		     -GATK_PATH     =>$GATK/GenomeAnalysisTK/",
+		     -working_dir     => $input{working_dir},
+);
+
+
+
+=cut
+
+
 package ReseqTrack::Tools::GATKTools;
 
 use strict;
@@ -9,26 +43,23 @@ use ReseqTrack::Tools::Argument qw(rearrange);
 use File::Basename;
 
 use ReseqTrack::Tools::RunProgram;
-use ReseqTrack::Tools::RunAlignment;
-
-use ReseqTrack::Tools::GATKTools::RealignerTargetCreator;
-
 use vars qw(@ISA);
 
-@ISA = qw(ReseqTrack::Tools::RunAlignment);
+@ISA = qw(ReseqTrack::Tools::RunProgram);
 
 sub new {
 	my ( $class, @args ) = @_;
 	my $self = $class->SUPER::new(@args);
 
-	my ( $java_exe, $jvm_args, $options, $gatk_path ) = rearrange(
+	my ( $java_exe, $jvm_args, $options, $gatk_path ,
+	     $reference) = rearrange(
 		[
 			qw(
 			  JAVA_EXE
 			  JVM_ARGS
 			  OPTIONS
 			  GATK_PATH
-			 
+REFERENCE
 			  )
 		],
 		@args
@@ -37,7 +68,7 @@ sub new {
 	#defaults
 	$self->java_exe("/usr/bin/java");
 	$self->jvm_args("-Xmx4g");
-
+	$self->reference($reference);
 	$self->java_exe($java_exe);
 	$self->jvm_args($jvm_args);
 	$self->gatk_path($gatk_path);
@@ -50,25 +81,24 @@ sub new {
 	    $exe =~ s|//|\/|g;
 	    print "Setting path to samtools from ENV\n";
 	    $self->samtools($exe) if ( -e $exe);
-	  
+
 	    if (! -e $exe){
 	      throw "Path to samtools not set. Required for indexing bams\n"; 
 	    }
+
 	  }
 	}
 
-
-       
 	if (!defined $self->gatk_path){
 	  if (defined $ENV{GATK}){
 	    print "Setting GATK path from ENV\n";
-	    	$self->gatk_path($ENV{GATK});	    
+	    	$self->gatk_path($ENV{GATK});
 	  }
 	  else{
 	    throw "Path to GATK directory not set\n";
-	  } 
+	  }
 	}
-	
+
 	$self->bam(${$self->input_files}[0]);
 	return $self;
 }
@@ -76,11 +106,9 @@ sub new {
 
 
 sub check_bai_exist{
-
   my ($self,$bam) = @_;
 
-  my $samtools = $self->samtools;
-  
+  my $samtools = $self->samtools; 
   my $bamindex = $bam . "\.bai";
 
   if ( !-e $bamindex){
@@ -102,9 +130,6 @@ sub check_bai_exist{
 }
 
 
-
-
-
 =head2 options
 
   Arg [1]   : ReseqTrack::Tools::CallBySamtools or CallByUmake or CallByGATK
@@ -116,8 +141,6 @@ sub check_bai_exist{
   Example   : my $mpileup_options = $self->options{'mpileup'};
 
 =cut
-
-
 
 sub options {
     my ($self, $option_name, $option_value) = @_;
@@ -235,5 +258,31 @@ sub known_sites {
 
 }
 
+sub samtools {
+  my ( $self, $arg ) = @_;
+	
+  if ($arg) {
+    if ( !-e $arg ) {
+      throw "Samtools exe: $arg does not exist\n";
+    }
+     $self->{samtools} = $arg;
+  }
+
+  return $self->{samtools};
+
+}
+sub reference {
+  my ( $self, $arg ) = @_;
+	
+  if ($arg) {
+    if ( !-e $arg ) {
+      throw "Reference file: $arg does not exist\n";
+    }
+    $self->{reference} = $arg;
+  }
+
+  return $self->{reference};
+
+}
 
 1;
