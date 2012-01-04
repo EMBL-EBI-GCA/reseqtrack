@@ -17,7 +17,8 @@ use ReseqTrack::Tools::Loader;
 use ReseqTrack::Tools::Loader::Archive;
 use ReseqTrack::Tools::BamUtils;
 
-use lib '/homes/zheng/reseq-personal/zheng/lib/';
+#use lib '/homes/zheng/reseq-personal/zheng/lib/';
+use lib '/nfs/1000g-work/G1K/work/zheng/reseq-personal/lib';
 use myTIME;
 
 $| = 1; 
@@ -102,7 +103,7 @@ elsif ($file_type eq "EXOME_BAM" ) {
 elsif ($file_type eq "EXOME_BI_BAM" ) {
 	$bas_type = "EXOME_BI_BAS";
 }
-elsif (	$file_type eq "EXOME_BC_BAM")
+elsif (	$file_type eq "EXOME_BC_BAM") {
 	$bas_type = "EXOME_BC_BAS";
 }
 elsif 	($file_type eq "EXOME_BCM_BAM") {
@@ -157,7 +158,7 @@ if (!$bas ) {
 
                      -input_files => $bam,
                      -md5 => $fo->md5,
-                     -working_dir => '/nfs/nobackup/resequencing_informatics/zheng/tmp',
+                     -working_dir => '/nfs/1000g-work/G1K/scratch/zheng/tmp',
                      -need_tags=> 0,
 
                      -in_parent => 1,
@@ -282,7 +283,8 @@ if(!$bai) {
 	}	
 }	
 			
-my $archive_list = '/nfs/nobackup/resequencing_informatics/zheng/bam_release/' . $bam_basename . ".tmp_archive_list." . $time_stamp;
+my $archive_list = '/nfs/1000g-work/G1K/scratch/zheng/tmp/' . $bam_basename . ".tmp_archive_list." . $time_stamp;
+
 open (LIST, ">", $archive_list) || throw("Cannot open temparary archive list $archive_list\n");
 	
 if ( check_this_md5($fo) == 1 ) {
