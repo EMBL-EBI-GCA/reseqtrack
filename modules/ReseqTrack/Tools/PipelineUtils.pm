@@ -491,7 +491,7 @@ sub check_existing_jobs{
           next INPUT;
         }
       }
-      elsif ($job->current_status eq 'CREATED') {
+      elsif ($job->current_status ne 'CREATED') {
         next INPUT;
       }
     }

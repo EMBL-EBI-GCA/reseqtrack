@@ -207,24 +207,21 @@ while(1){
         }
     
         my @jobs_to_submit;
+        INPUT:
         foreach my $input (@$inputs) {
+            last INPUT if ($submission_limit && $total_submission_count + @jobs_to_submit >= $submission_total);
             my $job = create_job_object($event, $input, $db, $num_output_dirs, $retry_max);
             push(@jobs_to_submit, $job) if($job);
         }
   
         SUBMIT:
         while (scalar @jobs_to_submit) {
-            if ($submission_limit && $total_submission_count >= $submission_total) {
-                print "reached submission limit so exiting loop\n";
-                last LOOP;
-            }
             my $job_slots_available = $batch_submission_object->job_slots_available();
     
             my @jobs;
             JOB:
             while (scalar @jobs_to_submit) {
                 last JOB if (scalar @jobs >= $job_slots_available);
-                last JOB if ($submission_limit && $total_submission_count >= $submission_total);
     
                 my $job = shift @jobs_to_submit;
                 push(@jobs, $job);
@@ -268,6 +265,10 @@ while(1){
     }
     if ($once) {
         print "\'once\' flag is set so exiting loop\n";
+        last LOOP;
+    }
+    if ($submission_limit && $total_submission_count >= $submission_total) {
+        print "reached submission limit so exiting loop\n";
         last LOOP;
     }
     if (check_if_done($db, $retry_max) && !$submitted_count) {
