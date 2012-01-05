@@ -22,7 +22,7 @@ sub new {
 
 sub columns{
   return "event_complete.event_id, event_complete.other_id, ".
-      "event_complete.table_name, event_complete.type, event_complete.success, ".
+      "event_complete.table_name, event_complete.success, ".
       "event_complete.time, event_complete.time_elapsed, event_complete.exec_host";
 }
 
@@ -136,15 +136,14 @@ sub fetch_by_other{
 sub store{
   my ($self, $event_complete) = @_;
   my $sql = "insert into event_complete(event_id, other_id, table_name, ".
-      "type, success, time, exec_host, time_elapsed) values(?, ?, ?, ?, ?, now(), ?, ?)";
+      "success, time, exec_host, time_elapsed) values(?, ?, ?, ?, now(), ?, ?)";
   my $sth = $self->prepare($sql);
   $sth->bind_param(1, $event_complete->event_id);
   $sth->bind_param(2, $event_complete->other_id);
   $sth->bind_param(3, $event_complete->table_name);
-  $sth->bind_param(4, $event_complete->type);
-  $sth->bind_param(5, $event_complete->success);
-  $sth->bind_param(6, $event_complete->exec_host);
-  $sth->bind_param(7, $event_complete->time_elapsed);
+  $sth->bind_param(4, $event_complete->success);
+  $sth->bind_param(5, $event_complete->exec_host);
+  $sth->bind_param(6, $event_complete->time_elapsed);
   $sth->execute;
   $sth->finish;
   $event_complete->adaptor($self);
@@ -180,7 +179,6 @@ sub object_from_hashref{
        -table_name => $hashref->{table_name},
        -event_id => $hashref->{event_id},
        -other_id => $hashref->{other_id},
-       -type => $hashref->{type},
        -success => $hashref->{success},
        -time => $hashref->{time},
 	   -exec_host => $hashref->{exec_host},

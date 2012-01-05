@@ -36,7 +36,7 @@ sub columns{
   return "run_id, study_id, study_name, center_name, submission_id, submission_date, ".
       "sample_id, sample_name, population, experiment_id, instrument_platform, ".
       "instrument_model, library_name, run_name, run_block_name, paired_length, ".
-      "library_layout, run_file_name, status, read_count, base_count,err_fastq_available";
+      "library_layout, run_file_name, status, read_count, base_count,err_fastq_available, library_strategy";
 }
 
 sub where{
@@ -179,6 +179,7 @@ sub object_from_hashref{
     -archive_read_count => $hashref->{READ_COUNT},
     -archive_base_count => $hashref->{BASE_COUNT},
     -err_fastq_available=> $hashref->{ERR_FASTQ_AVAILABLE},
+	-library_strategy=> $hashref->{LIBRARY_STRATEGY},
       );  
    return $object;
 }

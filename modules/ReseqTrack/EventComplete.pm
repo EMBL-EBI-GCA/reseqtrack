@@ -41,13 +41,12 @@ use ReseqTrack::Tools::Argument qw(rearrange);
   Arg [3]   : int, event dbID
   Arg [4]   : ReseqTrack::Base, this can be another object has a dbID associated with it
   Arg [5]   : int, other dbID
-  Arg [6]   : string, type this should be the type associated with the event
-  Arg [7]   : string, table name this should be the table name associated with the input
-  Arg [8]   : binary, 0/1 to indicate sucess (not yet properly implemented)
-  Arg [9]   : time, the time the object was created
-  Arg [10]  : string, other name this should be the name associated with the other object
-  Arg [11]  : string, the name of the host on which the event ran
-  Arg [12]	: int, the time it took for the job to run in seconds
+  Arg [6]   : string, table name this should be the table name associated with the input
+  Arg [7]   : binary, 0/1 to indicate sucess (not yet properly implemented)
+  Arg [8]   : time, the time the object was created
+  Arg [9]  : string, other name this should be the name associated with the other object
+  Arg [10]  : string, the name of the host on which the event ran
+  Arg [11]	: int, the time it took for the job to run in seconds
   Function  : create EventComplete object
   Returntype: ReseqTrack::EventComplete
   Exceptions: throws if table name doesn't match expectation and if dbIDs have
@@ -60,12 +59,13 @@ sub new {
     my ( $class, @args ) = @_;
     my $self = $class->SUPER::new(@args);
     my (
-        $event,      $event_id, $other, $other_id, $type,
-        $table_name, $success,  $time,  $other_name, $exec_host, $time_elapsed 
+        $event,      $event_id, $other, $other_id,
+        $table_name, $success,  $time,  $other_name, 
+		$exec_host, $time_elapsed 
       )
       = rearrange(
         [
-            qw(EVENT EVENT_ID OTHER OTHER_ID TYPE TABLE_NAME
+            qw(EVENT EVENT_ID OTHER OTHER_ID TABLE_NAME
               SUCCESS TIME OTHER_NAME EXEC_HOST TIME_ELAPSED)
         ],
         @args
@@ -74,7 +74,6 @@ sub new {
     #error checking
     $success = 0 unless ( defined($success) );
     $table_name = $event->table_name if ( $event && !$table_name );
-    $type = $event->type if ( !$type );
     throw(  "Must pass EventComplete a table name and it must be file "
           . "or collection or run_meta_info" )
       if (
@@ -89,7 +88,6 @@ sub new {
               . $table_name
               . "_id" );
     }
-    throw("EventComplete must be given a type") if ( !$type );
     throw("Can't create an EventComplete object without an adaptor")
       if ( !$self->adaptor );
     ######
@@ -99,7 +97,6 @@ sub new {
     $self->other($other);
     $self->other_id($other_id);
     $self->other_name($other_name);
-    $self->type($type);
     $self->success($success);
     $self->time($time);
 	$self->exec_host($exec_host);
@@ -124,14 +121,6 @@ sub table_name {
         $self->{'table_name'} = $arg;
     }
     return $self->{'table_name'};
-}
-
-sub type {
-    my ( $self, $arg ) = @_;
-    if ($arg) {
-        $self->{'type'} = $arg;
-    }
-    return $self->{'type'};
 }
 
 sub success {

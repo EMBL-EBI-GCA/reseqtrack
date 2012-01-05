@@ -19,13 +19,13 @@ sub new{
       $submission_date, $sample_id, $sample_name, $population,
       $experiment_id, $instrument_platform, $instrument_model,
       $library_name, $run_name, $run_block_name, $paired_length,
-      $status, $library_layout, $archive_base_count, $archive_read_count) = 
+      $status, $library_layout, $archive_base_count, $archive_read_count, $library_strategy) = 
       rearrange(['RUN_ID', 'STUDY_ID', 'STUDY_NAME', 'CENTER_NAME',
                  'SUBMISSION_ID', 'SUBMISSION_DATE', 'SAMPLE_ID', 'SAMPLE_NAME',
                  'POPULATION', 'EXPERIMENT_ID', 'INSTRUMENT_PLATFORM', 
                  'INSTRUMENT_MODEL', 'LIBRARY_NAME', 'RUN_NAME', 'RUN_BLOCK_NAME',
                  'PAIRED_LENGTH', 'STATUS', 'LIBRARY_LAYOUT', 'ARCHIVE_BASE_COUNT',
-                 'ARCHIVE_READ_COUNT'], @args);
+                 'ARCHIVE_READ_COUNT', 'LIBRARY_STRATEGY'], @args);
   
   #ERROR CHECKING
   throw("ReseqTrack::RunMetaInfo must have a run_id") unless($run_id);
@@ -55,6 +55,7 @@ sub new{
   $self->archive_base_count(0) unless(defined($self->archive_base_count));
   $self->archive_read_count(0) unless(defined($self->archive_read_count));
   $self->status($status);
+  $self->library_strategy($library_strategy);
   $self->fix_date;
   return $self;
 }
@@ -225,6 +226,14 @@ sub archive_read_count{
     $self->{archive_read_count} = $archive_read_count;
   }
   return $self->{archive_read_count};
+}
+
+sub library_strategy{
+  my ($self, $library_strategy) = @_;
+  if(defined($library_strategy)){
+    $self->{library_strategy} = $library_strategy;
+  }
+  return $self->{library_strategy};
 }
 
 sub fix_date{

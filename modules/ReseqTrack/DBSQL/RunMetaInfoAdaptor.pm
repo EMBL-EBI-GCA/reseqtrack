@@ -34,7 +34,8 @@ sub columns{
       "run_meta_info.run_name, run_meta_info.run_block_name, ".
       "run_meta_info.paired_length, run_meta_info.library_layout, ".
       "run_meta_info.status, run_meta_info.archive_base_count, ".
-      "run_meta_info.archive_read_count";
+      "run_meta_info.archive_read_count, ".
+	  "run_meta_info.library_strategy";
 }
 
 sub table_name{
@@ -134,8 +135,8 @@ sub store_sql{
       "submission_id, submission_date, sample_id, sample_name, population, ".
       "experiment_id, instrument_platform, instrument_model, library_name, ".
       "run_name, run_block_name, paired_length, library_layout, status, ".
-      "archive_base_count, archive_read_count) ".
-      "values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+      "archive_base_count, archive_read_count, library_strategy) ".
+      "values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 }
 
 sub convert_date_sql{
@@ -144,8 +145,8 @@ sub convert_date_sql{
       "experiment_id, ".
       "instrument_platform, instrument_model, library_name, run_name, ".
       "run_block_name, paired_length, library_layout, status, archive_base_count, ".
-      "archive_read_count) ".
-      "values(?, ?, ?, ?, ?, STR_TO_DATE(?, '%Y-%M-%d %H:%i:%s'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+      "archive_read_count, library_strategy) ".
+      "values(?, ?, ?, ?, ?, STR_TO_DATE(?, '%Y-%M-%d %H:%i:%s'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 }
 sub store{
   my ($self, $run_meta_info, $update, $convert_date) = @_;
@@ -191,6 +192,7 @@ sub store{
   $sth->bind_param(18, $run_meta_info->status);
   $sth->bind_param(19, $run_meta_info->archive_base_count);
   $sth->bind_param(20, $run_meta_info->archive_read_count);
+  $sth->bind_param(21, $run_meta_info->library_strategy);	
   $sth->execute;
   my $dbID = $sth->{'mysql_insertid'};
   $run_meta_info->dbID($dbID);
@@ -242,6 +244,7 @@ sub update{
       " status = ?, ".
       " archive_base_count = ?, ".
       " archive_read_count = ? ".
+	  " library_strategy = ? ".
       "where run_meta_info_id = ?";
   my $sth = $self->prepare($sql);
   $sth->bind_param(1, $run_meta_info->study_id);
@@ -263,7 +266,8 @@ sub update{
   $sth->bind_param(17, $run_meta_info->status);
   $sth->bind_param(18, $run_meta_info->archive_base_count);
   $sth->bind_param(19, $run_meta_info->archive_read_count);
-  $sth->bind_param(20, $run_meta_info->dbID);
+  $sth->bind_param(20, $run_meta_info->library_strategy);
+  $sth->bind_param(21, $run_meta_info->dbID);
   $sth->execute;
   $sth->finish;
   my $hist_a = $self->db->get_HistoryAdaptor();
@@ -301,6 +305,7 @@ sub object_from_hashref{
     -status => $hashref->{status},
     -archive_base_count => $hashref->{archive_base_count},
     -archive_read_count => $hashref->{archive_read_count},
+	-library_strategy => $hashref->{library_strategy},
       );
   return $run_meta_info;
 }
