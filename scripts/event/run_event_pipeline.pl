@@ -171,6 +171,27 @@ while(1){
     EVENT:
     foreach my $event (@$events) {
         print "\nConsidering event ".$event->name."\n" if($verbose);
+        my $table_name = $event->table_name;
+        my $type = $event->type;
+
+        my $check_allowed_inputs = 0;
+        if (keys %allowed_inputs) {
+            if (! exists $allowed_inputs{$table_name}) {
+                print "Inputs not allowed for table ".$table_name."\n" if ($verbose);
+                next EVENT;
+            }
+            if (keys %{$allowed_inputs{$table_name}}) {
+                if (! exists $allowed_inputs{$table_name}{$type}) {
+                    print "Inputs not allowed for table ".$table_name
+                            ." and type ".$type."\n" if ($verbose);
+                    next EVENT;
+                }
+                if (keys %{$allowed_inputs{$table_name}{$type}}) {
+                    $check_allowed_inputs = 1;
+                }
+            }
+        }
+
         my $existing_jobs = $ja->fetch_by_event($event);
         my $inputs = get_incomplete_inputs($db, $event);
         print "There are ".@$inputs." inputs that are not complete\n" if ($verbose);
@@ -179,6 +200,13 @@ while(1){
         $inputs = check_existing_jobs($inputs, $existing_jobs, $retry_max, $verbose);
         print "There are ".@$inputs." inputs after filtering for existing jobs\n" if ($verbose);
         next EVENT if (!@$inputs);
+
+        if ($check_allowed_inputs) {
+            my @filtered_inputs = grep {$allowed_inputs{$table_name}{$type}{$_}} @$inputs;
+            $inputs = \@filtered_inputs;
+            print "There are ".@$inputs." allowed inputs\n" if ($verbose);
+            next EVENT if (!@$inputs);
+        }
 
         my $workflow = $workflow_hash->{$event->name};
         if ($workflow) {
