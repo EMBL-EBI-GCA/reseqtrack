@@ -120,7 +120,7 @@ sub sample
     
 
       if ( ! (scalar keys %$idxs) ) {
-	print "Base in fastq < subsample limit. Not sampling\n";
+	print "No indices determined. No sampling performed\n";
 	return;
       } else {
 	print "Have indices " , scalar (keys %$idxs) , "\n";
@@ -133,14 +133,14 @@ sub sample
     my $fh_out;
 
     if ( $in_file =~ /\.gz$/i ) {
-      open($fh_in, "zcat $in_file | ") or error("zcat $in_file: $!");
+      open($fh_in, "zcat $in_file | ") or throw("zcat $in_file: $!");
       $fastq_compressed = 1;
       $z = new IO::Compress::Gzip  $out_file 
 	or die "IO::Compress::Gzip failed: $GzipError\n";
     
 
     } else {
-      open($fh_in, '<', $in_file) or error("$in_file: $!");
+      open($fh_in, '<', $in_file) or throw("$in_file: $!");
       open $fh_out,'>', $out_file || die "Failed to open $out_file\n";
       $fastq_compressed = 0;
     }
@@ -156,7 +156,7 @@ sub sample
 
       if ( exists($$idxs{$iblock}) ) {
 	if ( !$line_seq || !$line_sep || !$line_qual ) {
-	  error("Sanity check failed.\n");
+	  thorw ("Sanity check failed.\n");
 	}
 
 	$z->print ($line_id, $line_seq, $line_sep, $line_qual)     if ( $fastq_compressed) ;
@@ -215,59 +215,4 @@ sub uncompressed_gz_size
     return $1;
   }
 
-
-sub estimate_average_read_length{
-  my ($in_file, $platform) = @_;
- 
-  my $fh_in;
-  my $ctr;
- 
-  if ( $in_file =~ /\.gz$/i ) {
-    open($fh_in, "zcat $in_file | ") or die("failed zcat $in_file: $!");
-  } else {
-    open($fh_in, '<' ,$in_file ) or die ("failed open $in_file: $!");
-  }
-
-  my ($read_count,$base_count,$ave_read_length);
- 
-  my ($line1, $line2, $line3, $line4);
-  my $read_length = 0;
-
-  while (my $line1 = <FH>) {
-  
-    my $line2 = <FH>;
-    my $line3 = <FH>;
-    my $line4 = <FH>;
- 
-
-    $line2 =~ s/\s+$//;
-    chomp $line2;
- 
-    $ctr++;
-
-    $read_count++;
-    my $length += length($line2);
-
-    #  print $length,"\n";
-
-    if ( $platform eq 'ABI_SOLID') {
-      $length -= 1;
-    }
-
-    $base_count += $length;
-
-    if ( $ctr == 4000){
-      close ($fh_in);
-      $ave_read_length = int ($base_count/$read_count);
-      print "Average read length of 1000 reads = $ave_read_length\n";
-      return $ave_read_length;
-    }
-  }
-
-  throw "Failed to get average read length\n";
-}
-
-
-
 1;
-
