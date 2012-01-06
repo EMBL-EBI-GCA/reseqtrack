@@ -156,7 +156,7 @@ sub sample
 
       if ( exists($$idxs{$iblock}) ) {
 	if ( !$line_seq || !$line_sep || !$line_qual ) {
-	  thorw ("Sanity check failed.\n");
+	  throw ("Sanity check failed.\n");
 	}
 
 	$z->print ($line_id, $line_seq, $line_sep, $line_qual)     if ( $fastq_compressed) ;
