@@ -285,7 +285,7 @@ sub CHECK_AND_PARSE_FILE_NAME {
 		throw("BAM file name does not fit naming convention\n");	
 	}
 	
-	return ($sample, $platform, $algorithm, $project, $analysis_grp, $chr, $date);	
+	return ($sample, $platform, $algorithm, $project, $analysis_grp, $chr, $date, $pop);	
 }		 
 
 sub check_bas {
