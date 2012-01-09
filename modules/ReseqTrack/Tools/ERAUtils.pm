@@ -43,12 +43,12 @@ sub get_erapro_conn{
 
 
 sub get_era_fastq{
-  my ($run_id, $output_dir, $ftp_server, $clobber, $wget_program, 
-      $wget_options, $era_db) = @_;
+  my ($run_id, $output_dir, $ftp_server, $clobber, $copy_program, 
+      $copy_options, $era_db) = @_;
   #check for existing files
   throw("Can't get fastq files if no run_id is specified") unless($run_id);
-  $wget_program = "wget" unless($wget_program);
-  $wget_options = '-t 1' unless($wget_options);
+  $copy_program = "cp" unless($copy_program);
+  $copy_options = '' unless($copy_options);
   $output_dir = getcwd() unless($output_dir);
   #check to see if files already exist;
   my $existing_files = find_file($run_id."*", $output_dir);
@@ -77,13 +77,19 @@ sub get_era_fastq{
   if(!@paths || @paths == 0){
     throw("Failed to find any paths for ".$run_id." in ".$era_db->dbc->dbname);
   }
-  my $wget_stem = create_wget_stem($output_dir, $wget_program, $wget_options);
+
   foreach my $path(@paths){
-    my $cmd = $wget_stem." ".$path;
+	my ($src_filename, $src_dir, $src_suffix) = fileparse($path);
+	my $dest_filepath = $output_dir.'/'.$src_filename;
+	
+	my $cmd = $copy_program.' '.$copy_options.' '.$path.' '.$dest_filepath;
+	
     my $exit = system($cmd);
     if($exit >= 1){
       throw("Failed to run ".$cmd." exited with ".$exit);
     }
+
+	chmod 0644, $dest_filepath;
   }
   my ($list, $hash) = list_files_in_dir($output_dir, 1);
   my %md5_hash;
@@ -91,24 +97,24 @@ sub get_era_fastq{
   foreach my $file(@$list){
     next unless($file =~ /$run_id/);
     my $name = basename($file);
-    my $ftppath = $namehash->{$name};
+    my $srcpath = $namehash->{$name};
     foreach my $name(keys(%$namehash)){
       print $name." ".$namehash->{$name}."\n";
     }
-    if(!$ftppath){
-      throw("Failed to find an ftp path for ".$name);
+    if(!$srcpath){
+      throw("Failed to find a source path for ".$name);
     }
-    my $md5 = $md5hash->{$ftppath};
-    print "Getting size using ftp path ".$ftppath."\n";
-    my $size = $sizehash->{$ftppath};
+    my $md5 = $md5hash->{$srcpath};
+    print "Getting size using src path ".$srcpath."\n";
+    my $size = $sizehash->{$srcpath};
     my $output_size = -s $file;
     unless($size == $output_size){
-      throw("There is a problem with the output from ".$ftppath." the database ".
+      throw("There is a problem with the output from ".$srcpath." the database ".
             "gives ".$size." but perl gives ".$output_size);
     }
     my $output_md5 = run_md5($file);
     unless($output_md5 eq $md5){
-       throw("There is a problem with the output from ".$ftppath." the database ".
+       throw("There is a problem with the output from ".$srcpath." the database ".
             "gives ".$md5." but run_md5 gives ".$output_md5);
     }
     $md5_hash{$file} = $md5;
@@ -129,12 +135,6 @@ sub create_run_id_based_ftp_path{
   #$ftp_path .= "/".$type;
   $ftp_path .= "/".$first_dir."/".$run_id."/";
   return $ftp_path;
-}
-sub create_wget_stem{
-  my ($output_dir, $wget_program, $wget_options) = @_;
-  my $cmd_stem = $wget_program." ".$wget_options;
-  $cmd_stem .= " -P ".$output_dir if($output_dir);
-  return $cmd_stem;
 }
 
 sub compare_era_and_dcc_meta_info{

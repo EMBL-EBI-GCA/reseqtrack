@@ -243,7 +243,7 @@ sub update{
       " library_layout = ?, ".
       " status = ?, ".
       " archive_base_count = ?, ".
-      " archive_read_count = ? ".
+      " archive_read_count = ?, ".
 	  " library_strategy = ? ".
       "where run_meta_info_id = ?";
   my $sth = $self->prepare($sql);

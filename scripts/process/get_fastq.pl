@@ -15,9 +15,9 @@ use File::Path;
 $| = 1;
 
 my $run_id;
-my $ftp_server = 'ftp://ftp.sra.ebi.ac.uk';
-my $program = 'wget';
-my $options = '-t 1 --ignore-length';
+my $era_root_location = '/nfs/era-pub';
+my $copy_program = 'cp';
+my $copy_options = '';
 my $root_dir;
 my $host_name;
 my $file_type;
@@ -33,11 +33,12 @@ my $load = 0;
 my $era_dbuser;
 my $era_dbpass;
 my $help = 0;
+my $directory_layout = 'sample_name/archive_sequence';
 
 &GetOptions( 
   'run_id=s' => \$run_id,
-  'program=s' => \$program,
-  'options=s' => \$options,
+  'program=s' => \$copy_program,
+  'options=s' => \$copy_options,
   'output_dir=s' => \$output_dir,
   'host_name=s' => \$host_name,
   'type|file_type=s' => \$file_type,
@@ -52,11 +53,14 @@ my $help = 0;
   'era_dbuser=s' =>\$era_dbuser,
   'era_dbpass=s' => \$era_dbpass,
   'help!' => \$help,
+  'directory_layout=s' => \$directory_layout,
     );
 
 if($help){
   useage();
 }
+
+$era_dbuser = 'ops$laura';
 
 my $db = ReseqTrack::DBSQL::DBAdaptor->new(
   -host   => $dbhost,
@@ -69,18 +73,37 @@ my $db = ReseqTrack::DBSQL::DBAdaptor->new(
 my $era_db = get_erapro_conn($era_dbuser, $era_dbpass);
 
 my $rmi_a = $db->get_RunMetaInfoAdaptor;
+
 my $meta_info = $rmi_a->fetch_by_run_id($run_id);
 throw("Failed to find a run meta info object for ".$run_id." from ".$dbname)
     unless($meta_info);
+
 if($meta_info->status ne 'public'){
   exit(0);
 }
-my $full_output_dir = $output_dir."/".$meta_info->sample_name."/archive_sequence";
+
+my $full_output_dir = $output_dir;
+my $method_matches = 0; 
+foreach my $layout_chunk (split /\//, $directory_layout) {
+	my $method = $meta_info->can($layout_chunk);	
+	if ($method){
+		$layout_chunk = &$method($meta_info);
+		$method_matches++;
+	}
+		
+	$full_output_dir .= '/';
+	$full_output_dir .= $layout_chunk;
+}
+
+if (! $method_matches){
+	die "Directory layout ($directory_layout) did not call any run_meta_info methods";
+}
+
 $full_output_dir =~ s/\/\//\//;
+
 unless(-d $full_output_dir){
   mkpath($full_output_dir);
 }
-
 my $era_rmia = $era_db->get_ERARunMetaInfoAdaptor;
 
 unless($era_rmia->is_fastq_available($run_id)){
@@ -88,8 +111,7 @@ unless($era_rmia->is_fastq_available($run_id)){
   exit(20);
 }
 $db->dbc->disconnect_when_inactive(1);
-my $hash = get_era_fastq($run_id, $full_output_dir, $ftp_server, $clobber, $program, $options, $era_db);
-
+my $hash = get_era_fastq($run_id, $full_output_dir, $era_root_location, $clobber, $copy_program, $copy_options, $era_db);
 
 my $ha = $db->get_HostAdaptor;
 my $host = $ha->fetch_by_name($host_name);
@@ -108,7 +130,6 @@ throw("Have failed to fetch any fastq files for ".$run_id." in ".$full_output_di
 
 
 foreach my $path(keys(%$hash)){
-  print $path."\n";
   my $size = -s $path;
   if($size <= 20){
     throw($path." appears to be empty");
@@ -207,6 +228,7 @@ Input options
 -remote, this specifies if the give host is remote
 -load, this species if the created file/collection objects should be loaded into
 the database
+-directory_layout, this specifies where the files will be located under output_dir. Tokens matching method names in RunMetaInfo will be substituted with that methods return value. Default value is sample_name/archive_sequence
 
 =head1 Examples
 
