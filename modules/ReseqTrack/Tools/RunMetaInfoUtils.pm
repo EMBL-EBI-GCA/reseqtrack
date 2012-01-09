@@ -52,6 +52,7 @@ sub are_run_meta_infos_identical{
               ($one->center_name ne $two->center_name));
   return 0 if($one->submission_id ne $two->submission_id);
   return 0 if($one->sample_id ne $two->sample_id);
+  return 0 if($one->library_strategy ne $two->library_strategy);
   unless($skip_date){
     if($two->submission_date){
       if($one->submission_date){
@@ -111,8 +112,8 @@ sub are_run_meta_infos_identical{
 
 sub create_history_for_run_meta_info{
   my ($new, $old) = @_;
-  throw("Must pass are_run_meta_infos_identical two RunMetaInfo objects") unless($new && $old);
-  throw("Must pass are_run_meta_infos_identical two RunMetaInfo objects and not ".$new." and ".
+  throw("Must pass create_history_for_run_meta_info two RunMetaInfo objects") unless($new && $old);
+  throw("Must pass create_history_for_run_meta_info two RunMetaInfo objects and not ".$new." and ".
         $old) unless($new->isa("ReseqTrack::RunMetaInfo") && 
                      $old->isa("ReseqTrack::RunMetaInfo"));
   
@@ -123,6 +124,7 @@ sub create_history_for_run_meta_info{
   if($old->submission_date && $new->submission_date){
     $comment = "Changing submission date from ".$old->submission_date." to ".$new->submission_date if($old->submission_date ne $new->submission_date);
   }
+  $comment = "Changing library strategy ".$old->library_strategy." to ".$new->library_strategy if($old->library_strategy ne $new->library_strategy);
     $comment = "Changing study name ".$old->study_name." ".$new->study_name if($new->study_name ne $old->study_name);
   
   $comment = "Changing submission id ".$old->submission_id." ".$new->submission_id if($new->submission_id ne $old->submission_id);
