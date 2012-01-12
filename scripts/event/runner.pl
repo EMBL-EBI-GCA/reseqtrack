@@ -115,6 +115,7 @@ throw("$message_prefix Failed to fetch event with " . $logic_name)      if (!$ev
 my $ja = $db->get_JobAdaptor;
 my $job = $ja->fetch_by_dbID($dbID);
 throw("$message_prefix Failed to fetch job with " . $dbID) if (!$job);
+print "$message_prefix input string is ".$job->input_string ."\n";
 
 my $output_file = $job->output_file;
 if (! $output_file) {
