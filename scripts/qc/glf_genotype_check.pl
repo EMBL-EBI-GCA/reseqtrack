@@ -43,6 +43,7 @@ GetOptions (\%input, 'dbhost=s','dbname=s','dbuser=s','dbpass=s',
 	    'validation_method=s','cfg_file=s', 'working_dir=s',
 	    'no_store!', 'no_skip_files!','update!','subsample_size=s',
 	    'file=s@', 'paired_length=s', 'no_subsample!', 'save_files_for_deletion!',
+	    'path_must_contain=s',
 	   );
 
 
@@ -89,6 +90,20 @@ if (!$have_snps) {
 
 my ($align_these,$need_to_sample) = 
   decide_file_skip ($collection,$input{subsample_size})   unless ($input{no_skip_files}) ;
+
+if (defined $input{path_must_contain}){
+  foreach my $check_path(@$align_these){
+
+    if (! ($check_path =~ $input{path_must_contain})){
+      my $msg =  "\nfile:$check_path\ndoes not contain required path\n" 
+	. $input{path_must_contain} . " <= is required"
+	  ."\nCheck all prerequisite events are completed for $input{name}"
+	    . " type = " . $input{type};
+      
+      throw ("$msg\n");
+    }
+  }
+}
 
 
 my $max_read    = get_max_read_length ($collection, $align_these, 1);
