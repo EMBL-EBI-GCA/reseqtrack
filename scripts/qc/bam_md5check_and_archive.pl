@@ -151,11 +151,10 @@ if (!$bas ) {
 	else { # create a bas, store in db as new or replace the one exists in db
 		my ($sample2, $platform2, $algorithm2, $project2, $analysis2, $chrom2, $date2) = CHECK_AND_PARSE_FILE_NAME($bam);
 		#print "chrom is $chrom2\ndate is $date2\nPATH is " . $ENV{"PATH"} . "\nPERL5LIB is " . $ENV{'PERL5LIB'} . "\n";
-	
+	                  
 		eval{
 			my $bas =  ReseqTrack::Tools::Bas->new (
-                     -reference => '/nfs/1000g-work/G1K/work/REFERENCE/aligners_reference/bwa/grc37/human_g1k_v37.fa',
-
+					 -reference =>'/nfs/1000g-work/G1K/work/REFERENCE/aligners_reference/hs37d5/hs37d5.fa',
                      -input_files => $bam,
                      -md5 => $fo->md5,
                      -working_dir => '/nfs/1000g-work/G1K/scratch/zheng/tmp',
@@ -164,6 +163,7 @@ if (!$bas ) {
                      -in_parent => 1,
                     );
 			#### FIXME: may have to change -need_tags between 0 or 1
+			#### older version of reference is -reference =>'/nfs/1000g-work/G1K/work/REFERENCE/aligners_reference/bwa/grc37/human_g1k_v37.fa',
 			$bas->run; ## this will create a bas file at the same directory as the bam file, if -in_parent is set to 1; otherwise specify -output_dir
 		};
 		if($@){
