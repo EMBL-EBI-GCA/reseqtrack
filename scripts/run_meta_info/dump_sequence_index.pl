@@ -27,7 +27,6 @@ my $single_run_id;
 my @skip_study_ids;
 my $test_id;
 my $study_collection_type = 'STUDY_TYPE';
-
 my $current_index ;
 
 &GetOptions(
@@ -70,9 +69,9 @@ if ($current_index){
     chomp;
     my @aa = split /\t/;
 
-    if ($aa[20] eq "1"){
+    if ($aa[20] && $aa[20] eq '1'){
       $current_hash{$aa[2]}{withdrawn}      = $aa[20];
-      $current_hash{$aa[2]}{withdrawn_date} = $aa[21];
+      $current_hash{$aa[2]}{withdrawn_date} = $aa[21] if($aa[21]);
       $current_hash{$aa[2]}{comment}        = $aa[22];
     }
   }
@@ -102,7 +101,13 @@ foreach my $collection(@$study_collections){
 #print lines
 #throw("Don't have a single run id") unless($single_run_id);
 my $rmi_a = $db->get_RunMetaInfoAdaptor;
-my $meta_infos = $rmi_a->fetch_all;
+my $meta_infos;
+if($single_run_id){
+  my $rmi = $rmi_a->fetch_by_run_id($single_run_id);
+  $meta_infos = [$rmi];
+}else{
+  $meta_infos = $rmi_a->fetch_all;
+}
 my @sorted = sort{$a->run_id cmp $b->run_id} @$meta_infos;
 
 my $fa = $db->get_FileAdaptor;
@@ -119,34 +124,22 @@ my %index_lines;
 
 
  META_INFO:foreach my $meta_info(@sorted){
- # print "Have ".$meta_info->run_id."\n";
+  #print "Have ".$meta_info->run_id."\n";
    my $analysis_group = $study_collection_hash{$meta_info->run_id};
    if($single_run_id){
      #print STDERR "Comparing ".$meta_info->run_id." to ".$single_run_id."\n";
      next META_INFO unless($meta_info->run_id eq $single_run_id);
    }
- #  print "Running dump on ".$meta_info->run_id."\n";
+   #print "Running dump on ".$meta_info->run_id."\n";
    if(keys(%skip_study_id)){
      next META_INFO if($skip_study_id{$meta_info->study_id});
    }
    $index_lines{$meta_info->run_id} = [] unless($index_lines{$meta_info->run_id});
    if($meta_info->status eq 'suppressed' || $meta_info->status eq 'cancelled'){
-   	my $line;
-   	
-   	if (defined $current_hash{$meta_info->run_id}{withdrawn}){
-        print $meta_info->run_id, "\t",$current_hash{$meta_info->run_id}{comment},"\n";
-        my $new_comment = $current_hash{$meta_info->run_id}{comment};
-        my $time        = $current_hash{$meta_info->run_id}{withdrawn_date}; 
-        
-       my $line =create_suppressed_index_line($meta_info, $new_comment, $time, $analysis_group);
-   	}
-   	else{   	
-        $line = create_suppressed_index_line($meta_info, undef, undef,$analysis_group);
-   	}
-   	
+     my $line;	
+     $line = create_suppressed_index_line($meta_info, undef, undef,$analysis_group);
      #print $line."\n";
      push(@{$index_lines{$meta_info->run_id}}, $line);
-     
    }elsif($meta_info->status eq 'public'){
      my $files;
       if($table_name eq 'file'){
@@ -184,11 +177,11 @@ my %index_lines;
      if(!$files || @$files == 0){
        my $warning = $meta_info->run_id." seems to have no files associated with it";
        $warning .= " for type ".$type if($type);
-       print $warning,"\n";
+       #print STDERR $warning,"\n";
       
        my $tmp_comment="";
 
-     
+       #print STDERR "HAVE ".@$all_collections." collections\n";
        if ( !$all_collections || @$all_collections ==0 ) {
          $tmp_comment = 'NOT YET AVAILABLE FROM ARCHIVE';
        }
@@ -218,30 +211,19 @@ my %index_lines;
        my $time = "";
 
        if (defined $current_hash{$meta_info->run_id}{withdrawn}){
-       	print $meta_info->run_id, "\t",$current_hash{$meta_info->run_id}{comment},"\n";
+       	#print STDERR $meta_info->run_id, "\t",$current_hash{$meta_info->run_id}{comment},"\n";
        	$new_comment = $current_hash{$meta_info->run_id}{comment};
         $time        = $current_hash{$meta_info->run_id}{withdrawn_date}; 
       
      }
-       
+       #print STDERR "CREATEING A SUPPRESSED INDEX LINE\n";
         my $line;
         $line =create_suppressed_index_line($meta_info, $new_comment, $time, $analysis_group);
         push(@{$index_lines{$meta_info->run_id}}, $line);
 
      }
      else{
-     	
-     	if (defined $current_hash{$meta_info->run_id}{withdrawn}){
-	  #print $meta_info->run_id, "\t",$current_hash{$meta_info->run_id}{comment},"\n";
-	  my $new_comment = $current_hash{$meta_info->run_id}{comment};
-	  my $time        = $current_hash{$meta_info->run_id}{withdrawn_date}; 
-     			 
-	  my $line;
-	  $line =create_suppressed_index_line($meta_info, $new_comment, $time, $analysis_group);
-	  push(@{$index_lines{$meta_info->run_id}}, $line);
-	  next;
-     			  		
-     	}
+
      		
        #print STDERR "Have ".@$files." for ".$meta_info->run_id."\n";
        my ($mate1, $mate2, $frag) = assign_files($files);
@@ -255,13 +237,6 @@ my %index_lines;
                                       $analysis_group);
          push(@{$index_lines{$meta_info->run_id}}, $line);
        }
-       if($meta_info->library_layout eq 'SINGLE'){
-        if($mate1 || $mate2){
-          warning("Can't handle a single ended library ".$meta_info->run_id.
-                  " with either ".$mate1." ".$mate2." defined");
-          next META_INFO;
-        }
-       }elsif($meta_info->library_layout eq 'PAIRED'){
         if($mate1 && $mate2){
           my ($mate1_read_count, $mate1_base_count) = get_count_stats($mate1);
           my $mate1_line = create_index_line($mate1->name, $mate1->md5, $meta_info, 
@@ -274,12 +249,7 @@ my %index_lines;
                                              $mate2_read_count, $mate2_base_count,
                                              $analysis_group);
           push(@{$index_lines{$meta_info->run_id}}, ($mate1_line, $mate2_line));
-        }else{
-          print "Dont have mate1 and/or mate2 files for ".$meta_info->run_id,"\n";
-        }
-      }else{
-        throw("Don't know what to expect for ".$meta_info->library_layout);
-      }
+	}
      }
    }
 }
@@ -300,6 +270,7 @@ foreach my $meta_info(@sorted){
     foreach my $line(@$lines){
     	
       if (!$line ){                                                                                   
+	print "Have bad line for ".$meta_info->run_id."\n";
        $bad_lines++;                                                                                      
        next;                                                                                              
       }                                                                                                          

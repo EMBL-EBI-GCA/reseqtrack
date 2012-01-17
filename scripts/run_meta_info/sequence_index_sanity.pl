@@ -248,6 +248,7 @@ if($syntax){
       my @indexes = keys(%{$column_check_results->{$key}});
       my @sorted = sort {$a <=> $b} @indexes;
     INDEX:foreach my $index(@sorted){
+	print "Looking at ".$index."\n";
       my $name = $name_to_index->{$index};
       if(!$name){
 	throw("Failed to get name from ".$index);
