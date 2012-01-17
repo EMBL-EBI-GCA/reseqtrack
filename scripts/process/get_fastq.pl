@@ -75,6 +75,7 @@ my $era_db = get_erapro_conn($era_dbuser, $era_dbpass);
 my $rmi_a = $db->get_RunMetaInfoAdaptor;
 
 my $meta_info = $rmi_a->fetch_by_run_id($run_id);
+$db->dbc->disconnect_when_inactive(1);
 throw("Failed to find a run meta info object for ".$run_id." from ".$dbname)
     unless($meta_info);
 
@@ -126,7 +127,7 @@ if(!$host){
 my @objects;
 
 throw("Have failed to fetch any fastq files for ".$run_id." in ".$full_output_dir)
-    unless(keys(%$hash));
+  unless(keys(%$hash));
 
 
 foreach my $path(keys(%$hash)){
