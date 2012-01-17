@@ -73,7 +73,6 @@ my $loader = ReseqTrack::Tools::Loader::File->new(
 						  -file      => \@files,
 						  -list_file => $list_file,
 						  -type      => $type,
-						  -host      => $host_name,
 						  -md5_file  => $md5_file,
 						  -hostname      => $host_name,
 						  -dbhost => $dbhost,
@@ -176,7 +175,7 @@ will use the update method rather than the store method
 -store_new, This means if the store method finds a file with the same name it will
 still store a brand new line unless the md5s are the same
 
--check_md5, This makes the script run md5 checksums on each file
+-do_md5, This makes the script run md5 checksums on each file
 
 -md5_program, This is a string pointing to the md5sum program
 

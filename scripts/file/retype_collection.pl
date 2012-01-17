@@ -38,7 +38,7 @@ GetOptions(
 	'name=s@',
 );
 
-if($input{help} || scalar @ARGV < 3){
+if($input{help}){
   useage();
 }
 

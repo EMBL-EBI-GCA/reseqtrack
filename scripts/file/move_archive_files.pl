@@ -22,6 +22,7 @@ my $run = 0;
 my $priority = 90;
 my $from;
 my $to;
+my $help;
 
 &GetOptions( 
 	    'dbhost=s'      => \$dbhost,
@@ -35,7 +36,12 @@ my $to;
 	    'priority=s' => \$priority,
 	    'clobber!' => \$clobber,
 	    'run!' => \$run,
+	    'help!' => \$help,
     );
+
+if($help){
+  useage();
+}
 
 my $db = ReseqTrack::DBSQL::DBAdaptor->new(
   -host => $dbhost,
@@ -82,13 +88,14 @@ foreach my $path(keys(%$hash)){
   push(@file_objects, $object);
 }
 
-print "Have ".@file_objects." to move \n";
+###print "Have ".@file_objects." to move \n";
 my @archives;
 foreach my $file(@file_objects){
   my $new_path = $hash->{$file->full_path};
   throw ("Don't seem to have a new path for ".$file->full_path) unless($new_path);
   throw("File doesn't exist ".$file->name) unless(-e $file->name);
   my $archive = create_archive_from_objects($file, $action, $location, $new_path);
+  #print "moving *".$file->name."* to *".$new_path."*\n";
   push(@archives, $archive);
 }
 
@@ -105,4 +112,46 @@ $aa->delete_archive_lock;
 
 print "\nMessage:\n";
 print " move_archive_files.pl does not automatically\n";
-print " run 'cleanup_archive' on archive table.\n";
+print " run 'cleanup_archive.pl' on archive table.\n";
+
+=pod
+
+=head1 NAME
+
+ReseqTrack/scripts/files/move_archive_files.pl
+
+=head1 SYNOPSIS
+
+This script will take a list of file paths and either move and/or rename the files
+as specified
+
+=head1 OPTIONS
+
+Database options
+
+This is the database the objects will be written to
+
+-dbhost, the name of the mysql-host
+-dbname, the name of the mysql database
+-dbuser, the name of the mysql user
+-dbpass, the database password if appropriate
+-dbport, the port the mysql instance is running on, this defaults to 4197 the 
+         standard port for mysql-g1kdcc.ebi.ac.uk
+
+-move_list, tab file containing the to and from locations for the files you want 
+            moved or renamed
+
+-from, the file you wish moved or renamed
+-to, the location/new name you wish to assign
+
+-priority, the priority you wish to give to the LSF job running the actual move
+
+-clobber, if you wish to clobber existing files
+
+-run, must be switched on in order to store the actual objects
+
+=head1 Examples
+
+perl reseqtrack/scripts/file/move_archive_files.pl -dbhost myhost -dbuser myuser -dbpass ***** -dbport 4197 -dbname my_db -move move.list -run
+
+=cut

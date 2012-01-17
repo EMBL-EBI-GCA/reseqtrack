@@ -1,11 +1,13 @@
 #!/usr/bin/perl
+
 use strict;
 use warnings;
 
 use Getopt::Long;
 use ReseqTrack::Tools::Loader;
 use ReseqTrack::Tools::Loader::Archive;
-use Data::Dumper;
+use ReseqTrack::Tools::GeneralUtils;
+
 
 my $dbhost;
 my $dbuser;
@@ -30,9 +32,8 @@ my $skip_cleanup = 0;
 my $verbose = 0;
 my $priority = 50;
 my $max_number = 1000;
-my $lines_check = 1;
 my $no_lock;
-
+my $help;
 
 
 &GetOptions(
@@ -53,13 +54,16 @@ my $no_lock;
 	    'priority=s'             =>\$priority,
 	    'skip!'                  =>\$skip_cleanup,
 	    'max_number_of_archives=s' => \$max_number,
-	    'lines_check!'    => \$lines_check,	    
 	    'from_db!'        => \$from_db,
-	    'type:s'          => \$type,
 	    'path_like:s'     => \$path_like,
 	    'archive_sleep=s' => \$sleep, 
 	    'no_lock!'        => \$no_lock,
+	    'help!' => \$help,
 	   );
+
+if($help){
+  useage();
+}
 
 my $archiver = ReseqTrack::Tools::Loader::Archive->new(
 						       -dir       => $dir,
@@ -110,3 +114,72 @@ if (!$skip_cleanup && $run) {
 
 
 
+=pod
+
+=head1 NAME
+
+ReseqTrack/scripts/files/archive_files.pl
+
+=head1 SYNOPSIS
+
+This script will take a list of file paths from a variety of options and load
+the archive table with them and the given action so they can be moved onto or off
+the fire archive disk.
+
+=head1 OPTIONS
+
+Database options
+
+This is the database the objects will be written to
+
+-dbhost, the name of the mysql-host
+-dbname, the name of the mysql database
+-dbuser, the name of the mysql user
+-dbpass, the database password if appropriate
+-dbport, the port the mysql instance is running on, this defaults to 4197 the standard
+port for mysql-g1kdcc.ebi.ac.uk
+
+File list and other options
+
+-file, the path to a single file, this can appear on the commandline multiple times.
+
+-list_file, a file containing a list of files paths, one to each line,
+
+-dir, If no other options are specified all the files are read from this directory
+and the directory tree below it
+
+-path_like, use the the given string to fetch_all_by_path_like from the file table
+
+-type, The type of file to retrieve from the database
+
+-from_db, This indicates that the paths must be retrieved from the database either using the specifed path, or the type or both
+
+-run, This is a binary option which needs no additional argument when specified the 
+adaptor store method is run. By default this is off.
+
+-descend, If a directory is passed in this means the directory tree is descended and
+all files below that point are stored. By default this option in on but you can use
+the -nodescend option to prevent it happening
+
+-action, which archive action to do, this can be worked out automatically from the 
+path 
+
+-priority, the priority to give the LSF job which actually runs the archiving process
+
+-skip, this stops the script for continually looping over the archive table to clean it up
+
+-max_number_of_archives, this specifies the maximum number of archive objects that can be in the system at once, by default this is 1000, this is to stop the system from getting to bogged down
+
+-archive_sleep, this is the amount of time to sleep for between cleanup cycles, by default it is 240 seconds
+
+-no_lock, this switches off the checking of the database meta table for a locking string
+
+-help, This makes the script print out its options
+
+=head1 Examples
+
+perl reseqtrack/scripts/file/archive_files.pl -dbhost my_host -dbuser username -dbpass ****** -dbport 4197 -dbname my_database -action archive -skip -run -priority 90 -from_db -type FILTERED_FASTQ
+
+This would mark for archive all FILTERED_FASTQ files in the staging area
+
+=cut
