@@ -64,6 +64,10 @@ sub store{
   my $sql = "insert ignore into archive (name, file_id, md5, size, relative_path, ".
       "volume_name, created, updated, priority, new_name, new_relative_path, archive_action_id, archive_location_id) ".
       "values(?, ?, ?, ?, ?, ?, now(), now(), ?, ?, ?, ?, ?)";
+  ###print "Storing new relative path *".$archive->new_relative_path."*\n";
+  if($archive->new_relative_path && $archive->new_relative_path =~ /\s+/){
+    throw("Can't store ".$archive->name." as new relative path with space");
+  }
   my $sth = $self->prepare($sql);
   $sth->bind_param(1, $archive->name);
   $sth->bind_param(2, $archive->file_id);
@@ -108,6 +112,8 @@ sub remove{
 sub object_from_hashref{
   my ($self, $hashref) = @_;
   throw("Can't create an object for an undefined hashref") if(!$hashref);
+  #print "Have volume  name *".$hashref->{volume_name}."*\n";
+  #print "Have relative path *".$hashref->{relative_path}."*\n";
   my $archive = ReseqTrack::Archive->new
       (
        -dbID => $hashref->{archive_id},

@@ -153,7 +153,7 @@ sub remove{
   my ($self, $event_complete) = @_;
   my $sql = "delete from event_complete where event_id = ? and other_id = ?";
   my $sth = $self->prepare($sql);
-  $sth->bind_param(1, $event_complete->event_id);
+  $sth->bind_param(1, $event_complete->event->dbID);
   $sth->bind_param(2, $event_complete->other_id);
   $sth->execute;
   $sth->finish;

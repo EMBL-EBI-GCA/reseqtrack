@@ -230,6 +230,23 @@ sub fetch_by_verdict {
 	return \@results;
 }
 
+sub fetch_by_claimed{
+  my ($self, $claimed) = @_;
+  my $sql =
+    "select " . $self->columns . " from genotype_results where claimed = ? ";
+  my $sth = $self->prepare($sql);
+  $sth->bind_param( 1, $claimed );
+  $sth->execute;
+  my @results;
+  while ( my $rowHashref = $sth->fetchrow_hashref ) {
+    my $result = $self->object_from_hashref($rowHashref);
+    push( @results, $result );
+  }
+  $sth->finish;
+  return \@results;
+}
+
+
 sub update{
 
 	my ( $self, $genotype_results ) = @_;

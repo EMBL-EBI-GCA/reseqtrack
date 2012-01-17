@@ -289,7 +289,12 @@ sub store{
   $sth->bind_param(4, $file->size);
   $sth->bind_param(5, $file->host->dbID);
   $sth->bind_param(6, $file->withdrawn);
-  $sth->execute;
+  eval{
+    $sth->execute;
+  };
+  if($@){
+    throw("Failed to run ".$sql." with ".$file->name." $@");
+  }
   my $dbID = $sth->{'mysql_insertid'};
   $file->dbID($dbID);
   $file->adaptor($self);

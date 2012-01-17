@@ -90,7 +90,8 @@ sub fetch_by_name_and_type{
   my $sql = "select ".$self->columns." from ".$self->table_name.
       " where name = ? and type = ?";
   #print $sql."\n";
-  my @collections;
+  #print "*".$name."*\n";
+  #print "*".$type."*\n";
   my $sth = $self->prepare($sql);
   $sth->bind_param(1, $name);
   $sth->bind_param(2, $type);
@@ -263,7 +264,7 @@ sub object_from_hashref{
   my ($self, $hashref) = @_;
   throw("Can't create ReseqTrack::Collection from an empty hashref")
       if(!$hashref || keys(%$hashref) == 0);
-  # print $hashref->{collection_id}." ".$hashref->{table_name}."\n";
+  #print $hashref->{collection_id}." ".$hashref->{table_name}."\n";
   throw("Can't create a ReseqTrack::Collection based on ".$hashref->{collection_id}.
         " without a table name") unless($hashref->{table_name});
   my $collection = ReseqTrack::Collection->new(
