@@ -56,6 +56,7 @@ sub fetch_by_run_id{
   $sth->execute;
   my $rowhashref = $sth->fetchrow_hashref;
   my $run_meta_info = $self->object_from_hashref($rowhashref) if($rowhashref);
+  $sth->finish;
   return $run_meta_info;
  
 }
@@ -94,7 +95,7 @@ sub fetch_by_sample_name{
     my $run_meta_info = $self->object_from_hashref($rowhashref) if($rowhashref);
     push(@run_meta_infos, $run_meta_info) if($run_meta_info);
   }
-  
+  $sth->finish;
   return \@run_meta_infos;
 }
 
@@ -110,7 +111,7 @@ sub fetch_by_study_id{
     my $run_meta_info = $self->object_from_hashref($rowhashref) if($rowhashref);
     push(@run_meta_infos, $run_meta_info) if($run_meta_info);
   }
-  
+  $sth->finish;
   return \@run_meta_infos;
 }
 
@@ -126,7 +127,7 @@ sub fetch_by_submission_id{
     my $run_meta_info = $self->object_from_hashref($rowhashref) if($rowhashref);
     push(@run_meta_infos, $run_meta_info) if($run_meta_info);
   }
-  
+  $sth->finish;
   return \@run_meta_infos;
 }
 
