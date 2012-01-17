@@ -62,11 +62,11 @@ sub new {
 
 
   if ($self->other_id && !$self->skip_others){
-	print "Getting others\n";
+	#print "Getting others\n";
   	$self->get_others;	
   }
   else{
-    print "Skipping others fetch\n";
+    #print "Skipping others fetch\n";
   }
   #########
  

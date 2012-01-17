@@ -37,25 +37,30 @@ use ReseqTrack::Base;
 =cut
 
 sub new {
-    my ( $class, @args ) = @_;
-    my $self = $class->SUPER::new(@args);
-    my ($action) = rearrange( ['ACTION'], @args );
-    $self->action($action);
-    throw( "Can't have a dbID " . $self->dbID . " which isn't 1, 2, 3 or 4" )
-      unless ( $self->dbID == 1
-        || $self->dbID == 2
-        || $self->dbID == 3
-        || $self->dbID == 4 );
-    throw(  "Can't have an action "
-          . $self->action
-          . " which isn't archive, dearchive, "
-          . "replace or move_within_volume" )
-      unless ( $self->action eq "archive"
-        || $self->action eq "dearchive"
-        || $self->action eq "replace"
-        || $self->action eq "move_within_volume" );
-    return $self;
+   my ( $class, @args ) = @_;
+   my $self = $class->SUPER::new(@args);
+   my ($action) = rearrange( ['ACTION'], @args );
+   $self->action($action);
+   throw( "Can't have a dbID " . $self->dbID . " which isn't 1, 2, 3, 4, 5 or 6" )
+     unless ( $self->dbID == 1
+       || $self->dbID == 2
+       || $self->dbID == 3
+       || $self->dbID == 4
+       || $self->dbID == 5
+       || $self->dbID == 6 );
+   throw(  "Can't have an action "
+         . $self->action
+         . " which isn't archive, dearchive, "
+         . "replace or move_within_volume" )
+     unless ( $self->action eq "archive"
+       || $self->action eq "dearchive"
+       || $self->action eq "replace"
+       || $self->action eq "move_within_volume"
+       || $self->action eq "delete_permanently"
+       || $self->action eq "copy_to_staging");
+   return $self;
 }
+
 
 =head2 action
 

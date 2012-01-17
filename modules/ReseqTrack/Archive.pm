@@ -323,7 +323,8 @@ sub new_relative_path {
 sub volume_name {
     my ( $self, $value ) = @_;
     if ($value) {
-        $self->{'volume_name'} = $value;
+      #$value = trim_spaces($value);
+      $self->{'volume_name'} = $value;
     }
     return $self->{'volume_name'};
 }
@@ -388,7 +389,9 @@ sub full_path {
     $path .= $self->relative_path;
     $path .= "/" unless ( $path =~ /\/$/ );
     $path .= $self->name;
+    #$path =~ s/\s+//g;
     $path =~ s/\/\//\//g;
+    
     return $path;
 }
 
