@@ -75,7 +75,7 @@ unless($run_id && $collection_type){
 my $ca = $db->get_CollectionAdaptor;
 my $collection = $ca->fetch_by_name_and_type($run_id, $collection_type);
 
-throw("Failed to find a collection for ".$run_id." ".$collection_type) 
+throw("Failed to find a collection for ".$run_id." ".$collection_type." from ".$ca->dbc->dbname) 
   unless($collection);
 #Check if output collection already exists
 my $new_collection = $ca->fetch_by_name_and_type($run_id, $new_collection_type);
@@ -161,6 +161,7 @@ foreach my $file(@$files){
   }
 }
 exit(0) unless($files && @$files >= 1);
+$db->dbc->disconnect_when_inactive(0);
 #create a File loader object for the files
 my $loader = ReseqTrack::Tools::Loader::File->new
   (
@@ -190,7 +191,7 @@ my $filtered_collection = ReseqTrack::Collection->new(
 						      -table_name => 'file',
 						     );
 #Store the collection
-$db->get_CollectionAdaptor->store($filtered_collection);
+#$db->get_CollectionAdaptor->store($filtered_collection);
 my ($filt_m1, $filt_m2, $filt_f) = assign_files($file_objects);
 #Update statistics
 my @objects_to_update;
@@ -200,10 +201,10 @@ if($mate1 && $mate2){
   $mate1->statistics($mate1_rc);
   my $mate1_bc = create_statistic_for_object
     ($mate1, 'base_count', $filter_fastq->unfiltered_mate1_basecount);
-  $mate1->statistics($mate1_rc);
+  $mate1->statistics($mate1_bc);
   my $mate2_rc = create_statistic_for_object
     ($mate2, 'read_count', $filter_fastq->unfiltered_mate2_readcount);
-  $mate2->statistics($mate2_rc);
+  $mate2->statistics($mate2_bc);
   my $mate2_bc = create_statistic_for_object
     ($mate2, 'base_count', $filter_fastq->unfiltered_mate2_basecount);
   $mate2->statistics($mate2_rc);
@@ -255,9 +256,9 @@ if($filt_f){
 }
 #Store all the statistic objects
 my $fa = $db->get_FileAdaptor;
-foreach my $file(@objects_to_update){
-  $fa->store_statistics($file, 1);
-}
+#foreach my $file(@objects_to_update){
+#  $fa->store_statistics($file, 1);
+#}
 
 my $archiver = ReseqTrack::Tools::Loader::Archive->new
   (
