@@ -33,6 +33,25 @@ use vars qw (@ISA  @EXPORT);
 
 
 
+
+=head2 useage
+
+  Arg [1]   : N/A
+  Function  : executes perldocs for given script
+  Returntype: N/A
+  Exceptions: 
+  Example   : 
+
+=cut
+
+
+sub useage{
+  exec('perldoc', $0);
+  exit(0);
+}
+
+
+
 =head2 current_time
 
   Arg [1]   : n/a
@@ -194,11 +213,6 @@ sub qualify_hostname{
 }
 
 
-sub useage{
-  exec('perldoc', $0);
-  exit(0);
-}
-
 sub convert_to_giga{
   my ($base_count) = @_;
   $base_count = 0 unless($base_count);
@@ -232,6 +246,7 @@ sub create_filename{
 
 sub trim_spaces{
   my $string = shift;
+  #print "Triming *".$string."*\n";
   $string =~ s/^\s+//;
   $string =~ s/\s+$//;
   return $string;
@@ -273,11 +288,17 @@ sub execute_system_command{
 
 =head2  get_params
 
-  Arg [1]   : hash ref
-  Function  : adds key-value pairs listed in input file to hash unless defined
-  Returntype: hash ref
-  Exceptions: none
-  Example   : get_params ( cfg_file, \%input);
+   Arg [1]   : hash ref
+   Function  : adds key-value pairs listed in input file to hash unless already 
+               defined
+   Returntype: hash ref
+   Exceptions: none
+   Example   : get_params ( cfg_file, \%input);
+
+   Note_1    : If the same key appears several times in the config file only the 
+               first one is used
+   Note_2    : If a key has been defined before in $input hash, the value for this 
+               key in the config file is skipped
 
 =cut
 
