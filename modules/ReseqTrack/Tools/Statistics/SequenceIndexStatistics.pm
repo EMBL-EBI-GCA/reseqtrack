@@ -329,6 +329,8 @@ sub fetch_index_files{
 
 sub make_stats{
   my ($self) = @_;
+  print STDERR "Making stats\n";
+  print STDERR "Comparing ".$self->new_index."\n";
   my ($run, $sample,$pop,$platform,$center) = $self->parse_index($self->new_index);
   $self->new_per_sample($sample);
   $self->new_per_population($pop);
@@ -336,6 +338,7 @@ sub make_stats{
   $self->new_per_center_population($center);
   $self->new_per_run($run);
   if($self->old_index){
+    print STDERR "To ".$self->old_index."\n";
     my ($old_run, $old_sample,$old_pop,$old_platform,$old_center) = 
       $self->parse_index($self->old_index);
     $self->old_per_sample($old_sample);
@@ -534,7 +537,7 @@ sub print_stats{
   my @rows = ('Date', '# Accessions', '# Samples', '# Samples greater than 10Gb', 
 	      'Population in Gb', 'Platform in Gb', 'Center in Gb');
   my $type_hash = $self->row_type;
-  print join(", ", "Category", @headers)."\n";;
+  print join(", ", "Category", @headers)."\n";
   foreach my $row(@rows){
     my $type = $type_hash->{$row};
     if($type eq 'SCALAR'){
