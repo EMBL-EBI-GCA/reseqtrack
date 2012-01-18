@@ -60,8 +60,6 @@ if($help){
   useage();
 }
 
-$era_dbuser = 'ops$laura';
-
 my $db = ReseqTrack::DBSQL::DBAdaptor->new(
   -host   => $dbhost,
   -user   => $dbuser,
