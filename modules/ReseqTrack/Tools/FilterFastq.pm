@@ -526,13 +526,13 @@ sub check_read{
   unless($self->check_length($seq)){
     #print STDERR "There is a problem with the length of ".$filename." ".$read_count.
     #  " seq or qual string ".$header."\n";
-    $self->add_to_error_hash("sequence string to short");
+    $self->add_to_error_hash("sequence string too short");
     return 0;
   }
   unless($self->check_prop_n($seq)){
     #print STDERR "Sequence string  for ".$filename." ".$read_count.
-    #  " contains to many Ns ".$header." \n"; 
-    $self->add_to_error_hash("To Many Ns");
+    #  " contains too many Ns ".$header." \n"; 
+    $self->add_to_error_hash("Too Many Ns");
     return 0;
   }
   #print "Checking ".$header."\n";
@@ -540,14 +540,14 @@ sub check_read{
   unless($self->check_base_comp($seq, $header)){
     #print STDERR $header."\n";
     #print STDERR "Sequence string  for ".$filename." ".$read_count.
-    #  " contains to many runs of the same base ".$header."\n"; 
-    $self->add_to_error_hash("To many bases of same type");
+    #  " contains too many runs of the same base ".$header."\n"; 
+    $self->add_to_error_hash("Too many bases of same type");
     return 0;
   }
   unless($self->check_qual($qual)){
     #print STDERR "Qual string  for ".$filename." ".$read_count.
-    #  " contains to many low values ".$header."\n"; 
-    $self->add_to_error_hash("To low qual values");
+    #  " contains too many low values ".$header."\n"; 
+    $self->add_to_error_hash("Too low qual values");
     return 0;
   }
   return 1;
