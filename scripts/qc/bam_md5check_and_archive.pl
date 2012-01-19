@@ -17,9 +17,9 @@ use ReseqTrack::Tools::Loader;
 use ReseqTrack::Tools::Loader::Archive;
 use ReseqTrack::Tools::BamUtils;
 
-#use lib '/homes/zheng/reseq-personal/zheng/lib/';
-use lib '/nfs/1000g-work/G1K/work/zheng/reseq-personal/lib';
-use myTIME;
+#use lib '/nfs/1000g-work/G1K/work/zheng/reseq-personal/zheng/lib';
+#use myTIME;
+use ReseqTrack::Tools::myTIME;
 
 $| = 1; 
 
@@ -65,7 +65,7 @@ if (!$input_bam_name) {
 	throw("A bam path in the archive ataging area is required\n");
 }
 
-my ($time_stamp, $month_stamp, $day_stamp) = myTIME::get_time();
+my ($time_stamp, $month_stamp, $day_stamp) = ReseqTrack::Tools::myTIME::get_time();
 
 my $db = ReseqTrack::DBSQL::DBAdaptor->new(
   -host 	=> $dbhost,
@@ -116,8 +116,6 @@ elsif ($file_type eq "TEST_EXOME_BAM" ) {
 	$bas_type = "TEST_EXOME_BAS";
 }
 
-#unless ($bam =~ /\/nfs\/1000g-work\/G1K\/archive_staging\/ftp\// ) {
-#unless ($bam =~ /\/nfs\/1000g-work\/G1K\/archive_staging\/test/ ) {  ###FIXME: change after testing
 unless ($bam =~ /\/nfs\/1000g-work\/G1K\/archive_staging\// ) {
 	throw("BAM file $bam has to be in archive staging area in order for it to be archived\n");
 }
@@ -159,7 +157,6 @@ if (!$bas ) {
                      -md5 => $fo->md5,
                      -working_dir => '/nfs/1000g-work/G1K/scratch/zheng/tmp',
                      -need_tags=> 0,
-
                      -in_parent => 1,
                     );
 			#### FIXME: may have to change -need_tags between 0 or 1
@@ -401,10 +398,10 @@ sub check_this_md5 {
 
 =head1 Example:
 
-/usr/bin/perl ~/ReseqTrack/scripts/qc/bam_md5check_and_archive.pl -dbhost mysql-g1kdcc-public -dbname g1k_archive_staging_track -dbuser g1krw -dbpass thousandgenomes -dbport 4197 -bam /nfs/1000g-work/G1K/archive_staging/test/NA06985/alignment/NA06985.chrom11.ILLUMINA.bwa.SRP0000testArchive.20091216.bam -out somewhere_the_farm_job_writes_log_to -run -priority 99  
+perl ~/ReseqTrack/scripts/qc/bam_md5check_and_archive.pl -dbhost mysql-g1kdcc-public -dbname g1k_archive_staging_track -dbuser g1krw -dbpass thousandgenomes -dbport 4197 -bam /nfs/1000g-work/G1K/archive_staging/test/NA06985/alignment/NA06985.chrom11.ILLUMINA.bwa.SRP0000testArchive.20091216.bam -out somewhere_the_farm_job_writes_log_to -run -priority 99  
 
-/usr/bin/perl ~/ReseqTrack/scripts/qc/bam_md5check_and_archive.v2.pl -dbhost mysql-g1kdcc-public -dbname g1k_archive_staging_track -dbuser g1krw -dbpass thousandgenomes -dbport 4197 -bam 
+perl ~/ReseqTrack/scripts/qc/bam_md5check_and_archive.pl -dbhost mysql-g1kdcc-public -dbname g1k_archive_staging_track -dbuser g1krw -dbpass thousandgenomes -dbport 4197 -bam 
 /nfs/1000g-work/G1K/archive_staging/test/NA06985/alignment/NA06985.chrom10.ILLUMINA.bwa.CEU.low_coverage.2011b.bam -out /tmp 
 
-=cut
+
 

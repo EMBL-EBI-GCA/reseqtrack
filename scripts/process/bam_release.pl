@@ -14,16 +14,15 @@ use File::Path;
 use Getopt::Long;
 use Time::Local;
 
-#use lib '/homes/zheng/reseq-personal/zheng/lib/';
-
-use lib '/nfs/1000g-work/G1K/work/zheng/reseq-personal/lib';
-use myTIME;
+#use lib '/nfs/1000g-work/G1K/work/zheng/reseq-personal/zheng/lib';
+#use myTIME;
+use ReseqTrack::Tools::myTIME;
 
 $| = 1; 
 
 my $start_run = time();
 
-my ($time_stamp, $month_stamp, $day_stamp) = myTIME::get_time();
+my ($time_stamp, $month_stamp, $day_stamp) = ReseqTrack::Tools::myTIME::get_time();
 
 my (
     $dbhost,
@@ -67,7 +66,7 @@ if ($run_farm_job_flag) {
 	}
 }	
 
-print "\n*****ARE YOU RUNNING IN A PRODUCTION SERVER SUCH AS EBI-002?********\n\n";
+print "\n*****ARE YOU RUNNING IN A PRODUCTION SERVER SUCH AS EBI-002 or PG-TRACE-001?********\n\n";
 
 my $db = ReseqTrack::DBSQL::DBAdaptor->new(
   -host => $dbhost,
@@ -119,7 +118,7 @@ foreach my $host ( @$remote_hosts ) {
 	#### To move a qualified file to a specified dir and later insert it into a collection
 	  
 	my $files = $fa->fetch_by_host($host_id);
-	warning ("No file object is found; please check the host $host_name\n") if (!$files || @$files == 0 );
+	#warning ("No file object is found; please check the host $host_name\n") if (!$files || @$files == 0 );
 	
 	my %analysis_group;
 	
@@ -260,7 +259,7 @@ foreach my $host ( @$remote_hosts ) {
 	}
 	
 	my @groups = keys %analysis_group;
-	#my $analysis_grp;
+
 	if ( @groups > 1 ) {
 		throw("Host $host_name has both EXOME and LOW_COVERAGE BAMs");
 	}
@@ -268,7 +267,7 @@ foreach my $host ( @$remote_hosts ) {
 		$analysis_grp = $groups[0];
 	}
 	
-	print "analysis group is $analysis_grp\n";
+	#print "analysis group is $analysis_grp\n";
 	
 	if ($move_flag == 1) {			
 		foreach my $alignment_dir (keys %dir_hash) {
@@ -278,10 +277,10 @@ foreach my $host ( @$remote_hosts ) {
 
 	my $command = "perl /nfs/1000g-work/G1K/work/zheng/reseqtrack/scripts/event/run_event_pipeline.pl ";
 	$command .= "-dbhost mysql-g1kdcc-public -dbname g1k_archive_staging_track -dbuser g1krw -dbpass thousandgenomes -dbport 4197 ";
+#	$command .= "-dbhost mysql-g1kdcc-public -dbname zheng_var_call -dbuser g1krw -dbpass thousandgenomes -dbport 4197 "; #### FIXME, change to the above line after testing
 	$command .= "-once -runner /nfs/1000g-work/G1K/work/zheng/reseqtrack/scripts/event/runner.pl "; 
 	
-	## FIXME, sanger and tgen will provide exome bams
-
+	## FIXME, tgen will provide exome bams
 	
 	if ( ($host_name eq "sanger" || $host_name eq "tgen") && defined $analysis_grp && $analysis_grp eq "low_coverage" ) {
 		$command .= "-name bam_release & ";
@@ -304,14 +303,12 @@ foreach my $host ( @$remote_hosts ) {
 	elsif ( $host_name eq "tgen" && defined $analysis_grp && $analysis_grp eq "exome" ) {
 		throw("Don't know how to handle tgen submission of exome bams yet"); 
 	}
-	elsif ( ! $analysis_grp ) {
+	elsif ( ! $analysis_grp  && $run_farm_job_flag ) {
 		warning("For host $host_name no analysis group has been parsed out, please provide -analysis_grp to -kick_off_farm_job\n");
 	}	
 	else {
-		warning("Problem - don't know what to do with host $host_name"); 
+		#warning("Problem - don't know what to do with host $host_name"); 
 	}	
-
-
 
 		
 	if ( $move_flag == 1  || $run_farm_job_flag eq $host_name ) {	# sometimes the files have been moved to archive staging but 
@@ -537,10 +534,13 @@ sub check_name_and_move_file {
 		if ( ($filen =~ /bwa/i && $host->name =~ /sanger/i) || ( $filen =~ /bfast/i && $host->name =~ /baylor/i) )  { # FOR sanger exome and Baylor exome
 			 $new_dir = $move_to_dir . "/" . $ind . "/exome_alignment/";
 		}
-		elsif ($filen =~ /solid\.mosaik/i) { # FOR Boston College exome 
+		elsif ($filen =~ /mosaik/i) { # FOR Boston College exome 
 			$move_to_dir = "/nfs/1000g-work/G1K/archive_staging/ftp/technical/other_exome_alignments";
 			$new_dir = $move_to_dir . "/" . $ind . "/exome_alignment/";
 		}
+		elsif ($filen =~ /bfast/i && $host->name =~ /tgen/i) {
+			throw("Don't know how to handle tgen's exome bam yet");
+		}	
 		else {
 			throw("Cannot tell to where to move file $filen on host " . $host->name);
 		}	
@@ -648,6 +648,7 @@ sub help_info {
 	-kick_off_farm_job	value for this tag is a host name such as "sanger". 
 						It will force the system to look for files that haven't been processed by farm job bam_release or 
 						exome_bam_release ....
+	-analysis_grp		This is needed when kick_off_farm_job is set, to indicate "exome", "low_coverage"					
 	-verbose			default is off, set flag -verbose to print run logs
 	-help				this makes the script print out its options
 	
@@ -668,10 +669,7 @@ sub help_info {
 
  perl ~/ReseqTrack/scripts/process/bam_release.pl -dbhost mysql-g1kdcc-public -dbname g1k_archive_staging_track -dbuser g1krw -dbpass thousandgenomes -dbport 4197 -verbose -out /nfs/nobackup/resequencing_informatics/zheng/bam_release -run &
  OR
- perl ~/ReseqTrack/scripts/process/bam_release.pl -dbhost mysql-g1kdcc-public -dbname g1k_archive_staging_track -dbuser g1krw -dbpass thousandgenomes -dbport 4197 -move_to_dir /nfs/1000g-work/G1K/archive_staging/ftp/data -verbose -out /nfs/nobackup/resequencing_informatics/zheng/bam_release  -kick_off_farm_job sanger
- 
  perl /nfs/1000g-work/G1K/work/zheng/reseqtrack/scripts/process/bam_release.pl -dbhost mysql-g1kdcc-public -dbname g1k_archive_staging_track -dbuser g1krw -dbpass thousandgenomes -dbport 4197 -move_to_dir /nfs/1000g-work/G1K/archive_staging/test -verbose -out /nfs/1000g-work/G1K/scratch/zheng/exome_bam_release -kick_off_farm_job baylor -analysis_grp exome 
  
- perl /nfs/1000g-work/G1K/work/rseqpipe/perl_code/reseqtrack/scripts/process/bam_release.pl
  TEST:
  perl ~/ReseqTrack/scripts/process/bam_release.pl -dbhost mysql-g1kdcc-public -dbname zheng_automation_test -dbuser g1krw -dbpass thousandgenomes -dbport 4197 -move_to_dir /nfs/1000g-work/G1K/archive_staging/test -verbose -run
