@@ -301,6 +301,48 @@ CREATE TABLE study_id (
 );
 
 
+CREATE TABLE `verifybamid_readgroup` (
+  `verifybamid_readgroup_id` int(10) NOT NULL AUTO_INCREMENT,
+  `other_id` int(10) unsigned NOT NULL,
+  `run_id` varchar(12) NOT NULL,
+  `selfibd` decimal(4,2) DEFAULT NULL,
+  `selfmix` decimal(4,2) DEFAULT NULL,
+  `best_sample` varchar(12) DEFAULT NULL,
+  `bestibd` decimal(4,2) DEFAULT NULL,
+  `bestmix` decimal(4,2) DEFAULT NULL,
+  `status` tinyint(1) DEFAULT '0',
+  PRIMARY KEY (`verifybamid_readgroup_id`),
+  UNIQUE KEY `other_id` (`other_id`,`run_id`)
+);
+
+
+CREATE TABLE `verifybamid_sample` (
+  `verifybamid_sample_id` int(10) NOT NULL AUTO_INCREMENT,
+  `other_id` int(10) unsigned NOT NULL,
+  `table_name` enum('file','collection','run_meta_info','input_string') DEFAULT NULL,
+  `sample_name` varchar(10) DEFAULT NULL,
+  `selfibd` float(4,2) DEFAULT NULL,
+  `selfibdllk` decimal(10,0) DEFAULT NULL,
+  `selfibdllkdiff` float DEFAULT NULL,
+  `het_a1` float DEFAULT NULL,
+  `alt_a1` float DEFAULT NULL,
+  `dp` float unsigned DEFAULT NULL,
+  `mix` float(4,2) DEFAULT NULL,
+  `hom` float DEFAULT NULL,
+  `besthommixllk` float DEFAULT NULL,
+  `besthommixllkdiff` float DEFAULT NULL,
+  `num_run_ids` int(4) NOT NULL,
+  `num_low_selfibd_run_ids` int(4) DEFAULT NULL,
+  `sequence_index` varchar(10) DEFAULT NULL,
+  `analysis_group` varchar(25) DEFAULT NULL,
+  `chr20` tinyint(4) DEFAULT NULL,
+  `failed` varchar(15) DEFAULT NULL,
+  `status` tinyint(1) DEFAULT '0',
+  `performed` datetime NOT NULL,
+  PRIMARY KEY (`verifybamid_sample_id`),
+  UNIQUE KEY `other_id` (`other_id`)
+)'
+
 
 #Now to add entries to the two standard tables
 
