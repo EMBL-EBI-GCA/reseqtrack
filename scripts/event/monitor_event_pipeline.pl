@@ -51,19 +51,13 @@ my $db = ReseqTrack::DBSQL::DBAdaptor->new(
     -pass   => $dbpass,
 );
 
-my $ja = $db->get_JobAdaptor;
-my $ca = $db->get_EventCompleteAdaptor;
 my $aa = $db->get_EventAdaptor;
+my $analyses = $aa->fetch_all;
 
-my ($jobs, $analyses, $input_hash);
-
-$jobs       = $ja->fetch_all if ($current || $current_summary);
-$analyses   = $aa->fetch_all;
-$input_hash = get_input_counts($analyses, $db)
+my $input_hash = get_input_counts($analyses, $db)
   if ($input || $finished_percent);
 
-my %status_count;
-my %logic_status_count;
+
 my $completed_event = get_completed_event_hash($db);
 my %input_string;
 my %analyses;
@@ -72,51 +66,38 @@ foreach my $analysis (@$analyses) {
     $event_hash{$analysis->name} = $analysis;
 }
 
-foreach my $job (@$jobs) {
-    if (!$status_count{$job->current_status}) {
-        $status_count{$job->current_status} = 1;
-    } else {
-        $status_count{$job->current_status}++;
-    }
-    if (!$logic_status_count{$job->event->name}) {
-        $logic_status_count{$job->event->name} = {};
-    }
-    if (!$logic_status_count{$job->event->name}{$job->current_status}) {
-        $logic_status_count{$job->event->name}{$job->current_status} = 1;
-    } else {
-        $logic_status_count{$job->event->name}{$job->current_status}++;
-    }
-}
+my ($status_count, $logic_status_count) = get_job_summary($db);
+
 
 if ($input) {
     print "\n#INPUT\n";
     my %printed;
     foreach my $event_name (keys(%$input_hash)) {
         my $event = $event_hash{$event_name};
-        next if ($printed{$event_name});
+        next if ($printed{$event->type});
         print $event->type . " "
           . $event->table_name . " "
           . $input_hash->{$event_name} . "\n";
-        $printed{$event_name} = 1;
+        $printed{$event->type} = 1;
     }
     print "\n";
 }
 
 if ($current) {
     print "\n#CURRENT\n";
-    foreach my $name (keys(%logic_status_count)) {
-        foreach my $status (keys(%{$logic_status_count{$name}})) {
+    foreach my $name (keys(%{$logic_status_count})) {
+        foreach my $status (keys(%{$logic_status_count->{$name}})) {
             print $name. " " 
               . $status . " "
-              . $logic_status_count{$name}->{$status} . "\n";
+              . $logic_status_count->{$name}->{$status} . "\n";
         }
     }
     print "\n";
 }
 if ($current_summary) {
     print "\n#CURRENT SUMMARY\n";
-    foreach my $status (keys(%status_count)) {
-        print $status. " " . $status_count{$status} . "\n";
+    foreach my $status (keys(%{$status_count})) {
+        print $status. " " . $status_count->{$status} . "\n";
     }
     print "\n";
 }
@@ -192,6 +173,20 @@ sub get_input_counts {
         }
     }
     return \%event_count_hash;
+}
+
+sub get_job_summary{
+  my ($db) = @_;
+  my $sql = "select event.name, job_status.status, count(distinct(job_status.job_id)) from event, job, job_status where job.job_id = job_status.job_id and job_status.is_current = 'y' and job.event_id = event.event_id group by job.event_id, job_status.status";
+  my $sth = $db->dbc->prepare($sql);
+  my %status_hash;
+  my %logic_status_hash;
+  $sth->execute;
+  while(my ($name, $status, $count) = $sth->fetchrow()){
+    $status_hash{$status} += $count;
+    $logic_status_hash{$name}->{$status} = $count;
+  }
+  return \%status_hash, \%logic_status_hash;
 }
 
 sub get_completed_event_hash {

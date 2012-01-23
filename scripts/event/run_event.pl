@@ -46,9 +46,15 @@ my $db = ReseqTrack::DBSQL::DBAdaptor->new(
 my $ea = $db->get_EventAdaptor;
 
 my $event = $ea->fetch_by_name($event_name);
-
+print "Have event ".$event."\n";
+if(!$event){
+throw("Failed to fetch an event using ".$event_name);
+}
 if (!$input_string) {
     $input_string = get_random_input_string($db, $event);
+}
+if(!$input_string){
+  throw("FAiled to get input string for ".$event->name." ".$event->table_name." ".$event->type);
 }
 my $cmd_line = create_event_commandline($event, $input_string);
 print $cmd_line. "\n";
