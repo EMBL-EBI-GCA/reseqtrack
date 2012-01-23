@@ -59,14 +59,14 @@ sub new {
 
   $self->bam ( @{$self->input_files}[0]) if ( defined @{$self->input_files}[0]) ;
 
-
-
   $self->perl_exe ( '/nfs/1000g-work/G1K/work/bin/local-perl/bin/perl');
   $self->sequence_index($sequence_index);
   $self->need_tags($need_tags);
   $self->bam_md5($md5);
   $self->in_parent($in_parent);
   $self->output_dir($output_dir);
+
+  $self->set_required_vars;
 
   if ( ! defined ($self->samtools)){
 
@@ -81,7 +81,7 @@ sub new {
     }
   }
 
-  $self->set_required_vars;
+#  $self->set_required_vars;
   return $self;
 }
 
@@ -337,7 +337,7 @@ sub set_required_vars {
   if ( ! (defined $ENV{'SAMTOOLS'} )) {
     $ENV{'SAMTOOLS'} = '/nfs/1000g-work/G1K/work/bin/samtools';
   }
-
+  
   if ( ! (defined $ENV{'PERL_INLINE_DIRECTORY'})) {
     $ENV{'PERL_INLINE_DIRECTORY'} = '/homes/rseqpipe/.Inline';
   }
@@ -479,7 +479,7 @@ sub get_bam_run_id_info{
   my $samtools  = $self->samtools;
   my $key = "-";
   my %rg_hash;
-
+print "samtools is $samtools\n";
   my @rg_info =  `$samtools view $bam -H | grep "^\@RG"`;
 
 

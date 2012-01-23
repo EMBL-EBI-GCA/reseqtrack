@@ -219,7 +219,7 @@ sub job_slots_available{
     print STDERR "Have ".$total." jobs compared to ".$max." going to sleep for ".
         $sleep." seconds\n";
     CORE::sleep($sleep);
-    return self->($max, $sleep, $user);
+    return $self->job_slots_available($max, $sleep, $user);
   }
 }
 

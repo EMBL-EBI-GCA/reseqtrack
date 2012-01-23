@@ -948,9 +948,11 @@ sub create_fh{
 
 sub print_error_hash_summary{
   my ($self) = @_;
+  print STDERR "\n";
   foreach my $key(keys(%{$self->error_hash})){
     print STDERR $key." ".$self->{error_hash}->{$key}."\n";
   }
+  print STDERR "\n";
 }
 sub add_to_error_hash{
   my ($self, $key) = @_;
