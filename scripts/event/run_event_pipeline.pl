@@ -35,7 +35,7 @@ my $submission_limit;
 my $submission_total = 25;
 my $num_output_dirs = 100;
 my $runner;
-my $max_number_of_jobs = 10000;
+my $max_number_of_jobs = 700000;
 my $sleep = 360;
 my $help;
 my $batch_submission_path = 'ReseqTrack::Tools::BatchSubmission';
@@ -375,7 +375,7 @@ the number of jobs submitted, by default this is 25
 
 -runner, this is a path to the runner script which is used to run submitted jobs. Generally ReseqTrack/scripts/event/runner.pl
 
--max_number_of_jobs, the EBI farm does not allow more than 10000 pending jobs in the system at once, once this limit is reached the script sleeps for 5 minutes and checks again, continuing this untill there are less than 10000 pending jobs, if you wish to change this limit you need to alter this argument
+-max_number_of_jobs, the EBI farm does not allow more than 700000 pending jobs in the system at once, once this limit is reached the script sleeps for 5 minutes and checks again, continuing this until there are less than 700000 pending jobs, if you wish to change this limit you need to alter this argument
 
 -batch_submission_path, root perl path for batch submission module; this defaults to
 ReseqTrack::Tools::BatchSubmission
