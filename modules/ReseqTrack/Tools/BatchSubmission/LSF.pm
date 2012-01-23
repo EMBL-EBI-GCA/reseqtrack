@@ -32,6 +32,7 @@ use vars qw(@ISA);
 use ReseqTrack::Tools::Exception qw(throw warning);
 use ReseqTrack::Tools::Argument qw(rearrange);
 use ReseqTrack::Tools::BatchSubmission;
+use List::Util qw(first);
 
 @ISA = qw(ReseqTrack::Tools::BatchSubmission);
 
@@ -200,19 +201,7 @@ sub run_bjobs{
 }
 
 
-=head2 get_job_info
-
-  Arg [1]   : ReseqTrack::Tools::BatchSubmission::LSF
-  Arg [2]   : int, submission_id
-  Arg [3]   : int, submission_index
-  Function  : run 'bjobs -l id[index]'
-  Returntype: arrayref of strings containing all of the output from 'bjobs -l id[index]'
-  Exceptions: throws if fails to run command
-  Example   : ReseqTrack::Tools::BatchSubmission::LSF->get_job_info($id, $index)
-
-=cut
-
-sub get_job_info{
+sub refresh_job_info{
     my ($self, $submission_id, $submission_index) = @_;
 
     my $cmd = 'bjobs -l ' . $submission_id;
@@ -233,7 +222,73 @@ sub get_job_info{
   }
   close CMD;
 
+  $self->job_info($submission_id, $submission_index, undef, \@job_info);
+
   return \@job_info;
+}
+
+=head2 job_info
+
+  Arg [1]   : ReseqTrack::Tools::BatchSubmission::LSF
+  Arg [2]   : int, submission_id
+  Arg [3]   : int, submission_index
+  Arg [4]   : boolean, refresh, to refetch job_info using method refresh_job_info
+  Arg [5]   : arrayref, optional, output from 'bjobs -l id[index]'
+  Function  : accessor method for output from 'bjobs -l id[index]'
+  Returntype: arrayref of strings containing all of the output from 'bjobs -l id[index]'
+  Exceptions: throws if fails to run command
+  Example   : ReseqTrack::Tools::BatchSubmission::LSF->job_info($id, $index)
+
+=cut
+
+sub job_info{
+  my ($self, $submission_id, $submission_index, $refresh, $job_info) = @_;
+
+  if ($job_info) {
+    $self->{'job_info'}->{$submission_id}->{$submission_index} = $job_info;
+  }
+  elsif (! $self->{'job_info'}->{$submission_id}->{$submission_index} || $refresh) {
+    $self->refresh_job_info($submission_id, $submission_index);
+  }
+  return $self->{'job_info'}->{$submission_id}->{$submission_index};
+}
+
+=head2 memory_usage
+
+  Arg [1]   : ReseqTrack::Tools::BatchSubmission::LSF
+  Arg [2]   : int, submission_id
+  Arg [3]   : int, submission_index
+  Arg [4]   : boolean, refresh, to refetch job_info using method refresh_job_info
+  Function  : get memory_usage and swap_usage from 'bjobs -l id[index]'
+  Returntype: array of two integers, memory_usage and swap_usage
+  Exceptions: throws if fails to run command
+  Example   : ($mem, $swap) = ReseqTrack::Tools::BatchSubmission::LSF->memory_usage($id, $index)
+
+=cut
+
+sub memory_usage{
+  my ($self, $submission_id, $submission_index, $refresh) = @_;
+
+  my $job_info = $self->job_info($submission_id, $submission_index, $refresh);
+  my $mem_line = first { /^ *MEM:.*; *SWAP:.*;/ } @$job_info;
+  throw("could not find memory usage") if (!$mem_line);
+
+  $mem_line =~ /^ *MEM: *(.*); *SWAP: *(.*);/;
+  my ($memory, $swap) = ($1, $2);
+  throw("could not find memory usage") if (!$memory || !$swap);
+
+  foreach ($memory, $swap) {
+    /(\d+) *(\w+)/;
+    my $value = $1;
+    my $units = $2;
+    $value = $units eq 'Gbytes' ? $value * 1024
+          : $units eq 'Mbytes' ? $value
+          : $units eq 'Kbytes' ? int ($value/1024 + 0.5)
+          : 0;
+    $_ = $value;
+  }
+
+  return ($memory, $swap);
 }
 
 

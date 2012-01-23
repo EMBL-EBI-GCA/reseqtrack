@@ -223,20 +223,19 @@ sub job_slots_available{
   }
 }
 
-=head2 get_job_info
+=head2 job_info
 
   Arg [1]   : ReseqTrack::Tools::BatchSubmission
   Function  : This should return information on a submitted job (e.g. bjobs -l)
   Returntype: ref to array of strings
   Exceptions: 
-  Example   : my $cmd = get_total_job_number();
-  Example   : my $info = ReseqTrack::Tools::BatchSubmission->get_job_info();
+  Example   : my $info = ReseqTrack::Tools::BatchSubmission->job_info();
 
 =cut
 
-sub get_job_info{
+sub job_info{
   my ($self) = @_;
-  throw($self." must implement get_job_info");
+  throw($self." must implement job_info");
 }
 
 1;

@@ -44,7 +44,7 @@ use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::EventComplete;
 use ReseqTrack::Tools::Exception;
 use ReseqTrack::Tools::FileSystemUtils qw( delete_file );
-use ReseqTrack::Tools::PipelineUtils qw( create_event_commandline );
+use ReseqTrack::Tools::PipelineUtils qw( create_event_commandline setup_batch_submission_system );
 use ReseqTrack::Tools::GeneralUtils qw( execute_system_command );
 use Getopt::Long;
 use Sys::Hostname;
@@ -148,6 +148,20 @@ print "$commandline\n";
 print "LSB_JOBINDEX: $submission_index\n";
 print "output for job" . $job->dbID . " " . $job->input_string . "\n";
 
+my $batch_submission_module = $batch_submission_path."::".$batch_submission_module_name;
+#eval "require $batch_submission_module";
+#if ($@) {
+#    my $warning = "Did not load package $batch_submission_module: $@";
+#    job_failed($job, $warning, $ja);
+#    throw($warning);
+#}
+my $batch_submission_object = eval {setup_batch_submission_system($batch_submission_module, {})};
+if ($@) {
+    my $warning = "Did not load package $batch_submission_module: $@";
+    job_failed($job, $warning, $ja);
+    throw($warning);
+}
+
 my $hostname = [split(/\./, hostname())];
 my $host = shift(@$hostname);
 $job->host($host);
@@ -170,9 +184,9 @@ my $exit;
 my $time_elapsed;
 eval {
     print "\n*****" . $cmd . "******\n\n";
-	my $start_time = time;
+    my $start_time = time;
     $exit = execute_system_command($cmd);
-	$time_elapsed = time - $start_time;
+    $time_elapsed = time - $start_time;
     print "\n**********\n";
 };
 if ($@) {
@@ -185,49 +199,46 @@ if ($@) {
     $job->current_status('SUCCESSFUL');
     $ja->set_status($job);
 }
-my $ca               = $db->get_EventCompleteAdaptor;
-my $other_name       = $job->input_string;
-my $completed_string = ReseqTrack::EventComplete->new(
-    -event        => $event,
-    -other_name   => $job->input_string,
-    -success      => 0,
-    -adaptor      => $ca,
-	-time_elapsed => $time_elapsed,
-	-exec_host	  => $host,
-);
-eval {
-    $ca->store($completed_string)
-      if ($job->current_status eq 'SUCCESSFUL');
-};
-if ($@) {
-    my $warning =
-      "Failed to store " . $input_string . " in completed_string $@";
-    job_failed($job, $warning, $ja, 'FAIL_NO_RETRY');
-}
+
 
 if ($job->current_status eq 'SUCCESSFUL') {
-    eval { $ja->remove($job); };
-    throw("Failed to remove " . $job . " from " . $dbname . " $@")
-      if ($@);
-}
+  my $ca               = $db->get_EventCompleteAdaptor;
+  my $other_name       = $job->input_string;
+  my ($memory, $swap) = eval{$batch_submission_object->memory_usage($submission_id, $submission_index)};
+  if ($@) {
+    my $warning = "could not get memory usage";
+    job_failed($job, $warning, $ja);
+  }
+  my $completed_string = ReseqTrack::EventComplete->new(
+      -event        => $event,
+      -other_name   => $job->input_string,
+      -success      => 0,
+      -adaptor      => $ca,
+      -time_elapsed => $time_elapsed,
+      -exec_host    => $host,
+      -memory_usage => $memory,
+      -swap_usage   => $swap,
+  );
+  eval {
+      $ca->store($completed_string);
+  };
+  if ($@) {
+      my $warning =
+        "Failed to store " . $input_string . " in completed_string $@";
+      job_failed($job, $warning, $ja, 'FAIL_NO_RETRY');
+  }
 
-if ($print_job_info) {
-    print "**********\n";
-    print "getting job info\n";
+  eval { $ja->remove($job); };
+  throw("Failed to remove " . $job . " from " . $dbname . " $@")
+    if ($@);
 
-    my $batch_submission_module = $batch_submission_path."::".$batch_submission_module_name;
-    eval "require $batch_submission_module";
-    if ($@) {
-        print "Did not load package $batch_submission_module: $@";
-        print "Cannot get job info\n";
+  if ($print_job_info) {
+    my $job_info = $batch_submission_object->job_info($submission_id, $submission_index);
+    print "**********\nBatch job information:\n";
+    foreach my $line (@$job_info) {
+      print $line;
     }
-    else {
-        my $job_info = $batch_submission_module->get_job_info($submission_id, $submission_index);
-
-        foreach my $line (@$job_info) {
-            print $line;
-        }
-    }
+  }
 }
 
 if ($clean_up_output && $job->current_status eq 'SUCCESSFUL') {

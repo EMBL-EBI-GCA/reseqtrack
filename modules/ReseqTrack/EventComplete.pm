@@ -46,7 +46,9 @@ use ReseqTrack::Tools::Argument qw(rearrange);
   Arg [8]   : time, the time the object was created
   Arg [9]  : string, other name this should be the name associated with the other object
   Arg [10]  : string, the name of the host on which the event ran
-  Arg [11]	: int, the time it took for the job to run in seconds
+  Arg [11]  : int, the time it took for the job to run in seconds
+  Arg [12]  : int, memory usage of the job in Mbytes
+  Arg [13]  : int, swap usage of the job in Mbytes
   Function  : create EventComplete object
   Returntype: ReseqTrack::EventComplete
   Exceptions: throws if table name doesn't match expectation and if dbIDs have
@@ -61,12 +63,13 @@ sub new {
     my (
         $event,      $event_id, $other, $other_id,
         $table_name, $success,  $time,  $other_name, 
-		$exec_host, $time_elapsed 
+        $exec_host, $time_elapsed, $memory_usage, $swap_usage,
       )
       = rearrange(
         [
             qw(EVENT EVENT_ID OTHER OTHER_ID TABLE_NAME
-              SUCCESS TIME OTHER_NAME EXEC_HOST TIME_ELAPSED)
+              SUCCESS TIME OTHER_NAME EXEC_HOST TIME_ELAPSED
+              MEMORY_USAGE SWAP_USAGE)
         ],
         @args
       );
@@ -99,8 +102,10 @@ sub new {
     $self->other_name($other_name);
     $self->success($success);
     $self->time($time);
-	$self->exec_host($exec_host);
-	$self->time_elapsed($time_elapsed);
+    $self->exec_host($exec_host);
+    $self->time_elapsed($time_elapsed);
+    $self->memory_usage($memory_usage);
+    $self->swap_usage($swap_usage);
     return $self;
 }
 
@@ -145,6 +150,22 @@ sub time_elapsed {
         $self->{'time_elapsed'} = $arg;
     }
     return $self->{'time_elapsed'};
+}
+
+sub memory_usage {
+    my ( $self, $arg ) = @_;
+    if ($arg) {
+        $self->{'memory_usage'} = $arg;
+    }
+    return $self->{'memory_usage'};
+}
+
+sub swap_usage {
+    my ( $self, $arg ) = @_;
+    if ($arg) {
+        $self->{'swap_usage'} = $arg;
+    }
+    return $self->{'swap_usage'};
 }
 
 sub exec_host {
