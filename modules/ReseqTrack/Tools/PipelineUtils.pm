@@ -262,12 +262,11 @@ sub create_event_commandline{
 
 sub get_random_input_string{
   my($db, $event) = @_;
-  throw("Must pass get_randon_input_string a dbadaptor") 
+  throw("Must pass get_random_input_string a dbadaptor") 
       unless($db && $db->isa("ReseqTrack::DBSQL::DBAdaptor"));
   throw("Must pass get_random_input_string an event object") 
       unless($event && $event->isa("ReseqTrack::Event"));
-  my $input_hash = get_inputs($db, [$event]);
-  my $inputs = $input_hash->{$event->table_name}{$event->type};
+  my $inputs = get_inputs($db, $event);
   my $random_number = int ( rand ($#$inputs+1) );
   return $inputs->[$random_number];
 }
