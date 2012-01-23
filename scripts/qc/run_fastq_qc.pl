@@ -204,10 +204,10 @@ if($mate1 && $mate2){
   $mate1->statistics($mate1_bc);
   my $mate2_rc = create_statistic_for_object
     ($mate2, 'read_count', $filter_fastq->unfiltered_mate2_readcount);
-  $mate2->statistics($mate2_bc);
+  $mate2->statistics($mate2_rc);
   my $mate2_bc = create_statistic_for_object
     ($mate2, 'base_count', $filter_fastq->unfiltered_mate2_basecount);
-  $mate2->statistics($mate2_rc);
+  $mate2->statistics($mate2_bc);
   push(@objects_to_update, $mate1, $mate2);
 }else{
   if(($mate1 && !$mate2) || (!$mate1 && $mate2)){
@@ -256,9 +256,9 @@ if($filt_f){
 }
 #Store all the statistic objects
 my $fa = $db->get_FileAdaptor;
-#foreach my $file(@objects_to_update){
-#  $fa->store_statistics($file, 1);
-#}
+foreach my $file(@objects_to_update){
+  $fa->store_statistics($file, 1);
+}
 
 my $archiver = ReseqTrack::Tools::Loader::Archive->new
   (
