@@ -57,7 +57,7 @@ my $db = ReseqTrack::DBSQL::DBAdaptor->new(
   -dbname => $dbname,
   -pass   => $dbpass,
     );
-
+$db->dbc->disconnect_when_inactive(1);
 my $ca = $db->get_CollectionAdaptor;
 
 my $collection = $ca->fetch_by_name_and_type($run_id, $type);
