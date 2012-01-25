@@ -127,7 +127,7 @@ return  \%chrom_reads, $sex  ;
 }##
 
 sub  move_bam_to_trash {
-	my ($db2, $file, $run) = @_;
+	my ($db2, $file, $actual_file_path, $run) = @_;
 	my $full_name = $file->name;
 	my $filen = basename($full_name);
 
@@ -153,12 +153,19 @@ sub  move_bam_to_trash {
 	}
 				
 	my $new_file_path = $reject_dir . $filen;
-
-	print "old file path is $full_name and file path in reject bin is $new_file_path\n";					
-	`mv $full_name $new_file_path` if ($run);	 	
-	my $exit = $?>>8;
-	throw("mv failed\n") if ($exit >=1);
 	
+	if ( -e  $full_name ) {
+		print "old file path is $full_name and file path in reject bin is $new_file_path\n";					
+		`mv $full_name $new_file_path` if ($run);	 	
+		my $exit = $?>>8;
+		throw("mv failed\n") if ($exit >=1);
+	}
+	else {
+		print "old file path is $full_name, physically locates at $actual_file_path, file path in reject bin is $new_file_path\n";
+		`mv $actual_file_path $new_file_path` if ($run);
+                my $exit = $?>>8;
+                throw("mv failed\n") if ($exit >=1);
+        }
 	
 	##### Make the change in the database, change type to REJECTED_BAM, BAS, or BAI, host_id will be 1, history will be changed	
 	my $ha = $db2->get_HostAdaptor;

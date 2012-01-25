@@ -337,6 +337,15 @@ It generates and run command like to call SNPs and indels for multiple diploid i
 >samtools mpileup -P ILLUMINA -ugf ref.fa *.bam | bcftools view -bcvg - > var.raw.bcf 
 >bcftools view var.raw.bcf | vcfutils.pl varFilter -D 2000 > var.flt.vcf
 
+Petr's parameter when doing the 1kg runs:
+
+samtools mpileup -EDS -C50 -m2 -F0.0005 -d 10000 -P ILLUMINA
+bcftools view -p 0.99
+
+and with ploidy 1 for chrY and non-pseudosomal regions of male chrX
+(1-60000 and 2699521-154931043). Ploidy can be set as an additional
+column to -s option of bcftools view, the accepted values are 1 or 2.
+
 =cut
 
 
