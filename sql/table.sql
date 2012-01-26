@@ -99,7 +99,7 @@ CREATE TABLE collection(
    collection_id int(10) unsigned NOT  NULL AUTO_INCREMENT,
    name VARCHAR(255) NOT NULL,
    type  VARCHAR(50) NOT NULL,
-   table_name  enum('file', 'run_meta_info', 'alignment_meta_info'),
+   table_name  enum('collection', 'file', 'run_meta_info', 'alignment_meta_info'),
    PRIMARY KEY (collection_id),
    key(name),
    unique(name, table_name, type)

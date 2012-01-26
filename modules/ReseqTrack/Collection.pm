@@ -67,10 +67,11 @@ sub new {
     if ($table_name) {
         throw(
 "ReqseqTrack::Collection::table_name must be file, alignment_meta_info "
-              . "or run_meta_info not "
+              . "run_meta_info or collection not "
               . $table_name )
           unless ( $table_name eq 'file'
             || $table_name eq 'alignment_meta_info'
+            || $table_name eq 'collection'
             || $table_name eq 'run_meta_info' );
     }
     #########
@@ -227,6 +228,9 @@ sub get_other_adaptor {
     }
     elsif ( $self->table_name eq 'alignment_meta_info' ) {
         return $self->adaptor->db->get_AlignmentMetaInfoAdaptor;
+    }
+    elsif ( $self->table_name eq 'collection' ) {
+        return $self->adaptor->db->get_CollectionAdaptor;
     }
     else {
         throw(
