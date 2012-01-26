@@ -122,21 +122,25 @@ sub get_markers_genotypes {
 
         my %marker_genotypes;
         my %alleles_present;
-        INDIVIDUAL:
-        foreach my $individual (@$individuals) {
-            next INDIVIDUAL if (! $column_indices{$individual});
-            my $genotype_string = $columns[ $column_indices{$individual} ];
-            $genotype_string =~ /(\d+)(?:\/|\|)(\d+)/;
-            my @genotype_codes = ($allele_codes[$1], $allele_codes[$2]);
+        foreach my $population (keys %$individuals) {
+            INDIVIDUAL:
+            foreach my $individual (@{$individuals->{$population}}) {
+                next INDIVIDUAL if (! $column_indices{$individual});
+                my $genotype_string = $columns[ $column_indices{$individual} ];
+                $genotype_string =~ /(\d+)(?:\/|\|)(\d+)/;
+                my @genotype_codes = ($allele_codes[$1], $allele_codes[$2]);
 
-            $alleles_present{$_} = 1 foreach (@genotype_codes);
-            $marker_genotypes{$individual} = \@genotype_codes;
+                $alleles_present{$_} = 1 foreach (@genotype_codes);
+                $marker_genotypes{$population}{$individual} = \@genotype_codes;
+            }
         }
 
         next LINE if ((scalar grep {$_} keys %alleles_present) < 2);
 
-        foreach my $individual (keys %marker_genotypes) {
-            push(@{$genotypes{$individual}}, $marker_genotypes{$individual});
+        foreach my $population (keys %marker_genotypes) {
+            foreach my $individual (keys %{$marker_genotypes{$population}}) {
+                push(@{$genotypes{$population}{$individual}}, $marker_genotypes{$population}{$individual});
+            }
         }
 
         if ($name eq '.') {
@@ -154,12 +158,16 @@ sub print_ped {
 
     open my $FILE, '>', $file
         or die "cannot open $file $!";
-    foreach my $individual (keys %$genotypes) {
-        print $FILE join("\t", $individual, 1, 0, 0, 0, 0,);
-        foreach my $genotype_codes (@{$genotypes->{$individual}}) {
-            print $FILE "\t", $genotype_codes->[0], ' ', $genotype_codes->[1];
+    foreach my $population (keys %$genotypes) {
+        my $pedigree_counter = 1;
+        foreach my $individual (keys %{$genotypes->{$population}}) {
+            my $pedigree = $population . '_' . $pedigree_counter;
+            foreach my $genotype_codes (@{$genotypes->{$individual}}) {
+                print $FILE "\t", $genotype_codes->[0], ' ', $genotype_codes->[1];
+            }
+            print $FILE "\n";
+            $pedigree_counter ++;
         }
-        print $FILE "\n";
     }
     close $FILE;
 }
@@ -207,18 +215,19 @@ sub get_individuals {
     }
 
     my %allowed_pops_hash;
+    my %individuals;
     foreach my $pop (@$allowed_pops) {
         $allowed_pops_hash{$pop} = 1;
+        $individuals{$pop} = [];
     }
 
-    my @individuals;
     foreach my $line (@sample_panel_lines) {
         my ($individual, $population) = split(/\s+/, $line);
         if ($allowed_pops_hash{$population}) {
-            push(@individuals, $individual);
+            push(@{$individuals{$population}}, $individual);
         }
     }
-    return \@individuals;
+    return \%individuals;
 }
 
 
@@ -229,7 +238,7 @@ sub get_individuals {
 
 =head1 NAME 
 
-	vcf_to_haploview.pl
+	vcf_to_ped_converter.pl
 
 =head1 SYNOPSIS
 
@@ -270,4 +279,4 @@ sub get_individuals {
 
 =head1 EXAMPLE
 
-perl ~/ReseqTrack/scripts/variation_data/vcf_to_haploview.pl -vcf ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20110521/ALL.chr13.phase1_integrated_calls.20101123.snps_indels_svs.genotypes.vcf.gz -sample_panel_file ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20110521/phase1_integrated_calls.20101123.ALL.sample_panel -region 13:32889611-32973805 -population GBR -population FIN
+perl ~/ReseqTrack/scripts/variation_data/vcf_to_ped_converter.pl -vcf ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20110521/ALL.chr13.phase1_integrated_calls.20101123.snps_indels_svs.genotypes.vcf.gz -sample_panel_file ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20110521/phase1_integrated_calls.20101123.ALL.sample_panel -region 13:32889611-32973805 -population GBR -population FIN
