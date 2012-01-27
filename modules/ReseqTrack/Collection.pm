@@ -29,8 +29,8 @@ use vars qw(@ISA);
 
 use ReseqTrack::Tools::Exception qw(throw warning stack_trace_dump);
 use ReseqTrack::Tools::Argument qw(rearrange);
-
 use ReseqTrack::HasHistory;
+use Scalar::Util qw(refaddr);
 
 @ISA = qw(ReseqTrack::HasHistory);
 
@@ -266,9 +266,9 @@ sub others {
         }
     }
 
-    unless ( $self->sanity_checked_others ) {
+    if (! $self->sanity_checked_others ) {
         my $others = $self->{others};
-        if ( $others && @$others >= 2 ) {
+        if ( $others && @$others >= 1 ) {
             my $first = ref( $others->[0] );
             foreach my $object (@$others) {
                 throw(  "ReseqTrack::Collection " 
@@ -276,7 +276,20 @@ sub others {
                       . " needs to be "
                       . $first . " not "
                       . "what it is " )
-                  unless ( $first eq ref($object) );
+                  if ( $first ne ref($object) );
+            }
+            if ($first eq ref($self)) {
+              foreach my $object (@$others) {
+                throw( "Collection points to itself")
+                  if (refaddr($self) eq refaddr($object));
+              }
+              if ($self->name && $self->type && $self->table_name) {
+                foreach my $object (@$others) {
+                  throw( "Collection points to itself (same name, type, table_name)")
+                    if ($object->table_name eq $self->table_name && $self->name eq $object->name
+                        && $self->type eq $object->type);
+                }
+              }
             }
         }
         $self->sanity_checked_others(1);
