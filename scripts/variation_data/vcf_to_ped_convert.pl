@@ -25,6 +25,7 @@
 use Getopt::Long;
 use Net::FTP;
 use Env qw( @PATH );
+use Data::Dumper;
 
 use strict;
 use warnings;
@@ -162,7 +163,8 @@ sub print_ped {
         my $pedigree_counter = 1;
         foreach my $individual (keys %{$genotypes->{$population}}) {
             my $pedigree = $population . '_' . $pedigree_counter;
-            foreach my $genotype_codes (@{$genotypes->{$individual}}) {
+            print $FILE join("\t", $pedigree, $individual, 0, 0, 0, 0,);
+            foreach my $genotype_codes (@{$genotypes->{$population}->{$individual}}) {
                 print $FILE "\t", $genotype_codes->[0], ' ', $genotype_codes->[1];
             }
             print $FILE "\n";
