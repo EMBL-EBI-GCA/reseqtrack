@@ -343,7 +343,7 @@ CREATE TABLE `verifybamid_sample` (
   `performed` datetime NOT NULL,
   PRIMARY KEY (`verifybamid_sample_id`),
   UNIQUE KEY `other_id` (`other_id`)
-)'
+);
 
 
 #Now to add entries to the two standard tables

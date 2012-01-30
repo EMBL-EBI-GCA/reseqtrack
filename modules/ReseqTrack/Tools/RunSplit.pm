@@ -79,7 +79,7 @@ sub new {
 
   Arg [1]   : ReseqTrack::Tools::RunSplit
   Function  : uses split to process the files in $self->input_files.
-  Output files are stored in $self->output_files and $self->grouped_output_files
+  Output files are stored in $self->output_files and $self->output_file_hash
   Returntype: 
   Exceptions: 
   Example   : $self->run();
@@ -111,16 +111,19 @@ sub run{
         $self->execute_command_line($cmd_line);
 
         opendir(my $DIR, $dir) or die "can't open $dir: $!";
-        my @output_files = grep {/$basename\.\d+$suffix\.gz/} readdir($DIR);
-        foreach my $output_file (@output_files) {
-          $output_file = $dir . '/' . $output_file;
-          $output_file =~ s{//}{/};
-        }
+        my @dir_files = readdir($DIR);
         closedir $DIR;
+        DIR_FILE:
+        foreach my $dir_file (@dir_files) {
+          next DIR_FILE if (!($dir_file =~ /$basename\.(\d+)$suffix\.gz/));
+          my $label = $1;
+          my $dir_file = $dir . '/' . $dir_file;
+          $dir_file =~ s{//}{/};
 
-        $self->output_files(\@output_files);
-        $self->grouped_output_files($file, \@output_files);
-
+          $self->output_file_hash($file, $label, $dir_file);
+          $self->output_files($dir_file);
+        }
+        
       }
       else {
         my $output_file = $output_prefix . "1" . $suffix . ".gz";
@@ -129,7 +132,7 @@ sub run{
               : "gzip -c $file > $output_file";
         $self->execute_command_line($cmd_line);
         $self->output_files($output_file);
-        $self->grouped_output_files($file, $output_file);
+        $self->output_file_hash($file, 1, $output_file);
       }
 
     }
@@ -153,21 +156,13 @@ sub label_length {
     return $self->{'label_length'};
 }
 
-sub grouped_output_files {
-  my ( $self, $file, $arg ) = @_;
+sub output_file_hash {
+  my ( $self, $input_file, $label, $output_file ) = @_;
 
-  if (! $self->{'grouped_output_files'}->{$file}) {
-      $self->{'grouped_output_files'}->{$file} = [] ;
+  if ($input_file && $label && $output_file) {
+    $self->{'output_file_hash'}->{$input_file}->{$label} = $output_file;
   }
-
-  if ($arg) {
-    if ( ref($arg) eq 'ARRAY' ) {
-      push( @{ $self->{'grouped_output_files'}->{$file} }, @$arg );
-    } else {
-      push( @{ $self->{'grouped_output_files'}->{$file} }, $arg );
-    }
-  }
-  return $self->{'grouped_output_files'}->{$file};
+  return $self->{'output_file_hash'};
 }
 
 
