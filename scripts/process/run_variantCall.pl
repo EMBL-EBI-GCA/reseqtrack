@@ -11,8 +11,11 @@ use Getopt::Long;
 use ReseqTrack::Tools::BamUtils;
 use File::Basename;
 use ReseqTrack::Tools::Loader::File;
+use Time::Local;
 
 #use ReseqTrack::Tools::RunVariantCallUtils qw(validate_input_string);
+
+my $start_time = time();
 
 $| = 1;
 
@@ -46,7 +49,7 @@ my $update = 0;
 my $output_dir = `pwd`;
 chomp $output_dir;
 my $host_name = '1000genomes.ebi.ac.uk';
-my $output_file_type = "VCF";
+my $output_file_type = "DCC_VCF";
 my $module_path = 'ReseqTrack::Tools::RunVariantCall';
 my $keep_intermediate_file = 0;
 
@@ -199,6 +202,8 @@ foreach my $fo ( @$flt_vcf ) {
 	}	
 }
 
+my $end_time = time();
+print "Job took " . ($end_time - $start_time)/60 . " minutes\n";
 
 ##############
 #### SUBS ####

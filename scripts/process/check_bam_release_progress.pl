@@ -73,8 +73,8 @@ foreach my $fo (@$file_objs_in_this_release) {
 	next if ($fo->type =~ /WITHDRAWN|TEST/i);  
 
 	if ($myHost =~ /sanger/i) {
-		next if ($fo->name !~ /bwa|ssaha/i );
-		next if ($fo->type =~ /EXOME/i);
+		next if ($fo->name !~ /bwa|ssaha|smalt/i );
+		#next if ($fo->type =~ /EXOME/i);
 	}
 	elsif ($myHost =~ /tgen/i ) {
 		next if ($fo->name !~ /SOLID/i);

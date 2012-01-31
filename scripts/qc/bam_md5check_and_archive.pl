@@ -146,6 +146,11 @@ if (!$bas ) {
 		write_log($fo, $loga, "FARM: multiple bas files found for $bam. One is $found_bas_path, it is not in the archive_staging area.");
 		throw("Multiple bas files found. One is $found_bas_path found for $bam, it is not in archive staging\n");
 	}	
+	elsif ( $bas_base && @$bas_base == 1 ) {		
+		$found_bas_path = $bas_base->[0]->name;
+		write_log($fo, $loga, "FARM: an bas file found - $found_bas_path, it is not in the archive_staging area.");
+		throw("An bas file found - $found_bas_path, it is not in archive staging area\n");
+	}
 	else { # create a bas, store in db as new or replace the one exists in db
 		my ($sample2, $platform2, $algorithm2, $project2, $analysis2, $chrom2, $date2) = CHECK_AND_PARSE_FILE_NAME($bam);
 		#print "chrom is $chrom2\ndate is $date2\nPATH is " . $ENV{"PATH"} . "\nPERL5LIB is " . $ENV{'PERL5LIB'} . "\n";
@@ -285,15 +290,15 @@ my $archive_list = '/nfs/1000g-work/G1K/scratch/zheng/tmp/' . $bam_basename . ".
 open (LIST, ">", $archive_list) || throw("Cannot open temparary archive list $archive_list\n");
 	
 if ( check_this_md5($fo) == 1 ) {
-	move_bam_to_trash($db, $fo, $run);
+	move_bam_to_trash($db, $fo, $fo->name, $run);
 	throw("md5 check failed for $bam, file moved to reject bin\n");
 }
 elsif ( check_this_md5($bai) == 1 ) {
-	move_bam_to_trash($db, $bai, $run);
+	move_bam_to_trash($db, $bai, $bai->name, $run);
 	throw("md5 check failed for $bai_name, file moved to reject bin\n");
 }	
 elsif ( $bas && check_this_md5($bas) == 1  ) { ## No need to do md5check for bas files that have been just created as the md5 was calculated
-	move_bam_to_trash($db, $bas, $run);
+	move_bam_to_trash($db, $bas, $bas->name, $run);
 	throw("md5 check failed for $bas_name, file moved to reject bin\n");
 }
 else {

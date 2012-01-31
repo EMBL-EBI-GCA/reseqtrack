@@ -35,6 +35,7 @@ my (
     $run,
     $verbose,
     $analysis_grp,
+    $desired_host,
    );
 
 my $move_to_dir = "/nfs/1000g-work/G1K/archive_staging/ftp/data";
@@ -54,6 +55,7 @@ my $run_farm_job_flag = 0; #when all files have been moved to archive_staging ar
   'out=s'				=> \$output_dir,
   'kick_off_farm_job:s'	=> \$run_farm_job_flag, #value is ncbi, sanger, tgen, broad, baylor, boston_college
   'analysis_grp:s'		=> \$analysis_grp, #value is low_coverage or exome;  this is to provide analysis group when -kick_off_farm_job is used 
+  'host:s'				=> \$desired_host, #this is to only run a specific host
 );
 
 if ($help) {
@@ -95,6 +97,11 @@ foreach my $host ( @$remote_hosts ) {
 	if ( $run_farm_job_flag ) {
 		next if ($run_farm_job_flag ne $host->name);
 	}
+	
+	#print "host is " . $host->name . ", desired host is $desired_host\n";
+	if ($desired_host) {
+		next if ($host->name ne $desired_host);
+	}
 		
 	my %dir_hash;	
 	my %dir_file_hash;
@@ -122,8 +129,12 @@ foreach my $host ( @$remote_hosts ) {
 	
 	my %analysis_group;
 	
+	if ($analysis_grp) {
+		$analysis_group{$analysis_grp} = 1; # this is to memorize the user input analysis group
+	}
+	
 	foreach my $file ( @$files ) {
-		
+		#next if ( $file->name =~ /release_v1/); #### FIXME, remove line
 		print "Host $host_name: ". $file->name . "\n" if ($verbose);
 		my $original_file_name = $file->name;
 		
@@ -151,30 +162,30 @@ foreach my $host ( @$remote_hosts ) {
 		if ($file->type =~ /BAM/ || $file->type =~ /BAI/ || $file->type =~ /BAS/) {
 			if ( $file_name && -e $file_name) {
 				my $size = -s $file_name;
-				if ( $size != $size_in_db && ( ( -M $file_name ) > 1) ) {	# if the file size is different from what is the db 
-																			# and the file has been 2 days or more old 
+				if ( $size != $size_in_db && ( ( -M $file_name ) > 19) ) {	# if the file size is different from what is the db 
+																			# and the file has been 5 days or more old 
 					$fail_flag = 1;
-					write_log($file, $loga, "PRE-PROCESSING: uploading failed? file in dropbox has different size as the one in db (dropbox $size, db $size_in_db) after 2 days");
+					write_log($file, $loga, "PRE-PROCESSING: uploading failed? file in dropbox has different size as the one in db (dropbox $size, db $size_in_db) after 20 days");
 					move_bam_to_trash($db, $file, $file_name, $run);
 				}
 				elsif ( $size == 0 && $size_in_db == 0) {
 					$fail_flag = 1;
 					write_log($file, $loga, "PRE-PROCESSING: uploaded file with size 0");
-					move_bam_to_trash($db, $file, $file_name, $run);
+					#move_bam_to_trash($db, $file, $file_name, $run); 
 				}
 				elsif (	(-s $file_name) != $size_in_db ) {					# if the file size is different from what is the db 
 					$in_process_flag = 1;
 					write_log($file, $loga, "WARNING: upload on going? file in dropbox has different size as the one in db (dropbox $size, db $size_in_db)");
 				}
-				elsif ( $aspx && (-e $aspx) &&  ( (-M $aspx ) > 1) ) {
-					$fail_flag = 1;
-					write_log($file, $loga, "PREP: uploading failed? file in dropbox still has an aspx file after 2 days");
-					move_bam_to_trash($db, $file, $file_name, $run);
-				}		
-				elsif ($aspx && (-e $aspx) ) {
-					$in_process_flag = 1;
-					write_log($file, $loga, "WARNING: uploading on-going? file in dropbox still has an aspx file");
-				}		
+				#elsif ( $aspx && (-e $aspx) &&  ( (-M $aspx ) > 2) ) {
+				#	$fail_flag = 1;
+				#	write_log($file, $loga, "PREP: uploading failed? file in dropbox still has an aspx file after 3 days");
+				#	move_bam_to_trash($db, $file, $file_name, $run);
+				#}		
+				#elsif ($aspx && (-e $aspx) ) {
+				#	$in_process_flag = 1;
+				#	write_log($file, $loga, "WARNING: uploading on-going? file in dropbox still has an aspx file");
+				#}		
 				else { 
 
 					if ( $file->type =~ /BAS/ && check_bas($file_name) == 1) {
@@ -258,92 +269,87 @@ foreach my $host ( @$remote_hosts ) {
 		}	
 	}
 	
-	my @groups = keys %analysis_group;
-
-	if ( @groups > 1 ) {
-		throw("Host $host_name has both EXOME and LOW_COVERAGE BAMs");
-	}
-	elsif ( @groups == 1 ) {
-		$analysis_grp = $groups[0];
-	}
-	
-	#print "analysis group is $analysis_grp\n";
-	
 	if ($move_flag == 1) {			
 		foreach my $alignment_dir (keys %dir_hash) {
 			create_and_load_collection($run, $db, $alignment_dir, $log, $withdrawn_list_fh, $withdraw_file);
 		}
 	}
 
-	my $command = "perl /nfs/1000g-work/G1K/work/zheng/reseqtrack/scripts/event/run_event_pipeline.pl ";
-	$command .= "-dbhost mysql-g1kdcc-public -dbname g1k_archive_staging_track -dbuser g1krw -dbpass thousandgenomes -dbport 4197 ";
-#	$command .= "-dbhost mysql-g1kdcc-public -dbname zheng_var_call -dbuser g1krw -dbpass thousandgenomes -dbport 4197 "; #### FIXME, change to the above line after testing
-	$command .= "-once -runner /nfs/1000g-work/G1K/work/zheng/reseqtrack/scripts/event/runner.pl "; 
+	my @groups = keys %analysis_group;
 	
-	## FIXME, tgen will provide exome bams
+	foreach $analysis_grp ( @groups ) {
 	
-	if ( ($host_name eq "sanger" || $host_name eq "tgen") && defined $analysis_grp && $analysis_grp eq "low_coverage" ) {
-		$command .= "-name bam_release & ";
-	}	
-	elsif ( $host_name eq "sanger" && defined $analysis_grp && $analysis_grp eq "exome" ) {
-		$command .= "-name exome_bam_release & ";
-	}	
-	elsif ($host_name eq "baylor" && defined $analysis_grp && $analysis_grp eq "exome" ) {
-		$command .= "-name exome_bam_release & ";
-	}	
-	elsif ($host_name eq "ncbi") {
-		$command .= "-name ncbi_bam_release & ";
-	}	
-	elsif ($host_name eq "boston_college" && defined $analysis_grp && $analysis_grp eq "exome" ) {
-		$command .= "-name exome_bam_release_boston_college & ";
-	}	
-	elsif ( $host_name eq "broad") { 
-		$command .= "-name exome_bam_release_broad & ";
-	}	
-	elsif ( $host_name eq "tgen" && defined $analysis_grp && $analysis_grp eq "exome" ) {
-		throw("Don't know how to handle tgen submission of exome bams yet"); 
-	}
-	elsif ( ! $analysis_grp  && $run_farm_job_flag ) {
-		warning("For host $host_name no analysis group has been parsed out, please provide -analysis_grp to -kick_off_farm_job\n");
-	}	
-	else {
-		#warning("Problem - don't know what to do with host $host_name"); 
-	}	
-
+		my $command = "perl /nfs/1000g-work/G1K/work/zheng/reseqtrack/scripts/event/run_event_pipeline.pl ";
+		$command .= "-dbhost mysql-g1kdcc-public -dbname g1k_archive_staging_track -dbuser g1krw -dbpass thousandgenomes -dbport 4197 ";
+#		$command .= "-dbhost mysql-g1kdcc-public -dbname zheng_var_call -dbuser g1krw -dbpass thousandgenomes -dbport 4197 "; #### FIXME, change to the above line after testing
+		$command .= "-once -runner /nfs/1000g-work/G1K/work/zheng/reseqtrack/scripts/event/runner.pl "; 	
 		
-	if ( $move_flag == 1  || $run_farm_job_flag eq $host_name ) {	# sometimes the files have been moved to archive staging but 
-																	# farm jobs did not get sent due to various reasons
-																	# the -kick_off_farm_jobs option allows run_event_pipeline to run
+		## FIXME, tgen will provide exome bams
 		
-		#### after collection is created for a given file, kick off farm jobs to run check md5s and archive files. 
-		#### for event run_bam_md5check_and_archive, any files that are not in archive_staging area will fail the run
-		#### any bams whose bas and/or bai are not on the archive staging area will fail the run (except the NCBI bams)
-		#### inside run_bam_md5check_and_archive, move failed files to reject bin
+		if ( ($host_name eq "sanger" || $host_name eq "tgen") && defined $analysis_grp && $analysis_grp eq "low_coverage" ) {
+			$command .= "-name bam_release & ";
+		}	
+		elsif ( $host_name eq "sanger" && defined $analysis_grp && $analysis_grp eq "exome" ) {
+			$command .= "-name exome_bam_release & ";
+		}	
+		elsif ($host_name eq "baylor" && defined $analysis_grp && $analysis_grp eq "exome" ) {
+			$command .= "-name exome_bam_release & ";
+		}	
+		elsif ($host_name eq "ncbi") {
+			$command .= "-name ncbi_bam_release & ";
+		}	
+		elsif ($host_name eq "boston_college" && defined $analysis_grp && $analysis_grp eq "exome" ) {
+			$command .= "-name exome_bam_release_boston_college & ";
+		}	
+		elsif ( $host_name eq "broad") { 
+			$command .= "-name exome_bam_release_broad & ";
+		}	
+		elsif ( $host_name eq "tgen" && defined $analysis_grp && $analysis_grp eq "exome" ) {
+			throw("Don't know how to handle tgen submission of exome bams yet"); 
+		}
+		elsif ( ! $analysis_grp  && $run_farm_job_flag ) {
+			warning("For host $host_name no analysis group has been parsed out, please provide -analysis_grp to -kick_off_farm_job\n");
+		}	
+		else {
+			#warning("Problem - don't know what to do with host $host_name"); 
+		}	
 		
-		print "Submitting farm jobs.........\n";												
-		`$command`;
+		#print "farm command is $command\n";
+		
+		if ( $move_flag == 1  || $run_farm_job_flag eq $host_name ) {	# sometimes the files have been moved to archive staging but 
+																		# farm jobs did not get sent due to various reasons
+																		# the -kick_off_farm_jobs option allows run_event_pipeline to run
+			
+			#### after collection is created for a given file, kick off farm jobs to run check md5s and archive files. 
+			#### for event run_bam_md5check_and_archive, any files that are not in archive_staging area will fail the run
+			#### any bams whose bas and/or bai are not on the archive staging area will fail the run (except the NCBI bams)
+			#### inside run_bam_md5check_and_archive, move failed files to reject bin
+			
+			print "Submitting farm jobs.........\n";												
+			`$command`;
 
 =head										
-
-		foreach my $directory ( keys %dir_file_hash) {
-			foreach my $f ( @{$dir_file_hash{$directory}} ) {
-				my $file_to_archive = $f->name;
-				next if ($file_to_archive =~ /bai/ || $file_to_archive =~ /bas/);
-				#print "Input file name for the qa program is: $file_to_archive\n" if ($verbose);
-				`/usr/bin/perl /homes/zheng/reseq-personal/zheng/bin/bam_md5check_and_archive.auto.pl $db_parameters -bam $file_to_archive -out $output_dir -verbose`;
-				# FIXME: for test, did not use the -run option since zheng-automation_test is not capable of archiving.  
-				# use the -run option after test!!  
-			}
-		}			
-
+	
+			foreach my $directory ( keys %dir_file_hash) {
+				foreach my $f ( @{$dir_file_hash{$directory}} ) {
+					my $file_to_archive = $f->name;
+					next if ($file_to_archive =~ /bai/ || $file_to_archive =~ /bas/);
+					#print "Input file name for the qa program is: $file_to_archive\n" if ($verbose);
+					`/usr/bin/perl /homes/zheng/reseq-personal/zheng/bin/bam_md5check_and_archive.auto.pl $db_parameters -bam $file_to_archive -out $output_dir -verbose`;
+					# FIXME: for test, did not use the -run option since zheng-automation_test is not capable of archiving.  
+					# use the -run option after test!!  
+				}
+			}			
+	
 =cut
-
-###FIXME: comment out above lines after testing
-	}
-	else {
-		print "No file is moved and processed this time for host $host_name, did you set the -run tag?\n";
-	}
-		
+	###FIXME: comment out above lines after testing
+		}
+		else {
+			print "No file is moved and processed this time for host $host_name, did you set the -run tag?\n";
+		}
+	}# end of foreach @groups
+	
+	
 	if ($fail_flag == 1) {
 		print "Some files failed transfer or some files in dropbox do not exist in database. Please check the log file $log_file and reject_log table in the db\n";
 	}		
