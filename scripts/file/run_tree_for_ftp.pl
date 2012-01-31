@@ -122,12 +122,14 @@ my $clean_archiver  = ReseqTrack::Tools::Loader::Archive->new(
 							      -action=>'archive',
 							     );
 
-my $continue = clean_archive_table($clean_archiver, 10, 360, $log_fh);
+my $continue = clean_archive_table($clean_archiver, 1, 360, $log_fh);
+
 unless($continue){
   print STDERR "Stopping tree process as there are still objects in the archive table and ".
     "this may cause issues\n";
   exit(0);
 }
+
 
 
 if ( ! ($check_old)  && ! ($check_new) ) {
@@ -327,7 +329,26 @@ sub clean_archive_table{
   my ($archiver, $loops, $sleep, $log_fh) = @_;
   my $clean_archive_table = 1;
   my $continue = 1;
-  my $tries = 0;
+  my $tries    = 0;
+
+  
+  if ($loops == 1){
+ 
+     my $obs_remaining   = $archiver->cleanup_archive_table($verbose);
+     my $total_remaining = scalar ($obs_remaining);
+
+     if ($total_remaining){
+       my $msg  = "There are $total_remaining objects in the archive table.\n";
+       $msg .= "There will be error output related incomplete file archiving\n"; 
+       $msg .= "Set to clean archive table once.\n";
+       $msg .= "Continuing with current.tree file generation.\n";
+       warn "$msg";   
+     }
+     return $continue;
+  }
+
+
+
   while($clean_archive_table){
     my $obs_remaining = $archiver->cleanup_archive_table($verbose);
     if ($obs_remaining) {
