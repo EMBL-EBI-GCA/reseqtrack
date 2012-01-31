@@ -57,6 +57,15 @@ if ( ! defined $input{chrom20}){
   $input{chrom20} = 0;
 } 
 
+
+if ($input{name} =~ /unmapped/i){
+  my $msg = "\nYou are trying to run on what appears to be an unmapped bam\n";
+  $msg .= "This bam probably has an overlapping type with bams that should be tested\n";
+  warning "$msg";
+  exit;
+}
+
+
 my ( $db, $fa )  = get_db_adaptors( \%input );
 
 $bam_file_obj = $fa->fetch_by_name( $input{name} );
@@ -75,7 +84,7 @@ $got_sample_result    = $Sample_adaptor->fetch_by_other_id( $bam_file_obj->dbID 
 $got_readgroup_result = $RG_adaptor->fetch_by_other_id( $bam_file_obj->dbID );
 
 
-if ( $input{selfonly} && scalar (@$got_readgroup_result) ){
+if ( $input{selfonly} && scalar (@$got_readgroup_result) && ! (defined $input{update})){
   
  throw ("\nYou are running with 'selfonly' option, but there are read group\n" .
        "results associated with file_id = " .  $bam_file_obj->dbID . "\n" )
