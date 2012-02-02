@@ -15,7 +15,7 @@ use ReseqTrack::Tools::BamUtils;
 use ReseqTrack::Tools::FileSystemUtils qw (create_tmp_process_dir delete_directory);
 use ReseqTrack::Tools::Exception qw(throw warning stack_trace_dump);
 use ReseqTrack::Tools::BamUtils  qw (get_bam_run_id_info);
-
+use ReseqTrack::Tools::QC::GLFUtils qw ( have_snps);
 
 my %input;
 my %rg_info;
@@ -45,7 +45,7 @@ GetOptions(
 	   'name=s',    'cfg_file=s', 'out_prefix=s', 'echo_cmd_line!',
 	   'bimp=s', 'debug!', 'selfonly!', 'update!', 'selfSM=s',
 	   'selfRG=s','bestRG=s', 'test!', 'save_files_for_deletion!',
-	   'chrom20!');
+	   'chrom20!', 'snps_list=s','reference=s');
 
 
 if ( defined $input{cfg_file} ) {
@@ -61,9 +61,30 @@ if ( ! defined $input{chrom20}){
 if ($input{name} =~ /unmapped/i){
   my $msg = "\nYou are trying to run on what appears to be an unmapped bam\n";
   $msg .= "This bam probably has an overlapping type with bams that should be tested\n";
+  $msg .= "Skipping this bam\n";
   warning "$msg";
   exit;
 }
+
+
+if ($input{name} =~ /chrom11/i){
+  my $msg = "\nYou are trying to run on what appears to be an chromosome 11 bam\n";
+  $msg .= "This bam probably has an overlapping type with bams that should be tested\n";
+  $msg .= "Skipping this bam\n";
+  warning "$msg";
+  exit;
+}
+
+
+my ($sample2, $platform2, $algorithm2, $project2, $analysis2, $chrom2, $date2) =
+  CHECK_AND_PARSE_FILE_NAME($input{name});
+
+my $have_snps  = have_snps ($sample2, $input{snps_list});
+
+if (!$have_snps) {
+  throw   "Have no snps for $sample2 in\n $input{snps_list}\n";
+}
+
 
 
 my ( $db, $fa )  = get_db_adaptors( \%input );
@@ -119,12 +140,6 @@ if ( $got_sample_result &&  $update) {
 if ( ! $got_sample_result) {
   print "No previous results found. Processing\n";
 }
-
-
-my ( $sample2, $platform2, $algorithm2, $project2, $analysis2, $chrom2, $date2 )
-  = CHECK_AND_PARSE_FILE_NAME( $input{name} );
-
-
 
 
 $db->dbc->disconnect_when_inactive(2);
@@ -190,7 +205,7 @@ my $bam_header_info = get_bam_run_id_info ( $bam_file_obj->name);
 
 foreach my $key ( keys %rg_info ) {
 
-  print $key,"\n";
+  #print $key,"\n";
 
   my $x =  $rg_info{$key};
  
@@ -238,9 +253,7 @@ if ( $got_sample_result) {
   $Sample_adaptor->store($Sample) unless ($input{test}) ;
 }
 
-#if ( -e $VBAM->{working_dir}){
-#  delete_directory ($VBAM->{working_dir}) unless $input{debug};
-#}
+
 
 
 #=====================================================
