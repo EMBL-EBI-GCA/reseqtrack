@@ -72,7 +72,7 @@ if ($input{name} =~ /chrom11/i){
   $msg .= "This bam probably has an overlapping type with bams that should be tested\n";
   $msg .= "Skipping this bam\n";
   warning "$msg";
-#  exit;
+  exit;
 }
 
 
