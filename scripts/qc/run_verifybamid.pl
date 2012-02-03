@@ -108,7 +108,8 @@ $got_readgroup_result = $RG_adaptor->fetch_by_other_id( $bam_file_obj->dbID );
 if ( $input{selfonly} && scalar (@$got_readgroup_result) && ! (defined $input{update})){
   
  throw ("\nYou are running with 'selfonly' option, but there are read group\n" .
-       "results associated with file_id = " .  $bam_file_obj->dbID . "\n" )
+       "results associated with file_id = " .  $bam_file_obj->dbID . 
+	"\nUse -update option to continue\n");
 }
 
 
