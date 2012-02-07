@@ -15,7 +15,7 @@ It is a sub class of a ReseqTrack::Tools::RunProgram.
 =cut
 
 package ReseqTrack::Tools::RunPicard;
-
+use Data::Dumper;
 use strict;
 use warnings;
 
@@ -64,7 +64,8 @@ sub new {
   my ( $picard_dir, $jvm_options,
         $index_bai, $index_bam_bai,
         $options, $tmp_dir,
-        $replace_files)
+        $replace_files,
+		)
     = rearrange( [
          qw( PICARD_DIR JVM_OPTIONS
                 INDEX_BAI INDEX_BAM_BAI
@@ -104,7 +105,7 @@ sub new {
 =head2 run
 
   Arg [1]   : ReseqTrack::Tools::RunPicard
-  Arg [2]   : string, either 'remove_duplicates' or 'merge'
+  Arg [2]   : string, either 'remove_duplicates', 'merge', 'sort' or 'mark_duplicates' 
   Function  : uses picard to process the files in $self->input_files.
   Output is files are stored in $self->output_files
   Returntype: 
@@ -116,12 +117,23 @@ sub new {
 sub run{
     my ($self, $command) = @_;
 
+	throw("Please specify a command") if (! $command);
+
     if ($command eq 'remove_duplicates') {
         $self->run_remove_duplicates;
+    }
+	elsif ($command eq 'mark_duplicates') {
+        $self->run_mark_duplicates;
     }
     elsif ($command eq 'merge') {
         $self->run_merge;
     }
+	elsif ($command eq 'sort') {
+		$self->run_sort;
+	}
+	elsif ($command eq 'alignment_metrics'){
+		$self->run_alignment_metrics;
+	}
     else {
         throw("Did not recognise command $command");
     }
@@ -140,20 +152,46 @@ sub run{
 
 sub run_remove_duplicates{
     my ($self) = @_;
+	return $self->_process_duplicates(1);
+
+}
+
+=head2 run_mark_duplicates
+
+  Arg [1]   : ReseqTrack::Tools::RunPicard
+  Function  : uses MarkDuplicates.jar to mark duplicates
+  Returntype: 
+  Exceptions: 
+  Example   : $self->run_mark_duplicates
+
+=cut
+sub run_mark_duplicates {
+	my ($self) = @_;
+	return $self->_process_duplicates(0);
+}
+
+sub _process_duplicates {
+	my ($self,$remove_duplicates) = @_;
 
     $self->change_dir;
 
     foreach my $input (@{$self->input_files}) {
+		my $suffix;
+		if ($remove_duplicates) {
+			$suffix = '.rmdup';
+		}
+		else {
+			$suffix = '.mrkdup';
+		}
 
         my $name = fileparse($input, qr/\.[sb]am/);
-        my $prefix = $self->working_dir . '/' . $name . '.rmdup';
+        my $prefix = $self->working_dir . '/' . $name . $suffix;
         $prefix =~ s{//}{/}g;
 
         my $bam = $prefix . '.bam';
         my $metrics = $prefix . '.metrics';
 
-        my $jar = $self->picard_dir . '/MarkDuplicates.jar';
-        $jar =~ s{//}{/}g;
+		my $jar = $self->_jar_path('MarkDuplicates.jar');
 
         my $cmd = $self->program;
         $cmd .= ' ' . $self->jvm_options if ($self->jvm_options);
@@ -163,7 +201,12 @@ sub run_remove_duplicates{
         $cmd .= ' INPUT=' . $input;
         $cmd .= ' OUTPUT=' . $bam;
         $cmd .= ' METRICS_FILE=' . $metrics;
-        $cmd .= ' REMOVE_DUPLICATES=true';
+		if ($remove_duplicates) {
+        	$cmd .= ' REMOVE_DUPLICATES=true';
+		}
+		else {
+			$cmd .= ' REMOVE_DUPLICATES=false';
+		}
 
         if ($self->flags('index_bai') || $self->flags('index_bam_bai')) {
             $cmd .= ' CREATE_INDEX=true';
@@ -190,9 +233,65 @@ sub run_remove_duplicates{
         
     }
     return;
-
 }
 
+=head2 run_alignment_metrics
+
+  Arg [1]   : ReseqTrack::Tools::RunPicard
+  Function  : uses CollectAlignmentSummaryMetrics.jar to generate alignment metrics file. Reads metrics. 
+  Returntype: Collection of hashrefs. Keys described at http://picard.sourceforge.net/picard-metric-definitions.shtml#AlignmentSummaryMetrics
+  Exceptions: 
+  Example   : my $statistics = $self->run_alignment_metrics
+  
+=cut
+sub run_alignment_metrics {
+	my ($self) = @_;
+
+	my ($input) = @{$self->input_files};
+	my ($name,$dir,$suffix) = fileparse($input, qr/\.[sb]am/);
+    my $base_name = $dir.'/'. $name;
+    
+	my $output = $base_name.'.metrics';
+	my $jar = $self->_jar_path('CollectAlignmentSummaryMetrics.jar');
+
+    my $cmd = $self->program;
+    $cmd .= ' ' . $self->jvm_options if ($self->jvm_options);
+    $cmd .= ' -jar ' . $jar;
+    $cmd .= ' ' . $self->options if ($self->options);
+    $cmd .= ' INPUT=' . $input;
+    $cmd .= ' OUTPUT=' . $output;
+
+    $self->execute_command_line($cmd);
+
+    $self->output_files($output);
+
+    open(my $fh, "<", $output) or die "cannot open < $output: $!";
+
+	my (@titles, @statistics);
+	
+	while (my $line = <$fh>) {
+		next if $line =~ m/#/;
+		chomp $line;
+		my @vals = split /\s/, $line;
+		next unless @vals;
+		
+		if (@titles){
+			my %metrics;
+			push @statistics, \%metrics;
+			for my $i (0..scalar(@titles)){				
+				my ($key, $value) = ($titles[$i],$vals[$i]);
+				next unless ($key && $value);							
+				$metrics{$key} = $value;
+			}
+		}
+		else {
+			@titles = @vals;
+		}
+	}		
+	close $fh;
+	
+	return \@statistics;
+}
 
 =head2 run_merge
 
@@ -215,8 +314,7 @@ sub run_merge{
 
     my $bam = "$prefix.merge.bam";
 
-    my $jar = $self->picard_dir . '/MergeSamFiles.jar';
-    $jar =~ s{//}{/}g;
+	my $jar = $self->_jar_path('MergeSamFiles.jar');
 
     my $cmd = $self->program;
     $cmd .= ' ' . $self->jvm_options if ($self->jvm_options);
@@ -252,6 +350,60 @@ sub run_merge{
 
 
     return;
+}
+
+=head2 run_sort
+
+  Arg [1]   : ReseqTrack::Tools::RunPicard
+  Arg [2]   : String, sort order, defaults to coordinate
+  Function  : uses SortSam.jar to sort
+  Returntype: 
+  Exceptions: 
+  Example   : $self->run_sort
+
+=cut
+sub run_sort{
+	my ($self,$sort_order) = @_;
+	
+	$sort_order ||= 'coordinate';
+	
+	$self->change_dir;
+	
+	my $jar = $self->_jar_path('SortSam.jar');
+
+	foreach my $input (@{$self->input_files}) {
+		my $name = fileparse($input, qr/\.[sb]am/);
+		my $prefix = $self->working_dir . '/' . $name . '.sorted';
+        $prefix =~ s{//}{/}g;
+        my $output = $prefix . '.bam';
+		
+		my $cmd = $self->program;
+	    $cmd .= ' ' . $self->jvm_options if ($self->jvm_options);
+	    $cmd .= ' -jar ' . $jar;
+	    $cmd .= ' ' . $self->options if ($self->options);
+        $cmd .= ' SORT_ORDER='. $sort_order;
+		$cmd .= ' INPUT=' . $input;
+		$cmd .= ' OUTPUT=' . $output;
+		
+		$self->execute_command_line($cmd);
+
+	    $self->output_files($output);
+	
+		if ($self->replace_files) {
+            $self->files_to_delete( $input );
+        }
+		
+    }
+
+    return;   
+}
+
+sub _jar_path{
+	my ($self,$jar_file) = @_;
+	my $jar = $self->picard_dir . '/' . $jar_file;
+	$jar =~ s{//}{/}g;
+	
+	return $jar;
 }
 
 sub replace_files {
