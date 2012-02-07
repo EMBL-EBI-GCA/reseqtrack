@@ -16,7 +16,7 @@ use Data::Dumper;
 
 my %input;
 my %snps;
-my $snps_file = "/nfs/1000g-work/G1K/work/REFERENCE/snps/grc37_snps/OMNI_1525_PASS_V2/bin/20110601_omni1525_v2.bin.list";
+my $snps_file = "/nfs/1000g-work/G1K/work/REFERENCE/snps/grc37_snps/OMNI25_2123/bin/omni25_2123.snps.bin.list";
 
 #eclipse test. smithre
 
@@ -25,10 +25,12 @@ $input{dbport} = 4197;
 $input{dbhost} = "mysql-g1kdcc-public";
 $input{dbuser} = "g1kro";
 
+
+$input{files_exist} = 0;
 GetOptions(
 	\%input,    'dbhost=s', 'dbname=s',      'dbuser=s',
 	'dbpass=s', 'dbport=s', 'working_dir=s', 'verbose!',
-	   'skip_name_check!',
+	   'skip_name_check!','files_exist!',
 );
 
 
@@ -43,12 +45,19 @@ print "\n\nStarting Jr Health check of: " . $input{dbname} . "\n";
 print '-' x 45;
 print "\n";
 
+
 open my $SNPS ,'<', $snps_file || die "Nope: snps_file\n";
 while (<$SNPS>){
   chomp;
   $snps{$_} = 1;
 }
 close $SNPS;
+
+&bad_sample_name_in_genotype_table($db);
+
+&check_db_files_exist($db) if $input{files_exist};
+
+
 &collections_with_missing_file_objects($db);
 
 &failed_glf_but_FILTERED_FASTQ ($db);
@@ -80,6 +89,43 @@ exit if $input{skip_name_check};
 ##	$input{verbose} );
 
 print "\n\nDone \n";
+
+
+sub check_db_files_exist{
+    my ( $db, $table,$verbose ) = @_;
+    
+    my $get = "select name  from file";
+
+    my @missing;
+    my $sql = "$get" ;
+    
+    print $sql,"\n\n" if $verbose;
+   
+    my $sth = $db->dbc->prepare($sql);
+    $sth->execute;
+    my $ctr = 0;
+
+    my $where_am_i = 0;
+    while ( my $filename = $sth->fetchrow ) {      
+       $where_am_i ++;
+       print "checked files for existence $where_am_i\n" if ( ($where_am_i % 25000) == 0); 
+     if ( !-e $filename){
+	$ctr++;
+	printf "%5d $filename\n",$ctr;
+	push (@missing,$filename);
+     }
+    }
+
+    $sth->finish;
+
+    #print "$_\n" foreach (@missing);
+    exit;
+    return;
+
+}
+
+
+
 
 sub collections_with_missing_file_objects {
  my ( $db,$verbose) = shift;
@@ -477,4 +523,33 @@ sub get_db_connection {
 	#print "Got db connection\n";
 	return $db;
 
+}
+
+
+sub bad_sample_name_in_genotype_table {
+    my ( $db, $verbose ) = @_;
+    
+    my $sql =
+      "select claimed,name from genotype_results where claimed not like \"NA%\" and  "
+      .  "claimed not like \"HG%\" ";
+    
+    print $sql,"\n\n" if $verbose;
+    
+    my $sth = $db->dbc->prepare($sql);
+    $sth->execute;
+ 
+   my $ctr = 0;
+
+    while ( my @row = $sth->fetchrow ) {
+        print "@row\n";## if $verbose;
+        $ctr++;
+    }
+    
+    print "Have $ctr case(s) of bad sample names in genotype_results_table\n";
+    
+    $sth->finish;
+
+
+
+    return;
 }
