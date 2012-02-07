@@ -137,8 +137,11 @@ foreach my $allowed_input (@allowed_inputs) {
     foreach my $input (@inputs) {
         $allowed_inputs{$table_name}{$type}{$input} = 1;
     }
+	if (lc($table_name) eq 'input_string') {
+		my $input = join ' ', @inputs;
+		$allowed_inputs{$table_name}{$type}{$input} = 1;
+	}
 }
-
 
 my %event_name_hash;
 foreach my $logic (@event_names) {
@@ -256,7 +259,7 @@ while(1){
                 $total_submission_count ++;
                 $submitted_count ++;
             }
-  
+
             my $cmds = create_submission_cmds(\@jobs, $db, $batch_submission_object, $runner, $event);
             foreach my $cmd (keys %$cmds) {
                 foreach my $job (@{$cmds->{$cmd}}) {
