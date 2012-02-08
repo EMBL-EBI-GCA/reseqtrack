@@ -146,7 +146,7 @@ sub time {
 
 sub time_elapsed {
     my ( $self, $arg ) = @_;
-    if ($arg) {
+    if (defined $arg) {
         $self->{'time_elapsed'} = $arg;
     }
     return $self->{'time_elapsed'};
@@ -154,7 +154,7 @@ sub time_elapsed {
 
 sub memory_usage {
     my ( $self, $arg ) = @_;
-    if ($arg) {
+    if (defined $arg) {
         $self->{'memory_usage'} = $arg;
     }
     return $self->{'memory_usage'};
@@ -162,7 +162,7 @@ sub memory_usage {
 
 sub swap_usage {
     my ( $self, $arg ) = @_;
-    if ($arg) {
+    if (defined $arg) {
         $self->{'swap_usage'} = $arg;
     }
     return $self->{'swap_usage'};

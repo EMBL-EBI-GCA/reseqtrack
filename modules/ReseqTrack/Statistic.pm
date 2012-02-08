@@ -6,7 +6,7 @@ use vars qw(@ISA);
 
 use ReseqTrack::Tools::Exception qw(throw warning);
 use ReseqTrack::Tools::Argument qw(rearrange);
-
+use Data::Dumper;
 use ReseqTrack::Base;
 
 @ISA = qw(ReseqTrack::Base);
@@ -15,7 +15,7 @@ sub new{
   my ($class, @args) = @_;
   my $self = $class->SUPER::new(@args);
   
-  my ($table_name, $other_id, $attribute_name, $attribute_value ) = 
+  my ($table_name, $other_id, $attribute_name, $attribute_value ) =
       rearrange([qw(TABLE_NAME OTHER_ID ATTRIBUTE_NAME ATTRIBUTE_VALUE ) ], @args);
   $self->table_name($table_name);
   $self->other_id($other_id);
@@ -63,7 +63,7 @@ sub attribute_name{
 
 sub attribute_value{
   my ($self, $arg) = @_;
-  if($arg){
+  if(defined $arg){
     $self->{attribute_value} = $arg;
   }
   return $self->{attribute_value};
