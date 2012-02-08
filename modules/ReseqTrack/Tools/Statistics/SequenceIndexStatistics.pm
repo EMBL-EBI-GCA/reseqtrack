@@ -122,7 +122,7 @@ sub population_rules {
     $self->{population_rules} = $rules;
   }
   if (!$self->{rules} || $force_update){
-    $self->population_rules = $self->db->getPopulationRuleAdaptor->fetch_all_in_order();
+    $self->{population_rules}= $self->db->get_PopulationRuleAdaptor->fetch_all_in_order();
   }
   return $self->{population_rules};
 }
