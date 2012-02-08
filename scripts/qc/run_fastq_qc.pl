@@ -155,6 +155,7 @@ my $filter_fastq = ReseqTrack::Tools::FilterFastq->new
 #Run Filtering
 my $files = $filter_fastq->filter_files;
 #Check the files returned all exist
+#$db->dbc->disconnect_when_inactive(0);
 foreach my $file(@$files){
   unless($file =~ /\.fastq\.gz$/){
     throw("Not sure what to do with ".$file." doesn't match expect file extension");
