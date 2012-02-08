@@ -310,7 +310,7 @@ sub get_params {
 
     throw ("Could not open $file") if ( !-e $file);
 
-    open my $IN, '<', $file || die "No config file found";
+    open my $IN, '<', $file || throw "No config file found";
 
     while (<$IN>) {
         chomp $_;
@@ -348,14 +348,14 @@ sub get_open_file_handle {
   my $filename = shift;
   my $fh_in;
 
-  die "No file found: $filename" if (! -e $filename );
+  throw "No file found: $filename" if (! -e $filename );
 
   if ( $filename =~ /\.gz$/i ) {
     open( $fh_in, "zcat $filename | " )
-      or die("failed zcat $filename: $!");
+      or throw("failed zcat $filename: $!");
   }
   else {
-    open( $fh_in, '<', $filename) or die("failed open $filename: $!");
+    open( $fh_in, '<', $filename) or throw("failed open $filename: $!");
   }
 
   return $fh_in;
