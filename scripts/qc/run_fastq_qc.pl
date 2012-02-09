@@ -192,7 +192,7 @@ my $filtered_collection = ReseqTrack::Collection->new(
 						      -table_name => 'file',
 						     );
 #Store the collection
-#$db->get_CollectionAdaptor->store($filtered_collection);
+$db->get_CollectionAdaptor->store($filtered_collection);
 my ($filt_m1, $filt_m2, $filt_f) = assign_files($file_objects);
 #Update statistics
 my @objects_to_update;
