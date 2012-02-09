@@ -2,7 +2,6 @@
 
 use strict;
 
-#use lib '/homes/zheng/reseq-personal/zheng/lib/reseqtrack_hzb/modules/'; #svn check out the ReseqTrack 
 use ReseqTrack::DBSQL::RejectLogAdaptor;
 use ReseqTrack::Tools::Exception;
 use ReseqTrack::Tools::FileUtils;
@@ -89,7 +88,7 @@ foreach my $fo (@$file_objs_in_this_release) {
 		next if ($fo->type !~ /EXOME/i);
 	}	
 	elsif ($myHost =~  /baylor/i ) {
-		next if ($fo->name !~ /SOLID/i);
+		next if ($fo->name !~ /SOLID\.bfast/i);
 		next if ($fo->type !~ /EXOME/i);
 	}	
 	elsif ($myHost =~  /boston_college/i ) {

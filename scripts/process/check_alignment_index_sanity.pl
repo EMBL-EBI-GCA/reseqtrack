@@ -77,12 +77,20 @@ foreach my $col (keys %collection_bas_files) {
 	
 	my $file_cnt_per_collection = keys %{$collection_files{$col}};
 	
-	if ( $file_cnt_per_collection != 3 && $col =~ /low_coverage/ ) {
-		print STDERR "EACH low_coverage collection should have 3 BAM files, $col has $file_cnt_per_collection bam files\n";
+	if ( $file_cnt_per_collection != 4 && $col =~ /low_coverage/ ) { #Sanger LC, chrom20, 11, mapped, unmapped
+		print STDERR "EACH low_coverage collection should have 4 BAM files, $col has $file_cnt_per_collection bam files\n";
 		next;
 	}
-	elsif ( $file_cnt_per_collection != 1 && $col =~ /exome/ ) {
-		print STDERR "EACH exome collection should have 1 BAM file, $col has $file_cnt_per_collection bam files\n";
+	elsif ( $file_cnt_per_collection != 4 && $col =~ /exome/ && $col =~ /bwa/i ) { # sanger exome
+		print STDERR "EACH Sanger exome collection should have 4 BAM files, $col has $file_cnt_per_collection bam files\n";
+		next;
+	}
+	elsif ( $file_cnt_per_collection != 3 && $col =~ /exome/ && $col =~ /bfast/i ) { # baylor exome, chr20, 11, and mapped
+		print STDERR "EACH Baylor exome collection should have 3 BAM files, $col has $file_cnt_per_collection bam files\n";
+		next;
+	}
+	elsif ( $file_cnt_per_collection != 1 && $col =~ /exome/ && $col =~ /mosaik/i ) { # Boston college exome, mapped
+		print STDERR "EACH Boston College exome collection should have 1 BAM file, $col has $file_cnt_per_collection bam files\n";
 		next;
 	}
 	
@@ -92,7 +100,7 @@ foreach my $col (keys %collection_bas_files) {
 				
 	foreach my $bas ( @all_bas_files ) {
 		
-		next if ( $bas =~ /chrom20/ );
+		next if ( $bas =~ /chrom20/ || $bas =~ /chrom11/ );
 		open (BAS, "<", $bas) || throw("Cannot open bas file $bas\n");
 		
 		while ( <BAS> ) {
@@ -159,25 +167,27 @@ foreach my $collection ( keys %collection_RG) {
 	## If the RG count is the same, check read counts	
 	else {
 		if ($collection_read_cnt_bas{$collection} != $read_cnt_seq_in ) {
-			if ( $collection =~ /low_coverage/i ) { ## low_coverage BAMs should have unmapped BAMs
+			#### FIXME - exome should have the exact read counts as unmapped reads are included in mapped.bam
+			#if ( $collection =~ /low_coverage/i ) { ## low_coverage BAMs should have unmapped BAMs
 				print "Read cnt inconsistent: $sample collection $collection has $collection_read_cnt_bas{$collection} reads in BAS "; 
 				print "$read_cnt_seq_in reads in sequence index\n";
-			}
-			else {	## EXOME BAMs usually don't have unmapped BAMs	
-				my $diff_ratio = ( $read_cnt_seq_in - $collection_read_cnt_bas{$collection})/$read_cnt_seq_in;
-				if ($diff_ratio > 0.25) {
-					print "Missing more than 25% reads: $sample collection $collection has $collection_read_cnt_bas{$collection} reads in BAS "; 
-					print "$read_cnt_seq_in reads in sequence index\n";
-				}	
-			}	
+			#}
+			#else {	## EXOME BAMs usually don't have unmapped BAMs	
+			#	my $diff_ratio = ( $read_cnt_seq_in - $collection_read_cnt_bas{$collection})/$read_cnt_seq_in;
+			#	if ($diff_ratio > 0.25) {
+			#		print "Missing more than 25% reads: $sample collection $collection has $collection_read_cnt_bas{$collection} reads in BAS "; 
+			#		print "$read_cnt_seq_in reads in sequence index\n";
+			#	}	
+			#}	
 		}
 		## if read count is the same, check for total base count
 		else {
 			if ($collection_base_cnt_bas{$collection} != $base_cnt_seq_in ) {		
-				if ( $collection =~ /low_coverage/i ) {
+				#### FIXME, handle exome bams diffrently?
+				#if ( $collection =~ /low_coverage/i ) {
 					print "Base cnt inconsistent: $sample collection $collection has $collection_base_cnt_bas{$collection} bases in BAS "; 
 					print "$base_cnt_seq_in total bases in sequence index\n";
-				}	
+				#}	
 			}
 			else {
 				print "Pass: $sample collection $collection\n";

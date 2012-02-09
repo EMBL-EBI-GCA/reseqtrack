@@ -261,11 +261,20 @@ foreach my $host ( @$remote_hosts ) {
 			next unless ($f =~ /bam/);   
 			next if ($f =~ /md5/);
 			my $full_file_path = $dr . "/" . $f;
-			my $fo = $fa->fetch_by_name($full_file_path);	
-			if (!$fo) {
+			#my $fo = $fa->fetch_by_name($full_file_path);	
+			my $fos = $fa->fetch_by_filename($f);
+			if (!$fos || @$fos == 0 ) {
 				$fail_flag = 1;
 				print $log "WARNING: BAM file $full_file_path in dropbox is not loaded in database.\n";
 			}	
+			else {
+				if ( $fos->[0]->name =~ /vol1/ ||  $fos->[0]->name =~ /staging/ ) {
+					print $log "WARNING: BAM file $full_file_path in dropbox already exists on staging area or on ftp site; is it an updated version?\n";
+				}
+				else {
+					print "in process: " . $fos->[0]->name . "\n";
+				}
+			}
 		}	
 	}
 	
