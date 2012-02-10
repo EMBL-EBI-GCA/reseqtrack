@@ -41,7 +41,6 @@ my $help;
 my $batch_submission_path = 'ReseqTrack::Tools::BatchSubmission';
 my $module_name = 'LSF';
 my $verbose;
-my $submit_hash;
 my $test;
 my $override_lock;
 my $inputs_file;

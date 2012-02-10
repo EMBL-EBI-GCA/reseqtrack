@@ -9,6 +9,7 @@ use ReseqTrack::Collection;
 use ReseqTrack::Host;
 use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::ERAUtils;
+use ReseqTrack::Tools::RunMetaInfoUtils qw( create_directory_path );
 use File::Basename;
 use File::Path;
 
@@ -81,24 +82,7 @@ if($meta_info->status ne 'public'){
   exit(0);
 }
 
-my $full_output_dir = $output_dir;
-my $method_matches = 0; 
-foreach my $layout_chunk (split /\//, $directory_layout) {
-	my $method = $meta_info->can($layout_chunk);	
-	if ($method){
-		$layout_chunk = &$method($meta_info);
-		$method_matches++;
-	}
-		
-	$full_output_dir .= '/';
-	$full_output_dir .= $layout_chunk;
-}
-
-if (! $method_matches){
-	die "Directory layout ($directory_layout) did not call any run_meta_info methods";
-}
-
-$full_output_dir =~ s/\/\//\//;
+my $full_output_dir = create_directory_path($meta_info, $directory_layout, $output_dir);
 
 unless(-d $full_output_dir){
   mkpath($full_output_dir);

@@ -17,7 +17,8 @@ use vars qw (@ISA  @EXPORT);
         get_files_associated_with_run get_file_collections_associated_with_run
         copy_run_meta_info get_analysis_group get_sequence_index_stats
         get_withdrawn_summary get_study_descriptions get_index_group_stats
-        get_run_id_from_filename convert_center_name convert_population);
+        get_run_id_from_filename convert_center_name convert_population
+        create_directory_path);
 
 
 
@@ -91,7 +92,7 @@ sub are_run_meta_infos_identical{
   return 0 if($one->paired_length != $two->paired_length);
   return 0 if($one->library_layout ne $two->library_layout);
 
-  if($one->archive_base_count || $two->archive_read_count){
+  if($one->archive_base_count || $two->archive_base_count){
     if($one->archive_base_count ne $two->archive_base_count){
       unless(!$one->archive_base_count || $one->archive_base_count == 0){
         print "ONE ".$one->archive_base_count." is different to TWO ".$two->archive_base_count.
@@ -495,5 +496,41 @@ sub get_run_id_from_filename{
   $filename =~ /([E|S]RR\d+)/;
   return $1;
 }
+
+=head2 create_directory_path
+
+  Arg [1]   : ReseqTrack::RunMetaInfo
+  Arg [2]   : string, directory layout e.g. 'sample_name/archive_sequence', tokens matching method names in RunMetaInfo will be substituted with that method's return value
+  Arg [3]   : string, base directory
+  Function  : Creates a directory path, combining the base directory path and run_meta_info values
+  Returntype: string
+  Exceptions: none
+  Example   : $dir = create_directory_path($rmi, 'population/sample_name', '/path/to/dir')
+
+=cut
+
+sub create_directory_path{
+  my ($run_meta_info, $directory_layout, $base_directory) = @_;
+  my $dir_path = $base_directory;
+  my @layout_chunks =  split( /\//, $directory_layout);
+  my $method_matches = 0;
+  foreach my $layout_chunk (@layout_chunks) {
+    my $method = $run_meta_info->can($layout_chunk);	
+    if ($method){
+      $layout_chunk = &$method($run_meta_info);
+      $method_matches++;
+    }
+            
+    $dir_path .= '/';
+    $dir_path .= $layout_chunk;
+  }
+
+  throw "Directory layout ($directory_layout) did not call any run_meta_info methods"
+    if (@layout_chunks && ! $method_matches);
+
+  $dir_path =~ s/\/\//\//;
+  return $dir_path;
+}
+
 
 1;

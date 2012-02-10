@@ -93,9 +93,8 @@ sub history {
 		. "object or an arrayref of History objects not "
 		. $arg );
         }
-      }
-
-    if ( !$self->{history} || @{ $self->{history} } == 0 ) {
+    }
+    elsif ( !$self->{history} || @{ $self->{history} } == 0 ) {
         $self->populate_history;
     }
 
@@ -195,6 +194,12 @@ sub refresh_history {
     return $self->{history};
 }
 
+sub empty_history {
+  my ($self) = @_;
+  $self->{history} = [];
+}
+
+
 =head2 statistics
 
   Arg [1]   : ReseqTrack::HasHistory
@@ -231,7 +236,7 @@ sub statistics {
         }
         $self->{statistics} = $self->uniquify_statistics( $self->{statistics} );
     }
-    if ( !$self->{statistics} || @{ $self->{statistics} } == 0 ) {
+    elsif ( !$self->{statistics} || @{ $self->{statistics} } == 0 ) {
         $self->populate_statistics;
     }
     return $self->{statistics};

@@ -32,7 +32,6 @@ use File::Basename;
 use File::Path;
 use File::Find ();
 use ReseqTrack::Tools::GeneralUtils;
-use Data::Dumper;
 use vars qw (@ISA  @EXPORT);
 
 @ISA = qw(Exporter);

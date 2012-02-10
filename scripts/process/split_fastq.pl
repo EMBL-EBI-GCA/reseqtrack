@@ -4,56 +4,50 @@ use strict;
 use ReseqTrack::Tools::Exception;
 use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::FileUtils qw(get_count_stats create_object_from_path);
-use ReseqTrack::Tools::FileSystemUtils qw(run_md5);
+use ReseqTrack::Tools::FileSystemUtils qw(run_md5 make_directory);
 use ReseqTrack::Tools::SequenceIndexUtils qw(assign_files);
 use ReseqTrack::Tools::HostUtils qw(get_host_object);
+use ReseqTrack::Tools::RunMetaInfoUtils qw( create_directory_path );
 use ReseqTrack::Tools::RunSplit;
 use POSIX qw(ceil);
 use Getopt::Long;
-use Data::Dumper;
 
 $| = 1;
 
-my $dbhost_r;
-my $dbuser_r;
-my $dbpass_r;
-my $dbport_r = 4175;
-my $dbname_r;
-my $dbhost_w;
-my $dbuser_w;
-my $dbpass_w;
-my $dbport_w = 4175;
-my $dbname_w;
+my $dbhost;
+my $dbuser;
+my $dbpass;
+my $dbport = 4175;
+my $dbname;
 my $host_name = '1000genomes.ebi.ac.uk';
 my $store;
 my $run_id;
 my $type_input;
 my $type_output;
+my $type_collection;
 my $output_dir;
 my $program_file;
 my $max_reads;
 my $help;
+my $directory_layout = 'population/sample_name/fastq_chunks';
 
 &GetOptions( 
-  'dbhost_r=s'      => \$dbhost_r,
-  'dbname_r=s'      => \$dbname_r,
-  'dbuser_r=s'      => \$dbuser_r,
-  'dbpass_r=s'      => \$dbpass_r,
-  'dbport_r=s'      => \$dbport_r,
-  'dbhost_w=s'      => \$dbhost_w,
-  'dbname_w=s'      => \$dbname_w,
-  'dbuser_w=s'      => \$dbuser_w,
-  'dbpass_w=s'      => \$dbpass_w,
-  'dbport_w=s'      => \$dbport_w,
+  'dbhost=s'      => \$dbhost,
+  'dbname=s'      => \$dbname,
+  'dbuser=s'      => \$dbuser,
+  'dbpass=s'      => \$dbpass,
+  'dbport=s'      => \$dbport,
   'host_name=s' => \$host_name,
   'store!' => \$store,
   'run_id=s' => \$run_id,
   'type_input=s' => \$type_input,
   'type_output=s' => \$type_output,
+  'type_collection=s' => \$type_collection,
   'max_reads=i' => \$max_reads,
   'output_dir=s' => \$output_dir,
   'program_file=s' => \$program_file,
   'help!'    => \$help,
+  'directory_layout=s' => \$directory_layout,
     );
 
 if ($help) {
@@ -61,33 +55,27 @@ if ($help) {
     exit(0);
 }
 
-my $db_r = ReseqTrack::DBSQL::DBAdaptor->new(
-  -host   => $dbhost_r,
-  -user   => $dbuser_r,
-  -port   => $dbport_r,
-  -dbname => $dbname_r,
-  -pass   => $dbpass_r,
+my $db = ReseqTrack::DBSQL::DBAdaptor->new(
+  -host   => $dbhost,
+  -user   => $dbuser,
+  -port   => $dbport,
+  -dbname => $dbname,
+  -pass   => $dbpass,
     );
+$db->dbc->disconnect_when_inactive(1);
 
-my $db_w = $store ? ReseqTrack::DBSQL::DBAdaptor->new(
-  -host   => $dbhost_w,
-  -user   => $dbuser_w,
-  -port   => $dbport_w,
-  -dbname => $dbname_w,
-  -pass   => $dbpass_w,
-    ) : undef;
 
-my $ca_r = $db_r->get_CollectionAdaptor;
+my $ca = $db->get_CollectionAdaptor;
 
-my $collection = $ca_r->fetch_by_name_and_type($run_id, $type_input);
+my $collection = $ca->fetch_by_name_and_type($run_id, $type_input);
 
-throw("Failed to find a collection for ".$run_id." ".$type_input." from ".$dbname_r) 
+throw("Failed to find a collection for ".$run_id." ".$type_input." from ".$dbname) 
     if(!$collection);
 
-my $rmi_a = $db_r->get_RunMetaInfoAdaptor;
+my $rmi_a = $db->get_RunMetaInfoAdaptor;
 my $run_meta_info = $rmi_a->fetch_by_run_id($run_id);
 
-throw("Failed to find run_meta_info for $run_id from $dbname_r")
+throw("Failed to find run_meta_info for $run_id from $dbname")
     if (!$run_meta_info);
 
 my $input_files = $collection->others;
@@ -122,18 +110,19 @@ if ($frag) {
                  : 4 * ceil($read_count / $num_output_files);
   $line_count_hash{$frag_path} = $line_count;
 }
-  
+
+my $full_output_dir = create_directory_path($run_meta_info, $directory_layout, $output_dir);
+make_directory($full_output_dir);
 
 my $run_split = ReseqTrack::Tools::RunSplit->new(
     -program => $program_file,
-    -working_dir => $output_dir,
+    -working_dir => $full_output_dir,
     -line_count_hash => \%line_count_hash);
 
 $run_split->run;
 
 if ($store) {
-  my $host = get_host_object($host_name, $db_w);
-  my $ca_w = $db_w->get_CollectionAdaptor;
+  my $host = get_host_object($host_name, $db);
 
   my $output_file_hash = $run_split->output_file_hash;
   my @split_collections;
@@ -173,10 +162,10 @@ if ($store) {
     }
   }
 
-      my $collection = ReseqTrack::Collection->new(
-                    -name => $run_id, -type => $type_output,
-                    -table_name => 'collection', -others => \@split_collections);
-      $ca_w->store($collection);
+  my $collection = ReseqTrack::Collection->new(
+                -name => $run_id, -type => $type_collection,
+                -table_name => 'collection', -others => \@split_collections);
+  $ca->store($collection);
 }
 
 
@@ -195,44 +184,40 @@ ReseqTrack/scripts/process/split_fastq.pl
 
 =head2 OPTIONS
 
-      options for the database that stores in input fastq files:
+      database options:
 
-        -dbhost_r, the name of the mysql-host
-        -dbname_r, the name of the mysql database
-        -dbuser_r, the name of the mysql user
-        -dbpass_r, the database password if appropriate
-        -dbport_r, the port the mysql instance is running on
-
-      options for the database to hold the output fastq files:
-
-        -dbhost_w, the name of the mysql-host
-        -dbname_w, the name of the mysql database
-        -dbuser_w, the name of the mysql user
-        -dbpass_w, the database password if appropriate
-        -dbport_w, the port the mysql instance is running on
+        -dbhost, the name of the mysql-host
+        -dbname, the name of the mysql database
+        -dbuser, the name of the mysql user
+        -dbpass, the database password if appropriate
+        -dbport, the port the mysql instance is running on
+        -host_name, name of the host object to associate with the output files
+            (default is 1000genomes.ebi.ac.uk)
         -store, flag to store output fastq files to the database
 
       other options:
 
         -run_id, the run_id for the collection of fastq files
         -type_input, type of the collection of input files, e.g. FILTERED_FASTQ
-        -type_output, type of the collection of output files, e.g. SPLIT_FASTQ
+        -type_output, type of the output files and collection of output files, e.g. FASTQ_CHUNK
+        -type_collection, type of the collection of collections of output files, e.g. FASTQ_CHUNK_SET
         -max_reads, integer, the number of reads in any output file will not exceed this value
-        -output_dir, directory used for all output files
+        -output_dir, base directory used for all output files
+        -directory_layout, specifies where the files will be located under output_dir.
+              Tokens matching method names in RunMetaInfo will be substituted with that method's return value.
+              Default value is population/sample_name/fastq_chunks
         -program_file, path to the split executable
-        -host_name, name of the host object to associate with the output files
         -help, flag to print this help and exit
 
 
 =head1 Example:
 
 
-    $DB_R_OPTS="-dbhost_r mysql-host -dbuser_r rw_user -dbpass_r **** -dbport_r 4197 -dbname_r my_database_1"
-    $DB_W_OPTS="-dbhost_w mysql-host -dbuser_w rw_user -dbpass_w **** -dbport_w 4197 -dbname_w my_database_2"
+    $DB_OPTS="-dbhost mysql-host -dbuser rw_user -dbpass **** -dbport 4197 -dbname my_database"
 
-    perl ReseqTrack/scripts/process/split_fastq.pl  $DB_R_OPTS $DB_W_OPTS
-      -run_id ERR002097 -type_input FILTERED_FASTQ -type_output SPLIT_FASTQ -max_reads 2000000
-      -output_dir /path/to/dir -program_file ReseqTrack/c_code/split -store
+    perl ReseqTrack/scripts/process/split_fastq.pl  $DB_OPTS
+      -run_id ERR002097 -type_input FILTERED_FASTQ -type_output FASTQ_SLICE -type_collection FASTQ_SLICE_COLLECTION
+      -max_reads 2000000 -output_dir /path/to/dir -program_file ReseqTrack/c_code/split -store
 
 =cut
 
