@@ -128,7 +128,7 @@ sub run{
       else {
         my $output_file = $output_prefix . "1" . $suffix . ".gz";
         my $cmd_line = ($file =~ /\.gz$/)
-              ? "cp $file $output_file"
+              ? "cp -f $file $output_file"
               : "gzip -c $file > $output_file";
         $self->execute_command_line($cmd_line);
         $self->output_files($output_file);
