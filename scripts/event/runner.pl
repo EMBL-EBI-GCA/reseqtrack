@@ -232,12 +232,12 @@ if ($job->current_status eq 'SUCCESSFUL') {
   throw("Failed to remove " . $job . " from " . $dbname . " $@")
     if ($@);
 
-  if ($print_job_info) {
-    my $job_info = $batch_submission_object->job_info($submission_id, $submission_index);
-    print "**********\nBatch job information:\n";
-    foreach my $line (@$job_info) {
-      print $line;
-    }
+}
+if ($print_job_info) {
+  my $job_info = $batch_submission_object->job_info($submission_id, $submission_index);
+  print "**********\nBatch job information:\n";
+  foreach my $line (@$job_info) {
+    print $line;
   }
 }
 
