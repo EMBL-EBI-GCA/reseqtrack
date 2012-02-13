@@ -83,7 +83,7 @@ my ($markers, $genotypes) = get_markers_genotypes($vcf, $region, $tabix, $indivi
 print_info($markers, $output_info);
 print_ped($genotypes, $output_ped);
 
-
+print "Created ".$output_info." and ".$output_ped."\n";
 
 
 
