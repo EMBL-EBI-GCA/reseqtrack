@@ -28,6 +28,7 @@ my $type_collection;
 my $output_dir;
 my $program_file;
 my $max_reads;
+my $max_bases;
 my $help;
 my $directory_layout = 'population/sample_name/fastq_chunks';
 
@@ -44,6 +45,7 @@ my $directory_layout = 'population/sample_name/fastq_chunks';
   'type_output=s' => \$type_output,
   'type_collection=s' => \$type_collection,
   'max_reads=i' => \$max_reads,
+  'max_bases=i' => \$max_bases,
   'output_dir=s' => \$output_dir,
   'program_file=s' => \$program_file,
   'help!'    => \$help,
@@ -54,6 +56,9 @@ if ($help) {
     exec('perldoc', $0);
     exit(0);
 }
+
+throw("specify only one of max_reads or max_bases")
+  if ($max_reads && $max_bases);
 
 my $db = ReseqTrack::DBSQL::DBAdaptor->new(
   -host   => $dbhost,
@@ -85,14 +90,18 @@ my ($mate1_path, $mate2_path, $frag_path) = map {$_ ? $_->name : ''} ($mate1, $m
 my %line_count_hash;
 
 if ($mate1 && $mate2) {
-  my ($read_count1,) = get_count_stats($mate1);
-  my ($read_count2,) = get_count_stats($mate2);
+  my ($read_count1, $base_count1) = get_count_stats($mate1);
+  my ($read_count2, $base_count2) = get_count_stats($mate2);
 
   throw("read counts don't match: ".$mate1_path." $read_count1 "
         .$mate2_path." $read_count2")
         if ($read_count1 != $read_count2);
+  throw("base counts don't match: ".$mate1_path." $base_count1 "
+        .$mate2_path." $base_count2")
+        if ($base_count1 != $base_count2);
 
-  my $num_output_files = ceil($read_count1 / $max_reads);
+  my $num_output_files = $max_reads ? ceil($read_count1 / $max_reads)
+                      : ceil($base_count1 / $max_bases);
   my $line_count = ($num_output_files == 1) ? 0
                  : 4 * ceil($read_count1 / $num_output_files);
   $line_count_hash{$mate1_path} = $line_count;
@@ -104,8 +113,9 @@ else {
 }
 
 if ($frag) {
-  my ($read_count,) = get_count_stats($frag);
-  my $num_output_files = ceil($read_count / $max_reads);
+  my ($read_count, $base_count) = get_count_stats($frag);
+  my $num_output_files = $max_reads ? ceil($read_count / $max_reads)
+                      : ceil($base_count / $max_bases);
   my $line_count = ($num_output_files == 1) ? 0
                  : 4 * ceil($read_count / $num_output_files);
   $line_count_hash{$frag_path} = $line_count;
@@ -201,7 +211,11 @@ ReseqTrack/scripts/process/split_fastq.pl
         -type_input, type of the collection of input files, e.g. FILTERED_FASTQ
         -type_output, type of the output files and collection of output files, e.g. FASTQ_CHUNK
         -type_collection, type of the collection of collections of output files, e.g. FASTQ_CHUNK_SET
+
         -max_reads, integer, the number of reads in any output file will not exceed this value
+        -max_bases, integer, the number of bases in any output file will not exceed this value
+            Specify only one of -max_reads or -max_bases
+
         -output_dir, base directory used for all output files
         -directory_layout, specifies where the files will be located under output_dir.
               Tokens matching method names in RunMetaInfo will be substituted with that method's return value.
