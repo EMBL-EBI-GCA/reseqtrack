@@ -131,7 +131,7 @@ sub get_markers_genotypes {
                 $genotype_string =~ /(\d+)(?:\/|\|)(\d+)/;
                 my @genotype_codes = ($allele_codes[$1], $allele_codes[$2]);
 
-                $alleles_present{$_} = 1 foreach (@genotype_codes);
+                $alleles_present{$_} = 1 foreach (grep {$_} @genotype_codes);
                 $marker_genotypes{$population}{$individual} = \@genotype_codes;
             }
         }
