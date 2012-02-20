@@ -92,7 +92,7 @@ if (! ($input{name} =~ /vol1/)){
 }
 
 
-exit;
+
 my ($sample2, $platform2, $algorithm2, $project2, $analysis2, $chrom2, $date2) =
   CHECK_AND_PARSE_FILE_NAME($input{name});
 
