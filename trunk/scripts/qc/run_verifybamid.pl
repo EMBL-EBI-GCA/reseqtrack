@@ -85,14 +85,14 @@ if ( ($input{name} =~ /chrom20/i) && ($input{name} =~ /exome/i ) ){
   exit;
 }
 
-if ( ($input{name} =~ /archive_staging/)){
+if (! ($input{name} =~ /vol1/)){
   my $msg .= $input{name};
-  $msg .= " is still in staging area. Not running\n"; 
+  $msg .= "\nis not on \/nfs\/1000g-archive\/vol1\/ . Not running\n"; 
   throw "$msg";
 }
 
 
-
+exit;
 my ($sample2, $platform2, $algorithm2, $project2, $analysis2, $chrom2, $date2) =
   CHECK_AND_PARSE_FILE_NAME($input{name});
 
