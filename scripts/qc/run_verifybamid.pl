@@ -85,6 +85,12 @@ if ( ($input{name} =~ /chrom20/i) && ($input{name} =~ /exome/i ) ){
   exit;
 }
 
+if ( ($input{name} =~ /archive_staging/)){
+  my $msg .= $input{name};
+  $msg .= " is still in staging area. Not running\n"; 
+  throw "$msg";
+}
+
 
 
 my ($sample2, $platform2, $algorithm2, $project2, $analysis2, $chrom2, $date2) =
