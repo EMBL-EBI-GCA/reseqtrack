@@ -77,13 +77,14 @@ if ($input{name} =~ /chrom11/i){
 }
 
 #do not run on exome chrom20 bams
-if ( ($input{name} =~ /chrom20/i) && ($input{snps_list} =~ /exome/i ) ){
+if ( ($input{name} =~ /chrom20/i) && ($input{name} =~ /exome/i ) ){
   my $msg = "\nYou are trying to run on what appears to be an exome chromosome 20 bam\n";
   $msg .= "This bam probably has an overlapping type with bams that should be tested\n";
   $msg .= "Skipping this bam\n";
   warning "$msg";
   exit;
 }
+
 
 
 my ($sample2, $platform2, $algorithm2, $project2, $analysis2, $chrom2, $date2) =
