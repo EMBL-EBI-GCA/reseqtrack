@@ -496,6 +496,7 @@ sub check_existing_jobs{
       elsif ($job->current_status(undef, 1) ne 'CREATED') {
         next INPUT;
       }
+    }
     push(@inputs_passed, $input);
   }
   return \@inputs_passed;
