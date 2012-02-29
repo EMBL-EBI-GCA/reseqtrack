@@ -59,7 +59,7 @@ if ($help) {
 die("required arguments: vcf, sample_panel_file, region, population") if (! $vcf || ! $sample_panel || ! $region || ! @populations);
 die("cannot find executable $tabix") if (! -x $tabix && ! grep {-x "$_/$tabix"} @PATH);
 die("$output_dir is not a directory") if ($output_dir && ! -d $output_dir);
-die("$vcf is not a compressed vcf file") if ($vcf !~ /\.vcf\.b?gz/);
+die("$vcf is not a compressed vcf file") if ($vcf !~ /\.vcf\.b?gz(ip)?$/);
 
 if (! $output_ped) {
     $output_ped = "$region.ped";
