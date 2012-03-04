@@ -59,7 +59,16 @@ die("required arguments: vcf, sample_panel_file, region, population") if (! $vcf
 die("$output_dir is not a directory") if ($output_dir && ! -d $output_dir);
 
 my $is_compressed = $vcf =~ /\.g?gz(ip)?$/;
-die("cannot find executable $tabix") if ($is_compressed && ! -x $tabix && ! grep {-x $_} map {"$_/$tabix"} @PATH);
+if ($is_compressed) {
+  if (!$tabix) {
+    die ("tabix is not in \$PATH")
+      if (! grep {-x "$_/tabix"} @PATH );
+    $tabix = 'tabix';
+  }
+  else {
+    die("cannot find executable $tabix") if (! -x $tabix);
+  }
+}
 die("remote vcf file must be compressed by bgzip") if (!$is_compressed && $vcf =~ /ftp:\/\//);
 
 my ($region_chromosome, $region_start, $region_end);
