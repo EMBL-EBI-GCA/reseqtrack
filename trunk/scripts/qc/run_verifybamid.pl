@@ -24,6 +24,7 @@ my %rg_info;
 $input{echo_cmd_line} = 0;
 $input{test}          = 0;
 $input{not_event}     = 0;
+$input{chrom}         = "";
 
 my $Sample;
 my $passed_step1 = 0;
@@ -47,17 +48,68 @@ GetOptions(
 	   'bimp=s', 'debug!', 'selfonly!', 'update!', 'selfSM=s',
 	   'selfRG=s','bestRG=s', 'test!', 'save_files_for_deletion!',
 	   'chrom20!', 'snps_list=s','reference=s','whole_genome!',
-	   'not_event!');
+	   'not_event!','coll_type=s', 'chrom=s');
 
 
 if ( defined $input{cfg_file} ) {
   get_params( $input{cfg_file}, \%input );
 }
 
+my ( $db, $fa,$ca )  = get_db_adaptors( \%input );
+
 
 if ( ! defined $input{chrom20}){
   $input{chrom20} = 0;
 } 
+
+if ( $input{chrom} eq "chrom20"){
+  $input{chrom20} = 1;
+} 
+
+
+if (! ($input{name}  =~ /\.bam$/)){
+	print "Pulling bam name from COLLECTION:" , $input{name},"\n";
+	
+	throw "No collection type given (option = -type)\n" 
+	unless ( defined $input{coll_type});
+
+	throw "No 'chrom' or 'mapped'  given (eg  -chrom chrom20, -chrom mapped)\n" 
+	unless ( defined $input{chrom});
+			
+	my $coll = $ca->fetch_by_name_and_type ($input{name}, $input{coll_type});
+	my $msg = "No collection info found for "
+		. $input{name} ." " .$input{coll_type}."\n";
+	
+	throw $msg if (!$coll);	
+	
+	my $others = $coll->others;
+	my @all_coll_bams;
+	my $use_bam;
+	foreach my $file (@$others){
+		push (@all_coll_bams,$file->name);
+		my $basename = basename($file->name);
+		my @bits = split (/\./,$basename);
+		if ($bits[1] eq $input{chrom}){
+			$use_bam = $file->name;
+		}
+	}
+	
+	if (! $use_bam){
+		my $msg = "Could not find bam fitting chrom " . $input{chrom};
+		$msg .= " in collection bams:\n";
+		my $line = join ("\n",@all_coll_bams);
+		$msg .= $line;
+		throw "$msg";
+		
+	}
+	print "\nRunning: $use_bam\n";
+	
+	$input{name} = $use_bam;
+}
+
+
+
+
 
 if ( $input{not_event} == 1 ){
   #just run if not part of pipeline event
@@ -123,7 +175,7 @@ if (!$have_snps) {
 
 
 
-my ( $db, $fa )  = get_db_adaptors( \%input );
+
 
 $bam_file_obj = $fa->fetch_by_name( $input{name} );
  
@@ -609,8 +661,9 @@ sub get_db_adaptors {
 					    );
 
   my $fa = $db->get_FileAdaptor;
+  my $ca = $db->get_CollectionAdaptor;
 
-  return ( $db, $fa );
+  return ( $db, $fa,$ca );
 }
 
 
