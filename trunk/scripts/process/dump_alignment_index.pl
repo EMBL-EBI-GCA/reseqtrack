@@ -80,6 +80,11 @@ if($output_file){
          next;
      }  
      
+     if ($file->type =~ /PHASE1/) {
+         print "Don't process phase1 files " . $file->name . " type " . $file->type . "\n";
+         next;
+     }  
+     
      if ($file->type =~ /WITHDRAWN/i) {
          print "Don't process withdrawn file " . $file->name . "\n";
          next;
@@ -151,3 +156,5 @@ sub print_index_line{
   #}    		
 }
 
+=head EXAMPLE
+perl $ZHENG_RT/scripts/process/dump_alignment_index.pl $WRITE_DB_ARGS -dbname g1k_archive_staging_track -type BAM -output_file 20111114.alignment.index -ftp_root /nfs/1000g-archive/vol1/ftp/ > 20111114.alignment.index.log &

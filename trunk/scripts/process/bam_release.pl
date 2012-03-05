@@ -162,10 +162,10 @@ foreach my $host ( @$remote_hosts ) {
 		if ($file->type =~ /BAM/ || $file->type =~ /BAI/ || $file->type =~ /BAS/) {
 			if ( $file_name && -e $file_name) {
 				my $size = -s $file_name;
-				if ( $size != $size_in_db && ( ( -M $file_name ) > 19) ) {	# if the file size is different from what is the db 
-																			# and the file has been 5 days or more old 
+				if ( $size != $size_in_db && ( ( -M $file_name ) > 29) ) {	# if the file size is different from what is the db 
+																			# and the file has been 30 days or more old 
 					$fail_flag = 1;
-					write_log($file, $loga, "PRE-PROCESSING: uploading failed? file in dropbox has different size as the one in db (dropbox $size, db $size_in_db) after 20 days");
+					write_log($file, $loga, "PRE-PROCESSING: uploading failed? file in dropbox has different size as the one in db (dropbox $size, db $size_in_db) after 30 days");
 					move_bam_to_trash($db, $file, $file_name, $run);
 				}
 				elsif ( $size == 0 && $size_in_db == 0) {
@@ -320,7 +320,7 @@ foreach my $host ( @$remote_hosts ) {
 			warning("For host $host_name no analysis group has been parsed out, please provide -analysis_grp to -kick_off_farm_job\n");
 		}	
 		else {
-			#warning("Problem - don't know what to do with host $host_name"); 
+			warning("Problem - don't know what to do with host $host_name and analysis group $analysis_grp"); 
 		}	
 		
 		#print "farm command is $command\n";
