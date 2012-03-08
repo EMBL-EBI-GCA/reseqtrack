@@ -185,7 +185,8 @@ else {
   my $selector = IO::Select->new($cmd_handle);
   MONITOR:
   while (1) {
-    my $ps_output = `ps --no-headers -o rss,vsize $pid`;
+    my $ps_output = `ps --no-headers -o rss,vsize $$`;
+    #my $ps_output = `ps --no-headers -o rss,vsize $pid`;
     $ps_output =~ s/^\s+//;
     my ($memory, $vsize) = split(/\s+/, $ps_output);
     my $swap = $vsize - $memory;
