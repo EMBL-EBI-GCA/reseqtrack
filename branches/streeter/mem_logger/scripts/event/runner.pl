@@ -49,7 +49,8 @@ use ReseqTrack::Tools::GeneralUtils qw( execute_system_command );
 use Getopt::Long;
 use Sys::Hostname;
 use File::Basename;
-use IO::Select;
+#use IO::Select;
+use POSIX;
 
 my $dbhost;
 my $dbuser;
@@ -171,53 +172,46 @@ my $time_elapsed;
 my $max_memory;
 my $max_swap;
 
+my $oldfh = select(STDOUT);
+$| = 1;
+select($oldfh);
+
 print "\n*****" . $cmd . "******\n\n";
 my $start_time = time;
-my $pid = open(my $cmd_handle, "$cmd 2>&1 |");
-if (!$pid) {
-  my $warning = "$cmd did not start: $!";
+my $pid = fork;
+if (!defined $pid) {
+  my $warning = "could not fork: $!";
   job_failed($job, $warning, $ja);
+  throw $warning
 }
-else {
-  select($cmd_handle);
-  $| = 1;
-  select(STDOUT);
-  my $selector = IO::Select->new($cmd_handle);
-  MONITOR:
-  while (1) {
-    my $ps_output = `ps --no-headers -o rss,vsize $$`;
-    #my $ps_output = `ps --no-headers -o rss,vsize $pid`;
-    $ps_output =~ s/^\s+//;
-    my ($memory, $vsize) = split(/\s+/, $ps_output);
-    my $swap = $vsize - $memory;
-    $max_memory = $memory if (!$max_memory || $memory > $max_memory);
-    $max_swap = $swap if (!$max_swap || $swap > $max_swap);
-    while ($selector->can_read(0)) {
-      my $line = <$cmd_handle>;
-      last MONITOR if (!$line);
-      print $line;
-    }
-    sleep(10);
-  }
-  my $close_exit = close $cmd_handle;
-  $time_elapsed = time - $start_time;
-  print "\n**********\n";
-  if (!$close_exit) {
-    if ($!) {
-      my $warning = "$cmd failed on closing pipe: $!";
-      job_failed($job, $warning, $ja);
-    }
-    else {
-      my $warning = "$cmd failed with $? exit code";
-      job_failed($job, $warning, $ja);
-    }
-  }
-  else {
-    $job->current_status('SUCCESSFUL');
-    $ja->set_status($job);
+elsif(!$pid) {
+  exec($cmd) or do{
+    print STDERR "$cmd did not execute: $!\n";
+    exit(255);
   }
 }
 
+while (! waitpid($pid, WNOHANG)) {
+  my ($memory, $vsize) = get_memory($$);
+  my $swap = $vsize - $memory;
+  $max_memory = $memory if (!$max_memory || $memory > $max_memory);
+  $max_swap = $swap if (!$max_swap || $swap > $max_swap);
+  sleep(10);
+}
+$time_elapsed = time - $start_time;
+print "\n**********\n";
+if (my $signal = $? & 127) {
+  my $warning = "process died with signal $signal";
+  job_failed($job, $warning, $ja);
+}
+elsif (my $exit = $? >>8) {
+  my $warning = "$cmd exited with value $exit";
+  job_failed($job, $warning, $ja);
+}
+else {
+  $job->current_status('SUCCESSFUL');
+  $ja->set_status($job);
+}
 
 
 if ($job->current_status eq 'SUCCESSFUL') {
@@ -297,5 +291,30 @@ sub job_failed {
   $job->current_status($status);
   $ja->set_status($job);
   $ja->unset_submission_id();
+}
+
+sub get_memory{
+  my $pid = shift;
+  my $ps_line = `ps --no-headers -o rss,vsize --pid $pid`;
+  $ps_line =~ s/^\s+//;
+  my ($memory, $vsize) = split(/\s+/, $ps_line);
+  my ($child_memory, $child_vsize) = get_child_memory($pid);
+  $memory += $child_memory;
+  $vsize += $child_vsize;
+  return $memory, $vsize;
+}
+
+sub get_child_memory {
+  my $parent_pid = shift;
+  my $ps_output = `ps --no-headers -o rss,vsize,pid --ppid $parent_pid`;
+  my ($memory, $vsize) = (0,0);
+  foreach my $ps_line (split(/\n/, $ps_output)) {
+    $ps_line =~ s/^\s+//;
+    my ($proc_memory, $proc_vsize, $proc_pid) = split(/\s+/, $ps_line);
+    my ($proc_child_memory, $proc_child_vsize) = get_child_memory($proc_pid);
+    $memory += $proc_memory + $proc_child_memory;
+    $vsize += $proc_vsize + $proc_child_vsize;
+  }
+  return ($memory, $vsize);
 }
 
