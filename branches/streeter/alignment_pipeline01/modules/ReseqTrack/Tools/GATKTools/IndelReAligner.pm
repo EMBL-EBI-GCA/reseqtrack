@@ -29,10 +29,10 @@ use strict;
 use warnings;
 
 use ReseqTrack::Tools::RunProgram;
-use ReseqTrack::Tools::AlignmentBase;
 use ReseqTrack::Tools::Argument qw(rearrange);
 use ReseqTrack::Tools::Exception qw(throw warning);
-#use ReseqTrack::Tools::GATKTools;
+use ReseqTrack::Tools::FileSystemUtils qw(check_file_exists);
+use ReseqTrack::Tools::GATKTools;
 
 use vars qw(@ISA);
 use Data::Dumper;
@@ -43,227 +43,149 @@ sub new {
 	my ( $class, @args ) = @_;
 	my $self = $class->SUPER::new(@args);
 
-	my ($ira_options, $rtc_options,$rtc_knowns,$bam) = rearrange(
-		[
-		 qw(
-                    IRA_OPTIONS
-		    RTC_OPTIONS
-                    RTC_KNOWNS
-                    BAM
-			  )
-		],
-		@args
-	);
-	$self->bam($bam);
 
-	$self->jar_file ("GenomeAnalysisTK.jar");
+        #setting defaults
+        if (!$self->jar_file) {
+          $self->jar_file ("GenomeAnalysisTK.jar");
+        }
 
-
-     	$self->options ('ira_options' ,$ira_options);
-	$self->options ('rtc_options' ,$rtc_options);
-	$self->options ('rtc_knowns'  ,$rtc_knowns);
-
-
-	$self->construct_make_intervals_file_cmd();
-
-	my $default_ira =" -LOD 0.4 -model KNOWNS_ONLY -compress 0 --disable_bam_indexing";
-
-	if ( ! (defined $self->{options}->{'ira_options'})){
-	  print "Using default Indel Realigner options\n";
-	 	$self->options ('ira_options' ,"$default_ira");
-	}
-
-	$self->construct_make_indel_realign_cmd();
-
+        if (!$self->options('IndelRealigner')) {
+          my $ira_options = " -LOD 0.4 -model KNOWNS_ONLY --disable_bam_indexing";
+          $self->options('IndelRealigner', $ira_options);
+        }
 
 	return $self;
 }
 
 
-sub run {
+sub run_program {
 	my $self = shift;
 
-	$self->create_target_intervals_file();
+        throw "no input bam" if (!$self->input_bam);
+        throw "\nNo IndelRealigner options\n"
+            if ( ! $self->{options}->{'IndelRealigner'});
+        warn "No known indels files"
+            if (! @{$self->known_sites_files});
+        check_file_exists($_) foreach (@{$self->known_sites_files});
+        $self->check_jar_file_exists;
+        check_file_exists($self->reference);
+        $self->check_bai_exists();
 
-	$self->create_make_indel_realign_bam();
+
+	$self->create_target_intervals_file();
+	$self->create_indel_realign_bam();
 
 	return;
-
 }
 
+sub check_bai_exists{
+  my ($self) = @_;
 
-sub create_make_indel_realign_bam {
-  my $self = shift;
+  my $bamindex = $self->input_bam . "\.bai";
+  return if (-e $bamindex);
 
-  $self->check_bai_exist($self->bam);
+  print "$bamindex does not exist. Creating\n";
 
-  print $self->make_indel_realigned_bam_cmd,"\n";
+  my $samtools_object = ReseqTrack::Tools::RunSamtools->new(
+                -program => $self->samtools, -flag_index => 1,
+                -input_files => $self->input_bam,
+                        );
+  $samtools_object->run;
+  $bamindex = $samtools_object->output_bai_files->[0];
+  $self->created_files($bamindex);
 
-  $self->execute_command_line($self->make_indel_realigned_bam_cmd);
-
-  $self->files_to_delete ( $self->bam);
-
-  $self->bam ($self->realigned_bam_name);
-
+  print "Created $bamindex\n\n";
   return;
+
 }
 
 
 sub create_target_intervals_file {
   my $self = shift;
 
-  $self->check_bai_exist($self->bam);
+  my $cmd = $self->java_exe . " " . $self->jvm_args . " -jar ";
+  $cmd .= $self->gatk_path ;
+  $cmd .= "\/";
+  $cmd .= $self->jar_file;
+  $cmd .= " -T RealignerTargetCreator ";
 
-  my $cmd = $self->make_intervals_file_cmd;
+  if ( defined 	$self->{options}->{'RealignerTargetCreator'}) {
+    $cmd .= 	$self->{options}->{'RealignerTargetCreator'};
+  }
+  else {
+    warn "No RealignerTargetCreator options\n";
+  }
 
-  print  $self->make_intervals_file_cmd,"\n";
+  foreach my $vcf (@{$self->known_sites_files}) {
+    $cmd .= "-known $vcf ";
+  }
 
-  $self->execute_command_line (  $self->make_intervals_file_cmd);
+  my $interval_file = $self->working_dir . '/'
+        . $self->job_name . '.bam.interval_list';
+  $interval_file =~ s{//}{/}g;
 
-  $self->files_to_delete ( $self->intervals_file);
+  $cmd .= " -o $interval_file ";
+  $cmd .= " -R " . $self->reference . " ";
+  $cmd .= " -I " . $self->input_bam;
+
+  my $CL = "java jvm_args -jar GenomeAnalysisTK.jar "
+    . "-T RealignerTargetCreator -R \$reference -o \$intervals_file "
+      ."-known \$known_sites_file(s)";
+
+  #For bam header section
+  my %PG =('PG'=>'@PG',
+           'ID'=>"gatk_target_interval_creator",
+           'PN'=>"GenomeAnalysisTK",     
+           'PP'=>"sam_to_fixed_bam",
+           'VN'=>"1.2-29-g0acaf2d",
+           'CL'=> $CL,
+           );
+
+  my $COMMENT = '$known_sites_file(s) = '. join(', ', @{$self->known_sites_files});
+  my %CO = ('@CO'=> $COMMENT);
+
+  $self->intervals_file($interval_file);
+  $self->execute_command_line ($cmd);
+
 
   return;
 }
 
-sub construct_make_intervals_file_cmd {
-      
-	my $self = shift;
 
-	my $cmd = $self->java_exe . " " . $self->jvm_args . " -jar ";
-	$cmd .= $self->gatk_path ;
-	$cmd .= "\/";
-	$cmd .= $self->jar_file;
-	$cmd .= " -T RealignerTargetCreator ";
+sub create_indel_realign_bam {
+  my $self = shift;
 
-	if ( defined 	$self->{options}->{'rtc_options'}) {
-	  $cmd .= 	$self->{options}->{'rtc_options'};
-	}
-	else {
-	  warn "No Make interval files options\n";
-	}
+  my $cmd = $self->java_exe . " " . $self->jvm_args . " -jar ";
+  $cmd .= $self->gatk_path . "\/" . $self->jar_file;
+  $cmd .= " -T IndelRealigner ";
+  $cmd .= $self->{options}->{'IndelRealigner'};
+  $cmd .= " --targetIntervals " . $self->intervals_file . " ";
+  foreach my $vcf (@{$self->known_sites_files}) {
+    $cmd .= "-known $vcf ";
+  }
+  $cmd .= " -R " . $self->reference . " ";
+  $cmd .= " -I " . $self->input_bam;
 
-	if ( defined 	$self->{options}->{'rtc_knowns'}) {
-	  $cmd .= 	$self->{options}->{'rtc_knowns'};
-	}
-	else {
-	  throw "No RealignerTargetCreator knowns\n";
-	}
+  my $realigned_bam = $self->working_dir . '/'
+        . $self->job_name. '.indel_realigned.bam';
+  $cmd .= " -o " . $realigned_bam;
 
-	my $interval_file = $self->bam . ".interval_list ";
+  $self->output_files($realigned_bam);
+  $self->execute_command_line ($cmd);
 
-	$cmd .= " -o $interval_file ";
-	$cmd .= " -R " . $self->reference . " ";
-	$cmd .= " -I " . $self->bam;
-
-	#print "\n$cmd\n";
-
-	my $CL = "java jvm_args -jar GenomeAnalysisTK.jar "
-	  . "-T RealignerTargetCreator -R \$reference -o \$intervals_file "
-	    ."-known \$known_indels_file(s)";
-
-	#For bam header section
-	my %PG =('PG'=>'@PG',
-		 'ID'=>"gatk_target_interval_creator",
-		 'PN'=>"GenomeAnalysisTK",     
-		 'PP'=>"sam_to_fixed_bam",
-		 'VN'=>"1.2-29-g0acaf2d",
-		 'CL'=> $CL,
-		 );
-
-	my $COMMENT = '$known_indels_file(s) = '. $self->{options}->{'rtc_knowns'};
-	my %CO = ('@CO'=> $COMMENT);
-
-	
-	$self->intervals_file ($interval_file);
-
-	print 	$self->intervals_file,"**************\n";
-	sleep (5);
-	$self->make_intervals_file_cmd($cmd);
-	return;
-}
-
-
-sub construct_make_indel_realign_cmd {
-	my $self = shift;
-
-
-	my $cmd = $self->java_exe . " " . $self->jvm_args . " -jar ";
-	$cmd .= $self->gatk_path . "\/" . $self->jar_file;
-	$cmd .= " -T IndelRealigner ";
-
-	if ( defined 	$self->{options}->{'ira_options'}) {
-	  $cmd .= 	$self->{options}->{'ira_options'};
-	}
-	else {
-	  throw "\nNo RealignerTargetCreator options\n";
-	}
-
-	$cmd .= " --targetIntervals " . $self->intervals_file . " ";
-
-	if ( defined 	$self->{options}->{'rtc_knowns'}) {
-	  $cmd .= 	$self->{options}->{'rtc_knowns'};
-	}
-	else {
-	  throw "No RealignerTargetCreator knowns\n";
-	}
-
-	
-
-	$cmd .= " -R " . $self->reference . " ";
-	$cmd .= " -I " . $self->bam;
-
-	my $realigned_bam = $self->bam . ".indel_realigned.bam";
-	$cmd .= " -o " . $realigned_bam;
-	$self->make_indel_realigned_bam_cmd($cmd);
-	#print "\n\n$cmd\n\n";
-
-	$self->realigned_bam_name($realigned_bam);
-
-	#$self->files_to_delete($self->bam);
-	#$self->output_bam_files($realigned_bam);
-
-	#@PG     ID:bam_realignment_around_known_indels  PN:GenomeAnalysisTK     PP:gatk_target_interval_creator VN:1.2-29-g0acaf2d      CL:java $jvm_args -jar GenomeAnalysisTK.jar -T IndelRealigner -R $reference_fasta -I $bam_file -o $realigned_bam_file -targetIntervals $intervals_file -known $known_indels_file(s) -LOD 0.4 -model KNOWNS_ONLY -compress 0 --disable_bam_indexing
-
-
-
-
-	return;
+  return;
 
 }
 
 sub intervals_file {
-	my ( $self, $arg ) = @_;
-	if ($arg) {
-		$self->{intervals_file} = $arg;
-	}
-	return $self->{intervals_file};
-}
-
-sub make_intervals_file_cmd {
-	my ( $self, $arg ) = @_;
-	if ($arg) {
-		$self->{make_intervals_file_cmd} = $arg;
-	}
-	return $self->{make_intervals_file_cmd};
-}
-
-sub make_indel_realigned_bam_cmd {
-	my ( $self, $arg ) = @_;
-	if ($arg) {
-		$self->{make_indel_realigned_bam_cmd} = $arg;
-	}
-	return $self->{make_indel_realigned_bam_cmd};
-}
-
-
-sub realigned_bam_name {
 
   my ( $self, $arg ) = @_;
 
   if ($arg) {
-    $self->{realigned_bam_name} = $arg;
+    $self->{intervals_file} = $arg;
+    $self->created_files($arg);
   }
-  return $self->{realigned_bam_name};
+  return $self->{intervals_file};
 }
 
 1;

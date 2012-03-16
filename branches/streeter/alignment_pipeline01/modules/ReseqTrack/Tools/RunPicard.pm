@@ -362,48 +362,49 @@ sub run_merge{
   Example   : $self->run_sort
 
 =cut
+
 sub run_sort{
-	my ($self,$sort_order) = @_;
+  my ($self,$sort_order) = @_;
 	
-	$sort_order ||= 'coordinate';
-	
-	$self->change_dir;
-	
-	my $jar = $self->_jar_path('SortSam.jar');
+  $sort_order ||= 'coordinate';
+          
+  $self->change_dir;
+          
+  my $jar = $self->_jar_path('SortSam.jar');
 
-	foreach my $input (@{$self->input_files}) {
-		my $name = fileparse($input, qr/\.[sb]am/);
-		my $prefix = $self->working_dir . '/' . $name . '.sorted';
-        $prefix =~ s{//}{/}g;
-        my $output = $prefix . '.bam';
-		
-		my $cmd = $self->program;
-	    $cmd .= ' ' . $self->jvm_options if ($self->jvm_options);
-	    $cmd .= ' -jar ' . $jar;
-	    $cmd .= ' ' . $self->options if ($self->options);
-        $cmd .= ' SORT_ORDER='. $sort_order;
-		$cmd .= ' INPUT=' . $input;
-		$cmd .= ' OUTPUT=' . $output;
-		
-		$self->execute_command_line($cmd);
+  foreach my $input (@{$self->input_files}) {
+    my $name = fileparse($input, qr/\.[sb]am/);
+    my $prefix = $self->working_dir . '/' . $name . '.sorted';
+    $prefix =~ s{//}{/}g;
+    my $output = $prefix . '.bam';
+            
+    my $cmd = $self->program;
+    $cmd .= ' ' . $self->jvm_options if ($self->jvm_options);
+    $cmd .= ' -jar ' . $jar;
+    $cmd .= ' ' . $self->options if ($self->options);
+    $cmd .= ' SORT_ORDER='. $sort_order;
+    $cmd .= ' INPUT=' . $input;
+    $cmd .= ' OUTPUT=' . $output;
+  
+    $self->execute_command_line($cmd);
 
-	    $self->output_files($output);
-	
-		if ($self->replace_files) {
-            $self->files_to_delete( $input );
-        }
-		
+    $self->output_files($output);
+  
+    if ($self->replace_files) {
+        $self->files_to_delete( $input );
     }
+		
+  }
 
     return;   
 }
 
 sub _jar_path{
-	my ($self,$jar_file) = @_;
-	my $jar = $self->picard_dir . '/' . $jar_file;
-	$jar =~ s{//}{/}g;
-	
-	return $jar;
+    my ($self,$jar_file) = @_;
+    my $jar = $self->picard_dir . '/' . $jar_file;
+    $jar =~ s{//}{/}g;
+
+    return $jar;
 }
 
 sub replace_files {

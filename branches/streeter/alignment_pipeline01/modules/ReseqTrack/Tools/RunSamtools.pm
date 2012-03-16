@@ -23,6 +23,9 @@ use ReseqTrack::Tools::Exception qw(throw);
 use ReseqTrack::Tools::Argument qw(rearrange);
 use File::Basename qw(fileparse);
 use ReseqTrack::Tools::FileSystemUtils qw (check_file_exists);
+use List::Util qw (first);
+use Env qw( @PATH );
+use File::Copy qw (move copy);
 
 use base qw(ReseqTrack::Tools::RunProgram);
 
@@ -46,8 +49,6 @@ use base qw(ReseqTrack::Tools::RunProgram);
       string, command line options to use with "samtools merge"
   Arg [-options_sort]   :
       string, command line options to use with "samtools sort"
-  Arg [-replace_files]   :
-      boolean, default 1, any input / intermediate file will be deleted after output is created.
   Arg [-output_to_working_dir]   :
       boolean, default 0, flag to write output files to the working directory rather than the input directory
   + Arguments for ReseqTrack::Tools::RunProgram parent class
@@ -65,7 +66,6 @@ use base qw(ReseqTrack::Tools::RunProgram);
                 -flag_index => 1,
                 -options_merge => "-r",
                 -options_sort => "-m 100000000"
-                -replace_files => 1,
                 -output_to_working_dir => 1 );
 
 =cut
@@ -78,23 +78,27 @@ sub new {
   my ( $reference_index, $reference,
         $flag_merge, $flag_sort, $flag_index, $flag_sam_to_bam, $flag_use_header,
         $options_merge, $options_sort,
-        $replace_files, $output_to_working_dir)
+        $output_to_working_dir)
     = rearrange( [
          qw( REFERENCE_INDEX REFERENCE
                 FLAG_MERGE FLAG_SORT FLAG_INDEX FLAG_SAM_TO_BAM FLAG_USE_HEADER
                 OPTIONS_MERGE OPTIONS_SORT
-                REPLACE_FILES OUTPUT_TO_WORKING_DIR )
+                OUTPUT_TO_WORKING_DIR )
 		], @args);
+
+  #setting defaults
+  if (!$self->program) {
+    if ($ENV{SAMTOOLS}) {
+      $self->program($ENV{SAMTOOLS} . '/samtools');
+    }
+    else {
+      $self->program(first {-x $_} map {"$_/samtools"} @PATH);
+    }
+  }
 
   $self->reference_index($reference_index);
   $self->reference($reference);
-
   $self->output_to_working_dir($output_to_working_dir);
-
-  if (! defined $replace_files) {
-      $replace_files = 1;
-  }
-  $self->replace_files($replace_files);
 
   $self->options('merge', $options_merge);
   $self->options('sort', $options_sort);
@@ -104,11 +108,6 @@ sub new {
   $self->flags('index', $flag_index);
   $self->flags('sam_to_bam', $flag_sam_to_bam);
   $self->flags('use_header', $flag_use_header);
-
-  if (! $self->job_name) {
-      $self->generate_job_name;
-  }
-
 
   return $self;
 }
@@ -125,8 +124,7 @@ sub find_reference_index {
 
     check_file_exists($self->reference_index);
     return;
-  }
-
+}
 
 =head2 run_sam_to_bam
 
@@ -161,6 +159,7 @@ sub run_sam_to_bam {
     $cmd .= $input_sam . " > ";
     $cmd .= $bam;
 
+    $self->created_files($bam);
     $self->execute_command_line($cmd);
 
     return $bam;
@@ -197,6 +196,7 @@ sub run_sort {
     }
     $cmd .= " $input_bam $sorted_bam_prefix";
 
+    $self->created_files($sorted_bam);
     $self->execute_command_line($cmd);
 
     return $sorted_bam;
@@ -221,6 +221,7 @@ sub run_index {
 
     my $cmd = $self->program . " index " . $input_bam;
 
+    $self->created_files($output_bai);
     $self->execute_command_line($cmd);
 
     return $output_bai;
@@ -243,21 +244,37 @@ sub run_merge {
 
     my $dir = $self->output_to_working_dir
                             ? $self->working_dir
-                            : [fileparse( $input_bam_list->[0] )]->[1];
+                            : (fileparse( $input_bam_list->[0] ))[1];
 
-    my $merged_bam = $dir . '/' . $self->job_name . '_merged.bam';
+    my $merged_bam = $dir . '/' . $self->job_name . '.merged.bam';
     $merged_bam =~ s{//}{/}g;
+    $self->created_files($merged_bam);
 
-    my $cmd = $self->program . " merge";
-    if ($self->options('merge')) {
-        $cmd .= " " . $self->options('merge');
+    my $cmd;
+    if (@$input_bam_list >1) {
+      $cmd = $self->program . " merge";
+      if ($self->options('merge')) {
+          $cmd .= " " . $self->options('merge');
+      }
+      $cmd .= " " . $merged_bam;
+      foreach my $bam (@$input_bam_list) {
+          $cmd .= " " . $bam;
+      }
+      $self->execute_command_line($cmd);
     }
-    $cmd .= " " . $merged_bam;
-    foreach my $bam (@$input_bam_list) {
-        $cmd .= " " . $bam;
+    elsif (@$input_bam_list ==1) {
+      my $input_bam = $input_bam_list->[0];
+      if (grep {$_ eq $input_bam} @{$self->created_files}) {
+        print "renaming $input_bam to $merged_bam\n";
+        move($input_bam, $merged_bam)
+              or throw "copy failed: $!";
+      }
+      else {
+        print "copying $input_bam to $merged_bam\n";
+        copy($input_bam, $merged_bam)
+              or throw "copy failed: $!";
+      }
     }
-
-    $self->execute_command_line($cmd);
 
     return $merged_bam;
 }
@@ -275,72 +292,48 @@ sub run_merge {
 
 =cut
 
-sub run {
+sub run_program {
     my ($self) = @_;
 
-    my @current_files = @{$self->input_files};
-    my @intermediate_files;
-    my $current_files_are_input = 1;
+    my $current_files = $self->input_files;
 
     if ($self->flags('sam_to_bam')) {
         my @bams;
-        foreach my $sam (@current_files) {
+        foreach my $sam (@$current_files) {
             my $bam = $self->run_sam_to_bam($sam);
             push(@bams, $bam);
         }
 
-        @current_files = @bams;
-        $current_files_are_input = 0;
+        $current_files = \@bams;
     }
 
     if ($self->flags('sort')) {
         my @sorted_bams;
-        foreach my $file (@current_files) {
+        foreach my $file (@$current_files) {
             my $sorted_bam = $self->run_sort($file);
             push(@sorted_bams, $sorted_bam);
         }
         
-        if (! $current_files_are_input) {
-            push(@intermediate_files, @current_files);
-        }
-
-        @current_files = @sorted_bams;
-        $current_files_are_input = 0;
+        $current_files = \@sorted_bams;
     }
 
-    if ($self->flags('merge') && @current_files > 1) {
-        my $merged_bam = $self->run_merge(\@current_files);
-
-        if (! $current_files_are_input) {
-            push(@intermediate_files, @current_files);
-        }
-        
-        @current_files = ($merged_bam);
-        $current_files_are_input = 0;
+    if ($self->flags('merge')) {
+        my $merged_bam = $self->run_merge($current_files);
+        $current_files = [$merged_bam];
     }
 
-    if (! $current_files_are_input) {
-        if ($self->replace_files) {
-            $self->files_to_delete( $self->input_files );
-            $self->files_to_delete( \@intermediate_files );
-            $self->output_files(\@current_files);
-        }
-        else {
-            $self->output_files( \@intermediate_files );
-            $self->output_files(\@current_files);
-        }
+    if ($self->flags('sam_to_bam') || $self->flags('sort') || $self->flags('merge')) {
+      $self->output_files($current_files);
     }
-
 
     if ($self->flags('index')) {
-        foreach my $file (@current_files) {
+        foreach my $file (@$current_files) {
             my $index = $self->run_index($file);
             $self->output_files($index);
         }
     }
 
     return;
-
 }
 
 =head2 reference
@@ -381,26 +374,6 @@ sub reference_index {
   return $self->{'reference_index'};
 }
 
-
-=head2 replace_files
-
-  Arg [1]   : ReseqTrack::Tools::RunSamtools
-  Arg [2]   : boolean, optional, value of replace_files flag
-  Function  : accessor method for replace_files flag
-  Returntype: boolean, replace_files flag
-  Exceptions: n/a
-  Example   : $self->replace_files(1);
-
-=cut
-
-sub replace_files {
-    my $self = shift;
-    
-    if (@_) {
-        $self ->{'replace_files'} = (shift) ? 1 : 0;
-    }
-    return $self->{'replace_files'};
-}
 
 =head2 output_to_working_dir
 
@@ -480,7 +453,17 @@ sub flags {
     return $self->{'flags'}->{$flag_name};
 }
 
+sub output_bai_files {
+  my $self = shift;
+  my @files = grep {/\.bai$/} @{$self->output_files};
+  return \@files;
+}
 
+sub output_bam_files {
+  my $self = shift;
+  my @files = grep {/\.bam$/} @{$self->output_files};
+  return \@files;
+}
 
 1;
 

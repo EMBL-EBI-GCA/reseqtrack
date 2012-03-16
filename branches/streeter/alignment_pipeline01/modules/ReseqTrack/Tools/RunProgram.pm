@@ -24,10 +24,6 @@ use ReseqTrack::Tools::Argument qw(rearrange);
 use ReseqTrack::Tools::GeneralUtils qw(execute_system_command);
 
 
-my %files_to_delete;
-my @command_history;
-my $num_run_programs = 0;
-
 =head2 new
 
   Arg [-input_files]   :
@@ -57,6 +53,12 @@ my $num_run_programs = 0;
 
 =cut
 
+
+# package variables:
+my $GLOBAL_ECHO_CMD_LINE;
+my $GLOBAL_SAVE_FILES_FOR_DELETION;
+my $GLOBAL_WORKING_DIR = "/tmp/";
+
 sub new {
   my ( $class, @args ) = @_;
   my $self = {};
@@ -70,10 +72,6 @@ sub new {
              ECHO_CMD_LINE SAVE_FILES_FOR_DELETION )
 		], @args);
 
-  if ( ! $working_dir){
-    $working_dir = "/tmp/";
-  }
-
   $self->input_files($input_files);
   $self->program($program);
   $self->job_name($job_name);
@@ -81,31 +79,7 @@ sub new {
   $self->echo_cmd_line($echo_cmd_line);
   $self->save_files_for_deletion($save_files_for_deletion);
 
-  $num_run_programs++;
-
   return $self;
-}
-
-=head2 DESTROY
-
-  Arg [1]   : ReseqTrack::Tools::RunProgram
-  Function  : calls delete_files() if it is the last RunProgram object to exist
-  Returntype: 
-  Exceptions: 
-  Example   : 
-
-=cut
-
-sub DESTROY {
-    my $self = shift;
-
-    $num_run_programs--;
-
-    if ( $num_run_programs == 0) {
-        if (! $self->save_files_for_deletion ) {
-            $self->delete_files();
-        }
-    }
 }
 
 =head2 run
@@ -119,17 +93,36 @@ sub DESTROY {
 =cut
 
 sub run {
-  my ($self) = @_;
-  throw(  $self
-          . " must implement a run method as ReseqTrack::Tools::RunProgram "
-          . "does not provide one" );
+  my ($self, @args) = @_;
+
+  $self->_running(1);
+
+  throw "do not have a program executable\n" if (! $self->program);
+  check_file_exists($self->program);
+  foreach my $file (@{$self->input_files}) {
+    check_file_exists($file);
+  }
+  if (! $self->job_name) {
+      $self->generate_job_name;
+  }
+
+  $self->change_dir;
+  $self->run_program(@args);
+
+  $self->_running(0);
+  $self->delete_files;
+}
+
+sub DESTROY {
+  my $self = shift;
+  $self->delete_files;
 }
 
 =head2 execute_command_line
 
   Arg [1]   : ReseqTrack::Tools::RunProgram
   Arg [2]   : string, command line to execute
-  Function  : executes command, stores command in command_history
+  Function  : executes command
   Returntype: exit code
   Exceptions: throws if execution of command fails
   Example   : $self->execute_command_line('/path/to/program -options > output');
@@ -138,19 +131,12 @@ sub run {
 
 sub execute_command_line {
     my ($self, $command_line) = @_;
-
     my $exit;
-
     if ($self->echo_cmd_line) {
         $command_line = "echo \'" . $command_line . "\'";
     }
-
     print $command_line . "\n";
-
     $exit = execute_system_command( $command_line );
-
-    $self->command_history($command_line);
-
     return $exit;
 }
 
@@ -169,9 +155,9 @@ sub execute_command_line {
 sub save_files_for_deletion {
   my $self = shift;
   if (@_) {
-    $self->{'save_files_for_deletion'} = (shift) ? 1 : 0;
+    $GLOBAL_SAVE_FILES_FOR_DELETION = (shift) ? 1 : 0;
   }
-  return $self->{'save_files_for_deletion'};
+  return $GLOBAL_SAVE_FILES_FOR_DELETION;
 }
 
 =head2 echo_cmd_line
@@ -189,9 +175,9 @@ sub save_files_for_deletion {
 sub echo_cmd_line {
   my $self = shift;
   if (@_) {
-    $self->{'echo_cmd_line'} = (shift) ? 1 : 0;
+    $GLOBAL_ECHO_CMD_LINE = (shift) ? 1 : 0;
   }
-  return $self->{'echo_cmd_line'};
+  return $GLOBAL_ECHO_CMD_LINE;
 }
 
 =head2 program
@@ -208,7 +194,6 @@ sub echo_cmd_line {
 sub program {
   my ( $self, $arg ) = @_;
   if ($arg) {
-    check_file_exists($arg);
     $self->{'program'} = $arg;
   }
   return $self->{'program'};
@@ -233,25 +218,6 @@ sub job_name {
   return $self->{'job_name'};
 }
 
-=head2 command_history
-
-  Arg [1]   : ReseqTrack::Tools::RunProgram
-  Arg [2]   : string, executed command
-  Function  : accessor method for the history of commands executed by all RunProgram objects
-  Returntype: arrayref of strings
-  Exceptions: 
-  Example   : my $first_command = ${$self->command_history}[0];
-
-=cut
-
-sub command_history {
-    my ($self, $command_line) = @_;
-
-    if (defined $command_line) {
-        push(@command_history, $command_line);
-    }
-    return \@command_history;
-}
 
 =head2 generate_job_name
 
@@ -266,11 +232,7 @@ sub command_history {
 
 sub generate_job_name {
     my $self = shift;
-
-    my $job_name = $$;
-
-    $self->job_name($job_name);
-    return $job_name;
+    return $self->job_name($$);
 }
 
 
@@ -288,9 +250,9 @@ sub generate_job_name {
 sub working_dir {
   my ( $self, $arg ) = @_;
   if ($arg) {
-    $self->{'working_dir'} = $arg;
+    $GLOBAL_WORKING_DIR = $arg;
   }
-  return $self->{'working_dir'};
+  return $GLOBAL_WORKING_DIR;
 }
 
 =head2 change_dir
@@ -311,10 +273,7 @@ sub change_dir {
   if (! $dir){
     $dir = $self->working_dir;
   }
-
-  if (! -d $dir) {
-      make_directory($dir);
-  }
+  check_directory_exists($dir);
 
   chdir($dir)
     or throw( "Failed to change to $dir");
@@ -335,18 +294,17 @@ sub change_dir {
 sub output_files {
   my ( $self, $arg ) = @_;
 
-  if (! $self->{'output_files'}) {
-      $self->{'output_files'} = [] ;
+  $self->{'output_files'} ||= {};
+  if ($arg) {
+    foreach my $file (@{ref($arg) eq 'ARRAY' ? $arg : [$arg]}) {
+      $file =~ s{//}{/}g;
+      $self->{'output_files'}->{$file} = 1;
+    }
+    $self->created_files($arg, 1);
   }
 
-  if ($arg) {
-    if ( ref($arg) eq 'ARRAY' ) {
-      push( @{ $self->{'output_files'} }, @$arg );
-    } else {
-      push( @{ $self->{'output_files'} }, $arg );
-    }
-  }
-  return $self->{'output_files'};
+  my @files = keys %{$self->{'output_files'}};
+  return \@files;
 }
 
 =head2 input_files
@@ -363,23 +321,16 @@ sub output_files {
 sub input_files {
   my ( $self, $arg ) = @_;
 
-  if (! $self->{'input_files'}) {
-      $self->{'input_files'} = [] ;
-  }
-
+  $self->{'input_files'} ||= {};
   if ($arg) {
-    if ( ref($arg) eq 'ARRAY' ) {
-        foreach my $file (@$arg) {
-            check_file_exists($file);
-            push( @{ $self->{'input_files'} }, $file );
-        }
-    } else {
-        check_file_exists($arg);
-        push( @{ $self->{'input_files'} }, $arg );
+    foreach my $file (@{ref($arg) eq 'ARRAY' ? $arg : [$arg]}) {
+      $file =~ s{//}{/}g;
+      $self->{'input_files'}->{$file} = 1;
     }
   }
 
-  return $self->{'input_files'};
+  my @files = keys %{$self->{'input_files'}};
+  return \@files;
 }
 
 
@@ -395,20 +346,25 @@ sub input_files {
 
 =cut
 
-sub files_to_delete {
-  my ( $self, $file ) = @_;
+sub created_files {
+  my ( $self, $arg, $save_from_deletion ) = @_;
 
-  if ($file) {
-    if ( ref($file) eq 'ARRAY' ) {
-      foreach my $path (@$file) {
-	$files_to_delete{$path} = 1;
-      }
-    } else {
-      $files_to_delete{$file} = 1;
+  $self->{'created_files'} ||= {};
+  if ($arg) {
+    $save_from_deletion = $save_from_deletion ? 1 : 0;
+    foreach my $file (@{ref($arg) eq 'ARRAY' ? $arg : [$arg]}) {
+      $file =~ s{//}{/}g;
+      $self->{'created_files'}->{$file} ||= $save_from_deletion;
     }
   }
-  my @keys = keys( %files_to_delete );
-  return \@keys;
+
+  my @files = keys %{$self->{'created_files'}};
+  return \@files;
+}
+
+sub get_save_status {
+  my ($self, $file) = @_;
+  return exists $self->{'created_files'}->{$file} ? $self->{'created_files'}->{$file} : 0;
 }
 
 =head2 delete_files
@@ -424,20 +380,33 @@ sub files_to_delete {
 sub delete_files {
     my $self = shift;
 
-    foreach my $file (@{$self->files_to_delete}) {
-        print "Deleting " . $file . "\n";
+    return if ($self->save_files_for_deletion);
 
-        if ( -d $file ) {
-            delete_directory($file);
-        }
-        else {
-            delete_file($file);
-        }
+    my $input_files = $self->input_files;
+    my $output_files = $self->output_files;
 
-        delete $files_to_delete{$file};
+    FILE:
+    foreach my $file (@{$self->created_files}) {
+      next FILE if (!$self->_running && $self->get_save_status($file));
+      next FILE if (grep {$_ eq $file} @$input_files);
+      next FILE if (!$self->_running && grep {$_ eq $file} @$output_files);
+      if ( -d $file ) {
+          delete_directory($file, 1);
+      }
+      elsif ( -f $file ) {
+          delete_file($file, 1);
+      }
     }
-
     return;
 }
+
+sub _running {
+  my $self = shift;
+  if (@_) {
+    $self->{'_running'} = (shift) ? 1 : 0;
+  }
+  return $self->{'_running'};
+}
+
 
 1;

@@ -19,6 +19,7 @@ my $dbuser_r;
 my $dbpass_r;
 my $dbport_r = 4175;
 my $dbname_r;
+my $collect_by_platform;
 my $help;
 my $type;
 
@@ -34,6 +35,7 @@ my $type;
 	    'dbpass_w=s'      => \$dbpass_w,
 	    'dbport_w=s'      => \$dbport_w,
 	    'type=s' => \$type,
+	    'collect_by_platform!' => \$collect_by_platform,
 	    'help!' => \$help,
 	   );
 
@@ -93,6 +95,15 @@ foreach my $run_meta_info (@{$rmia_w->fetch_all}) {
     $history->dbID(undef);
   }
   $collection->empty_history;
+
+  if ($collect_by_platform) {
+    my $new_type = $type . '_' . $run_meta_info->instrument_platform;
+    $collection->type($new_type);
+    foreach my $file(@{$collection->others}) {
+      $file->type($new_type);
+    }
+  }
+
   $ca_w->store($collection);
 }
 
@@ -129,6 +140,8 @@ Gets fastqs for all entries in the run_meta_info table of the write database.
   other options:
 
   -type, collection type for the fastq files
+
+  -collect_by_platform, modifies the type to include the instrument platform, e.g. FASTQ modified to FASTQ_ILLUMINA
 
   -help, flag to print this help and exit
 

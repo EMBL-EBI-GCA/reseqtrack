@@ -31,11 +31,8 @@ sub new {
 #################################################################
 
 
-sub run {
+sub module_run {
     my ($self) = @_;
-    my $exit;
-
-    $self->change_dir();
 
     my $tmp_bmf = $self->run_match();
     my $tmp_baf = $self->run_localalign($tmp_bmf);

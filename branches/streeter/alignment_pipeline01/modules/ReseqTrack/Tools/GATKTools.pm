@@ -40,9 +40,13 @@ use warnings;
 use Data::Dumper;
 use ReseqTrack::Tools::Exception qw(throw warning);
 use ReseqTrack::Tools::Argument qw(rearrange);
+use ReseqTrack::Tools::RunSamtools;
 use File::Basename;
+use List::Util qw (first);
+use Env qw( @PATH );
 
 use ReseqTrack::Tools::RunProgram;
+use ReseqTrack::Tools::FileSystemUtils qw(check_file_exists);
 use vars qw(@ISA);
 
 @ISA = qw(ReseqTrack::Tools::RunProgram);
@@ -52,81 +56,52 @@ sub new {
 	my $self = $class->SUPER::new(@args);
 
 	my ( $java_exe, $jvm_args, $options, $gatk_path ,
-	     $reference) = rearrange(
+	     $reference, $samtools, $known_sites_files) = rearrange(
 		[
 			qw(
 			  JAVA_EXE
 			  JVM_ARGS
 			  OPTIONS
 			  GATK_PATH
-REFERENCE
+                          REFERENCE
+                          SAMTOOLS
+                          KNOWN_SITES_FILES
 			  )
 		],
 		@args
 	);
 
 	#defaults
-	$self->java_exe("/usr/bin/java");
-	$self->jvm_args("-Xmx4g");
-	$self->reference($reference);
+        if (!$self->program && !$java_exe) {
+          $java_exe = first {-x $_} map {"$_/java"} @PATH;
+        }
+	$jvm_args ||= "-Xmx4g";
+        $gatk_path ||= $ENV{GATK};
+
 	$self->java_exe($java_exe);
 	$self->jvm_args($jvm_args);
 	$self->gatk_path($gatk_path);
+	$self->reference($reference);
+        $self->samtools($samtools);
+        $self->known_sites_files($known_sites_files);
 
+        while (my @key_value = each(%$options)) {
+          $self->options(@key_value);
+        }
 
-	if ( ! defined ($self->samtools)){
-
-	  if ( defined $ENV{SAMTOOLS}){
-	    my $exe = $ENV{SAMTOOLS} . '/'. "samtools";
-	    $exe =~ s|//|\/|g;
-	    print "Setting path to samtools from ENV\n";
-	    $self->samtools($exe) if ( -e $exe);
-
-	    if (! -e $exe){
-	      throw "Path to samtools not set. Required for indexing bams\n"; 
-	    }
-
-	  }
-	}
-
-	if (!defined $self->gatk_path){
-	  if (defined $ENV{GATK}){
-	    print "Setting GATK path from ENV\n";
-	    	$self->gatk_path($ENV{GATK});
-	  }
-	  else{
-	    throw "Path to GATK directory not set\n";
-	  }
-	}
-
-	$self->bam(${$self->input_files}[0]);
 	return $self;
 }
 
 
+sub generate_job_name {
+    my $self = shift;
 
-sub check_bai_exist{
-  my ($self,$bam) = @_;
+    my $job_name = basename($self->input_bam);
+    $job_name =~ s/(\w+).*/$1/;
+    $job_name .= $$;
 
-  my $samtools = $self->samtools; 
-  my $bamindex = $bam . "\.bai";
-
-  if ( !-e $bamindex){
-    print "$bamindex does not exist. Creating\n";
-  }
-  else{
-    return;
-  }
-
-  my $cmd = "$samtools index $bam";
-
-  `$cmd`;
-
-  $self->files_to_delete($bamindex);
-
-  print "Created $bamindex\n\n";
-  return;
-
+    $self->job_name($job_name);
+    return $job_name;
 }
 
 
@@ -162,21 +137,26 @@ sub options {
 
 
 
+sub input_bam {
+  my $self = shift;
+  return $self->input_files(@_)->[0];
+}
+
+sub output_bam {
+  my $self = shift;
+  return $self->output_files(@_)->[0];
+}
 
 sub check_jar_file_exists {
 	my ($self) = shift;
-
 	my $jar_file = $self->gatk_path . "\/" . $self->jar_file;
-	throw "Could not find:$jar_file" if ( !-e $jar_file );
+        check_file_exists($jar_file);
 	return;
 }
 
 sub java_exe {
-	my ( $self, $arg ) = @_;
-	if ($arg) {
-		$self->{java_exe} = $arg;
-	}
-	return $self->{java_exe};
+  my $self = shift;
+  return $self->program(@_);
 }
 
 sub jvm_args {
@@ -206,83 +186,38 @@ sub jar_file {
 
 }
 
-sub gatk_tool {
-	my ( $self, $arg ) = @_;
-	if ($arg) {
-		$self->{gatk_tool} = $arg;
-	}
-	return $self->{gatk_tool};
-
-}
-
-
-sub bam {
-	my ( $self, $arg ) = @_;
-	if ($arg) {
-	  throw "Bam does not exist:$arg\n" if (! -e $arg); 
-		$self->{bam} = $arg;
-	}
-	return $self->{bam};
-
-}
-
-sub known {
-  my ( $self, $arg ) = @_;
-  print "adding $arg\n" if ($arg);
-  if ($arg) {
-    if ( ref($arg) eq 'ARRAY' ) {
-      foreach my $file (@$arg) {
-	check_file_exists($file);
-	push( @{ $self->{'known'} }, $file );
-      }
-    } else {
-      check_file_exists($arg);
-      push( @{ $self->{'known'} }, $arg );
-    }
-  }
-	return $self->{known};
-}
-
-sub known_sites {
-	my ( $self, $arg ) = @_;
-	print "adding sites  $arg\n" if ($arg);
-	
-	if ($arg) {
-		if ( !-e $arg ) {
-			throw "Known sites file: $arg does not exist\n";
-		}
-		push( @{ $self->{known_sites} }, $arg );
-	}
-
-	return $self->{known_sites};
-
-}
-
 sub samtools {
   my ( $self, $arg ) = @_;
-	
   if ($arg) {
-    if ( !-e $arg ) {
-      throw "Samtools exe: $arg does not exist\n";
-    }
-     $self->{samtools} = $arg;
+    check_file_exists($arg);
+    $self->{samtools} = $arg;
   }
-
   return $self->{samtools};
-
 }
+
 sub reference {
   my ( $self, $arg ) = @_;
-	
   if ($arg) {
-    if ( !-e $arg ) {
-      throw "Reference file: $arg does not exist\n";
-    }
+    check_file_exists($arg);
     $self->{reference} = $arg;
   }
-
   return $self->{reference};
 
+}
+
+sub known_sites_files {
+  my ( $self, $arg ) = @_;
+
+  $self->{'known_sites_files'} ||= {};
+  if ($arg) {
+    foreach my $file (@{ref($arg) eq 'ARRAY' ? $arg : [$arg]}) {
+      $file =~ s{//}{/}g;
+      $self->{'known_sites_files'}->{$file} = 1;
+    }
+  }
+
+  my @files = keys %{$self->{'known_sites_files'}};
+  return \@files;
 }
 
 1;

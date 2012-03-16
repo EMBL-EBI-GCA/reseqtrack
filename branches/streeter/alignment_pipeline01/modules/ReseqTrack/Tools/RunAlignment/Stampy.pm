@@ -2,9 +2,10 @@ package ReseqTrack::Tools::RunAlignment::Stampy;
 
 use strict;
 use warnings;
-
-use ReseqTrack::Tools::Exception qw(throw warning);
+use ReseqTrack::Tools::FileSystemUtils qw(check_file_does_not_exist);
 use ReseqTrack::Tools::Argument qw(rearrange);
+use List::Util qw (first);
+use Env qw( @PATH );
 
 
 use base qw(ReseqTrack::Tools::RunAlignment);
@@ -21,8 +22,13 @@ sub new {
 
 
     #setting defaults
-    if (! $self->program) {
-        $self->program('stampy');
+    if (!$self->program) {
+      if ($ENV{STAMPY}) {
+        $self->program($ENV{STAMPY} . '/stampy');
+      }
+      else {
+        $self->program(first {-x $_} map {"$_/stampy"} @PATH);
+      }
     }
 
     $self->genome_prefix($genome_prefix);
@@ -38,10 +44,8 @@ sub new {
 #################################################################
 
 
-sub run {
+sub run_alignment {
     my ($self) = @_;
-
-    $self->change_dir();
 
     if ($self->build_genome_flag){
         $self->build_genome();
@@ -49,27 +53,27 @@ sub run {
     }
 
     if ($self->fragment_file) {
-        my $sam = $self->run_se_alignment();
-        $self->sam_files($sam);
+      $self->run_se_alignment;
     }
 
     if ($self->mate1_file && $self->mate2_file) {
-        my $sam = $self->run_pe_alignment();
-        $self->sam_files($sam);
+      $self->run_pe_alignment;
     }
-
-    $self->run_samtools(1);
 
     return;
 }
 
 sub run_se_alignment {
     my $self = shift;
+    return if !($self->fragment_file);
 
     my $sam = $self->working_dir() . '/'
         . $self->job_name
         . '_se.sam';
     $sam =~ s{//}{/};
+    if (-e $sam) {
+      delete_file($sam);
+    }
 
     my $cmd_line;
     $cmd_line = $self->program();
@@ -80,21 +84,36 @@ sub run_se_alignment {
         $cmd_line .= " " . $self->se_options;
     }
 
+    if ($self->read_group_fields->{'ID'}) {
+      $cmd_line .= " --readgroup=ID:" . $self->read_group_fields->{'ID'};
+      RG:
+      while (my ($tag, $value) = each %{$self->read_group_fields}) {
+        next RG if ($tag eq 'ID');
+        next RG if (!$value);
+        $cmd_line .= ",$tag:$value";
+      }
+    }
+
     $cmd_line .= " -o " . $sam;
     $cmd_line .= " -M " . $self->fragment_file;
 
+    $self->sam_files($sam);
     $self->execute_command_line($cmd_line);
 
-    return $sam ;
+    return;
 }
 
 sub run_pe_alignment {
     my $self = shift;
+    return if (!$self->mate1_file || !$self->mate2_file);
 
     my $sam = $self->working_dir() . '/'
         . $self->job_name
         . '_pe.sam';
     $sam =~ s{//}{/};
+    if (-e $sam) {
+      delete_file($sam);
+    }
 
     my $cmd_line;
     $cmd_line = $self->program();
@@ -109,12 +128,23 @@ sub run_pe_alignment {
         $cmd_line .= " --insertsize=" . $self->paired_length;
     }
 
+    if ($self->read_group_fields->{'ID'}) {
+      $cmd_line .= " --readgroup=ID:" . $self->read_group_fields->{'ID'};
+      RG:
+      while (my ($tag, $value) = each %{$self->read_group_fields}) {
+        next RG if ($tag eq 'ID');
+        next RG if (!$value);
+        $cmd_line .= ",$tag:$value";
+      }
+    }
+
     $cmd_line .= " -o " . $sam;
     $cmd_line .= " -M " . $self->mate1_file . " " . $self->mate2_file;
 
+    $self->sam_files($sam);
     $self->execute_command_line($cmd_line);
 
-    return $sam ;
+    return;
 }
 
 sub build_genome {
@@ -128,12 +158,12 @@ sub build_genome {
     $cmd_line .= " -G " . $genome_prefix;
     $cmd_line .= " " . $self->reference;
 
-    $self->execute_command_line($cmd_line);
-
     $self->genome_prefix($genome_prefix);
-
     my $genome = $genome_prefix . ".stidx";
-    $self->files_to_delete($genome);
+    check_file_does_not_exist($genome);
+    $self->created_files($genome);
+
+    $self->execute_command_line($cmd_line);
 
     return;
 
@@ -150,12 +180,12 @@ sub build_hash {
     $cmd_line .= " -g " . $self->genome_prefix;
     $cmd_line .= " -H " . $hash_prefix;
 
-    $self->execute_command_line($cmd_line);
-
     $self->hash_prefix($hash_prefix);
-
     my $hash = $hash_prefix . ".sthash";
-    $self->files_to_delete($hash);
+    check_file_does_not_exist($hash);
+    $self->created_files($hash);
+
+    $self->execute_command_line($cmd_line);
 
     return;
 

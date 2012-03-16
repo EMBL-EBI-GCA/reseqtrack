@@ -64,7 +64,7 @@ if ($level eq 'RUN') {
     }
     my $output_collection = ReseqTrack::Collection->new(
             -name => $key_collection->name, -type => $type_collection,
-            -table_name => 'collection', -others => \@others);
+            -others => \@others);
     $ca->store($output_collection);
   }
 }
@@ -73,19 +73,19 @@ if ($level eq 'LIBRARY') {
   my $rmia = $db->get_RunMetaInfoAdaptor;
   my %library_runs;
   foreach my $rmi (@{$rmia->fetch_all}) {
-    push(@{$library_runs{$rmi->center_name}{$rmi->library_name}}, $rmi->run_id);
+    push(@{$library_runs{$rmi->sample_id}{$rmi->library_name}}, $rmi->run_id);
   }
-  foreach my $center_name (keys %library_runs) {
+  foreach my $sample_id (keys %library_runs) {
     LIBRARY:
-    while (my ($library_name, $run_id_list) = each %{$library_runs{$center_name}}) {
+    while (my ($library_name, $run_id_list) = each %{$library_runs{$sample_id}}) {
       my @others;
       foreach my $run_id (@$run_id_list) {
         next LIBRARY if (!exists $inputs{$run_id});
         push(@others, @{$inputs{$run_id}});
       }
       my $output_collection = ReseqTrack::Collection->new(
-              -name => $center_name.'/'.$library_name, -type => $type_collection,
-              -table_name => 'collection', -others => \@others);
+              -name => $sample_id.'_'.$library_name, -type => $type_collection,
+              -others => \@others);
       $ca->store($output_collection);
     }
   }
@@ -95,21 +95,19 @@ if ($level eq 'SAMPLE') {
   my $rmia = $db->get_RunMetaInfoAdaptor;
   my %sample_libraries;
   foreach my $rmi (@{$rmia->fetch_all}) {
-    push(@{$sample_libraries{$rmi->sample_id}{$rmi->center_name}}, $rmi->library_name);
+    push(@{$sample_libraries{$rmi->sample_id}}, $rmi->library_name);
   }
   SAMPLE:
-  foreach my $sample (keys %sample_libraries) {
+  foreach my $sample_id (keys %sample_libraries) {
     my @others;
-    while (my ($center_name, $library_list) = each %{$sample_libraries{$sample}}) {
-      foreach my $library (@$library_list) {
-        my $library_name = $center_name.'/'.$library;
-        next SAMPLE if (!exists $inputs{$library_name});
-        push(@others, @{$inputs{$library_name}});
-      }
+    foreach my $library_name (@{$sample_libraries{$sample_id}}) {
+      my $inputs_key = $sample_id.'_'.$library_name;
+      next SAMPLE if (!exists $inputs{$inputs_key});
+      push(@others, @{$inputs{$inputs_key}});
     }
     my $output_collection = ReseqTrack::Collection->new(
-            -name => $sample, -type => $type_collection,
-            -table_name => 'collection', -others => \@others);
+            -name => $sample_id, -type => $type_collection,
+            -others => \@others);
     $ca->store($output_collection);
   }
 }
@@ -127,11 +125,11 @@ This script finds files that are ready to be merged for the next level of proces
 Files must stored in collections, whose names are used to determine how they will be
 grouped together in the output collections.
 
-For merging to sample level, the input collections must be named CenterName_LibraryName.
+For merging to sample level, the input collections must be named SampleID_LibraryName.
 The output collection will be named by the sample_id.
 
 For merging to library level, the input collections must be named by the run_id.
-The output collection will be named CenterName_LibraryName.
+The output collection will be named SampleID_LibraryName.
 
 For merging to run level, a 'key_collection' will be used to determine the names of the
 input collections. The name of key_collection must be run_id, and the names of

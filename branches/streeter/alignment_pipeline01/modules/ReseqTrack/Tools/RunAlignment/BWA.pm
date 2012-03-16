@@ -70,9 +70,8 @@ sub new {
 =cut
 
 
-sub run {
+sub module_run {
     my ($self) = @_;
-    $self->change_dir();
     
     if ( $self->fragment_file ) {
         my $sam = $self->run_samse_alignment();

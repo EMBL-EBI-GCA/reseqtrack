@@ -128,7 +128,7 @@ if (! $output_file) {
 open( my $old_stdout, ">&STDOUT") or throw("$message_prefix could not save STDOUT: $!");
 open( my $old_stderr, ">&STDERR") or throw("$message_prefix could not save STDERR: $!");
 
-open(my $file_handle, '>', $output_file) or do {
+open(my $file_handle, '>>', $output_file) or do {
     my $warning = "$message_prefix Can't open $output_file: $!";
     job_failed($job, $warning, $ja);
     throw($warning);

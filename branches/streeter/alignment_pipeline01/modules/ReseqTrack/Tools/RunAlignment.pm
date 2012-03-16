@@ -78,10 +78,12 @@ sub new {
 
   my ( $reference, $ref_samtools_index, $samtools,
         $mate1_file, $mate2_file, $fragment_file, $paired_length,
+        $read_group_fields,
         $merge_bams, $sort_bams, $index_bams, $convert_sam_to_bam)
         = rearrange( [
              qw( REFERENCE REF_SAMTOOLS_INDEX SAMTOOLS
              MATE1_FILE MATE2_FILE FRAGMENT_FILE PAIRED_LENGTH
+             READ_GROUP_FIELDS
              MERGE_BAMS SORT_BAMS INDEX_BAMS CONVERT_SAM_TO_BAM)
                     ], @args);
 
@@ -92,38 +94,38 @@ sub new {
   $self->ref_samtools_index($ref_samtools_index);
   $self->samtools($samtools);
   $self->paired_length($paired_length);
+  $self->read_group_fields($read_group_fields);
+  $self->flag_sam_to_bam($convert_sam_to_bam);
+  $self->flag_merge_bams($merge_bams);
+  $self->flag_sort_bams($sort_bams);
+  $self->flag_index_bams($index_bams);
 
-  if ( $fragment_file or $mate1_file or $mate2_file) {
-      foreach my $file ($fragment_file, $mate1_file, $mate2_file) {
-          if ($file && ! scalar grep {$_ eq $file} @{$self->input_files}) {
-              $self->input_files($file);
-          }
-      }
-  }
-  else {
-      $self->assign_fastq_files;
-  }
-
-  if (! $self->job_name) {
-      $self->generate_job_name;
-  }
-
-  if ( defined($convert_sam_to_bam) && ! $convert_sam_to_bam) {
-      $self->flag_sam_to_bam(0);
-      $self->flag_merge_bams(0);
-      $self->flag_sort_bams(0);
-      $self->flag_index_bams(0);
-  }
-  else {
-      $self->flag_sam_to_bam(1);
-      $self->flag_merge_bams( defined($merge_bams) ? $merge_bams : 1);
-      $self->flag_sort_bams( defined($sort_bams) ? $sort_bams : 1);
-      $self->flag_index_bams( defined($sort_bams) ? $sort_bams : 1);
-  }
-  
-
+  # This is a property of the alignment module.  Default value is 1.
+  $self->sams_have_header(1);
 
   return $self;
+}
+
+sub run_program {
+    my ($self) = @_;
+
+    if ($self->flag_sam_to_bam) {
+      $self->setup_samtools_object;
+    }
+    if (!$self->fragment_file && !$self->mate1_file && !$self->mate2_file) {
+      $self->assign_fastq_files;
+    }
+
+    $self->run_alignment;
+
+    if (!$self->flag_sam_to_bam) {
+      $self->output_files($self->sam_files);
+    }
+    else {
+      $self->samtools_object->input_files( $self->sam_files );
+      $self->samtools_object->run();
+      $self->output_files( $self->samtools_object->output_files );
+    }
 }
 
 =head2 run_samtools
@@ -136,37 +138,29 @@ sub new {
 
 =cut
 
-sub run_samtools {
-    my $self = shift;
-    my $sam_has_header = shift;
+sub setup_samtools_object {
+  my $self = shift;
 
-    my $samtools_object = ReseqTrack::Tools::RunSamtools->new(
-                        -program                 => $self->samtools,
-                        -working_dir             => $self->working_dir,
-                        -echo_cmd_line           => $self->echo_cmd_line,
-                        -save_files_for_deletion => $self->save_files_for_deletion,
-                        -job_name                => $self->job_name,
-                        -reference_index         => $self->ref_samtools_index,
-                        -reference               => $self->reference,
-                        -output_to_working_dir   => 1,
-                        -replace_files           => 1,
-                        -flag_merge              => $self->flag_merge_bams,
-                        -flag_sort               => $self->flag_sort_bams,
-                        -flag_index              => $self->flag_index_bams,
-                        -flag_sam_to_bam         => $self->flag_sam_to_bam,
-                        -flag_use_header         => $sam_has_header,
-                        );
-
-
-    $samtools_object->input_files( $self->sam_files );
-
-    $samtools_object->run();
-
-    $self->output_files( $samtools_object->output_files );
-
-    return;
-
+  my $sort_bams = $self->flag_sort_bams || $self->flag_merge_bams || $self->index_bams;
+  my $samtools_object = ReseqTrack::Tools::RunSamtools->new(
+                      -program                 => $self->samtools,
+                      -job_name                => $self->job_name,
+                      -reference_index         => $self->ref_samtools_index,
+                      -reference               => $self->reference,
+                      -output_to_working_dir   => 1,
+                      -flag_merge              => $self->flag_merge_bams,
+                      -flag_sort               => $sort_bams,
+                      -flag_index              => $self->flag_index_bams,
+                      -flag_sam_to_bam         => 1,
+                      -flag_use_header         => $self->sams_have_header,
+                      );
+  check_file_exists($samtools_object->program);
+  if (!$self->sams_have_header) {
+    $self->samtools_object->find_reference_index;
+  }
+  $self->samtools_object($samtools_object);
 }
+
 
 =head2 generate_job_name
 
@@ -183,8 +177,8 @@ sub generate_job_name {
 
     my $file = ${$self->input_files}[0];
     my $job_name = basename($file);
-    $job_name =~ s/^([A-Za-z0-9]+).*/$1/;
-    $job_name .= "." . $$;
+    $job_name =~ /\w+/;
+    $job_name = $& . $$;
 
     $self->job_name($job_name);
     return $job_name;
@@ -206,18 +200,11 @@ sub generate_job_name {
 sub sam_files {
   my ( $self, $arg ) = @_;
 
-  if (! $self->{'sam_files'}) {
-      $self->{'sam_files'} = [] ;
-  }
-
+  $self->{'sam_files'} ||= [];
   if ($arg) {
-    if ( ref($arg) eq 'ARRAY' ) {
-        push( @{ $self->{'sam_files'} }, @$arg );
-    } else {
-        push( @{ $self->{'sam_files'} }, $arg );
-    }
+    push( @{ $self->{'sam_files'} }, ref($arg) eq 'ARRAY' ? @$arg : $arg);
+    $self->created_files($arg, !$self->flag_sam_to_bam);
   }
-
   return $self->{'sam_files'};
 }
 
@@ -231,10 +218,10 @@ sub sam_files {
 
 =cut
 
-sub run {
+sub run_alignment {
   my ($self) = @_;
   throw(  $self
-          . " must implement a run method as ReseqTrack::Tools::RunAlignment "
+          . " must implement a run_alignment method as ReseqTrack::Tools::RunAlignment "
           . "does not provide one" );
 }
 
@@ -280,16 +267,9 @@ sub assign_fastq_files {
 =cut
 
 sub output_bam_files {
-    my $self = shift;
-
-    my @output_bams;
-    foreach my $file (@{$self->output_files}) {
-        if ( $file =~ /\.bam$/ ) {
-            push( @output_bams, $file);
-        }
-    }
-
-    return \@output_bams;
+  my $self = shift;
+  my @files = grep {/\.[bs]am$/} @{$self->output_files};
+  return \@files;
 }
 
 =head2 output_bai_files
@@ -303,17 +283,21 @@ sub output_bam_files {
 =cut
 
 sub output_bai_files {
-    my $self = shift;
-
-    my @output_bai_files;
-    foreach my $file (@{$self->output_files}) {
-        if ( $file =~ /\.bai$/ ) {
-            push( @output_bai_files, $file);
-        }
-    }
-
-    return \@output_bai_files;
+  my $self = shift;
+  my @files = grep {/\.bai$/} @{$self->output_files};
+  return \@files;
 }
+
+
+sub read_group_fields {
+  my ($self, $hash) = @_;
+  $self->{'read_group_fields'} ||= {};
+  while (my ($tag, $value) = each %$hash) {
+    $self->{'read_group_fields'}->{$tag} = $value;
+  }
+  return $self->{'read_group_fields'};
+}
+
 
 
 =head2 accessor methods
@@ -330,16 +314,25 @@ sub output_bai_files {
 sub samtools {
     my ($self, $samtools) = @_;
     if ($samtools) {
-        check_file_exists($samtools);
         $self->{'samtools'} = $samtools;
     }
     return $self->{'samtools'};
 }
 
+sub samtools_object {
+    my ($self, $samtools_object) = @_;
+    if ($samtools_object) {
+        $self->{'samtools_object'} = $samtools_object;
+    }
+    if (!$self->{'samtools_object'}) {
+      $self->setup_samtools_object;
+    }
+    return $self->{'samtools_object'};
+}
+
 sub ref_samtools_index {
     my ($self, $ref_samtools_index) = @_;
     if ($ref_samtools_index) {
-        check_file_exists($ref_samtools_index);
         $self->{'ref_samtools_index'} = $ref_samtools_index;
     }
     return $self->{'ref_samtools_index'};
@@ -348,7 +341,6 @@ sub ref_samtools_index {
 sub reference {
     my ($self, $reference) = @_;
     if ($reference) {
-        check_file_exists($reference);
         $self->{'reference'} = $reference;
     }
     return $self->{'reference'};
@@ -358,6 +350,7 @@ sub fragment_file {
   my ($self, $fragment_file) = @_;
   if ($fragment_file) {
     $self->{'fragment_file'} = $fragment_file;
+    $self->input_files($fragment_file);
   }
   return $self->{'fragment_file'};
 }
@@ -366,6 +359,7 @@ sub mate1_file {
   my ($self, $mate1_file) = @_;
   if ($mate1_file) {
     $self->{'mate1_file'} = $mate1_file;
+    $self->input_files($mate1_file);
   }
   return $self->{'mate1_file'};
 }
@@ -374,6 +368,7 @@ sub mate2_file {
   my ($self, $mate2_file) = @_;
   if ($mate2_file) {
     $self->{'mate2_file'} = $mate2_file;
+    $self->input_files($mate2_file);
   }
   return $self->{'mate2_file'};
 }
@@ -414,6 +409,14 @@ sub flag_sam_to_bam {
         $self->{flag_sam_to_bam} = shift;
     }
     return $self->{flag_sam_to_bam};
+}
+
+sub sams_have_header {
+    my $self = shift;
+    if (@_) {
+        $self->{sams_have_header} = shift;
+    }
+    return $self->{sams_have_header};
 }
 
 1;

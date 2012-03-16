@@ -56,8 +56,16 @@ sub new {
     my $self = $class->SUPER::new(@args);
     my ( $name, $type, $others, $other_ids, $table_name ) =
       rearrange( [qw(NAME TYPE OTHERS OTHER_IDS TABLE_NAME)], @args );
-    ####error checking
 
+    if (!$table_name && $others) {
+      if ( ref($others) eq 'ARRAY') {
+          $table_name = $others->[0]->object_table_name if (@$others);
+      }
+      else {
+        $table_name = $others->object_table_name;
+      }
+    }
+    ####error checking
     throw("Can't create a ReseqTrack::Collection object without a name")
       unless ($name);
     throw("Can't create a ReseqTrack::Collection object without a type")

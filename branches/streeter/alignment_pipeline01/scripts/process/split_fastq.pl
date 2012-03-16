@@ -4,7 +4,7 @@ use strict;
 use ReseqTrack::Tools::Exception;
 use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::FileUtils qw(get_count_stats create_object_from_path);
-use ReseqTrack::Tools::FileSystemUtils qw(run_md5 make_directory);
+use ReseqTrack::Tools::FileSystemUtils qw(run_md5);
 use ReseqTrack::Tools::SequenceIndexUtils qw(assign_files);
 use ReseqTrack::Tools::HostUtils qw(get_host_object);
 use ReseqTrack::Tools::RunMetaInfoUtils qw( create_directory_path );
@@ -30,7 +30,7 @@ my $program_file;
 my $max_reads;
 my $max_bases;
 my $help;
-my $directory_layout = 'population/sample_name/fastq_chunks';
+my $directory_layout = 'population/sample_id/run_id';
 
 &GetOptions( 
   'dbhost=s'      => \$dbhost,
@@ -96,12 +96,9 @@ if ($mate1 && $mate2) {
   throw("read counts don't match: ".$mate1_path." $read_count1 "
         .$mate2_path." $read_count2")
         if ($read_count1 != $read_count2);
-  throw("base counts don't match: ".$mate1_path." $base_count1 "
-        .$mate2_path." $base_count2")
-        if ($base_count1 != $base_count2);
 
   my $num_output_files = $max_reads ? ceil($read_count1 / $max_reads)
-                      : ceil($base_count1 / $max_bases);
+                      : ceil( 0.5 * ($base_count1 +$base_count2) / $max_bases );
   my $line_count = ($num_output_files == 1) ? 0
                  : 4 * ceil($read_count1 / $num_output_files);
   $line_count_hash{$mate1_path} = $line_count;
@@ -122,12 +119,12 @@ if ($frag) {
 }
 
 my $full_output_dir = create_directory_path($run_meta_info, $directory_layout, $output_dir);
-make_directory($full_output_dir);
 
 my $run_split = ReseqTrack::Tools::RunSplit->new(
     -program => $program_file,
     -working_dir => $full_output_dir,
-    -line_count_hash => \%line_count_hash);
+    -line_count_hash => \%line_count_hash,
+    -job_name => $run_id);
 
 $run_split->run;
 
@@ -149,12 +146,17 @@ if ($store) {
         my $file = create_object_from_path($file_path, $type_output, $host);
         my $md5 = run_md5($file_path);
         $file->md5($md5);
+        my $statistic = ReseqTrack::Statistic->new(
+                    -attribute_name => 'paired_length',
+                    -attribute_value => $run_meta_info->paired_length);
+        $file->statistics($statistic);
         push(@files, $file);
       }
       my $collection_name = $run_id . '_m' . $label;
       my $collection = ReseqTrack::Collection->new(
                     -name => $collection_name, -type => $type_output,
                     -table_name => 'file', -others => \@files);
+
       push(@split_collections, $collection);
     }
   }
@@ -189,8 +191,8 @@ ReseqTrack/scripts/process/split_fastq.pl
 =head1 SYNOPSIS
 
     This script fetches a collection of fastq files. It splits the files into
-    smaller files of similar sizes. The number of reads in the output files does
-    not exceed a certain limit.
+    smaller files of similar sizes. The number of reads or number of bases in the
+    output files does not exceed a certain limit.
 
 =head2 OPTIONS
 
@@ -219,7 +221,7 @@ ReseqTrack/scripts/process/split_fastq.pl
         -output_dir, base directory used for all output files
         -directory_layout, specifies where the files will be located under output_dir.
               Tokens matching method names in RunMetaInfo will be substituted with that method's return value.
-              Default value is population/sample_name/fastq_chunks
+              Default value is population/sample_id/run_id
         -program_file, path to the split executable
         -help, flag to print this help and exit
 
@@ -230,7 +232,7 @@ ReseqTrack/scripts/process/split_fastq.pl
     $DB_OPTS="-dbhost mysql-host -dbuser rw_user -dbpass **** -dbport 4197 -dbname my_database"
 
     perl ReseqTrack/scripts/process/split_fastq.pl  $DB_OPTS
-      -run_id ERR002097 -type_input FILTERED_FASTQ -type_output FASTQ_SLICE -type_collection FASTQ_SLICE_COLLECTION
+      -run_id ERR002097 -type_input FILTERED_FASTQ -type_output FASTQ_CHUNK -type_collection FASTQ_CHUNK_SET
       -max_reads 2000000 -output_dir /path/to/dir -program_file ReseqTrack/c_code/split -store
 
 =cut

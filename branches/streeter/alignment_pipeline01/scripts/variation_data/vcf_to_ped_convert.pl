@@ -83,7 +83,7 @@ my ($markers, $genotypes) = get_markers_genotypes($vcf, $region, $tabix, $indivi
 print_info($markers, $output_info);
 print_ped($genotypes, $output_ped);
 
-
+print "Created ".$output_info." and ".$output_ped."\n";
 
 
 
@@ -128,11 +128,15 @@ sub get_markers_genotypes {
             foreach my $individual (@{$individuals->{$population}}) {
                 next INDIVIDUAL if (! $column_indices{$individual});
                 my $genotype_string = $columns[ $column_indices{$individual} ];
-                $genotype_string =~ /(\d+)(?:\/|\|)(\d+)/;
-                my @genotype_codes = ($allele_codes[$1], $allele_codes[$2]);
+                if ($genotype_string =~ /(\d+)(?:\/|\|)(\d+)/) {
+                  my @genotype_codes = ($allele_codes[$1], $allele_codes[$2]);
 
-                $alleles_present{$_} = 1 foreach (@genotype_codes);
-                $marker_genotypes{$population}{$individual} = \@genotype_codes;
+                  $alleles_present{$_} = 1 foreach (grep {$_} @genotype_codes);
+                  $marker_genotypes{$population}{$individual} = \@genotype_codes;
+                }
+                else {
+                  $marker_genotypes{$population}{$individual} = [0,0];
+                }
             }
         }
 

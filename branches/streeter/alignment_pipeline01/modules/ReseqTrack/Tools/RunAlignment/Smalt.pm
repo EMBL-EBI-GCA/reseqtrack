@@ -34,10 +34,8 @@ sub new {
 #################################################################
 
 
-sub run {
+sub module_run {
     my ($self) = @_;
-
-    $self->change_dir();
 
     if ($self->build_index_flag){
         $self->build_index();

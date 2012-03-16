@@ -85,10 +85,10 @@ sub get_inputs{
   my ($db, $event) = @_;
 
   my $inputs =
-      $event->table_name eq 'file' ? get_file_inputs($db, $event)
-      : $event->table_name eq 'collection' ? get_collection_inputs($db, $event)
-      : $event->table_name eq 'run_meta_info' ? get_run_meta_info_inputs($db, $event)
-      : $event->table_name eq 'input_string' ? get_input_string_inputs($db, $event)
+      $event->table_name eq 'file' ? get_file_inputs($db, $event->type)
+      : $event->table_name eq 'collection' ? get_collection_inputs($db, $event->type)
+      : $event->table_name eq 'run_meta_info' ? get_run_meta_info_inputs($db, $event->type)
+      : $event->table_name eq 'input_string' ? get_input_string_inputs($db, $event->type)
       : throw("Don't know what sort of inputs to fetch for " . $event->name . " " . $event->table_name);
   
   return $inputs
@@ -491,6 +491,9 @@ sub check_existing_jobs{
         }
       }
       elsif ($job->current_status ne 'CREATED') {
+        next INPUT;
+      }
+      elsif ($job->current_status(undef, 1) ne 'CREATED') {
         next INPUT;
       }
     }
