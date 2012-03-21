@@ -124,7 +124,7 @@ if ($inputs_file) {
 my %allowed_inputs;
 INPUT:
 foreach my $allowed_input (@allowed_inputs) {
-    my ($table_name, $type, @inputs) = split(/[:\s]+/, $allowed_input);
+    my ($table_name, $type, @inputs) = split(/[:\s]+/, $allowed_input, 3);
     next INPUT if (!$table_name);
     if (!$allowed_inputs{$table_name}) {
         $allowed_inputs{$table_name} = {};
