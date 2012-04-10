@@ -25,6 +25,7 @@
 use Getopt::Long;
 use Net::FTP;
 use Env qw( @PATH );
+use List::Util qw (first);
 
 use strict;
 use warnings;
@@ -34,7 +35,7 @@ my $sample_panel;
 my $ftp_host;
 my $vcf;
 my $region;
-my $tabix = 'tabix';
+my $tabix;
 my $output_ped;
 my $output_info;
 my $output_dir;
@@ -58,16 +59,10 @@ if ($help) {
 die("required arguments: vcf, sample_panel_file, region, population") if (! $vcf || ! $sample_panel || ! $region || ! @populations);
 die("$output_dir is not a directory") if ($output_dir && ! -d $output_dir);
 
-my $is_compressed = $vcf =~ /\.g?gz(ip)?$/;
+my $is_compressed = $vcf =~ /\.b?gz(ip)?$/;
 if ($is_compressed) {
-  if (!$tabix) {
-    die ("tabix is not in \$PATH")
-      if (! grep {-x "$_/tabix"} @PATH );
-    $tabix = 'tabix';
-  }
-  else {
-    die("cannot find executable $tabix") if (! -x $tabix);
-  }
+  $tabix ||= first {-x $_} map {"$_/tabix"} @PATH;
+  die("cannot find executable $tabix") if (! -x $tabix);
 }
 die("remote vcf file must be compressed by bgzip") if (!$is_compressed && $vcf =~ /ftp:\/\//);
 
