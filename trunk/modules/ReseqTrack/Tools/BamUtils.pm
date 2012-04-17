@@ -282,7 +282,7 @@ sub CHECK_AND_PARSE_FILE_NAME {
 	}
 	
 	### FIXME: need to do some controled vacabulary checks
-	unless ( ($sample =~ /^NA/ || $sample=~/^HG/) && (!$project || $project =~ /^SRP/) && $date =~ /2009|2010|2011/ ) {
+	unless ( ($sample =~ /^NA/ || $sample=~/^HG/) && (!$project || $project =~ /^SRP/) && $date =~ /2009|2010|2011|2012/ ) {
 		if ($project) {
 			print "sample is $sample, project is $project, date is $date\n";
 		}
