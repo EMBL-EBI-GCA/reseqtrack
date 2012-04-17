@@ -392,10 +392,16 @@ sub parse_bas {
   			my $population = $individual_to_pop->{$individual};
   			my $study = $values[2];
 			
-  			next if ( $line =~ /20101123/ && $line =~ /chrom20/);  ## FIXME: change date!! This line produce the right results 
+  			#next if ( $line =~ /20101123/ && $line =~ /chrom20/);  ## FIXME: change date!! This line produce the right results 
   														# this way chrom20 data are not double counted in alignment starting from 20101123 
   														# also chrom20 data can be slightly out of date
+  			
+  			next if ( $line =~ /chrom/ );
+  			next if ( $line =~ /exon_targetted|high_coverage/i);
   			my $platform = $values[4];
+  			if ($platform eq "illumina") {
+  				$platform = "ILLUMINA";
+  			}
   			my $mapped_bp = $values[8];
 		    $bp_hash{$platform}->{$individual} += $mapped_bp;
 		    $bp_hash{$platform}->{'total'} += $mapped_bp;

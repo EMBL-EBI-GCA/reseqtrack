@@ -63,12 +63,14 @@ sub new {
 		], @args);	
   
   ## Set defaults
-  $self->program("/nfs/1000g-work/G1K/work/bin/samtools/samtools") if (! $self->program);
+  $self->program("/nfs/1000g-work/G1K/work/bin/samtools_latest/samtools") if (! $self->program);
   $self->reference("/nfs/1000g-work/G1K/scratch/zheng/reference_genomes/human_g1k_v37.fasta") if (! $self->reference);
+  
+  print "Program path is " . $self->program . "\n";
   
   $self->{'options'}->{'mpileup'} = '-ug' unless ($mpileup);
   $self->{'options'}->{'bcfview'} = '-bvcg' unless ($bcfview);
-  $self->{'options'}->{'vcfutils'} = '-D 100' unless ($vcfutils);
+  $self->{'options'}->{'vcfutils'} = '-d 2' unless ($vcfutils);
   
   my $samtools_path = $self->program; 
   my ($tool, $dir) = fileparse($samtools_path);	
