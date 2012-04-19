@@ -3,11 +3,12 @@
 use strict;
 use ReseqTrack::Tools::Exception;
 use ReseqTrack::DBSQL::DBAdaptor;
-use ReseqTrack::Tools::FileUtils qw(create_object_from_path);
+use ReseqTrack::Tools::FileUtils qw(create_objects_from_path_list);
 use ReseqTrack::Tools::FileSystemUtils qw(run_md5 delete_file);
 use ReseqTrack::Tools::HostUtils qw(get_host_object);
 use ReseqTrack::Tools::RunMetaInfoUtils qw(create_directory_path);
-use ReseqTrack::Tools::RunSamtools;
+use ReseqTrack::Tools::RunPicard;
+use File::Basename qw(fileparse);
 use Getopt::Long;
 
 $| = 1;
@@ -22,12 +23,17 @@ my $type_input;
 my $type_output;
 my $type_index;
 my $output_dir;
+my $picard_dir;
+my $java_exe;
+my $jvm_options;
 my $samtools;
 my $host_name = '1000genomes.ebi.ac.uk';
 my $store;
 my $delete_inputs;
-my $index_bams = 1;
 my $directory_layout;
+my $command;
+my $index_bams;
+my $options;
 
 &GetOptions( 
   'dbhost=s'      => \$dbhost,
@@ -40,13 +46,23 @@ my $directory_layout;
   'type_output=s' => \$type_output,
   'type_index=s' => \$type_index,
   'output_dir=s' => \$output_dir,
-  'samtools=s' => \$samtools,
+  'picard_dir=s' => \$picard_dir,
+  'java_exe=s' => \$java_exe,
+  'jvm_options=s' => \$jvm_options,
   'host_name=s' => \$host_name,
   'store!' => \$store,
+  'command=s' => \$command,
+  'index_bams!' => \$index_bams,
   'delete_inputs!' => \$delete_inputs,
-  'index_bams=s' => \$index_bams,
   'directory_layout=s' => \$directory_layout,
+  'options=s' => \$options,
     );
+
+my @commands_list = qw(remove_duplicates mark_duplicates merge
+                    sort alignment_metrics);
+
+throw("Don't recognise command $command. Acceptable commands are: @commands_list")
+  if (! grep {$command eq $_ } @commands_list);
 
 
 my $db = ReseqTrack::DBSQL::DBAdaptor->new(
@@ -67,7 +83,12 @@ throw("Failed to find a collection for ".$name." ".$type_input." from ".$dbname)
 my $input_files = $collection->others;
 my @input_filepaths = map {$_->{'name'}} @$input_files;
 
-throw("no output_dir") if (!$output_dir);
+if (!$output_dir) {
+  $output_dir = (fileparse($input_filepaths[0]))[1];
+  my $file_type = $input_files->[0]->type;
+  $output_dir =~ s/$file_type\/*$/$type_output/;
+}
+
 if ($directory_layout) {
   my $rmia = $db->get_RunMetaInfoAdaptor;
   my $run_meta_info;
@@ -84,39 +105,47 @@ if ($directory_layout) {
   }
 }
 
-my $samtools_object = ReseqTrack::Tools::RunSamtools->new(
+my $picard_object = ReseqTrack::Tools::RunPicard->new(
                     -input_files             => \@input_filepaths,
-                    -program                 => $samtools,
                     -working_dir             => $output_dir,
                     -job_name                => $name,
-                    -output_to_working_dir   => 1,
-                    -flag_merge              => 1,
-                    -flag_index              => $index_bams,
+                    -index_bam_bai           => $index_bams,
+                    -options                 => $options,
+                    -java_exe                => $java_exe,
+                    -jvm_options             => $jvm_options,
+                    -picard_dir              => $picard_dir,
                     );
-$samtools_object->run;
+$picard_object->run($command);
 
 if($store){
   my $host = get_host_object($host_name, $db);
 
-  my $output_bams = $samtools_object->output_bam_files;
-  throw("found " . @$output_bams . " bams\n") if (@$output_bams != 1);
-  my $bam_path = $output_bams->[0];
-  throw("database already has file with name $bam_path")
-      if ($fa->fetch_by_name($bam_path));
-  my $bam = create_object_from_path($bam_path, $type_output, $host);
-  $bam->md5( run_md5($bam->name) );
-  my $collection = ReseqTrack::Collection->new(
-      -name => $name, -type => $type_output,
-      -others => $bam);
-  $ca->store($collection);
+  my $bam_paths = $picard_object->output_bam_files;
+  if (@$bam_paths) {
+    foreach my $path (@$bam_paths) {
+      throw("database already has file with name $path")
+          if ($fa->fetch_by_name($path));
+    }
+    my $bams = create_objects_from_path_list($bam_paths, $type_output, $host);
+    foreach my $bam (@$bams) {
+      $bam->md5( run_md5($bam->name) );
+    }
+    my $collection = ReseqTrack::Collection->new(
+        -name => $name, -type => $type_output,
+        -others => $bams);
+    $ca->store($collection);
+  }
 
   if ($index_bams) {
     my $fa = $db->get_FileAdaptor;
-    my $bai_paths = $samtools_object->output_bai_files;
-    throw("found " . @$bai_paths . " bais\n") if (@$bai_paths != 1);
-    my $bai = create_object_from_path($bai_paths->[0], $type_index, $host);
-    $bai->md5( run_md5($bai->name) );
-    $fa->store($bai);
+    my $bai_paths = $picard_object->output_bai_files;
+    if (@$bai_paths) {
+      my $bais = create_objects_from_pathlist($bai_paths, $type_index, $host);
+      foreach my $bai (@$bais) {
+        $bai->md5( run_md5($bai->name) );
+        $fa->store($bai);
+      }
+    }
   }
 }
 

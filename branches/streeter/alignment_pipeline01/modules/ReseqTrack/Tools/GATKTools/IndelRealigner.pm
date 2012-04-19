@@ -2,7 +2,7 @@
 
 =head1 NAME
 
-ReseqTrack::Tools::GATKTools::IndelReAligner
+ReseqTrack::Tools::GATKTools::IndelRealigner
 
 =head1 SYNOPSIS
 
@@ -23,7 +23,7 @@ my $REALIGN_AROUND_INDELS = $IR->new(
 
 =cut
 
-package ReseqTrack::Tools::GATKTools::IndelReAligner;
+package ReseqTrack::Tools::GATKTools::IndelRealigner;
 
 use strict;
 use warnings;
@@ -77,28 +77,6 @@ sub run_program {
 
 	return;
 }
-
-sub check_bai_exists{
-  my ($self) = @_;
-
-  my $bamindex = $self->input_bam . "\.bai";
-  return if (-e $bamindex);
-
-  print "$bamindex does not exist. Creating\n";
-
-  my $samtools_object = ReseqTrack::Tools::RunSamtools->new(
-                -program => $self->samtools, -flag_index => 1,
-                -input_files => $self->input_bam,
-                        );
-  $samtools_object->run;
-  $bamindex = $samtools_object->output_bai_files->[0];
-  $self->created_files($bamindex);
-
-  print "Created $bamindex\n\n";
-  return;
-
-}
-
 
 sub create_target_intervals_file {
   my $self = shift;

@@ -7,7 +7,8 @@ use vars qw(@ISA);
 use ReseqTrack::Tools::Exception qw(throw warning);
 use ReseqTrack::Tools::Argument qw(rearrange);
 use ReseqTrack::Tools::RunAlignment;
-use Data::Dumper;
+use Env qw( @PATH );
+use List::Util qw (first);
 
 @ISA = qw(ReseqTrack::Tools::RunAlignment);
 
@@ -42,17 +43,26 @@ sub new {
 	my ( $class, @args ) = @_;
 	my $self = $class->SUPER::new(@args);
 
-	my ( $samse_options, $sampe_options, $aln_options) =
-	  rearrange( [qw(SAMSE_OPTIONS SAMPE_OPTIONS ALN_OPTIONS)], @args );
+	my ( $samse_options, $sampe_options, $aln_options, $threads) =
+	  rearrange( [qw(SAMSE_OPTIONS SAMPE_OPTIONS ALN_OPTIONS THREADS)], @args );
 
 	#setting defaults
-	$self->program('bwa') unless ( $self->program );
+        if (!$self->program) {
+          if ($ENV{BWA}) {
+            $self->program($ENV{BWA} . '/bwa');
+          }
+          else {
+            $self->program(first {-x $_} map {"$_/bwa"} @PATH);
+          }
+        }
+
 	$self->aln_options("-q 15 ") unless ($aln_options);
 
 	
 	$self->samse_options($samse_options);
 	$self->sampe_options($sampe_options);
 	$self->aln_options($aln_options);
+        $self->threads($threads);
 
 	return $self;
 }
@@ -70,20 +80,16 @@ sub new {
 =cut
 
 
-sub module_run {
+sub run_alignment {
     my ($self) = @_;
     
     if ( $self->fragment_file ) {
-        my $sam = $self->run_samse_alignment();
-        $self->sam_files($sam);
+        $self->run_samse_alignment();
     }
     
     if ( $self->mate1_file && $self->mate2_file ) {
-        my $sam = $self->run_sampe_alignment();
-        $self->sam_files($sam);
+        $self->run_sampe_alignment();
     }
-
-    $self->run_samtools(1);
 
     return;
 }
@@ -91,35 +97,43 @@ sub module_run {
 sub run_sampe_alignment {
 	my ($self) = @_;
 	my $mate1_sai =
-	  $self->run_aln_mode( $self->mate1_file, $self->aln_options, "mate1" );
+	  $self->run_aln_mode( $self->mate1_file, "mate1" );
 	my $mate2_sai =
-	  $self->run_aln_mode( $self->mate2_file, $self->aln_options, "mate2" );
-	my $output_sam = $mate1_sai;
-	$output_sam =~ s/\.mate1\.sai/\_pe\.sam/;
-
+	  $self->run_aln_mode( $self->mate2_file, "mate2" );
+        my $output_sam = $self->working_dir() . '/'
+            . $self->job_name
+            . '_pe.sam';
+        $output_sam =~ s{//}{/};
 
 	if ( $self->paired_length() ) {
 		my $paired_length = " -a " . $self->paired_length;
 		$self->sampe_options($paired_length);
 	}
 
-	my $sampe_cmd =
-	    $self->program
-	  . " sampe "
-	  . $self->sampe_options . " "
-	  . $self->reference . " "
+	my $sampe_cmd = $self->program . " sampe ";
+	$sampe_cmd .= $self->sampe_options . " " if ($self->sampe_options);
+
+        if ($self->read_group_fields->{'ID'}) {
+          my $rg_string = q('@RG\tID:) . $self->read_group_fields->{'ID'};
+          RG:
+          while (my ($tag, $value) = each %{$self->read_group_fields}) {
+            next RG if ($tag eq 'ID');
+            next RG if (!$value);
+            $rg_string .= '\t' . $tag . ':' . $value;
+          }
+          $rg_string .= q(');
+          $sampe_cmd .= " -r $rg_string ";
+        }
+
+	$sampe_cmd .= $self->reference . " "
 	  . $mate1_sai . " "
 	  . $mate2_sai . " "
 	  . $self->mate1_file . " "
 	  . $self->mate2_file . " > "
 	  . $output_sam;
 
-	print $sampe_cmd. "\n";
-      
+        $self->sam_files($output_sam);
         $self->execute_command_line($sampe_cmd);
-
-	$self->files_to_delete($mate1_sai);
-	$self->files_to_delete($mate2_sai);
 
 	return $output_sam;
 }
@@ -128,36 +142,47 @@ sub run_samse_alignment {
 	my ($self) = @_;
 
 	my $sai_file =
-	  $self->run_aln_mode( $self->fragment_file, $self->aln_options, "frag" );
+	  $self->run_aln_mode( $self->fragment_file, "frag" );
 
-	my $output_sam = $sai_file;
+        my $output_sam = $self->working_dir() . '/'
+            . $self->job_name
+            . '_se.sam';
+        $output_sam =~ s{//}{/};
 
-	$output_sam =~ s/\.frag\.sai/\_se\.sam/;
+	my $samse_cmd = $self->program . " samse ";
+	$samse_cmd .= $self->samse_options . " " if ($self->samse_options);
 
-	my $samse_cmd =
-	    $self->program
-	  . " samse "
-	  . $self->samse_options . " "
-	  . $self->reference . " "
+        if ($self->read_group_fields->{'ID'}) {
+          my $rg_string = q('@RG\tID:) . $self->read_group_fields->{'ID'};
+          RG:
+          while (my ($tag, $value) = each %{$self->read_group_fields}) {
+            next RG if ($tag eq 'ID');
+            next RG if (!$value);
+            $rg_string .= '\t' . $tag . ':' . $value;
+          }
+          $rg_string .= q(');
+          $samse_cmd .= " -r $rg_string ";
+        }
+
+	$samse_cmd .= $self->reference . " "
 	  . $sai_file . " "
 	  . $self->fragment_file . " > "
 	  . $output_sam;
 	  
+        $self->sam_files($output_sam);
         $self->execute_command_line($samse_cmd);
-
-	$self->files_to_delete($sai_file);
 
 	return $output_sam;
 }
 
 sub run_aln_mode {
-	my ( $self, $input_file, $options, $file_ext ) = @_;
+	my ( $self, $input_file, $file_ext ) = @_;
 
-	my $bwa_log_file =  $self->working_dir. '/'. $$ .".log";
+	my $bwa_log_file =  $self->working_dir. '/'. $self->job_name .".$$.log";
 	$bwa_log_file =~ s/\/\//\//;
 	my $do_bwa_log_file = "2>> ". $bwa_log_file;
 
-	$options = $self->aln_options unless ($options);
+	my $options = $self->aln_options;
 
 	my $output_file = $self->working_dir . "/" . $self->job_name;
 	$output_file .= "." . $file_ext if ($file_ext);
@@ -167,13 +192,14 @@ sub run_aln_mode {
 	$aln_command .= $self->program;
 	$aln_command .= " aln ";
 	$aln_command .= $options . "  " if $options;
+        $aln_command .= '-t ' . $self->threads . ' ' if ($self->threads);
 	$aln_command .= $self->reference . " ";
 	$aln_command .= $input_file . " $do_bwa_log_file > ";
 	$aln_command .= $output_file;
 
+        $self->created_files($output_file);
+        $self->created_files($bwa_log_file);
         $self->execute_command_line($aln_command);
-
-	$self->files_to_delete($bwa_log_file);
 
 	return $output_file;
 }
@@ -203,6 +229,14 @@ sub aln_options {
         $self->{aln_options} = $arg;
     }
     return $self->{aln_options};
+}
+
+sub threads {
+    my $self = shift;
+    if (@_) {
+        $self->{threads} = shift;
+    }
+    return $self->{threads};
 }
 
 

@@ -83,6 +83,22 @@ sub fetch_incomplete_by_event{
   return \@run_meta_infos;
 }
 
+sub fetch_by_sample_id{
+  my ($self, $sample_id) = @_;
+  my $sql = "select ".$self->columns." from ".$self->table_name.
+      " where sample_id = ?";
+  my $sth = $self->prepare($sql);
+  $sth->bind_param(1, $sample_id);
+  $sth->execute;
+  my @run_meta_infos;
+  while(my $rowhashref = $sth->fetchrow_hashref){
+    my $run_meta_info = $self->object_from_hashref($rowhashref) if($rowhashref);
+    push(@run_meta_infos, $run_meta_info) if($run_meta_info);
+  }
+  $sth->finish;
+  return \@run_meta_infos;
+}
+
 sub fetch_by_sample_name{
   my ($self, $sample_name) = @_;
   my $sql = "select ".$self->columns." from ".$self->table_name.

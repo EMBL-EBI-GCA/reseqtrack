@@ -26,6 +26,7 @@ use ReseqTrack::Tools::FileSystemUtils qw (check_file_exists);
 use List::Util qw (first);
 use Env qw( @PATH );
 use File::Copy qw (move copy);
+use Scalar::Util qw( refaddr );
 
 use base qw(ReseqTrack::Tools::RunProgram);
 
@@ -77,13 +78,14 @@ sub new {
 
   my ( $reference_index, $reference,
         $flag_merge, $flag_sort, $flag_index, $flag_sam_to_bam, $flag_use_header,
-        $options_merge, $options_sort,
-        $output_to_working_dir)
+        $flag_calmd,
+        $options_merge, $options_sort, $options_calmd,
+        )
     = rearrange( [
          qw( REFERENCE_INDEX REFERENCE
                 FLAG_MERGE FLAG_SORT FLAG_INDEX FLAG_SAM_TO_BAM FLAG_USE_HEADER
-                OPTIONS_MERGE OPTIONS_SORT
-                OUTPUT_TO_WORKING_DIR )
+                FLAG_CALMD
+                OPTIONS_MERGE OPTIONS_SORT OPTIONS_CALMD)
 		], @args);
 
   #setting defaults
@@ -98,16 +100,18 @@ sub new {
 
   $self->reference_index($reference_index);
   $self->reference($reference);
-  $self->output_to_working_dir($output_to_working_dir);
 
   $self->options('merge', $options_merge);
   $self->options('sort', $options_sort);
+  $self->options('calmd', $options_calmd);
 
   $self->flags('merge', $flag_merge);
   $self->flags('sort', $flag_sort);
   $self->flags('index', $flag_index);
   $self->flags('sam_to_bam', $flag_sam_to_bam);
   $self->flags('use_header', $flag_use_header);
+  $self->flags('calmd', $flag_calmd);
+
 
   return $self;
 }
@@ -140,13 +144,9 @@ sub find_reference_index {
 sub run_sam_to_bam {
     my ($self, $input_sam) = @_;
 
-    my ($prefix, $dir) = fileparse($input_sam, qr/\.sam/ );
+    my $prefix = fileparse($input_sam, qr/\.sam/ );
 
-    if ($self->output_to_working_dir) {
-        $dir = $self->working_dir;
-    }
-
-    my $bam = "$dir/$prefix.bam";
+    my $bam = $self->working_dir . "/$prefix.bam";
     $bam =~ s{//}{/}g;
 
     my $cmd = $self->program . " view -bS ";
@@ -179,13 +179,9 @@ sub run_sam_to_bam {
 sub run_sort {
     my ($self, $input_bam) = @_;
 
-    my ($prefix, $dir) = fileparse($input_bam, qr/\.bam/ );
+    my $prefix = fileparse($input_bam, qr/\.bam/ );
 
-    if ($self->output_to_working_dir) {
-        $dir = $self->working_dir;
-    }
-
-    my $sorted_bam_prefix = "$dir/$prefix.srt";
+    my $sorted_bam_prefix = $self->working_dir . "/$prefix.srt";
     $sorted_bam_prefix =~ s{//}{/}g;
 
     my $sorted_bam = $sorted_bam_prefix . ".bam";
@@ -200,6 +196,29 @@ sub run_sort {
     $self->execute_command_line($cmd);
 
     return $sorted_bam;
+}
+
+sub run_calmd {
+    my ($self, $input_bam) = @_;
+
+    my $prefix = fileparse($input_bam, qr/\.bam/ );
+
+    my $calmd_bam = $self->working_dir . "/$prefix.calmd.bam";
+    $calmd_bam =~ s{//}{/}g;
+
+    my $cmd = $self->program . " calmd";
+
+    my $options = defined $self->options('calmd') ? $self->options('calmd') : '-Erb';
+    $cmd .= " " . $options;
+
+    $cmd .= " $input_bam ";
+    $cmd .= $self->reference;
+    $cmd .= " > $calmd_bam";
+
+    $self->created_files($calmd_bam);
+    $self->execute_command_line($cmd);
+
+    return $calmd_bam;
 }
 
 
@@ -242,17 +261,12 @@ sub run_index {
 sub run_merge {
     my ($self, $input_bam_list) = @_;
 
-    my $dir = $self->output_to_working_dir
-                            ? $self->working_dir
-                            : (fileparse( $input_bam_list->[0] ))[1];
-
-    my $merged_bam = $dir . '/' . $self->job_name . '.merged.bam';
+    my $merged_bam = $self->working_dir . '/' . $self->job_name . '.merged.bam';
     $merged_bam =~ s{//}{/}g;
     $self->created_files($merged_bam);
 
-    my $cmd;
     if (@$input_bam_list >1) {
-      $cmd = $self->program . " merge";
+      my $cmd = $self->program . " merge";
       if ($self->options('merge')) {
           $cmd .= " " . $self->options('merge');
       }
@@ -295,7 +309,8 @@ sub run_merge {
 sub run_program {
     my ($self) = @_;
 
-    my $current_files = $self->input_files;
+    my $input_files = $self->input_files;
+    my $current_files = $input_files;
 
     if ($self->flags('sam_to_bam')) {
         my @bams;
@@ -322,7 +337,16 @@ sub run_program {
         $current_files = [$merged_bam];
     }
 
-    if ($self->flags('sam_to_bam') || $self->flags('sort') || $self->flags('merge')) {
+    if ($self->flags('calmd')) {
+      my @calmd_bams;
+      foreach my $file(@$current_files) {
+        my $calmd_bam = $self->run_calmd($file);
+        push(@calmd_bams, $calmd_bam);
+      }
+      $current_files = \@calmd_bams;
+    }
+
+    if (refaddr($input_files) != refaddr($current_files)) {
       $self->output_files($current_files);
     }
 
@@ -374,26 +398,6 @@ sub reference_index {
   return $self->{'reference_index'};
 }
 
-
-=head2 output_to_working_dir
-
-  Arg [1]   : ReseqTrack::Tools::RunSamtools
-  Arg [2]   : boolean, optional, value of output_to_working_dir flag
-  Function  : accessor method for output_to_working_dir flag
-  Returntype: boolean, output_to_working_dir flag
-  Exceptions: n/a
-  Example   : $self->output_to_working_dir(1);
-
-=cut
-
-sub output_to_working_dir {
-    my $self = shift;
-    
-    if (@_) {
-        $self ->{'output_to_working_dir'} = (shift) ? 1 : 0;
-    }
-    return $self->{'output_to_working_dir'};
-}
 
 =head2 options
 

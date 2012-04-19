@@ -147,7 +147,6 @@ sub setup_samtools_object {
                       -job_name                => $self->job_name,
                       -reference_index         => $self->ref_samtools_index,
                       -reference               => $self->reference,
-                      -output_to_working_dir   => 1,
                       -flag_merge              => $self->flag_merge_bams,
                       -flag_sort               => $sort_bams,
                       -flag_index              => $self->flag_index_bams,

@@ -24,7 +24,7 @@ my $reference;
 my $ref_samtools_index;
 my $module_path = 'ReseqTrack::Tools::RunAlignment';
 my $module_name;
-my $module_constructor_args;
+my %module_constructor_args;
 my $program_file;
 my $samtools;
 my $host_name = '1000genomes.ebi.ac.uk';
@@ -56,7 +56,7 @@ my $directory_layout;
   'ref_samtools_index=s' => \$ref_samtools_index,
   'module_path=s' => \$module_path,
   'module_name=s' => \$module_name,
-  'module_constructor_args=s' => \$module_constructor_args,
+  'module_constructor_arg=s' => \%module_constructor_args,
   'program_file=s' => \$program_file,
   'samtools=s' => \$samtools,
   'host_name=s' => \$host_name,
@@ -134,7 +134,10 @@ if ($name =~ /[ESD]RR\d{6}/ &&
 }
 
 my $alignment_module = $module_path."::".$module_name;
-my $constructor_hash = parameters_hash($module_constructor_args);
+my $constructor_hash;
+while (my ($key, $value) = each %module_constructor_args) {
+  $constructor_hash->{'-'.$key} = $value;
+}
 $constructor_hash->{-input_files} = \@input_file_paths;
 $constructor_hash->{-program} = $program_file;
 $constructor_hash->{-working_dir} = $output_dir;
@@ -195,32 +198,6 @@ if($delete_inputs){
   }
 }
 
-sub parameters_hash{
-  my ($string) = @_;
-
-  my %parameters_hash;
-
-  if ($string) {
-    if($string =~  /,/ || $string =~ /=>/){
-      my @pairs = split (/,/, $string);
-      foreach my $pair(@pairs){
-        my ($key, $value) = split (/=>/, $pair);
-        if ($key && ($value || $value == 0)) {
-          $key   =~ s/^\s+//g;
-          $key   =~ s/\s+$//g;
-          $value =~ s/^\s+//g;
-          $value =~ s/\s+$//g;
-          $parameters_hash{$key} = $value;
-        } else {
-          $parameters_hash{$key} = 1;
-        }
-      }
-    }else{
-      $parameters_hash{'-options'} = $string;
-    }
-  }
-  return \%parameters_hash;
-}
 
 sub setup_alignment_module{
   my ($alignment_module, $args) = @_;

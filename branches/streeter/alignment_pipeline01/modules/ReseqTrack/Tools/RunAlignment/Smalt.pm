@@ -6,6 +6,8 @@ use warnings;
 use ReseqTrack::Tools::Exception qw(throw warning);
 use ReseqTrack::Tools::Argument qw(rearrange);
 use File::Basename qw(fileparse);
+use List::Util qw (first);
+use Env qw( @PATH );
 
 
 use base qw(ReseqTrack::Tools::RunAlignment);
@@ -17,9 +19,8 @@ sub new {
 
     my ( $index_prefix, $build_index_flag, $se_options, $pe_options)
         = rearrange( [
-            qw( INDEX_PREFIX BUILD_index_FLAG SE_OPTIONS PE_OPTIONS )
+            qw( INDEX_PREFIX BUILD_INDEX_FLAG SE_OPTIONS PE_OPTIONS )
                 ], @args);
-
 
 
     $self->index_prefix($index_prefix);
@@ -34,7 +35,7 @@ sub new {
 #################################################################
 
 
-sub module_run {
+sub run_alignment {
     my ($self) = @_;
 
     if ($self->build_index_flag){
@@ -42,16 +43,12 @@ sub module_run {
     }
 
     if ($self->fragment_file) {
-        my $sam = $self->run_se_alignment();
-        $self->sam_files($sam);
+        $self->run_se_alignment();
     }
 
     if ($self->mate1_file && $self->mate2_file) {
-        my $sam = $self->run_pe_alignment();
-        $self->sam_files($sam);
+        $self->run_pe_alignment();
     }
-
-    $self->run_samtools(0);
 
     return;
 }
@@ -75,6 +72,7 @@ sub run_se_alignment {
     $cmd_line .= ' ' . $self->index_prefix;
     $cmd_line .= ' ' . $frag_file;
 
+    $self->sam_files($sam);
     $self->execute_command_line($cmd_line);
 
     return $sam ;
@@ -105,6 +103,7 @@ sub run_pe_alignment {
     $cmd_line .= ' ' . $self->index_prefix;
     $cmd_line .= ' ' . $mate1_file . ' ' . $mate2_file;
 
+    $self->sam_files($sam);
     $self->execute_command_line($cmd_line);
 
     return $sam ;
@@ -125,14 +124,13 @@ sub build_index {
     my $cmd_line = $self->program;
     $cmd_line .= ' index ' . $index_prefix . ' ' . $reference;
 
-    $self->execute_command_line($cmd_line);
-
     $self->index_prefix($index_prefix);
 
     my $sma = $index_prefix . '.sma';
     my $smi = $index_prefix . '.smi';
 
-    $self->files_to_delete([$sma, $smi]);
+    $self->created_files([$sma, $smi]);
+    $self->execute_command_line($cmd_line);
 
     return;
 
@@ -146,9 +144,10 @@ sub decompress_file {
     $file_gunzipped =~ s{//}{/}g;
 
     my $gunzip_cmd = 'gunzip -c ' . $file . ' > ' . $file_gunzipped;
+
+    $self->created_files($file_gunzipped);
     $self->execute_command_line($gunzip_cmd);
     
-    $self->files_to_delete($file_gunzipped);
     return $file_gunzipped;
 }
 

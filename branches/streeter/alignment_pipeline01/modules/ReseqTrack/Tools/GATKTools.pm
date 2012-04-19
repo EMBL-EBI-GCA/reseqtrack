@@ -134,6 +134,28 @@ sub options {
     return $self->{'options'}->{$option_name};
 }
 
+sub check_bai_exists{
+  my ($self) = @_;
+
+  my $bamindex = $self->input_bam . "\.bai";
+  return if (-e $bamindex);
+
+  print "$bamindex does not exist. Creating\n";
+
+  my $samtools_object = ReseqTrack::Tools::RunSamtools->new(
+                -program => $self->samtools, -flag_index => 1,
+                -input_files => $self->input_bam,
+                        );
+  $samtools_object->run;
+  $bamindex = $samtools_object->output_bai_files->[0];
+  $self->created_files($bamindex);
+
+  print "Created $bamindex\n\n";
+  return;
+
+}
+
+
 
 
 

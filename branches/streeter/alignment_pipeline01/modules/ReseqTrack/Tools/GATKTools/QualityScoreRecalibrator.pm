@@ -49,10 +49,12 @@ sub new {
           $self->jar_file ("GenomeAnalysisTK.jar");
         }
         if (!$self->options('CountCovariates')) {
-          my $cc_options = "-l INFO -L '1;2;3;4;5;6;7;8;9;10;11;12;";
-          $cc_options .= "13;14;15;16;17;18;19;20;21;22;X;Y;MT' ";
-          $cc_options .= "-cov ReadGroupCovariate -cov QualityScoreCovariate ";
-          $cc_options .= "-cov CycleCovariate -cov DinucCovariate";
+          my $cc_options = '-l INFO';
+          foreach (1..22, 'X', 'Y', 'MT') {
+            $cc_options .= " -L $_";
+          }
+          $cc_options .= ' -cov ReadGroupCovariate -cov QualityScoreCovariate';
+          $cc_options .= ' -cov CycleCovariate -cov DinucCovariate';
           $self->options ('CountCovariates', $cc_options);
         }
 
@@ -78,6 +80,7 @@ sub run_program {
         check_file_exists($_) foreach (@{$self->known_sites_files});
         $self->check_jar_file_exists;
         check_file_exists($self->reference);
+        $self->check_bai_exists();
 
 
 	$self->create_recalibration_table();
