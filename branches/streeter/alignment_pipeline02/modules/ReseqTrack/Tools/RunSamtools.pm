@@ -77,16 +77,13 @@ sub new {
   my $self = $class->SUPER::new(@args);
 
   my ( $reference_index, $reference,
-        $flag_merge, $flag_sort, $flag_index, $flag_sam_to_bam, $flag_use_header,
-        $flag_calmd,
-        $options_merge, $options_sort, $options_calmd,
+        $index, $options,
         )
     = rearrange( [
          qw( REFERENCE_INDEX REFERENCE
-                FLAG_MERGE FLAG_SORT FLAG_INDEX FLAG_SAM_TO_BAM FLAG_USE_HEADER
-                FLAG_CALMD
-                OPTIONS_MERGE OPTIONS_SORT OPTIONS_CALMD)
-		], @args);
+                INDEX
+                OPTIONS
+                ) ], @args);
 
   #setting defaults
   if (!$self->program) {
@@ -101,17 +98,8 @@ sub new {
   $self->reference_index($reference_index);
   $self->reference($reference);
 
-  $self->options('merge', $options_merge);
-  $self->options('sort', $options_sort);
-  $self->options('calmd', $options_calmd);
-
-  $self->flags('merge', $flag_merge);
-  $self->flags('sort', $flag_sort);
-  $self->flags('index', $flag_index);
-  $self->flags('sam_to_bam', $flag_sam_to_bam);
-  $self->flags('use_header', $flag_use_header);
-  $self->flags('calmd', $flag_calmd);
-
+  $self->options($options);
+  $self->index($index);
 
   return $self;
 }
@@ -234,16 +222,18 @@ sub run_calmd {
 =cut
 
 sub run_index {
-    my ($self, $input_bam) = @_;
+    my $self = shift;
 
-    my $output_bai = $input_bam . ".bai";
+    my $output_files = $self->output_files;
+    my $files_to_index = @$output_files ? $output_files : $self->input_files;
 
-    my $cmd = $self->program . " index " . $input_bam;
+    foreach my $file (@$files_to_index) {
+        my $output_bai = $file . ".bai";
+        my $cmd = $self->program . " index " . $input_bam;
 
-    $self->created_files($output_bai);
-    $self->execute_command_line($cmd);
-
-    return $output_bai;
+        $self->output_files($output_bai);
+        $self->execute_command_line($cmd);
+    }
 }
 
 
@@ -307,54 +297,23 @@ sub run_merge {
 =cut
 
 sub run_program {
-    my ($self) = @_;
+    my ($self, $command) = @_;
 
-    my $input_files = $self->input_files;
-    my $current_files = $input_files;
+    throw("Please specify a command") if (! $command);
 
-    if ($self->flags('sam_to_bam')) {
-        my @bams;
-        foreach my $sam (@$current_files) {
-            my $bam = $self->run_sam_to_bam($sam);
-            push(@bams, $bam);
-        }
-
-        $current_files = \@bams;
+    if ($command eq 'remove_duplicates') {
+        $self->run_remove_duplicates;
+    }
+    elsif ($command eq 'index') {
+        $self->run_index;
+    }
+    else {
+        throw("Did not recognise command $command");
     }
 
-    if ($self->flags('sort')) {
-        my @sorted_bams;
-        foreach my $file (@$current_files) {
-            my $sorted_bam = $self->run_sort($file);
-            push(@sorted_bams, $sorted_bam);
-        }
-        
-        $current_files = \@sorted_bams;
-    }
 
-    if ($self->flags('merge')) {
-        my $merged_bam = $self->run_merge($current_files);
-        $current_files = [$merged_bam];
-    }
-
-    if ($self->flags('calmd')) {
-      my @calmd_bams;
-      foreach my $file(@$current_files) {
-        my $calmd_bam = $self->run_calmd($file);
-        push(@calmd_bams, $calmd_bam);
-      }
-      $current_files = \@calmd_bams;
-    }
-
-    if (refaddr($input_files) != refaddr($current_files)) {
-      $self->output_files($current_files);
-    }
-
-    if ($self->flags('index')) {
-        foreach my $file (@$current_files) {
-            my $index = $self->run_index($file);
-            $self->output_files($index);
-        }
+    if ($command ne 'index' && $self->index) {
+        $self->run_index;
     }
 
     return;

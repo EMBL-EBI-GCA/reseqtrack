@@ -97,9 +97,9 @@ sub run_alignment {
 sub run_sampe_alignment {
 	my ($self) = @_;
 	my $mate1_sai =
-	  $self->run_aln_mode( $self->mate1_file, "mate1" );
+	  $self->run_aln_mode( "mate1" );
 	my $mate2_sai =
-	  $self->run_aln_mode( $self->mate2_file, "mate2" );
+	  $self->run_aln_mode( "mate2" );
         my $output_sam = $self->working_dir() . '/'
             . $self->job_name
             . '_pe.sam';
@@ -128,11 +128,11 @@ sub run_sampe_alignment {
 	$sampe_cmd .= $self->reference . " "
 	  . $mate1_sai . " "
 	  . $mate2_sai . " "
-	  . $self->mate1_file . " "
-	  . $self->mate2_file . " > "
-	  . $output_sam;
+	  . $self->get_fastq_cmd_string('mate1') . " "
+	  . $self->get_fastq_cmd_string('mate2') . " > "
+          . $output_sam;
 
-        $self->sam_files($output_sam);
+        $self->output_files($output_sam);
         $self->execute_command_line($sampe_cmd);
 
 	return $output_sam;
@@ -142,7 +142,7 @@ sub run_samse_alignment {
 	my ($self) = @_;
 
 	my $sai_file =
-	  $self->run_aln_mode( $self->fragment_file, "frag" );
+	  $self->run_aln_mode( "frag" );
 
         my $output_sam = $self->working_dir() . '/'
             . $self->job_name
@@ -166,17 +166,17 @@ sub run_samse_alignment {
 
 	$samse_cmd .= $self->reference . " "
 	  . $sai_file . " "
-	  . $self->fragment_file . " > "
+	  . $self->get_fastq_cmd_string('frag') . " > "
 	  . $output_sam;
 	  
-        $self->sam_files($output_sam);
+        $self->output_files($output_sam);
         $self->execute_command_line($samse_cmd);
 
 	return $output_sam;
 }
 
 sub run_aln_mode {
-	my ( $self, $input_file, $file_ext ) = @_;
+	my ( $self, $fastq_type ) = @_;
 
 	my $bwa_log_file =  $self->working_dir. '/'. $self->job_name .".$$.log";
 	$bwa_log_file =~ s/\/\//\//;
@@ -185,8 +185,7 @@ sub run_aln_mode {
 	my $options = $self->aln_options;
 
 	my $output_file = $self->working_dir . "/" . $self->job_name;
-	$output_file .= "." . $file_ext if ($file_ext);
-	$output_file .= ".sai";
+	$output_file .= ".$fastq_type.sai";
 
 	my $aln_command;
 	$aln_command .= $self->program;
@@ -194,7 +193,8 @@ sub run_aln_mode {
 	$aln_command .= $options . "  " if $options;
         $aln_command .= '-t ' . $self->threads . ' ' if ($self->threads);
 	$aln_command .= $self->reference . " ";
-	$aln_command .= $input_file . " $do_bwa_log_file > ";
+	$aln_command .= get_fastq_cmd_string($fastq_type);
+	$aln_command .= " $do_bwa_log_file > ";
 	$aln_command .= $output_file;
 
         $self->created_files($output_file);
