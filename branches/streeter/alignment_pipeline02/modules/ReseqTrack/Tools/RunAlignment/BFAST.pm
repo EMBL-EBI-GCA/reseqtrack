@@ -101,7 +101,6 @@ sub run_localalign {
 	$cmd_line = $self->program() . " localalign ";
 	$cmd_line .= " -f " . $self->reference() . " ";
 	$cmd_line .= " -m  $tmp_bmf ";
-        $cmd_line .= " -T " . $self->tmp_dir;
 	$cmd_line .= " -A 1 -o 20 -n 4 -t > $tmp_baf ";
         
         $self->created_files($tmp_baf);

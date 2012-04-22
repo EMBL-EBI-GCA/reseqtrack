@@ -25,7 +25,7 @@ use warnings;
 use ReseqTrack::Tools::Exception qw(throw warning stack_trace_dump);
 use ReseqTrack::Tools::Argument qw(rearrange);
 use ReseqTrack::Tools::SequenceIndexUtils qw(assign_files);
-use File::Basename;
+use File::Basename qw(fileparse);
 
 use base qw(ReseqTrack::Tools::RunProgram);
 
@@ -211,6 +211,37 @@ sub get_fastq_cmd_string {
         ? "< (gunzip -c $fastq | sed -n '$first_line,$last_line p')"
         : "< (sed -n '$first_line,$last_line p' $fastq)";
   return $cmd;
+}
+
+sub get_static_fastq {
+  my $fastq_type = shift;
+  my $fastq = $fastq_type eq 'frag' ? $self->frag_file
+            : $fastq_type eq 'mate1' ? $self->mate1_file
+            : $fastq_type eq 'mate2' ? $self->mate2_file
+            : '';
+  throw("no file for fastq_type $fastq_type) if (!$fastq);
+
+  my $first_read = $self->$first_read;
+  my $last_read = $self->$last_read;
+  return $fastq if (!$first_read && !$last_read);
+
+  my $first_line = $first_read ? $first_read * 4 - 3 : 1;
+  my $last_line = $last_read ? $last_read * 4 : '$';
+
+  my $temp_fastq = $self->working_dir . "/" . $self->job_name;
+  $temp_fastq .= "_1" if ($fastq_type eq 'mate1');
+  $temp_fastq .= "_2" if ($fastq_type eq 'mate2');
+  $temp_fastq =~ s{//}{/}g;
+
+  my $cmd = ($fastq =~ /\.gz(?:ip)$/)
+        ? "gunzip -c $fastq | sed -n '$first_line,$last_line p'"
+        : "sed -n '$first_line,$last_line p' $fastq";
+  $cmd .= " > $temp_fastq";
+
+  $self->created_files($temp_fastq);
+  $self->execute_cmd($cmd);
+
+  return $temp_fastq;
 }
 
 

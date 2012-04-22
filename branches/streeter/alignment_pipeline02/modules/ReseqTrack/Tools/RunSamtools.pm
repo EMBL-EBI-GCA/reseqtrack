@@ -22,7 +22,7 @@ use warnings;
 use ReseqTrack::Tools::Exception qw(throw);
 use ReseqTrack::Tools::Argument qw(rearrange);
 use File::Basename qw(fileparse);
-use ReseqTrack::Tools::FileSystemUtils qw (check_file_exists);
+use ReseqTrack::Tools::FileSystemUtils qw(check_file_exists check_file_does_not_exist make_directory);
 use List::Util qw (first);
 use Env qw( @PATH );
 use File::Copy qw (move copy);
@@ -77,12 +77,11 @@ sub new {
   my $self = $class->SUPER::new(@args);
 
   my ( $reference_index, $reference,
-        $index, $options,
+        $flags,
         )
     = rearrange( [
          qw( REFERENCE_INDEX REFERENCE
-                INDEX
-                OPTIONS
+                FLAGS
                 ) ], @args);
 
   #setting defaults
@@ -98,11 +97,52 @@ sub new {
   $self->reference_index($reference_index);
   $self->reference($reference);
 
-  $self->options($options);
-  $self->index($index);
+  $self->flags($flags);
 
   return $self;
 }
+
+sub run_fix_and_calmd {
+    my $self = shift;
+
+    my $samtools = $self->program;
+    my $reference = $self->reference;
+
+    my $tmp_dir = $self->working_dir()
+          .'/'.$self->job_name.'.'.$$.'.tmp/';
+    check_file_does_not_exist($tmp_dir);
+    $self->created_files($tmp_dir);
+    make_directory($tmp_dir);
+
+    foreach my $input (@{$self->input_files}) {
+      my $prefix = fileparse($sam, qr/\.[sb]am/ );
+      my $output_bam = $self->working_dir . "/$prefix.fixed.bam";
+      $output_bam =~ s{//}{/}g;
+
+      my @cmds;
+      if ($input =~ /\.sam$/) {
+        my $sam_to_bam_cmd = $self->flags('use_reference_index') ?
+                ? "$samtools view -bSu -t " . $self->find_reference_index . " $input"
+                : "$samtools view -bSu $input";
+        push(@cmds, $sam_to_bam_cmd);
+        push(@cmds, "$samtools sort -n -o - $tmp_dir/$prefix.nsort");
+      }
+      else {
+        push(@cmds, "$samtools sort -n -o $input $tmp_dir/$prefix.nsort");
+      }
+        
+      push(@cmds, "$samtools fixmate /dev/stdin /dev/stdout");
+      push(@cmds, "$samtools sort -o - $tmpdir/$prefix.csort");
+      push(@cmds, "$samtools calmd -Erb - $reference");
+
+      my $cmd = join(' | ', @cmds) . " > $output_bam";
+
+      $self->output_files($output_bam);
+      $self->execute_command_line($cmd);
+    }
+}
+
+
 
 sub find_reference_index {
     my ($self) = @_;
@@ -115,7 +155,7 @@ sub find_reference_index {
     }
 
     check_file_exists($self->reference_index);
-    return;
+    return $self->reference_index;
 }
 
 =head2 run_sam_to_bam
@@ -130,27 +170,29 @@ sub find_reference_index {
 =cut
 
 sub run_sam_to_bam {
-    my ($self, $input_sam) = @_;
+    my ($self) = @_;
 
     my $prefix = fileparse($input_sam, qr/\.sam/ );
+    my $samtools = $self->program;
 
-    my $bam = $self->working_dir . "/$prefix.bam";
-    $bam =~ s{//}{/}g;
+    foreach my $input (@{$self->input_files}) {
+      my $prefix = fileparse($sam, qr/\.[sb]am/ );
 
-    my $cmd = $self->program . " view -bS ";
+      my $bam = $self->working_dir . "/$prefix.bam";
+      $bam =~ s{//}{/}g;
 
-    if (! $self->flags('use_header')) {
-        $self->find_reference_index;
-        $cmd .= "-t " . $self->reference_index . " ";
+      my $cmd = $self->program . " view -bS ";
+
+      if ($self->flags('use_reference_index')) {
+          $cmd .= "-t " . $self->find_reference_index . " ";
+      }
+
+      $cmd .= "$input > $bam";
+
+      $self->created_files($bam);
+      $self->execute_command_line($cmd);
     }
 
-    $cmd .= $input_sam . " > ";
-    $cmd .= $bam;
-
-    $self->created_files($bam);
-    $self->execute_command_line($cmd);
-
-    return $bam;
 }
 
 =head2 run_sort
@@ -165,49 +207,40 @@ sub run_sam_to_bam {
 =cut
 
 sub run_sort {
-    my ($self, $input_bam) = @_;
+    my $self = shift;
 
-    my $prefix = fileparse($input_bam, qr/\.bam/ );
+    my $samtools = $self->program;
 
-    my $sorted_bam_prefix = $self->working_dir . "/$prefix.srt";
-    $sorted_bam_prefix =~ s{//}{/}g;
+    my $tmp_dir = $self->working_dir()
+          .'/'.$self->job_name.'.'.$$.'.tmp/';
+    check_file_does_not_exist($tmp_dir);
+    $self->created_files($tmp_dir);
+    make_directory($tmp_dir);
 
-    my $sorted_bam = $sorted_bam_prefix . ".bam";
+    foreach my $input (@{$self->input_files}) {
+      my $prefix = fileparse($sam, qr/\.[sb]am/ );
+      my $output_bam = $self->working_dir . "/$prefix.sorted.bam";
+      $output_bam =~ s{//}{/}g;
 
-    my $cmd = $self->program . " sort";
-    if ($self->options('sort')) {
-        $cmd .= " " . $self->options('sort');
+      my @cmds;
+      if ($input =~ /\.sam$/) {
+        my $sam_to_bam_cmd = $self->flags('use_reference_index') ?
+                ? "$samtools view -bSu -t " . $self->find_reference_index . " $input"
+                : "$samtools view -bSu $input";
+        push(@cmds, $sam_to_bam_cmd);
+        push(@cmds, "$samtools sort -n -o - $tmpdir/$prefix.sort");
+      }
+      else {
+        push(@cmds, "$samtools sort -n -o $input $tmpdir/$prefix.sort");
+      }
+
+      my $cmd = join(' | ', @cmds) . " > $output_bam";
+
+      $self->output_files($output_bam);
+      $self->execute_command_line($cmd);
     }
-    $cmd .= " $input_bam $sorted_bam_prefix";
-
-    $self->created_files($sorted_bam);
-    $self->execute_command_line($cmd);
-
-    return $sorted_bam;
 }
 
-sub run_calmd {
-    my ($self, $input_bam) = @_;
-
-    my $prefix = fileparse($input_bam, qr/\.bam/ );
-
-    my $calmd_bam = $self->working_dir . "/$prefix.calmd.bam";
-    $calmd_bam =~ s{//}{/}g;
-
-    my $cmd = $self->program . " calmd";
-
-    my $options = defined $self->options('calmd') ? $self->options('calmd') : '-Erb';
-    $cmd .= " " . $options;
-
-    $cmd .= " $input_bam ";
-    $cmd .= $self->reference;
-    $cmd .= " > $calmd_bam";
-
-    $self->created_files($calmd_bam);
-    $self->execute_command_line($cmd);
-
-    return $calmd_bam;
-}
 
 
 =head2 run_index
@@ -224,10 +257,7 @@ sub run_calmd {
 sub run_index {
     my $self = shift;
 
-    my $output_files = $self->output_files;
-    my $files_to_index = @$output_files ? $output_files : $self->input_files;
-
-    foreach my $file (@$files_to_index) {
+    foreach my $file (@{$self->input_files}) {
         my $output_bai = $file . ".bai";
         my $cmd = $self->program . " index " . $input_bam;
 
@@ -249,36 +279,49 @@ sub run_index {
 =cut
 
 sub run_merge {
-    my ($self, $input_bam_list) = @_;
+    my $self = shift;
 
-    my $merged_bam = $self->working_dir . '/' . $self->job_name . '.merged.bam';
-    $merged_bam =~ s{//}{/}g;
-    $self->created_files($merged_bam);
+    my $samtools = $self->program;
+    my $flag_sort = $self->flags('sort_inputs');
 
-    if (@$input_bam_list >1) {
-      my $cmd = $self->program . " merge";
-      if ($self->options('merge')) {
-          $cmd .= " " . $self->options('merge');
-      }
-      $cmd .= " " . $merged_bam;
-      foreach my $bam (@$input_bam_list) {
-          $cmd .= " " . $bam;
-      }
-      $self->execute_command_line($cmd);
+    my $output_bam = $self->working_dir . '/' . $self->job_name . '.merged.bam';
+    $output_bam =~ s{//}{/}g;
+
+    my $tmp_dir;
+    if ($flag_sort) {
+        $tmp_dir = $self->working_dir()
+              .'/'.$self->job_name.'.'.$$.'.tmp/';
+        check_file_does_not_exist($tmp_dir);
+        $self->created_files($tmp_dir);
+        make_directory($tmp_dir);
     }
-    elsif (@$input_bam_list ==1) {
-      my $input_bam = $input_bam_list->[0];
-      if (grep {$_ eq $input_bam} @{$self->created_files}) {
-        print "renaming $input_bam to $merged_bam\n";
-        move($input_bam, $merged_bam)
-              or throw "copy failed: $!";
+
+    my $cmd = "$samtools merge $output_bam";
+
+    foreach my $input (@{$self->input_files}) {
+      my $prefix = fileparse($sam, qr/\.[sb]am/ );
+      if ($input =~ /\.sam$/) {
+        my $sam_to_bam_cmd = $self->flags('use_reference_index') ?
+                ? "$samtools view -bSu -t " . $self->find_reference_index . " $input"
+                : "$samtools view -bSu $input";
+        if ($flag_sort) {
+          $cmd .= " <($sam_to_bam_cmd | $samtools sort -n -o - $tmp_dir/$prefix.sort)";
+        }
+        else {
+          $cmd .= " <($sam_to_bam_cmd)"
+        }
       }
       else {
-        print "copying $input_bam to $merged_bam\n";
-        copy($input_bam, $merged_bam)
-              or throw "copy failed: $!";
-      }
+        if ($flag_sort) {
+            $cmd .= " <($samtools sort -n -o $input $tmp_dir/$prefix.sort)";
+        }
+        else {
+          $cmd .= " $input";
+        }
     }
+
+    $self->output_files($output_bam);
+    $self->execute_command_line($cmd);
 
     return $merged_bam;
 }
@@ -304,16 +347,14 @@ sub run_program {
     if ($command eq 'remove_duplicates') {
         $self->run_remove_duplicates;
     }
+    elsif ($command eq 'merge') {
+        $self->run_merge;
+    }
     elsif ($command eq 'index') {
         $self->run_index;
     }
     else {
         throw("Did not recognise command $command");
-    }
-
-
-    if ($command ne 'index' && $self->index) {
-        $self->run_index;
     }
 
     return;

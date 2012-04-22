@@ -95,7 +95,7 @@ sub run_se_alignment {
     }
 
     $cmd_line .= " -o " . $sam;
-    $cmd_line .= " -M " . $self->fragment_file;
+    $cmd_line .= " -M " . $self->get_static_fastq('frag');
 
     $self->sam_files($sam);
     $self->execute_command_line($cmd_line);
@@ -139,7 +139,8 @@ sub run_pe_alignment {
     }
 
     $cmd_line .= " -o " . $sam;
-    $cmd_line .= " -M " . $self->mate1_file . " " . $self->mate2_file;
+    $cmd_line .= " -M " . $self->get_static_fastq('mate1)
+                . " " . $self->get_static_fastq('mate2);
 
     $self->sam_files($sam);
     $self->execute_command_line($cmd_line);
