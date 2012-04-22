@@ -194,15 +194,16 @@ sub read_group_fields {
 }
 
 sub get_fastq_cmd_string {
-  my $fastq_type = shift;
+  my ($self, $fastq_type) = @_;
+
   my $fastq = $fastq_type eq 'frag' ? $self->frag_file
             : $fastq_type eq 'mate1' ? $self->mate1_file
             : $fastq_type eq 'mate2' ? $self->mate2_file
             : '';
-  throw("no file for fastq_type $fastq_type) if (!$fastq);
+  throw("no file for fastq_type $fastq_type") if (!$fastq);
 
-  my $first_read = $self->$first_read;
-  my $last_read = $self->$last_read;
+  my $first_read = $self->first_read;
+  my $last_read = $self->last_read;
   return $fastq if (!$first_read && !$last_read);
 
   my $first_line = $first_read ? $first_read * 4 - 3 : 1;
@@ -214,15 +215,15 @@ sub get_fastq_cmd_string {
 }
 
 sub get_static_fastq {
-  my $fastq_type = shift;
+  my ($self, $fastq_type) = @_;
   my $fastq = $fastq_type eq 'frag' ? $self->frag_file
             : $fastq_type eq 'mate1' ? $self->mate1_file
             : $fastq_type eq 'mate2' ? $self->mate2_file
             : '';
-  throw("no file for fastq_type $fastq_type) if (!$fastq);
+  throw("no file for fastq_type $fastq_type") if (!$fastq);
 
-  my $first_read = $self->$first_read;
-  my $last_read = $self->$last_read;
+  my $first_read = $self->first_read;
+  my $last_read = $self->last_read;
   return $fastq if (!$first_read && !$last_read);
 
   my $first_line = $first_read ? $first_read * 4 - 3 : 1;

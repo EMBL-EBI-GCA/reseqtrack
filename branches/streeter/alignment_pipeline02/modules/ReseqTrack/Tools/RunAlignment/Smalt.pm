@@ -61,18 +61,18 @@ sub run_se_alignment {
         . '_se.sam';
     $sam =~ s{//}{/};
 
-    my $frag_file = $self->fragment_file;
-    if ($frag_file =~ /\.gz$/) {
-        $frag_file = $self->decompress_file($frag_file);
-    }
+    my $fastq = $self->fragment_file;
+    my $fastq_cmd_string = ($self->first_read || $self->last_read) ? $self->get_fastq_cmd_string('frag')
+          : ($fastq =~ /\.gz(?:ip)$/) ? "< (gunzip -c $fastq )"
+          : $fastq;
 
     my $cmd_line = $self->program . ' map';
     $cmd_line .= ' ' . $self->se_options if $self->se_options;
     $cmd_line .= ' -f sam -o ' . $sam;
     $cmd_line .= ' ' . $self->index_prefix;
-    $cmd_line .= ' ' . $frag_file;
+    $cmd_line .= ' ' . $fastq_cmd_string;
 
-    $self->sam_files($sam);
+    $self->output_files($sam);
     $self->execute_command_line($cmd_line);
 
     return $sam ;
@@ -86,24 +86,23 @@ sub run_pe_alignment {
         . '_pe.sam';
     $sam =~ s{//}{/};
 
-    my $mate1_file = $self->mate1_file;
-    if ($mate1_file =~ /\.gz$/) {
-        $mate1_file = $self->decompress_file($mate1_file);
-    }
+    my $fastq_mate1 = $self->mate1_file;
+    my $fastq_mate2 = $self->mate2_file;
 
-    my $mate2_file = $self->mate2_file;
-    if ($mate2_file =~ /\.gz$/) {
-        $mate2_file = $self->decompress_file($mate2_file);
-    }
-
+    my $fastq_cmd_string_mate1 = ($self->first_read || $self->last_read) ? $self->get_fastq_cmd_string('mate1')
+          : ($fastq_mate1 =~ /\.gz(?:ip)$/) ? "< (gunzip -c $fastq_mate1 )"
+          : $fastq_mate1;
+    my $fastq_cmd_string_mate2 = ($self->first_read || $self->last_read) ? $self->get_fastq_cmd_string('mate2')
+          : ($fastq_mate2 =~ /\.gz(?:ip)$/) ? "< (gunzip -c $fastq_mate2 )"
+          : $fastq_mate2;
 
     my $cmd_line = $self->program . ' map';
     $cmd_line .= ' ' . $self->se_options if $self->se_options;
     $cmd_line .= ' -f sam -o ' . $sam;
     $cmd_line .= ' ' . $self->index_prefix;
-    $cmd_line .= ' ' . $mate1_file . ' ' . $mate2_file;
+    $cmd_line .= ' ' . $fastq_cmd_string_mate1 . ' ' . $fastq_cmd_string_mate2;
 
-    $self->sam_files($sam);
+    $self->output_files($sam);
     $self->execute_command_line($cmd_line);
 
     return $sam ;
@@ -117,12 +116,10 @@ sub build_index {
     $index_prefix =~ s{//}{/};
 
     my $reference = $self->reference;
-    if ($reference =~ /\.gz$/) {
-        $reference = $self->decompress_file($reference);
-    }
+    my $reference_cmd_string = ($reference =~ /\.gz(?:ip)$/) ? "<(gunzip -c $reference)" : $reference;
 
     my $cmd_line = $self->program;
-    $cmd_line .= ' index ' . $index_prefix . ' ' . $reference;
+    $cmd_line .= ' index ' . $index_prefix . ' ' . $reference_cmd_string;
 
     $self->index_prefix($index_prefix);
 
@@ -134,21 +131,6 @@ sub build_index {
 
     return;
 
-}
-
-sub decompress_file {
-    my ($self, $file) = @_;
-
-    my $name =  fileparse($file, qr/\.gz/);
-    my $file_gunzipped = $self->working_dir . '/' . $name;
-    $file_gunzipped =~ s{//}{/}g;
-
-    my $gunzip_cmd = 'gunzip -c ' . $file . ' > ' . $file_gunzipped;
-
-    $self->created_files($file_gunzipped);
-    $self->execute_command_line($gunzip_cmd);
-    
-    return $file_gunzipped;
 }
 
 

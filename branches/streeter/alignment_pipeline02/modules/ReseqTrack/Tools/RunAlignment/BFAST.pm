@@ -119,13 +119,13 @@ sub run_match {
 	$cmd_line = $self->preprocess_exe() . " ";
 
         if ( $self->mate1 ) {
-            $cmd_line .= $self_get_fastq_cmd_string('mate1') . " ";
+            $cmd_line .= $self->get_fastq_cmd_string('mate1') . " ";
         }
         if ( $self->mate2 ) {
-            $cmd_line .= $self_get_fastq_cmd_string('mate2') . " ";
+            $cmd_line .= $self->get_fastq_cmd_string('mate2') . " ";
         }
         if ( $self->fragment_file ) {
-            $cmd_line .= $self_get_fastq_cmd_string('frag') . " ";
+            $cmd_line .= $self->get_fastq_cmd_string('frag') . " ";
         }
 
 	$cmd_line .= " \| ";

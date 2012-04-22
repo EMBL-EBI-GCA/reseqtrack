@@ -139,8 +139,8 @@ sub run_pe_alignment {
     }
 
     $cmd_line .= " -o " . $sam;
-    $cmd_line .= " -M " . $self->get_static_fastq('mate1)
-                . " " . $self->get_static_fastq('mate2);
+    $cmd_line .= " -M " . $self->get_static_fastq('mate1')
+                . " " . $self->get_static_fastq('mate2');
 
     $self->sam_files($sam);
     $self->execute_command_line($cmd_line);

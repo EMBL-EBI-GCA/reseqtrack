@@ -115,13 +115,13 @@ sub run_fix_and_calmd {
     make_directory($tmp_dir);
 
     foreach my $input (@{$self->input_files}) {
-      my $prefix = fileparse($sam, qr/\.[sb]am/ );
+      my $prefix = fileparse($input, qr/\.[sb]am/ );
       my $output_bam = $self->working_dir . "/$prefix.fixed.bam";
       $output_bam =~ s{//}{/}g;
 
       my @cmds;
       if ($input =~ /\.sam$/) {
-        my $sam_to_bam_cmd = $self->flags('use_reference_index') ?
+        my $sam_to_bam_cmd = $self->flags('use_reference_index')
                 ? "$samtools view -bSu -t " . $self->find_reference_index . " $input"
                 : "$samtools view -bSu $input";
         push(@cmds, $sam_to_bam_cmd);
@@ -132,7 +132,7 @@ sub run_fix_and_calmd {
       }
         
       push(@cmds, "$samtools fixmate /dev/stdin /dev/stdout");
-      push(@cmds, "$samtools sort -o - $tmpdir/$prefix.csort");
+      push(@cmds, "$samtools sort -o - $tmp_dir/$prefix.csort");
       push(@cmds, "$samtools calmd -Erb - $reference");
 
       my $cmd = join(' | ', @cmds) . " > $output_bam";
@@ -172,11 +172,10 @@ sub find_reference_index {
 sub run_sam_to_bam {
     my ($self) = @_;
 
-    my $prefix = fileparse($input_sam, qr/\.sam/ );
     my $samtools = $self->program;
 
     foreach my $input (@{$self->input_files}) {
-      my $prefix = fileparse($sam, qr/\.[sb]am/ );
+      my $prefix = fileparse($input, qr/\.[sb]am/ );
 
       my $bam = $self->working_dir . "/$prefix.bam";
       $bam =~ s{//}{/}g;
@@ -218,20 +217,20 @@ sub run_sort {
     make_directory($tmp_dir);
 
     foreach my $input (@{$self->input_files}) {
-      my $prefix = fileparse($sam, qr/\.[sb]am/ );
+      my $prefix = fileparse($input, qr/\.[sb]am/ );
       my $output_bam = $self->working_dir . "/$prefix.sorted.bam";
       $output_bam =~ s{//}{/}g;
 
       my @cmds;
       if ($input =~ /\.sam$/) {
-        my $sam_to_bam_cmd = $self->flags('use_reference_index') ?
+        my $sam_to_bam_cmd = $self->flags('use_reference_index')
                 ? "$samtools view -bSu -t " . $self->find_reference_index . " $input"
                 : "$samtools view -bSu $input";
         push(@cmds, $sam_to_bam_cmd);
-        push(@cmds, "$samtools sort -n -o - $tmpdir/$prefix.sort");
+        push(@cmds, "$samtools sort -n -o - $tmp_dir/$prefix.sort");
       }
       else {
-        push(@cmds, "$samtools sort -n -o $input $tmpdir/$prefix.sort");
+        push(@cmds, "$samtools sort -n -o $input $tmp_dir/$prefix.sort");
       }
 
       my $cmd = join(' | ', @cmds) . " > $output_bam";
@@ -259,7 +258,7 @@ sub run_index {
 
     foreach my $file (@{$self->input_files}) {
         my $output_bai = $file . ".bai";
-        my $cmd = $self->program . " index " . $input_bam;
+        my $cmd = $self->program . " index " . $file;
 
         $self->output_files($output_bai);
         $self->execute_command_line($cmd);
@@ -299,9 +298,9 @@ sub run_merge {
     my $cmd = "$samtools merge $output_bam";
 
     foreach my $input (@{$self->input_files}) {
-      my $prefix = fileparse($sam, qr/\.[sb]am/ );
+      my $prefix = fileparse($input, qr/\.[sb]am/ );
       if ($input =~ /\.sam$/) {
-        my $sam_to_bam_cmd = $self->flags('use_reference_index') ?
+        my $sam_to_bam_cmd = $self->flags('use_reference_index')
                 ? "$samtools view -bSu -t " . $self->find_reference_index . " $input"
                 : "$samtools view -bSu $input";
         if ($flag_sort) {
@@ -318,12 +317,12 @@ sub run_merge {
         else {
           $cmd .= " $input";
         }
+      }
     }
 
     $self->output_files($output_bam);
     $self->execute_command_line($cmd);
 
-    return $merged_bam;
 }
 
 
