@@ -325,6 +325,12 @@ sub run_merge {
 
 }
 
+sub run_remove_duplicates {
+    my $self = shift;
+
+    return;
+}
+
 
 
 =head2 run
@@ -341,20 +347,17 @@ sub run_merge {
 sub run_program {
     my ($self, $command) = @_;
 
-    throw("Please specify a command") if (! $command);
+    my %subs = {'remove_duplicates' => \&run_remove_duplicates,
+                'merge'             => \&run_merge,
+                'sort'              => \&run_sort,
+                'index'             => \&run_index,
+                'fix_and_calmd'     => \&run_fix_and_calmd ,
+                'sam_to_bam'        => \&run_sam_to_bam,
+    }
 
-    if ($command eq 'remove_duplicates') {
-        $self->run_remove_duplicates;
-    }
-    elsif ($command eq 'merge') {
-        $self->run_merge;
-    }
-    elsif ($command eq 'index') {
-        $self->run_index;
-    }
-    else {
-        throw("Did not recognise command $command");
-    }
+    throw("Did not recognise command $command") if (!defined $subs{$command});
+
+    $self->{$subs{$command}};
 
     return;
 }
@@ -456,17 +459,6 @@ sub flags {
     return $self->{'flags'}->{$flag_name};
 }
 
-sub output_bai_files {
-  my $self = shift;
-  my @files = grep {/\.bai$/} @{$self->output_files};
-  return \@files;
-}
-
-sub output_bam_files {
-  my $self = shift;
-  my @files = grep {/\.bam$/} @{$self->output_files};
-  return \@files;
-}
 
 1;
 
