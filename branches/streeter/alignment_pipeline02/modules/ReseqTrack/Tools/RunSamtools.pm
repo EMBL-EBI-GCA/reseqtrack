@@ -353,11 +353,11 @@ sub run_program {
                 'index'             => \&run_index,
                 'fix_and_calmd'     => \&run_fix_and_calmd ,
                 'sam_to_bam'        => \&run_sam_to_bam,
-    }
+    };
 
     throw("Did not recognise command $command") if (!defined $subs{$command});
 
-    $self->{$subs{$command}};
+    &{$subs{$command}}($self);
 
     return;
 }
