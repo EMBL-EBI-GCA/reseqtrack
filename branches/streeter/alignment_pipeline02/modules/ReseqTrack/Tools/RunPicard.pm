@@ -24,7 +24,7 @@ use ReseqTrack::Tools::FileSystemUtils qw(check_file_does_not_exist make_directo
 use File::Basename qw(fileparse);
 use List::Util qw (first);
 use Env qw( @PATH );
-use File::Copy qw (copy);
+use File::Copy qw (move copy);
 
 use base qw(ReseqTrack::Tools::RunProgram);
 
@@ -57,17 +57,27 @@ use base qw(ReseqTrack::Tools::RunProgram);
 
 =cut
 
+sub DEFAULT_OPTIONS { return [
+        'input_sort_status' => '', # can be 'c' for coordinate or 'n' for name
+        'sort_order' => 'coordinate',
+        'create_index' => 0,
+        'index_ext' => '.bai', #can be '.bai' or '.bam.bai'
+        'verbosity' => 'INFO',
+        'max_records_in_ram' => 500000,
+        'remove_duplicates => 0,
+        'use_threading' => 0,
+        ];
+}
+
 
 sub new {
   my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
 
   my ( $java_exe, $picard_dir, $jvm_options,
-        $index_bai, $index_bam_bai,
         )
     = rearrange( [
          qw( JAVA_EXE PICARD_DIR JVM_OPTIONS
-                INDEX_BAI INDEX_BAM_BAI
         )], @args);
 
   if (!$self->program && !$java_exe) {
@@ -77,12 +87,6 @@ sub new {
 
   $self->picard_dir($picard_dir || $ENV{PICARD});
   $self->jvm_options( defined $jvm_options ? $jvm_options : '-Xmx2g' );
-
-  if ($index_bai && $index_bam_bai) {
-      throw( "use -index_bai OR -index_bam_bai, not both" );
-  }
-  $self->options('index_bam_bai', $index_bam_bai);
-  $self->options('index_bai', $index_bai);
 
   return $self;
 }
@@ -105,8 +109,7 @@ sub run_program{
 
     throw("need a picard_dir") if ! $self->picard_dir;
 
-    my %subs = {'remove_duplicates' => \&run_remove_duplicates,
-                'mark_duplicates'   => \&run_mark_duplicates,
+    my %subs = { 'mark_duplicates'   => \&run_mark_duplicates,
                 'merge'             => \&run_merge,
                 'sort'              => \&run_sort,
                 'alignment_metrics' => \&run_alignment_metrics ,
@@ -119,21 +122,6 @@ sub run_program{
 }
 
 
-=head2 run_remove_duplicates
-
-  Arg [1]   : ReseqTrack::Tools::RunPicard
-  Function  : uses MarkDuplicates.jar to remove duplicates
-  Returntype: 
-  Exceptions: 
-  Example   : $self->run_remove_duplicates
-
-=cut
-
-sub run_remove_duplicates{
-    my ($self) = @_;
-    return $self->_process_duplicates(1);
-
-}
 
 =head2 run_mark_duplicates
 
@@ -144,63 +132,49 @@ sub run_remove_duplicates{
   Example   : $self->run_mark_duplicates
 
 =cut
+
 sub run_mark_duplicates {
-    my ($self) = @_;
-    return $self->_process_duplicates(0);
-}
+    my $self = shift;
 
-sub _process_duplicates {
-    my ($self,$remove_duplicates) = @_;
-
+    my $jar = $self->_jar_path('MarkDuplicates.jar');
     foreach my $input (@{$self->input_files}) {
-        my $suffix;
-        if ($remove_duplicates) {
-            $suffix = '.rmdup';
-        }
-        else {
-            $suffix = '.mrkdup';
-        }
-
+        my $suffix = $self->options('remove_duplicates') ? '.rmdup' : '.mrkdup';
         my $name = fileparse($input, qr/\.[sb]am/);
         my $prefix = $self->working_dir . '/' . $name . $suffix;
         $prefix =~ s{//}{/}g;
-
         my $bam = $prefix . '.bam';
         my $metrics = $prefix . '.metrics';
 
-        my $jar = $self->_jar_path('MarkDuplicates.jar');
+        my @cmd_words = ($self->java_exe);
+        push(@cmd_words, $self->jvm_options) if ($self->jvm_options);
+        push(@cmd_words, '-jar', $jar);
+        push(@cmd_words, $self->get_standard_options);
+        push(@cmd_words, 'INPUT=' . $input);
+        push(@cmd_words, 'OUTPUT=' . $bam);
+        push(@cmd_words, 'METRICS_FILE=' . $metrics);
+        push(@cmd_words, 'REMOVE_DUPLICATES='
+                . $self->options('remove_duplicates') ? 'true' : 'false');
+        push(@cmd_words, 'ASSUME_SORTED='
+                . $self->options('input_sort_status') eq 'c' ? 'true' : 'false');
+        push(@cmd_words, 'CREATE_INDEX='
+                . $self->options('create_index') ? 'true' : 'false');
 
-        my $cmd = $self->java_exe;
-        $cmd .= ' ' . $self->jvm_options if ($self->jvm_options);
-        $cmd .= ' -jar ' . $jar;
-        $cmd .= ' TMP_DIR=' . $self->get_temp_dir;
-        $cmd .= ' INPUT=' . $input;
-        $cmd .= ' OUTPUT=' . $bam;
-        $cmd .= ' METRICS_FILE=' . $metrics;
-        if ($remove_duplicates) {
-            $cmd .= ' REMOVE_DUPLICATES=true';
-        }
-        else {
-            $cmd .= ' REMOVE_DUPLICATES=false';
-        }
-
-        if ($self->options('index_bai') || $self->options('index_bam_bai')) {
-            $cmd .= ' CREATE_INDEX=true';
-            $self->created_files("$prefix.bai");
-        }
+        my $cmd = join(' ', @cmd_words);
 
         $self->output_files($bam);
         $self->created_files($metrics);
+        $self->created_files("$prefix.bai") if $self->options('create_index');
 
         $self->execute_command_line($cmd);
 
-
-        if ($self->options('index_bai') || $self->options('index_bam_bai')) {
+        if ($self->options('create_index') {
             my $bai = "$prefix.bai";
-            if ($self->options('index_bam_bai')) {
-                my $bam_bai = "$prefix.bam.bai";
-                $self->execute_command_line("mv $bai $bam_bai");
-                $bai = $bam_bai;
+            my $index_ext = $self->options('index_ext');
+            if ($index_ext && $index_ext ne '.bai') {
+                my $corrected_bai = "$prefix" . $index_ext;
+                move($bai $corrected_bai)
+                  or throw "move failed: $!";
+                $bai = $corrected_bai;
             }
             $self->output_files($bai);
         }
@@ -221,49 +195,27 @@ sub _process_duplicates {
 sub run_alignment_metrics {
     my ($self) = @_;
 
-    my ($input) = @{$self->input_files};
-    my ($name,$dir,$suffix) = fileparse($input, qr/\.[sb]am/);
-    my $base_name = $dir.'/'. $name;
-    
-    my $output = $base_name.'.metrics';
     my $jar = $self->_jar_path('CollectAlignmentSummaryMetrics.jar');
-
-    my $cmd = $self->java_exe;
-    $cmd .= ' ' . $self->jvm_options if ($self->jvm_options);
-    $cmd .= ' -jar ' . $jar;
-    $cmd .= ' INPUT=' . $input;
-    $cmd .= ' OUTPUT=' . $output;
-
-    $self->output_files($output);
-    $self->execute_command_line($cmd);
-
-
-    open(my $fh, "<", $output) or die "cannot open < $output: $!";
-
-    my (@titles, @statistics);
-    
-    while (my $line = <$fh>) {
-        next if $line =~ m/#/;
-        chomp $line;
-        my @vals = split /\s/, $line;
-        next unless @vals;
+    foreach my $input (@{$self->input_files}) {
+        my ($input) = @{$self->input_files};
+        my ($name,$dir) = fileparse($input, qr/\.[sb]am/);
+        my $base_name = $dir.'/'. $name;
         
-        if (@titles){
-            my %metrics;
-            push @statistics, \%metrics;
-            for my $i (0..scalar(@titles)){                
-                my ($key, $value) = ($titles[$i],$vals[$i]);
-                next unless ($key && $value);                            
-                $metrics{$key} = $value;
-            }
-        }
-        else {
-            @titles = @vals;
-        }
-    }        
-    close $fh;
-    
-    return \@statistics;
+        my $output = $base_name.'.metrics';
+
+        my @cmd_words = ($self->java_exe);
+        push(@cmd_words, $self->jvm_options) if ($self->jvm_options);
+        push(@cmd_words, '-jar', $jar);
+        push(@cmd_words, 'INPUT=' . $input);
+        push(@cmd_words, 'OUTPUT=' . $output);
+        push(@cmd_words, 'ASSUME_SORTED='
+                . $self->options('input_sort_status') eq 'c' ? 'true' : 'false');
+        my $cmd = join(' ', @cmd_words);
+
+        $self->output_files($output);
+        $self->execute_command_line($cmd);
+    }
+
 }
 
 =head2 run_merge
@@ -280,46 +232,58 @@ sub run_alignment_metrics {
 sub run_merge{
     my ($self) = @_;
 
+    my $input_bam_list = $self->input_files;
+    throw("need more than two or more files to merge") if (@$input_bam_list <2);
+
     my $prefix = $self->working_dir . '/' . $self->job_name;
     $prefix =~ s{//}{/}g;
-
-    my $input_bam_list = $self->input_files;
     my $bam = "$prefix.merge.bam";
-    $self->output_files($bam);
 
     my $jar = $self->_jar_path('MergeSamFiles.jar');
 
-    if (@$input_bam_list >1) {
-      my $cmd = $self->java_exe;
-      $cmd .= ' ' . $self->jvm_options if ($self->jvm_options);
-      $cmd .= ' -jar ' . $jar;
-      $cmd .= ' TMP_DIR=' . $self->get_temp_dir;
-      foreach my $input (@$input_bam_list) {
-          $cmd .= ' INPUT=' . $input;
-      }
-      $cmd .= ' OUTPUT=' . $bam;
-
-      if ($self->options('index_bai') || $self->options('index_bam_bai')) {
-          $cmd .= ' CREATE_INDEX=true';
-          $self->created_files("$prefix.bai");
-      }
-
-      $self->execute_command_line($cmd);
+    my $sort_order = $self->options('sort_order');
+    my $assume_sorted;
+    if ($sort_order eq 'coordinate') {
+        $assume_sorted = $self->options('input_sort_status') eq 'c' ? 'true' : 'false';
     }
-    elsif(@$input_bam_list ==1) {
-      print "copying ".$input_bam_list->[0]." to $bam\n";
-      copy($input_bam_list->[0], $bam)
-          or throw "copy failed: $!";
+    elsif ($sort_order eq 'queryname') {
+        $assume_sorted = $self->options('input_sort_status') eq 'n' ? 'true' : 'false';
+    }
+    else {
+        $sort_order = 'null';
     }
 
-    if ($self->options('index_bai') || $self->options('index_bam_bai')) {
-        my $bai = "$prefix.bai";
-        if ($self->options('index_bam_bai')) {
-            my $bam_bai = "$prefix.bam.bai";
-            $self->execute_command_line("mv $bai $bam_bai");
-            $bai = $bam_bai;
-        }
-        $self->output_files($bai);
+    my @cmd_words = ($self->java_exe);
+    push(@cmd_words, $self->jvm_options) if ($self->jvm_options);
+    push(@cmd_words, '-jar', $jar);
+    push(@cmd_words, $self->get_standard_options);
+    push(@cmd_words, map {"INPUT=$_"} @$input_bam_list);
+    push(@cmd_words, 'OUTPUT=' . $bam);
+    push(@cmd_words, 'CREATE_INDEX='
+            . $self->options('create_index') ? 'true' : 'false');
+    push(@cmd_words, 'SORT_ORDER=' . $sort_order);
+    push(@cmd_words, 'ASSUME_SORTED=' . $assume_sorted);
+    push(@cmd_words, 'USE_THREADING='
+            . $self->options('use_threading') ? 'true' : 'false');
+
+    my $cmd = join(' ', @cmd_words);
+
+
+    $self->output_files($bam);
+    $self->created_files("$prefix.bai") if $self->options('create_index');
+
+    $self->execute_command_line($cmd);
+
+    if ($self->options('create_index') {
+      my $bai = "$prefix.bai";
+      my $index_ext = $self->options('index_ext');
+      if ($index_ext && $index_ext ne '.bai') {
+        my $corrected_bai = "$prefix" . $index_ext;
+        move($bai $corrected_bai)
+          or throw "move failed: $!";
+        $bai = $corrected_bai;
+      }
+      $self->output_files($bai);
     }
 
 
@@ -338,9 +302,12 @@ sub run_merge{
 =cut
 
 sub run_sort{
-  my ($self,$sort_order) = @_;
+  my ($self) = @_;
     
-  $sort_order ||= 'coordinate';
+  my $sort_order = $self->options('sort_order');
+  if ($sort_order ne 'coordinate' && $sort_order ne 'queryname') {
+      $sort_order = 'null';
+  }
           
   my $jar = $self->_jar_path('SortSam.jar');
 
@@ -349,20 +316,52 @@ sub run_sort{
     my $prefix = $self->working_dir . '/' . $name . '.sorted';
     $prefix =~ s{//}{/}g;
     my $output = $prefix . '.bam';
-            
-    my $cmd = $self->java_exe;
-    $cmd .= ' ' . $self->jvm_options if ($self->jvm_options);
-    $cmd .= ' -jar ' . $jar;
-    $cmd .= ' SORT_ORDER='. $sort_order;
-    $cmd .= ' INPUT=' . $input;
-    $cmd .= ' OUTPUT=' . $output;
+
+    my @cmd_words = ($self->java_exe);
+    push(@cmd_words, $self->jvm_options) if ($self->jvm_options);
+    push(@cmd_words, '-jar', $jar);
+    push(@cmd_words, $self->_get_standard_options);
+    push(@cmd, 'SORT_ORDER=' $sort_order);
+    push(@cmd_words, 'INPUT=' . $input);
+    push(@cmd_words, 'OUTPUT=' . $output);
+    push(@cmd_words, 'CREATE_INDEX='
+            . $self->options('create_index') ? 'true' : 'false');
+
+    my $cmd = join(' ', @cmd_words);
   
     $self->output_files($output);
+    $self->created_files("$prefix.bai") if $self->options('create_index');
+
     $self->execute_command_line($cmd);
+
+    if ($self->options('create_index') {
+        my $bai = "$prefix.bai";
+        my $index_ext = $self->options('index_ext');
+        if ($index_ext && $index_ext ne '.bai') {
+            my $corrected_bai = "$prefix" . $index_ext;
+            move($bai $corrected_bai)
+              or throw "move failed: $!";
+            $bai = $corrected_bai;
+        }
+        $self->output_files($bai);
+    }
   
   }
 
     return;   
+}
+
+sub _get_standard_options {
+    my $self = shift;
+
+    my @option_strings;
+    push(@option_strings, 'TMP_DIR=' . $self->get_temp_dir);
+    push(@option_strings, 'VERBOSITY=' . $self->options('verbosity'))
+        if ($self->options('verbosity'));
+    push(@option_strings, 'MAX_RECORDS_IN_RAM=' . $self->options('max_records_in_ram'))
+        if ($self->options('max_records_in_ram'));
+
+    return join(' ', @option_strings);
 }
 
 sub _jar_path{

@@ -39,12 +39,15 @@ use List::Util qw (first);
 
 =cut
 
+sub DEFAULT_OPTIONS { return [
+        'aln_q' => 15,
+        'threads' => '',
+        ];
+}
+
 sub new {
 	my ( $class, @args ) = @_;
 	my $self = $class->SUPER::new(@args);
-
-	my ( $samse_options, $sampe_options, $aln_options, $threads) =
-	  rearrange( [qw(SAMSE_OPTIONS SAMPE_OPTIONS ALN_OPTIONS THREADS)], @args );
 
 	#setting defaults
         if (!$self->program) {
@@ -55,14 +58,6 @@ sub new {
             $self->program(first {-x $_} map {"$_/bwa"} @PATH);
           }
         }
-
-	$self->aln_options("-q 15 ") unless ($aln_options);
-
-	
-	$self->samse_options($samse_options);
-	$self->sampe_options($sampe_options);
-	$self->aln_options($aln_options);
-        $self->threads($threads);
 
 	return $self;
 }
@@ -191,7 +186,7 @@ sub run_aln_mode {
 	$aln_command .= $self->program;
 	$aln_command .= " aln ";
 	$aln_command .= $options . "  " if $options;
-        $aln_command .= '-t ' . $self->threads . ' ' if ($self->threads);
+        $aln_command .= '-t ' . $self->options('threads') . ' ' if ($self->options('threads');
 	$aln_command .= $self->reference . " ";
 	$aln_command .= get_fastq_cmd_string($fastq_type);
 	$aln_command .= " $do_bwa_log_file > ";

@@ -26,14 +26,13 @@ my $output_dir;
 my $picard_dir;
 my $java_exe;
 my $jvm_options;
-my $samtools;
 my $host_name = '1000genomes.ebi.ac.uk';
 my $store;
 my $delete_inputs;
 my $directory_layout;
 my $command;
-my $index_bams;
-my $options;
+my %options;
+my $index_outputs;
 
 &GetOptions( 
   'dbhost=s'      => \$dbhost,
@@ -51,19 +50,24 @@ my $options;
   'jvm_options=s' => \$jvm_options,
   'host_name=s' => \$host_name,
   'store!' => \$store,
-  'command=s' => \$command,
-  'index_bams!' => \$index_bams,
   'delete_inputs!' => \$delete_inputs,
   'directory_layout=s' => \$directory_layout,
-  'options=s' => \$options,
+  'command=s' => \$command,
+  'options=s' => \%options,
+  'index_outputs!' => \$index_outputs,
     );
 
-my @commands_list = qw(remove_duplicates mark_duplicates merge
-                    sort alignment_metrics);
+my @allowed_commands = qw(mark_duplicates merge sort alignment_metrics);
+throw("Don't recognise command $command. Acceptable commands are: @allowed_cmds")
+  if (! grep {$command eq $_ } @allowed_cmds);
 
-throw("Don't recognise command $command. Acceptable commands are: @commands_list")
-  if (! grep {$command eq $_ } @commands_list);
+my @allowed_options = keys %{ReseqTrac::RunPicard::DEFAULT_OPTIONS};
+foreach my $options (keys %options) {
+  throw("Don't recognise option $option. Acceptable options are: @allowed_options")
+    if (! grep {$option eq $_ } @allowed_options);
+}
 
+throw("Must specify an output directory") if (!$output_dir);
 
 my $db = ReseqTrack::DBSQL::DBAdaptor->new(
   -host   => $dbhost,
@@ -82,12 +86,6 @@ throw("Failed to find a collection for ".$name." ".$type_input." from ".$dbname)
 
 my $input_files = $collection->others;
 my @input_filepaths = map {$_->{'name'}} @$input_files;
-
-if (!$output_dir) {
-  $output_dir = (fileparse($input_filepaths[0]))[1];
-  my $file_type = $input_files->[0]->type;
-  $output_dir =~ s/$file_type\/*$/$type_output/;
-}
 
 if ($directory_layout) {
   my $rmia = $db->get_RunMetaInfoAdaptor;
@@ -109,8 +107,7 @@ my $picard_object = ReseqTrack::Tools::RunPicard->new(
                     -input_files             => \@input_filepaths,
                     -working_dir             => $output_dir,
                     -job_name                => $name,
-                    -index_bam_bai           => $index_bams,
-                    -options                 => $options,
+                    -options                 => \%options,
                     -java_exe                => $java_exe,
                     -jvm_options             => $jvm_options,
                     -picard_dir              => $picard_dir,

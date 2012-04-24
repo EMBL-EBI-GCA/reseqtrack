@@ -28,8 +28,11 @@ my $host_name = '1000genomes.ebi.ac.uk';
 my $store;
 my $delete_inputs;
 my $reference;
+my $reference_index;
 my $directory_layout;
 my $command;
+my %options;
+my $index_outputs;
 
 &GetOptions( 
   'dbhost=s'      => \$dbhost,
@@ -43,15 +46,15 @@ my $command;
   'type_index=s' => \$type_index,
   'output_dir=s' => \$output_dir,
   'samtools=s' => \$samtools,
-  'reference=s' => \$reference,
-  'reference_index=s' => \$reference_index,
-  'use_reference_index!' => \$use_reference_index,
-  'sort_inputs!' => \$sort_inputs,
-  'directory_layout=s' => \$directory_layout,
   'host_name=s' => \$host_name,
   'store!' => \$store,
-  'index_outputs!' => \$index_outputs,
   'delete_inputs!' => \$delete_inputs,
+  'reference=s' => \$reference,
+  'reference_index=s' => \$reference_index,
+  'directory_layout=s' => \$directory_layout,
+  'command=s' => \$command,
+  'options=s' => \%options,
+  'index_outputs!' => \$index_outputs,
     );
 
 my @allowed_cmds = qw(merge sort index fix_and_calmd sam_to_bam);
@@ -59,7 +62,7 @@ throw("Don't recognise command $command. Acceptable commands are: @allowed_cmds"
   if (! grep {$command eq $_ } @allowed_cmds);
 
 my @allowed_options = keys %{ReseqTrac::RunSamtools::DEFAULT_OPTIONS};
-foreach my $options (@options) {
+foreach my $options (keys %options) {
   throw("Don't recognise option $option. Acceptable options are: @allowed_options")
     if (! grep {$option eq $_ } @allowed_options);
 }
@@ -99,10 +102,6 @@ if ($directory_layout) {
     $output_dir = create_directory_path($run_meta_info, $directory_layout, $output_dir);
   }
 }
-
-my %options;
-$options{'use_reference_index'} = 1 if ($use_reference_index);
-$options{'sort_inputs'} = 1 if ($sort_inputs);
 
 my $samtools_object = ReseqTrack::Tools::RunSamtools->new(
                     -input_files             => \@input_filepaths,
