@@ -70,7 +70,7 @@ use base qw(ReseqTrack::Tools::RunProgram);
 =cut
 
 sub DEFAULT_OPTIONS { return [
-        'use_reference_index => 0,
+        'use_reference_index' => 0,
         'input_sort_status' => '', # can be 'c' for coordinate or 'n' for name
         'force_overwrite' => 1,
         'attach_RG_tag' => 0,
@@ -109,11 +109,12 @@ sub run_fix_and_calmd {
     my $self = shift;
 
     foreach my $input (@{$self->input_files}) {
+      my $prefix = fileparse($input, qr/\.[sb]am/ );
       my $output_bam = $self->working_dir . "/$prefix.fixed.bam";
       $output_bam =~ s{//}{/}g;
 
       my @cmds;
-      push(@cmds, $self->_get_file_to_sorted_bam_cmd($input, 1, 1);
+      push(@cmds, $self->_get_file_to_sorted_bam_cmd($input, 1, 1));
       push(@cmds, $self->_get_fixmate_cmd);
       push(@cmds, $self->_get_sort_cmd);
       push(@cmds, $self->_get_calmd_cmd(1));
@@ -242,7 +243,7 @@ sub run_merge {
     my $output_bam = $self->working_dir . '/' . $self->job_name . '.merged.bam';
     $output_bam =~ s{//}{/}g;
     throw("file already exists and force_overwrite is not set")
-            if (-e $output_bam && ! $self->options('force_overwrite');
+            if (-e $output_bam && ! $self->options('force_overwrite'));
 
     my @cmd_words = ($self->program, 'merge');
     push(@cmd_words, '-f') if ($self->options('force_overwrite'));
@@ -252,13 +253,13 @@ sub run_merge {
     foreach my $input (@{$self->input_files}) {
       if ($self->options('input_sort_status') ne 'c' || $input =~ /\.sam$/) {
         my $file_to_sorted_bam_cmd = $self->_get_file_to_sorted_bam_cmd($input, 0, 1);
-        push(@cmd_words, '<(', $sam_to_sorted_bam_cmd, ')');
+        push(@cmd_words, '<(', $file_to_sorted_bam_cmd, ')');
       }
       else {
           push(@cmd_words, $input);
       }
     }
-    my $cmd = (join(' '), @cmd_words);
+    my $cmd = join(' ', @cmd_words);
 
     $self->output_files($output_bam);
     $self->execute_command_line($cmd);
@@ -308,8 +309,8 @@ sub _get_calmd_cmd {
     my ($self, $uncompressed, $input) = @_;
     my @cmd_words = ($self->program, 'calmd');
     push(@cmd_words, $uncompressed ? '-u' : '-b');
-    push(@cmd_words, '-r') if ($self->options('compute_BQ_tag');
-    push(@cmd_words, '-E') if ($self->options('ext_BAQ_calc');
+    push(@cmd_words, '-r') if ($self->options('compute_BQ_tag'));
+    push(@cmd_words, '-E') if ($self->options('ext_BAQ_calc'));
 
     if ($input) {
       push(@cmd_words, '-S') if ($input =~ /\.sam$/);
@@ -323,10 +324,10 @@ sub _get_calmd_cmd {
 }
 
 sub _get_file_to_sorted_bam_cmd {
-    my ($self, $file, $name_sort, $uncompressed) @_;
+    my ($self, $file, $name_sort, $uncompressed) = @_;
 
     return $self->_get_sam_to_sorted_bam_cmd($file, $name_sort, $uncompressed)
-        if ($input =~ /\.sam$/);
+        if ($file =~ /\.sam$/);
 
     return $self->_get_sort_cmd(1, $file)
         if ($name_sort && $self->options('input_sort_status') ne 'n');
@@ -344,8 +345,8 @@ sub _get_file_to_sorted_bam_cmd {
 sub _get_sam_to_sorted_bam_cmd {
     my ($self, $sam, $name_sort, $uncompressed) = @_;
 
-    my $pipe_to_sort = $name_sort && $self->options('input_sort_status) ne 'n';
-    $pipe_to_sort ||= !$name_sort && $self->options('input_sort_status) ne 'c';
+    my $pipe_to_sort = $name_sort && $self->options('input_sort_status') ne 'n';
+    $pipe_to_sort ||= !$name_sort && $self->options('input_sort_status') ne 'c';
 
     my @cmds = ($self->_get_sam_to_bam_cmd($sam, $uncompressed || $pipe_to_sort));
     if ($pipe_to_sort) {

@@ -82,7 +82,7 @@ sub new {
   $self->save_files_for_deletion($save_files_for_deletion);
 
   while (my ($option_name, $option_value) = each %{$self->DEFAULT_OPTIONS}) {
-      $options{$option_name} = $option_value if (! defined $options{$option_name});
+      $options->{$option_name} = $option_value if (! defined $options->{$option_name});
   }
   while (my ($option_name, $option_value) = each %$options) {
       $self->options($option_name, $option_value);
