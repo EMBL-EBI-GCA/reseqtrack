@@ -57,12 +57,12 @@ my $index_outputs;
   'index_outputs!' => \$index_outputs,
     );
 
-my @allowed_commands = qw(mark_duplicates merge sort alignment_metrics);
+my @allowed_cmds = qw(mark_duplicates merge sort alignment_metrics);
 throw("Don't recognise command $command. Acceptable commands are: @allowed_cmds")
   if (! grep {$command eq $_ } @allowed_cmds);
 
 my @allowed_options = keys %{ReseqTrac::RunPicard::DEFAULT_OPTIONS};
-foreach my $options (keys %options) {
+foreach my $option (keys %options) {
   throw("Don't recognise option $option. Acceptable options are: @allowed_options")
     if (! grep {$option eq $_ } @allowed_options);
 }
@@ -133,15 +133,13 @@ if($store){
     $ca->store($collection);
   }
 
-  if ($index_bams) {
-    my $fa = $db->get_FileAdaptor;
-    my $bai_paths = $picard_object->output_bai_files;
-    if (@$bai_paths) {
-      my $bais = create_objects_from_pathlist($bai_paths, $type_index, $host);
-      foreach my $bai (@$bais) {
-        $bai->md5( run_md5($bai->name) );
-        $fa->store($bai);
-      }
+  my $fa = $db->get_FileAdaptor;
+  my $bai_paths = $picard_object->output_bai_files;
+  if (@$bai_paths) {
+    my $bais = create_objects_from_pathlist($bai_paths, $type_index, $host);
+    foreach my $bai (@$bais) {
+      $bai->md5( run_md5($bai->name) );
+      $fa->store($bai);
     }
   }
 }
