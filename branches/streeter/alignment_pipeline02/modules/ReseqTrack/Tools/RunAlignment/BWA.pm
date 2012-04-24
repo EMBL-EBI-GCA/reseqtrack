@@ -40,8 +40,14 @@ use List::Util qw (first);
 =cut
 
 sub DEFAULT_OPTIONS { return [
-        'aln_q' => 15,
-        'threads' => '',
+        'read_trimming' => 15,
+        'mismatch_penalty' => '',
+        'gap_open_penalty' => '',
+        'gap_extension_penalty' => '',
+        'max_gap_opens' => '',
+        'max_gap_extensions' => '',
+        'threads' => 1,
+        'load_fm_index' => 1,
         ];
 }
 
@@ -105,8 +111,8 @@ sub run_sampe_alignment {
 		$self->sampe_options($paired_length);
 	}
 
-	my $sampe_cmd = $self->program . " sampe ";
-	$sampe_cmd .= $self->sampe_options . " " if ($self->sampe_options);
+        my @cmd_words = ($self->program, 'sampe');
+        push(@cmd_words, '-P') if $self->options('load_fm_index');
 
         if ($self->read_group_fields->{'ID'}) {
           my $rg_string = q('@RG\tID:) . $self->read_group_fields->{'ID'};
@@ -117,15 +123,14 @@ sub run_sampe_alignment {
             $rg_string .= '\t' . $tag . ':' . $value;
           }
           $rg_string .= q(');
-          $sampe_cmd .= " -r $rg_string ";
+          push(@cmd_words, '-r', $rg_string);
         }
+        push(@cmd_words, $self->reference, $mate1_sai, $mate2_sai);
+        push(@cmd_words, $self->get_fastq_cmd_string('mate1'));
+        push(@cmd_words, $self->get_fastq_cmd_string('mate2'));
+        push(@cmd_words, $output_sam);
 
-	$sampe_cmd .= $self->reference . " "
-	  . $mate1_sai . " "
-	  . $mate2_sai . " "
-	  . $self->get_fastq_cmd_string('mate1') . " "
-	  . $self->get_fastq_cmd_string('mate2') . " > "
-          . $output_sam;
+        my $sampe_cmd = join(' ', @cmd_words);
 
         $self->output_files($output_sam);
         $self->execute_command_line($sampe_cmd);
@@ -144,8 +149,7 @@ sub run_samse_alignment {
             . '_se.sam';
         $output_sam =~ s{//}{/};
 
-	my $samse_cmd = $self->program . " samse ";
-	$samse_cmd .= $self->samse_options . " " if ($self->samse_options);
+        my @cmd_words = ($self->program, 'samse');
 
         if ($self->read_group_fields->{'ID'}) {
           my $rg_string = q('@RG\tID:) . $self->read_group_fields->{'ID'};
@@ -156,13 +160,13 @@ sub run_samse_alignment {
             $rg_string .= '\t' . $tag . ':' . $value;
           }
           $rg_string .= q(');
-          $samse_cmd .= " -r $rg_string ";
+          push(@cmd_words, '-r', $rg_string);
         }
+        push(@cmd_words, $self->reference, $sai_file);
+        push(@cmd_words, $self->get_fastq_cmd_string('frag'));
+        push(@cmd_words, $output_sam);
 
-	$samse_cmd .= $self->reference . " "
-	  . $sai_file . " "
-	  . $self->get_fastq_cmd_string('frag') . " > "
-	  . $output_sam;
+        my $samse_cmd = join(' ', @cmd_words);
 	  
         $self->output_files($output_sam);
         $self->execute_command_line($samse_cmd);
@@ -171,69 +175,40 @@ sub run_samse_alignment {
 }
 
 sub run_aln_mode {
-	my ( $self, $fastq_type ) = @_;
+    my ( $self, $fastq_type ) = @_;
 
-	my $bwa_log_file =  $self->working_dir. '/'. $self->job_name .".$$.log";
-	$bwa_log_file =~ s/\/\//\//;
-	my $do_bwa_log_file = "2>> ". $bwa_log_file;
+    my $options = $self->aln_options;
 
-	my $options = $self->aln_options;
+    my $output_file = $self->working_dir . "/" . $self->job_name;
+    $output_file .= ".$fastq_type.sai";
 
-	my $output_file = $self->working_dir . "/" . $self->job_name;
-	$output_file .= ".$fastq_type.sai";
+    my @cmd_words = ($self->program, 'aln');
 
-	my $aln_command;
-	$aln_command .= $self->program;
-	$aln_command .= " aln ";
-	$aln_command .= $options . "  " if $options;
-        $aln_command .= '-t ' . $self->options('threads') . ' ' if ($self->options('threads');
-	$aln_command .= $self->reference . " ";
-	$aln_command .= get_fastq_cmd_string($fastq_type);
-	$aln_command .= " $do_bwa_log_file > ";
-	$aln_command .= $output_file;
+    push(@cmd_words, '-q', $self->options('read_trimming'))
+            if ($self->options('read_trimming'));
+    push(@cmd_words, '-M', $self->options('mismatch_penalty')
+            if ($self->options('mismatch_penalty'));
+    push(@cmd_words, '-O', $self->options('gap_open_penalty')
+            if ($self->options('gap_open_penalty'));
+    push(@cmd_words, '-E', $self->options('gap_extension_penalty')
+            if ($self->options('gap_extension_penalty'));
+    push(@cmd_words, '-o', $self->options('max_gap_opens')
+            if ($self->options('max_gap_opens'));
+    push(@cmd_words, '-e', $self->options('max_gap_extensions')
+            if ($self->options('max_gap_extensions'));
 
-        $self->created_files($output_file);
-        $self->created_files($bwa_log_file);
-        $self->execute_command_line($aln_command);
+    push(@cmd_words, '-t', $self->options('threads') || 1);
+    push(@cmd_words, $self->reference);
+    push(@cmd_words, $self->get_fastq_cmd_string($fastq_type);
+    push(@cmd_words, $output_file);
 
-	return $output_file;
+    my $aln_command = join(' ', @cmd_words);
+
+    $self->created_files($output_file);
+    $self->execute_command_line($aln_command);
+
+    return $output_file;
 }
-
-sub samse_options {
-    my ( $self, $arg ) = @_;
-    unless ( $self->{samse_options} ) {
-        $self->{samse_options} = '';
-    }
-    if ($arg) {
-        $self->{samse_options} = $arg;
-    }
-    return $self->{samse_options};
-}
-
-sub sampe_options {
-    my ( $self, $arg ) = @_;
-    if ($arg) {
-        $self->{sampe_options} = $arg;
-    }
-    return $self->{sampe_options};
-}
-
-sub aln_options {
-    my ( $self, $arg ) = @_;
-    if ($arg) {
-        $self->{aln_options} = $arg;
-    }
-    return $self->{aln_options};
-}
-
-sub threads {
-    my $self = shift;
-    if (@_) {
-        $self->{threads} = shift;
-    }
-    return $self->{threads};
-}
-
 
 1;
 
