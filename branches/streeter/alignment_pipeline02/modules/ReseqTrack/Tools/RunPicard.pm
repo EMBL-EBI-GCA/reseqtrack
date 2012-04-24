@@ -24,7 +24,7 @@ use ReseqTrack::Tools::FileSystemUtils qw(check_file_does_not_exist make_directo
 use File::Basename qw(fileparse);
 use List::Util qw (first);
 use Env qw( @PATH );
-use File::Copy qw (move copy);
+use File::Copy qw (move);
 
 use base qw(ReseqTrack::Tools::RunProgram);
 
@@ -64,7 +64,7 @@ sub DEFAULT_OPTIONS { return [
         'index_ext' => '.bai', #can be '.bai' or '.bam.bai'
         'verbosity' => 'INFO',
         'max_records_in_ram' => 500000,
-        'remove_duplicates => 0,
+        'remove_duplicates' => 0,
         'use_threading' => 0,
         ];
 }
@@ -167,12 +167,12 @@ sub run_mark_duplicates {
 
         $self->execute_command_line($cmd);
 
-        if ($self->options('create_index') {
+        if ($self->options('create_index')) {
             my $bai = "$prefix.bai";
             my $index_ext = $self->options('index_ext');
             if ($index_ext && $index_ext ne '.bai') {
                 my $corrected_bai = "$prefix" . $index_ext;
-                move($bai $corrected_bai)
+                move($bai, $corrected_bai)
                   or throw "move failed: $!";
                 $bai = $corrected_bai;
             }
@@ -274,12 +274,12 @@ sub run_merge{
 
     $self->execute_command_line($cmd);
 
-    if ($self->options('create_index') {
+    if ($self->options('create_index')) {
       my $bai = "$prefix.bai";
       my $index_ext = $self->options('index_ext');
       if ($index_ext && $index_ext ne '.bai') {
         my $corrected_bai = "$prefix" . $index_ext;
-        move($bai $corrected_bai)
+        move($bai, $corrected_bai)
           or throw "move failed: $!";
         $bai = $corrected_bai;
       }
@@ -321,7 +321,7 @@ sub run_sort{
     push(@cmd_words, $self->jvm_options) if ($self->jvm_options);
     push(@cmd_words, '-jar', $jar);
     push(@cmd_words, $self->_get_standard_options);
-    push(@cmd, 'SORT_ORDER=' $sort_order);
+    push(@cmd_words, 'SORT_ORDER=' . $sort_order);
     push(@cmd_words, 'INPUT=' . $input);
     push(@cmd_words, 'OUTPUT=' . $output);
     push(@cmd_words, 'CREATE_INDEX='
@@ -334,12 +334,12 @@ sub run_sort{
 
     $self->execute_command_line($cmd);
 
-    if ($self->options('create_index') {
+    if ($self->options('create_index')) {
         my $bai = "$prefix.bai";
         my $index_ext = $self->options('index_ext');
         if ($index_ext && $index_ext ne '.bai') {
             my $corrected_bai = "$prefix" . $index_ext;
-            move($bai $corrected_bai)
+            move($bai, $corrected_bai)
               or throw "move failed: $!";
             $bai = $corrected_bai;
         }

@@ -62,7 +62,7 @@ throw("Don't recognise command $command. Acceptable commands are: @allowed_cmds"
   if (! grep {$command eq $_ } @allowed_cmds);
 
 my @allowed_options = keys %{ReseqTrac::RunSamtools::DEFAULT_OPTIONS};
-foreach my $options (keys %options) {
+foreach my $option (keys %options) {
   throw("Don't recognise option $option. Acceptable options are: @allowed_options")
     if (! grep {$option eq $_ } @allowed_options);
 }
@@ -118,7 +118,7 @@ my $output_bam_paths = ($command ne 'index')? $samtools_object->output_files : [
 my $index_file_paths = ($command eq 'index')? $samtools_object->output_files : [];
 if ($index_outputs) {
     my $indexer = ReseqTrack::Tools::RunSamtools->new(
-                    -input_files             => $output_files,
+                    -input_files             => $output_bam_paths,
                     -program                 => $samtools,
                     );
     $indexer->run('index');
