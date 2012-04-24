@@ -186,20 +186,20 @@ sub run_aln_mode {
 
     push(@cmd_words, '-q', $self->options('read_trimming'))
             if ($self->options('read_trimming'));
-    push(@cmd_words, '-M', $self->options('mismatch_penalty')
+    push(@cmd_words, '-M', $self->options('mismatch_penalty'))
             if ($self->options('mismatch_penalty'));
-    push(@cmd_words, '-O', $self->options('gap_open_penalty')
+    push(@cmd_words, '-O', $self->options('gap_open_penalty'))
             if ($self->options('gap_open_penalty'));
-    push(@cmd_words, '-E', $self->options('gap_extension_penalty')
+    push(@cmd_words, '-E', $self->options('gap_extension_penalty'))
             if ($self->options('gap_extension_penalty'));
-    push(@cmd_words, '-o', $self->options('max_gap_opens')
+    push(@cmd_words, '-o', $self->options('max_gap_opens'))
             if ($self->options('max_gap_opens'));
-    push(@cmd_words, '-e', $self->options('max_gap_extensions')
+    push(@cmd_words, '-e', $self->options('max_gap_extensions'))
             if ($self->options('max_gap_extensions'));
 
     push(@cmd_words, '-t', $self->options('threads') || 1);
     push(@cmd_words, $self->reference);
-    push(@cmd_words, $self->get_fastq_cmd_string($fastq_type);
+    push(@cmd_words, $self->get_fastq_cmd_string($fastq_type));
     push(@cmd_words, $output_file);
 
     my $aln_command = join(' ', @cmd_words);
