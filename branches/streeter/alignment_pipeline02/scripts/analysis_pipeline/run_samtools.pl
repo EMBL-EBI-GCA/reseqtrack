@@ -29,7 +29,7 @@ my $store;
 my $delete_inputs;
 my $reference;
 my $directory_layout;
-my ($merge, $index, $sort, $calmd);
+my $command;
 
 &GetOptions( 
   'dbhost=s'      => \$dbhost,
@@ -44,19 +44,27 @@ my ($merge, $index, $sort, $calmd);
   'output_dir=s' => \$output_dir,
   'samtools=s' => \$samtools,
   'reference=s' => \$reference,
+  'reference_index=s' => \$reference_index,
+  'use_reference_index!' => \$use_reference_index,
+  'sort_inputs!' => \$sort_inputs,
+  'directory_layout=s' => \$directory_layout,
   'host_name=s' => \$host_name,
   'store!' => \$store,
-  'merge!' => \$merge,
-  'sort!' => \$sort,
-  'index!' => \$index,
-  'calmd!' => \$calmd,
+  'index_outputs!' => \$index_outputs,
   'delete_inputs!' => \$delete_inputs,
-  'directory_layout=s' => \$directory_layout,
     );
 
-throw("must choose at least one option: -merge -sort -index -calmd")
-    if (!$merge && !$sort && !$index && !$calmd);
+my @allowed_cmds = qw(merge sort index fix_and_calmd sam_to_bam);
+throw("Don't recognise command $command. Acceptable commands are: @allowed_cmds")
+  if (! grep {$command eq $_ } @allowed_cmds);
 
+my @allowed_options = keys %{ReseqTrac::RunSamtools::DEFAULT_OPTIONS};
+foreach my $options (@options) {
+  throw("Don't recognise option $option. Acceptable options are: @allowed_options")
+    if (! grep {$option eq $_ } @allowed_options);
+}
+
+throw("Must specify an output directory") if (!$output_dir);
 
 my $db = ReseqTrack::DBSQL::DBAdaptor->new(
   -host   => $dbhost,
@@ -76,12 +84,6 @@ throw("Failed to find a collection for ".$name." ".$type_input." from ".$dbname)
 my $input_files = $collection->others;
 my @input_filepaths = map {$_->{'name'}} @$input_files;
 
-if (!$output_dir) {
-  $output_dir = (fileparse($input_filepaths[0]))[1];
-  my $file_type = $input_files->[0]->type;
-  $output_dir =~ s/$file_type\/*$/$type_output/;
-}
-
 if ($directory_layout) {
   my $rmia = $db->get_RunMetaInfoAdaptor;
   my $run_meta_info;
@@ -98,29 +100,41 @@ if ($directory_layout) {
   }
 }
 
+my %options;
+$options{'use_reference_index'} = 1 if ($use_reference_index);
+$options{'sort_inputs'} = 1 if ($sort_inputs);
+
 my $samtools_object = ReseqTrack::Tools::RunSamtools->new(
                     -input_files             => \@input_filepaths,
                     -program                 => $samtools,
                     -working_dir             => $output_dir,
                     -job_name                => $name,
-                    -flag_merge              => $merge,
-                    -flag_index              => $index,
-                    -flag_sort               => $sort,
-                    -flag_calmd              => $calmd,
                     -reference               => $reference,
+                    -reference_index         => $reference_index,
+                    -options                 => \%options,
                     );
-$samtools_object->run;
+$samtools_object->run($command);
+
+my $output_bam_paths = ($command ne 'index')? $samtools_object->output_files : [];
+my $index_file_paths = ($command eq 'index')? $samtools_object->output_files : [];
+if ($index_outputs) {
+    my $indexer = ReseqTrack::Tools::RunSamtools->new(
+                    -input_files             => $output_files,
+                    -program                 => $samtools,
+                    );
+    $indexer->run('index');
+    $index_file_paths = $indexer->output_files;
+}
 
 if($store){
   my $host = get_host_object($host_name, $db);
 
-  my $bam_paths = $samtools_object->output_bam_files;
-  if (@$bam_paths) {
-    foreach my $path (@$bam_paths) {
+  if (@$output_bam_paths) {
+    foreach my $path (@$output_bam_paths) {
       throw("database already has file with name $path")
           if ($fa->fetch_by_name($path));
     }
-    my $bams = create_objects_from_path_list($bam_paths, $type_output, $host);
+    my $bams = create_objects_from_path_list($output_bam_paths, $type_output, $host);
     foreach my $bam (@$bams) {
       $bam->md5( run_md5($bam->name) );
     }
@@ -130,15 +144,12 @@ if($store){
     $ca->store($collection);
   }
 
-  if ($index) {
+  if (@$index_file_paths) {
     my $fa = $db->get_FileAdaptor;
-    my $bai_paths = $samtools_object->output_bai_files;
-    if (@$bai_paths) {
-      my $bais = create_objects_from_pathlist($bai_paths, $type_index, $host);
-      foreach my $bai (@$bais) {
-        $bai->md5( run_md5($bai->name) );
-        $fa->store($bai);
-      }
+    my $bais = create_objects_from_pathlist($index_file_paths, $type_index, $host);
+    foreach my $bai (@$bais) {
+      $bai->md5( run_md5($bai->name) );
+      $fa->store($bai);
     }
   }
 }

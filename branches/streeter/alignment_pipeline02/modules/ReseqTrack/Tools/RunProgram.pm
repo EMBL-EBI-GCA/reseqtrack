@@ -66,9 +66,11 @@ sub new {
 
   #input files, we will allow single file name or list of file names
   my ( $input_files,  $program, $job_name, $working_dir,
+        $options,
         $echo_cmd_line, $save_files_for_deletion )
     = rearrange( [
          qw( INPUT_FILES PROGRAM JOB_NAME WORKING_DIR
+             OPTIONS
              ECHO_CMD_LINE SAVE_FILES_FOR_DELETION )
 		], @args);
 
@@ -78,6 +80,13 @@ sub new {
   $self->working_dir($working_dir);
   $self->echo_cmd_line($echo_cmd_line);
   $self->save_files_for_deletion($save_files_for_deletion);
+
+  while (my ($option_name, $option_value) = each %{$self->DEFAULT_OPTIONS}) {
+      $options{$option_name} = $option_value if (! defined $options{$option_name});
+  }
+  while (my ($option_name, $option_value) = each %$options) {
+      $self->options($option_name, $option_value);
+  }
 
   return $self;
 }
@@ -407,6 +416,44 @@ sub _running {
   }
   return $self->{'_running'};
 }
+
+sub _temp_dir {
+  my $self = shift;
+  if (@_) {
+    $self->{'_temp_dir'} = shift;
+  }
+  return $self->{'_temp_dir'};
+}
+
+sub get_temp_dir {
+    my $self = shift;
+    my $temp_dir = $self->_temp_dir;
+    if (! $temp_dir) {
+      $temp_dir = $self->working_dir()
+            .'/'.$self->job_name.'.'.$$.'.tmp/';
+      check_file_does_not_exist($temp_dir);
+      $self->created_files($temp_dir);
+      $self->_temp_dir($temp_dir);
+      make_directory($temp_dir);
+    }
+    return $temp_dir;
+}
+
+
+sub options {
+    my ($self, $option_name, $option_value) = @_;
+
+    throw( "option_name not specified")
+        if (! $option_name);
+
+    $self->{'options'} ||= {};
+    if (defined $option_value) {
+        $self->{'options'}->{$option_name} = $option_value;
+    }
+
+    return $self->{'options'}->{$option_name};
+}
+
 
 
 1;

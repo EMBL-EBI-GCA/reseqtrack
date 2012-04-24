@@ -25,8 +25,6 @@ use File::Basename qw(fileparse);
 use ReseqTrack::Tools::FileSystemUtils qw(check_file_exists check_file_does_not_exist make_directory);
 use List::Util qw (first);
 use Env qw( @PATH );
-use File::Copy qw (move copy);
-use Scalar::Util qw( refaddr );
 
 use base qw(ReseqTrack::Tools::RunProgram);
 
@@ -71,17 +69,24 @@ use base qw(ReseqTrack::Tools::RunProgram);
 
 =cut
 
+sub DEFAULT_OPTIONS { return [
+        'use_reference_index => 0,
+        'input_sort_status' => '', # can be 'c' for coordinate or 'n' for name
+        'force_overwrite' => 1,
+        'attach_RG_tag' => 0,
+        'compute_BQ_tag' => 1,
+        'ext_BAQ_calc' => 1,
+        ];
+}
 
 sub new {
   my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
 
   my ( $reference_index, $reference,
-        $flags,
         )
     = rearrange( [
          qw( REFERENCE_INDEX REFERENCE
-                FLAGS
                 ) ], @args);
 
   #setting defaults
@@ -97,43 +102,21 @@ sub new {
   $self->reference_index($reference_index);
   $self->reference($reference);
 
-  $self->flags($flags);
-
   return $self;
 }
 
 sub run_fix_and_calmd {
     my $self = shift;
 
-    my $samtools = $self->program;
-    my $reference = $self->reference;
-
-    my $tmp_dir = $self->working_dir()
-          .'/'.$self->job_name.'.'.$$.'.tmp/';
-    check_file_does_not_exist($tmp_dir);
-    $self->created_files($tmp_dir);
-    make_directory($tmp_dir);
-
     foreach my $input (@{$self->input_files}) {
-      my $prefix = fileparse($input, qr/\.[sb]am/ );
       my $output_bam = $self->working_dir . "/$prefix.fixed.bam";
       $output_bam =~ s{//}{/}g;
 
       my @cmds;
-      if ($input =~ /\.sam$/) {
-        my $sam_to_bam_cmd = $self->flags('use_reference_index')
-                ? "$samtools view -bSu -t " . $self->find_reference_index . " $input"
-                : "$samtools view -bSu $input";
-        push(@cmds, $sam_to_bam_cmd);
-        push(@cmds, "$samtools sort -n -o - $tmp_dir/$prefix.nsort");
-      }
-      else {
-        push(@cmds, "$samtools sort -n -o $input $tmp_dir/$prefix.nsort");
-      }
-        
-      push(@cmds, "$samtools fixmate /dev/stdin /dev/stdout");
-      push(@cmds, "$samtools sort -o - $tmp_dir/$prefix.csort");
-      push(@cmds, "$samtools calmd -Erb - $reference");
+      push(@cmds, $self->_get_file_to_sorted_bam_cmd($input, 1, 1);
+      push(@cmds, $self->_get_fixmate_cmd);
+      push(@cmds, $self->_get_sort_cmd);
+      push(@cmds, $self->_get_calmd_cmd(1));
 
       my $cmd = join(' | ', @cmds) . " > $output_bam";
 
@@ -172,21 +155,14 @@ sub find_reference_index {
 sub run_sam_to_bam {
     my ($self) = @_;
 
-    my $samtools = $self->program;
-
     foreach my $input (@{$self->input_files}) {
       my $prefix = fileparse($input, qr/\.[sb]am/ );
 
       my $bam = $self->working_dir . "/$prefix.bam";
       $bam =~ s{//}{/}g;
 
-      my $cmd = $self->program . " view -bS ";
-
-      if ($self->flags('use_reference_index')) {
-          $cmd .= "-t " . $self->find_reference_index . " ";
-      }
-
-      $cmd .= "$input > $bam";
+      my $cmd = $self->_get_sam_to_bam_cmd($input);
+      $cmd .= " > $bam";
 
       $self->created_files($bam);
       $self->execute_command_line($cmd);
@@ -208,32 +184,13 @@ sub run_sam_to_bam {
 sub run_sort {
     my $self = shift;
 
-    my $samtools = $self->program;
-
-    my $tmp_dir = $self->working_dir()
-          .'/'.$self->job_name.'.'.$$.'.tmp/';
-    check_file_does_not_exist($tmp_dir);
-    $self->created_files($tmp_dir);
-    make_directory($tmp_dir);
-
     foreach my $input (@{$self->input_files}) {
       my $prefix = fileparse($input, qr/\.[sb]am/ );
       my $output_bam = $self->working_dir . "/$prefix.sorted.bam";
       $output_bam =~ s{//}{/}g;
 
-      my @cmds;
-      if ($input =~ /\.sam$/) {
-        my $sam_to_bam_cmd = $self->flags('use_reference_index')
-                ? "$samtools view -bSu -t " . $self->find_reference_index . " $input"
-                : "$samtools view -bSu $input";
-        push(@cmds, $sam_to_bam_cmd);
-        push(@cmds, "$samtools sort -n -o - $tmp_dir/$prefix.sort");
-      }
-      else {
-        push(@cmds, "$samtools sort -n -o $input $tmp_dir/$prefix.sort");
-      }
-
-      my $cmd = join(' | ', @cmds) . " > $output_bam";
+      my $cmd = $self->_get_file_to_sorted_bam_cmd($input);
+      $cmd .= " > $output_bam";
 
       $self->output_files($output_bam);
       $self->execute_command_line($cmd);
@@ -280,57 +237,33 @@ sub run_index {
 sub run_merge {
     my $self = shift;
 
-    my $samtools = $self->program;
-    my $flag_sort = $self->flags('sort_inputs');
+    throw("need more than two or more files to merge") if (@{$self->input_files} <2);
 
     my $output_bam = $self->working_dir . '/' . $self->job_name . '.merged.bam';
     $output_bam =~ s{//}{/}g;
+    throw("file already exists and force_overwrite is not set")
+            if (-e $output_bam && ! $self->options('force_overwrite');
 
-    my $tmp_dir;
-    if ($flag_sort) {
-        $tmp_dir = $self->working_dir()
-              .'/'.$self->job_name.'.'.$$.'.tmp/';
-        check_file_does_not_exist($tmp_dir);
-        $self->created_files($tmp_dir);
-        make_directory($tmp_dir);
-    }
-
-    my $cmd = "$samtools merge $output_bam";
+    my @cmd_words = ($self->program, 'merge');
+    push(@cmd_words, '-f') if ($self->options('force_overwrite'));
+    push(@cmd_words, '-r') if ($self->options('attach_RG_tag'));
+    push(@cmd_words, $output_bam);
 
     foreach my $input (@{$self->input_files}) {
-      my $prefix = fileparse($input, qr/\.[sb]am/ );
-      if ($input =~ /\.sam$/) {
-        my $sam_to_bam_cmd = $self->flags('use_reference_index')
-                ? "$samtools view -bSu -t " . $self->find_reference_index . " $input"
-                : "$samtools view -bSu $input";
-        if ($flag_sort) {
-          $cmd .= " <($sam_to_bam_cmd | $samtools sort -n -o - $tmp_dir/$prefix.sort)";
-        }
-        else {
-          $cmd .= " <($sam_to_bam_cmd)"
-        }
+      if ($self->options('input_sort_status') ne 'c' || $input =~ /\.sam$/) {
+        my $file_to_sorted_bam_cmd = $self->_get_file_to_sorted_bam_cmd($input, 0, 1);
+        push(@cmd_words, '<(', $sam_to_sorted_bam_cmd, ')');
       }
       else {
-        if ($flag_sort) {
-            $cmd .= " <($samtools sort -n -o $input $tmp_dir/$prefix.sort)";
-        }
-        else {
-          $cmd .= " $input";
-        }
+          push(@cmd_words, $input);
       }
     }
+    my $cmd = (join(' '), @cmd_words);
 
     $self->output_files($output_bam);
     $self->execute_command_line($cmd);
 
 }
-
-sub run_remove_duplicates {
-    my $self = shift;
-
-    return;
-}
-
 
 
 =head2 run
@@ -347,8 +280,7 @@ sub run_remove_duplicates {
 sub run_program {
     my ($self, $command) = @_;
 
-    my %subs = {'remove_duplicates' => \&run_remove_duplicates,
-                'merge'             => \&run_merge,
+    my %subs = {'merge'             => \&run_merge,
                 'sort'              => \&run_sort,
                 'index'             => \&run_index,
                 'fix_and_calmd'     => \&run_fix_and_calmd ,
@@ -360,6 +292,92 @@ sub run_program {
     &{$subs{$command}}($self);
 
     return;
+}
+
+
+
+sub _get_fixmate_cmd {
+    my ($self, $bam) = @_;
+    my @cmd_words = ($self->program, 'fixmate');
+    push(@cmd_words, $bam || '/dev/stdin');
+    push(@cmd_words, '/dev/stdout');
+    return join(' ', @cmd_words);
+}
+
+sub _get_calmd_cmd {
+    my ($self, $uncompressed, $input) = @_;
+    my @cmd_words = ($self->program, 'calmd');
+    push(@cmd_words, $uncompressed ? '-u' : '-b');
+    push(@cmd_words, '-r') if ($self->options('compute_BQ_tag');
+    push(@cmd_words, '-E') if ($self->options('ext_BAQ_calc');
+
+    if ($input) {
+      push(@cmd_words, '-S') if ($input =~ /\.sam$/);
+      push(@cmd_words, $input);
+    }
+    else {
+      push(@cmd_words, '-');
+    }
+    push(@cmd_words, $self->reference);
+    return join(' ', @cmd_words);
+}
+
+sub _get_file_to_sorted_bam_cmd {
+    my ($self, $file, $name_sort, $uncompressed) @_;
+
+    return $self->_get_sam_to_sorted_bam_cmd($file, $name_sort, $uncompressed)
+        if ($input =~ /\.sam$/);
+
+    return $self->_get_sort_cmd(1, $file)
+        if ($name_sort && $self->options('input_sort_status') ne 'n');
+
+    return $self->_get_sort_cmd(0, $file)
+        if ($self->options('input_sort_status') ne 'c');
+
+    my @cmd_words = ($self->program, 'view', '-hb');
+    push(@cmd_words, '-u') if $uncompressed;
+    push(@cmd_words, $file);
+    return;
+}
+
+
+sub _get_sam_to_sorted_bam_cmd {
+    my ($self, $sam, $name_sort, $uncompressed) = @_;
+
+    my $pipe_to_sort = $name_sort && $self->options('input_sort_status) ne 'n';
+    $pipe_to_sort ||= !$name_sort && $self->options('input_sort_status) ne 'c';
+
+    my @cmds = ($self->_get_sam_to_bam_cmd($sam, $uncompressed || $pipe_to_sort));
+    if ($pipe_to_sort) {
+        push(@cmds, $self->_get_sort_cmd($name_sort));
+    }
+    return join(' | ', @cmds);
+}
+
+sub _get_sam_to_bam_cmd {
+    my ($self, $sam, $uncompressed) = @_;
+
+    my @cmd_words = ($self->program, 'view', '-bS');
+    push(@cmd_words, '-u') if ($uncompressed);
+    push(@cmd_words, '-t', $self->find_reference_index)
+            if ($self->options('use_reference_index'));
+    push(@cmd_words, $sam || '-');
+
+    return join(' ', @cmd_words);
+}
+
+sub _get_sort_cmd {
+    my ($self, $name_sort, $bam) = @_;
+
+    my $prefix = $self->get_temp_dir .'/'. $self->job_name;
+    $prefix .= '.' . $name_sort ? 'nsort' : 'csort';
+
+    my @cmd_words = ($self->program, 'sort', '-o');
+    push(@cmd_words, '-n') if ($name_sort);
+    push(@cmd_words, $bam || '-');
+    push(@cmd_words, $prefix);
+
+    return join(' ', @cmd_words);
 }
 
 =head2 reference
@@ -400,64 +418,6 @@ sub reference_index {
   return $self->{'reference_index'};
 }
 
-
-=head2 options
-
-  Arg [1]   : ReseqTrack::Tools::RunSamtools
-  Arg [2]   : string, name of key e.g. "merge" or "sort"
-  Arg [3]   : string, optional, options to be used on command line e.g. "-m 100000000"
-  Function  : accessor method for command line options
-  Returntype: string, command line options
-  Exceptions: n/a
-  Example   : my $sort_options = $self->options{'sort'};
-
-=cut
-
-sub options {
-    my ($self, $option_name, $option_value) = @_;
-
-    if (! $self->{'options'}) {
-        $self->{'options'} = {};
-    }
-
-    throw( "option_name not specified")
-        if (! $option_name);
-
-    if ($option_value) {
-        $self->{'options'}->{$option_name} = $option_value ? 1 : 0;
-    }
-
-    return $self->{'options'}->{$option_name};
-}
-
-=head2 flags
-
-  Arg [1]   : ReseqTrack::Tools::RunSamtools
-  Arg [2]   : string, name of key e.g. "merge" or "sort"
-  Arg [3]   : boolean, optional, turn flag on or off
-  Function  : accessor method for flags to use the various samtools utilities.
-  Returntype: boolean, flag
-  Exceptions: n/a
-  Example   : my $run_sort_flag = $self->flags{'sort'};
-
-=cut
-
-sub flags {
-    my ($self, $flag_name, $flag_value) = @_;
-
-    if (! $self->{'flags'}) {
-        $self->{'flags'} = {};
-    }
-
-    throw( "flag_name not specified")
-        if (! $flag_name);
-
-    if ($flag_value) {
-        $self->{'flags'}->{$flag_name} = $flag_value ? 1 : 0;
-    }
-
-    return $self->{'flags'}->{$flag_name};
-}
 
 
 1;

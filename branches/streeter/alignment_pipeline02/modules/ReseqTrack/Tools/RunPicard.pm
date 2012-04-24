@@ -64,13 +64,11 @@ sub new {
 
   my ( $java_exe, $picard_dir, $jvm_options,
         $index_bai, $index_bam_bai,
-        $options,
         )
     = rearrange( [
          qw( JAVA_EXE PICARD_DIR JVM_OPTIONS
                 INDEX_BAI INDEX_BAM_BAI
-                OPTIONS)
-        ], @args);
+        )], @args);
 
   if (!$self->program && !$java_exe) {
     $java_exe = first {-x $_} map {"$_/java"} @PATH;
@@ -80,13 +78,11 @@ sub new {
   $self->picard_dir($picard_dir || $ENV{PICARD});
   $self->jvm_options( defined $jvm_options ? $jvm_options : '-Xmx2g' );
 
-  $self->options($options);
-
   if ($index_bai && $index_bam_bai) {
       throw( "use -index_bai OR -index_bam_bai, not both" );
   }
-  $self->flags('index_bam_bai', $index_bam_bai);
-  $self->flags('index_bai', $index_bai);
+  $self->options('index_bam_bai', $index_bam_bai);
+  $self->options('index_bai', $index_bai);
 
   return $self;
 }
@@ -108,33 +104,18 @@ sub run_program{
     my ($self, $command) = @_;
 
     throw("need a picard_dir") if ! $self->picard_dir;
-    throw("Please specify a command") if (! $command);
 
-    my $tmp_dir = $self->working_dir()
-          .'/'.$self->job_name.'.'.$$.'.tmp/';
-    check_file_does_not_exist($tmp_dir);
-    make_directory($tmp_dir);
-    $self->created_files($tmp_dir);
-    $self->tmp_dir($tmp_dir);
+    my %subs = {'remove_duplicates' => \&run_remove_duplicates,
+                'mark_duplicates'   => \&run_mark_duplicates,
+                'merge'             => \&run_merge,
+                'sort'              => \&run_sort,
+                'alignment_metrics' => \&run_alignment_metrics ,
+    };
 
-    if ($command eq 'remove_duplicates') {
-        $self->run_remove_duplicates;
-    }
-    elsif ($command eq 'mark_duplicates') {
-        $self->run_mark_duplicates;
-    }
-    elsif ($command eq 'merge') {
-        $self->run_merge;
-    }
-    elsif ($command eq 'sort') {
-        $self->run_sort;
-    }
-    elsif ($command eq 'alignment_metrics'){
-        $self->run_alignment_metrics;
-    }
-   else {
-        throw("Did not recognise command $command");
-    }
+    throw("Did not recognise command $command") if (!defined $subs{$command});
+
+    &{$subs{$command}}($self);
+    return;
 }
 
 
@@ -192,8 +173,7 @@ sub _process_duplicates {
         my $cmd = $self->java_exe;
         $cmd .= ' ' . $self->jvm_options if ($self->jvm_options);
         $cmd .= ' -jar ' . $jar;
-        $cmd .= ' ' . $self->options if ($self->options);
-        $cmd .= ' TMP_DIR=' . $self->tmp_dir;
+        $cmd .= ' TMP_DIR=' . $self->get_temp_dir;
         $cmd .= ' INPUT=' . $input;
         $cmd .= ' OUTPUT=' . $bam;
         $cmd .= ' METRICS_FILE=' . $metrics;
@@ -204,7 +184,7 @@ sub _process_duplicates {
             $cmd .= ' REMOVE_DUPLICATES=false';
         }
 
-        if ($self->flags('index_bai') || $self->flags('index_bam_bai')) {
+        if ($self->options('index_bai') || $self->options('index_bam_bai')) {
             $cmd .= ' CREATE_INDEX=true';
             $self->created_files("$prefix.bai");
         }
@@ -215,9 +195,9 @@ sub _process_duplicates {
         $self->execute_command_line($cmd);
 
 
-        if ($self->flags('index_bai') || $self->flags('index_bam_bai')) {
+        if ($self->options('index_bai') || $self->options('index_bam_bai')) {
             my $bai = "$prefix.bai";
-            if ($self->flags('index_bam_bai')) {
+            if ($self->options('index_bam_bai')) {
                 my $bam_bai = "$prefix.bam.bai";
                 $self->execute_command_line("mv $bai $bam_bai");
                 $bai = $bam_bai;
@@ -251,7 +231,6 @@ sub run_alignment_metrics {
     my $cmd = $self->java_exe;
     $cmd .= ' ' . $self->jvm_options if ($self->jvm_options);
     $cmd .= ' -jar ' . $jar;
-    $cmd .= ' ' . $self->options if ($self->options);
     $cmd .= ' INPUT=' . $input;
     $cmd .= ' OUTPUT=' . $output;
 
@@ -314,14 +293,13 @@ sub run_merge{
       my $cmd = $self->java_exe;
       $cmd .= ' ' . $self->jvm_options if ($self->jvm_options);
       $cmd .= ' -jar ' . $jar;
-      $cmd .= ' ' . $self->options if ($self->options);
-      $cmd .= ' TMP_DIR=' . $self->tmp_dir;
+      $cmd .= ' TMP_DIR=' . $self->get_temp_dir;
       foreach my $input (@$input_bam_list) {
           $cmd .= ' INPUT=' . $input;
       }
       $cmd .= ' OUTPUT=' . $bam;
 
-      if ($self->flags('index_bai') || $self->flags('index_bam_bai')) {
+      if ($self->options('index_bai') || $self->options('index_bam_bai')) {
           $cmd .= ' CREATE_INDEX=true';
           $self->created_files("$prefix.bai");
       }
@@ -334,9 +312,9 @@ sub run_merge{
           or throw "copy failed: $!";
     }
 
-    if ($self->flags('index_bai') || $self->flags('index_bam_bai')) {
+    if ($self->options('index_bai') || $self->options('index_bam_bai')) {
         my $bai = "$prefix.bai";
-        if ($self->flags('index_bam_bai')) {
+        if ($self->options('index_bam_bai')) {
             my $bam_bai = "$prefix.bam.bai";
             $self->execute_command_line("mv $bai $bam_bai");
             $bai = $bam_bai;
@@ -375,7 +353,6 @@ sub run_sort{
     my $cmd = $self->java_exe;
     $cmd .= ' ' . $self->jvm_options if ($self->jvm_options);
     $cmd .= ' -jar ' . $jar;
-    $cmd .= ' ' . $self->options if ($self->options);
     $cmd .= ' SORT_ORDER='. $sort_order;
     $cmd .= ' INPUT=' . $input;
     $cmd .= ' OUTPUT=' . $output;
@@ -413,57 +390,9 @@ sub jvm_options {
     return $self->{'jvm_options'};
 }
 
-sub options {
-    my ($self, $arg) = @_;
-    if ($arg) {
-        $self->{'options'} = $arg;
-    }
-    return $self->{'options'};
-}
-
-sub tmp_dir {
-    my ($self, $arg) = @_;
-    if ($arg) {
-        $self->{'tmp_dir'} = $arg;
-    }
-    return $self->{'tmp_dir'};
-}
-
 sub java_exe {
   my $self = shift;
   return $self->program(@_);
-}
-
-
-
-
-=head2 flags
-
-  Arg [1]   : ReseqTrack::Tools::RunPicard
-  Arg [2]   : string, name of key e.g. "index_bai" or "index_bam_bai"
-  Arg [3]   : boolean, optional, turn flag on or off
-  Function  : accessor method for flags to use the various samtools utilities.
-  Returntype: boolean, flag
-  Exceptions: n/a
-  Example   : my $run_sort_flag = $self->flags{'index_bai'};
-
-=cut
-
-sub flags {
-    my ($self, $flag_name, $flag_value) = @_;
-
-    if (! $self->{'flags'}) {
-        $self->{'flags'} = {};
-    }
-
-    throw( "flag_name not specified")
-        if (! $flag_name);
-
-    if ($flag_value) {
-        $self->{'flags'}->{$flag_name} = $flag_value ? 1 : 0;
-    }
-
-    return $self->{'flags'}->{$flag_name};
 }
 
 
