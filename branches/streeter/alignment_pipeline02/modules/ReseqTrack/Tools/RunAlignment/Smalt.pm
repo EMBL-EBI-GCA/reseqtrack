@@ -12,21 +12,24 @@ use Env qw( @PATH );
 
 use base qw(ReseqTrack::Tools::RunAlignment);
 
+sub DEFAULT_OPTIONS { return [
+        'threads' => 1,
+        ];
+}
+
 sub new {
 
     my ( $class, @args ) = @_;
     my $self = $class->SUPER::new(@args);
 
-    my ( $index_prefix, $build_index_flag, $se_options, $pe_options)
+    my ( $index_prefix, $build_index_flag,)
         = rearrange( [
-            qw( INDEX_PREFIX BUILD_INDEX_FLAG SE_OPTIONS PE_OPTIONS )
-                ], @args);
+            qw( INDEX_PREFIX BUILD_INDEX_FLAG
+                )], @args);
 
 
     $self->index_prefix($index_prefix);
     $self->build_index_flag($build_index_flag);
-    $self->se_options($se_options);
-    $self->pe_options($pe_options);
 
 
     return $self;
@@ -66,11 +69,13 @@ sub run_se_alignment {
           : ($fastq =~ /\.gz(?:ip)$/) ? "< (gunzip -c $fastq )"
           : $fastq;
 
-    my $cmd_line = $self->program . ' map';
-    $cmd_line .= ' ' . $self->se_options if $self->se_options;
-    $cmd_line .= ' -f sam -o ' . $sam;
-    $cmd_line .= ' ' . $self->index_prefix;
-    $cmd_line .= ' ' . $fastq_cmd_string;
+    my @cmd_words = ($self->program, 'map');
+    push(@cmd_words, '-n', $self->options('threads') || 1);
+    push(@cmd_words, '-f', 'sam');
+    push(@cmd_words, '-o', $sam);
+    push(@cmd_words, $self->index_prefix, $fastq_cmd_string);
+
+    my $cmd_line = join(' ', @cmd_words);
 
     $self->output_files($sam);
     $self->execute_command_line($cmd_line);
@@ -96,11 +101,13 @@ sub run_pe_alignment {
           : ($fastq_mate2 =~ /\.gz(?:ip)$/) ? "< (gunzip -c $fastq_mate2 )"
           : $fastq_mate2;
 
-    my $cmd_line = $self->program . ' map';
-    $cmd_line .= ' ' . $self->se_options if $self->se_options;
-    $cmd_line .= ' -f sam -o ' . $sam;
-    $cmd_line .= ' ' . $self->index_prefix;
-    $cmd_line .= ' ' . $fastq_cmd_string_mate1 . ' ' . $fastq_cmd_string_mate2;
+    my @cmd_words = ($self->program, 'map');
+    push(@cmd_words, '-n', $self->options('threads') || 1);
+    push(@cmd_words, '-f', 'sam');
+    push(@cmd_words, '-o', $sam);
+    push(@cmd_words, $self->index_prefix, $fastq_cmd_string_mate1, $fastq_cmd_string_mate2);
+
+    my $cmd_line = join(' ', @cmd_words);
 
     $self->output_files($sam);
     $self->execute_command_line($cmd_line);

@@ -28,30 +28,26 @@ package ReseqTrack::Tools::GATKTools::IndelRealigner;
 use strict;
 use warnings;
 
-use ReseqTrack::Tools::RunProgram;
 use ReseqTrack::Tools::Argument qw(rearrange);
 use ReseqTrack::Tools::Exception qw(throw warning);
 use ReseqTrack::Tools::FileSystemUtils qw(check_file_exists);
-use ReseqTrack::Tools::GATKTools;
 
-use vars qw(@ISA);
-use Data::Dumper;
+use base qw(ReseqTrack::Tools::GATKTools);
 
-@ISA = qw(ReseqTrack::Tools::GATKTools);
+sub DEFAULT_OPTIONS { return [
+        'threads' => 1,
+        'lod' => 0.4,
+        'model' => 'KNOWNS_ONLY',
+        ];
+}
 
 sub new {
 	my ( $class, @args ) = @_;
 	my $self = $class->SUPER::new(@args);
 
-
         #setting defaults
         if (!$self->jar_file) {
           $self->jar_file ("GenomeAnalysisTK.jar");
-        }
-
-        if (!$self->options('IndelRealigner')) {
-          my $ira_options = " -LOD 0.4 -model KNOWNS_ONLY --disable_bam_indexing";
-          $self->options('IndelRealigner', $ira_options);
         }
 
 	return $self;
@@ -81,50 +77,26 @@ sub run_program {
 sub create_target_intervals_file {
   my $self = shift;
 
-  my $cmd = $self->java_exe . " " . $self->jvm_args . " -jar ";
-  $cmd .= $self->gatk_path ;
-  $cmd .= "\/";
-  $cmd .= $self->jar_file;
-  $cmd .= " -T RealignerTargetCreator ";
-
-  if ( defined 	$self->{options}->{'RealignerTargetCreator'}) {
-    $cmd .= 	$self->{options}->{'RealignerTargetCreator'};
-  }
-  else {
-    warn "No RealignerTargetCreator options\n";
-  }
-
-  foreach my $vcf (@{$self->known_sites_files}) {
-    $cmd .= "-known $vcf ";
-  }
-
   my $interval_file = $self->working_dir . '/'
         . $self->job_name . '.bam.interval_list';
   $interval_file =~ s{//}{/}g;
 
-  $cmd .= " -o $interval_file ";
-  $cmd .= " -R " . $self->reference . " ";
-  $cmd .= " -I " . $self->input_bam;
+  my @cmd_words = ($self->java_exe, $self->jvm_args, '-jar');
+  push(@cmd_words, $self->gatk_path . '/' . $self->jar_file);
+  push(@cmd_words, '-T', 'RealignerTargetCreator');
+  push(@cmd_words, '--num_threads=' . $self->options('threads') || 1);
 
-  my $CL = "java jvm_args -jar GenomeAnalysisTK.jar "
-    . "-T RealignerTargetCreator -R \$reference -o \$intervals_file "
-      ."-known \$known_sites_file(s)";
+  foreach my $vcf (@{$self->known_sites_files}) {
+    push(@cmd_words, '-known', $vcf);
+  }
+  push(@cmd_words, '-R', $self->reference);
+  push(@cmd_words, '-I', $self->input_bam);
+  push(@cmd_words, '-o', $interval_file);
 
-  #For bam header section
-  my %PG =('PG'=>'@PG',
-           'ID'=>"gatk_target_interval_creator",
-           'PN'=>"GenomeAnalysisTK",     
-           'PP'=>"sam_to_fixed_bam",
-           'VN'=>"1.2-29-g0acaf2d",
-           'CL'=> $CL,
-           );
-
-  my $COMMENT = '$known_sites_file(s) = '. join(', ', @{$self->known_sites_files});
-  my %CO = ('@CO'=> $COMMENT);
+  my $cmd = join(' ', @cmd_words);
 
   $self->intervals_file($interval_file);
   $self->execute_command_line ($cmd);
-
 
   return;
 }
@@ -133,20 +105,26 @@ sub create_target_intervals_file {
 sub create_indel_realign_bam {
   my $self = shift;
 
-  my $cmd = $self->java_exe . " " . $self->jvm_args . " -jar ";
-  $cmd .= $self->gatk_path . "\/" . $self->jar_file;
-  $cmd .= " -T IndelRealigner ";
-  $cmd .= $self->{options}->{'IndelRealigner'};
-  $cmd .= " --targetIntervals " . $self->intervals_file . " ";
-  foreach my $vcf (@{$self->known_sites_files}) {
-    $cmd .= "-known $vcf ";
-  }
-  $cmd .= " -R " . $self->reference . " ";
-  $cmd .= " -I " . $self->input_bam;
-
   my $realigned_bam = $self->working_dir . '/'
         . $self->job_name. '.indel_realigned.bam';
-  $cmd .= " -o " . $realigned_bam;
+
+  my @cmd_words = ($self->java_exe, $self->jvm_args, '-jar');
+  push(@cmd_words, $self->gatk_path . '/' . $self->jar_file);
+  push(@cmd_words, '-T', 'IndelRealigner');
+  push(@cmd_words, '--num_threads=' . $self->options('threads') || 1);
+  push(@cmd_words, '-LOD', $self->options('lod')) if ($self->options('lod'));
+  push(@cmd_words, '-model', $self->options('model')) if ($self->options('model'));
+  push(@cmd_words, '--disable_bam_indexing');
+  push(@cmd_words, '--targetIntervals', $self->intervals_file);
+
+  foreach my $vcf (@{$self->known_sites_files}) {
+    push(@cmd_words, '-known', $vcf);
+  }
+  push(@cmd_words, '-R', $self->reference);
+  push(@cmd_words, '-I', $self->input_bam);
+  push(@cmd_words, '-o', $realigned_bam);
+
+  my $cmd = join(' ', @cmd_words);
 
   $self->output_files($realigned_bam);
   $self->execute_command_line ($cmd);

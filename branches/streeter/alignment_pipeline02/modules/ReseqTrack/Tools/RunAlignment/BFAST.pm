@@ -11,6 +11,13 @@ use List::Util qw (first);
 
 use base qw(ReseqTrack::Tools::RunAlignment);
 
+sub DEFAULT_OPTIONS { return [
+        'threads' => 1,
+        'colour_space' => 1,
+        'offset' => 20,
+        ];
+}
+
 sub new {
 
 	my ( $class, @args ) = @_;
@@ -31,11 +38,7 @@ sub new {
           }
         }
 
-	$self->ali_options('-A 1 -K 8 -M 384 -n 4 -Q 25000 ');
-
 	$self->preprocess_exe($preprocess_exe);
-
-
 
 	return $self;
 
@@ -45,13 +48,6 @@ sub new {
 
 sub run_alignment {
     my ($self) = @_;
-
-    my $tmp_dir = $self->working_dir()
-          .'/'.$self->job_name.'.'.$$.'.tmp/';
-    check_file_does_not_exist($tmp_dir);
-    make_directory($tmp_dir);
-    $self->created_files($tmp_dir);
-    $self->tmp_dir($tmp_dir);
 
     my $tmp_bmf = $self->run_match();
     my $tmp_baf = $self->run_localalign($tmp_bmf);
@@ -67,88 +63,81 @@ sub run_alignment {
 ############
 
 sub run_postprocess {
-	my ($self, $tmp_baf) = @_;
-	my $cmd_line;
+    my ($self, $tmp_baf) = @_;
 
-        throw( "no baf file\n" )
-            if (! $tmp_baf );
+    throw( "no baf file\n" )
+        if (! $tmp_baf );
 
-	my $output_sam =  $self->working_dir . '/' . $self->job_name. ".sam";
-        $output_sam =~ s{//}{/};
+    my $output_sam =  $self->working_dir . '/' . $self->job_name. ".sam";
+    $output_sam =~ s{//}{/};
 
-	$cmd_line = $self->program() . " postprocess ";
-	$cmd_line .= " -f " . $self->reference() . " ";
-	$cmd_line .= " -i  $tmp_baf ";
-        $cmd_line .= " -T " . $self->tmp_dir;
-	$cmd_line .= " -n 4 -Q 1000 -t -U  > $output_sam";
+    my @cmd_words;
+    push(@cmd_words, $self->program, 'postprocess');
+    push(@cmd_words, '-f', $self->reference);
+    push(@cmd_words, '-i', $tmp_baf);
 
-        $self->sam_files($output_sam);
-        $self->execute_command_line($cmd_line);
+    push(@cmd_words, '>', $output_sam);
+
+    my $cmd_line = join(' ', @cmd_words);
+
+    $self->sam_files($output_sam);
+    $self->execute_command_line($cmd_line);
 
 }
 
 sub run_localalign {
-	my ($self, $tmp_bmf) = @_;
+    my ($self, $tmp_bmf) = @_;
 
-        throw( "no bmf file\n" )
-            if (! $tmp_bmf );
+    throw( "no bmf file\n" )
+        if (! $tmp_bmf );
 
-	my $cmd_line;
+    my $tmp_baf =  $self->working_dir . '/' . $self->job_name . ".baf";
+    $tmp_baf =~ s{//}{/};
 
-	my $tmp_baf =  $self->working_dir . '/' . $self->job_name . ".baf";
-        $tmp_baf =~ s{//}{/};
+    my @cmd_words;
+    push(@cmd_words, $self->program, 'localalign');
+    push(@cmd_words, '-f', $self->reference);
+    push(@cmd_words, '-n', $self->options('threads') || 1);
+    push(@cmd_words, '-A', $self->options('colour_space') ? 1 : 0);
+    push(@cmd_words, '-o', $self->options('offset')) if ($self->options('offset'));
+    push(@cmd_words, '-m', $tmp_bmf);
 
-	$cmd_line = $self->program() . " localalign ";
-	$cmd_line .= " -f " . $self->reference() . " ";
-	$cmd_line .= " -m  $tmp_bmf ";
-	$cmd_line .= " -A 1 -o 20 -n 4 -t > $tmp_baf ";
-        
-        $self->created_files($tmp_baf);
-        $self->execute_command_line($cmd_line);
+    push(@cmd_words, '>', $tmp_baf);
+
+    my $cmd_line = join(' ', @cmd_words);
+    
+    $self->created_files($tmp_baf);
+    $self->execute_command_line($cmd_line);
 	
     return $tmp_baf;
 }
 
 sub run_match {
 	my $self = shift;
-	my $cmd_line;
 
 	my $tmp_bmf =  $self->working_dir . '/' . $self->job_name. ".bmf";
         $tmp_bmf =~ s{//}{/};
 
-	$cmd_line = $self->preprocess_exe() . " ";
+        my @cmd_words;
+	push(@cmd_words, $self->preprocess_exe());
+        push(@cmd_words, $self->get_fastq_cmd_string('mate1')) if ($self->mate1_file);
+        push(@cmd_words, $self->get_fastq_cmd_string('mate2')) if ($self->mate2_file);
+        push(@cmd_words, $self->get_fastq_cmd_string('frag')) if ($self->fragment_file);
 
-        if ( $self->mate1 ) {
-            $cmd_line .= $self->get_fastq_cmd_string('mate1') . " ";
-        }
-        if ( $self->mate2 ) {
-            $cmd_line .= $self->get_fastq_cmd_string('mate2') . " ";
-        }
-        if ( $self->fragment_file ) {
-            $cmd_line .= $self->get_fastq_cmd_string('frag') . " ";
-        }
+        push(@cmd_words, '|', $self->program, 'match');
+        push(@cmd_words, '-f', $self->reference);
+        push(@cmd_words, '-n', $self->options('threads') || 1);
+        push(@cmd_words, '-A', $self->options('colour_space') ? 1 : 0);
+        push(@cmd_words, '-T', $self->get_temp_dir);
 
-	$cmd_line .= " \| ";
+        push(@cmd_words, '>', $tmp_bmf);
 
-	$cmd_line .= $self->program() . " match ";
-	$cmd_line .= " -f " . $self->reference() . " ";
-	$cmd_line .= $self->ali_options() . " ";
-        $cmd_line .= " -T " . $self->tmp_dir;
-	$cmd_line .= ">  $tmp_bmf";
+        my $cmd_line = join(' ', @cmd_words);
 
         $self->created_files($tmp_bmf);
         $self->execute_command_line($cmd_line);
 
     return $tmp_bmf;
-}
-
-sub ali_options {
-	my ( $self, $arg ) = @_;
-
-	if ($arg) {
-		$self->{ali_options} = $arg;
-	}
-	return $self->{ali_options};
 }
 
 sub preprocess_exe {
@@ -158,15 +147,6 @@ sub preprocess_exe {
 		$self->{preprocess_exe} = $arg;
 	}
 	return $self->{preprocess_exe};
-}
-
-sub tmp_dir {
-	my ( $self, $arg ) = @_;
-
-	if ($arg) {
-		$self->{tmp_dir} = $arg;
-	}
-	return $self->{tmp_dir};
 }
 
 1;

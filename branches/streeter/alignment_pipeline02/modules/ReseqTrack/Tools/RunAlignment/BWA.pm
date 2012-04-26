@@ -96,82 +96,82 @@ sub run_alignment {
 }
 
 sub run_sampe_alignment {
-	my ($self) = @_;
-	my $mate1_sai =
-	  $self->run_aln_mode( "mate1" );
-	my $mate2_sai =
-	  $self->run_aln_mode( "mate2" );
-        my $output_sam = $self->working_dir() . '/'
-            . $self->job_name
-            . '_pe.sam';
-        $output_sam =~ s{//}{/};
+    my ($self) = @_;
+    my $mate1_sai =
+      $self->run_aln_mode( "mate1" );
+    my $mate2_sai =
+      $self->run_aln_mode( "mate2" );
+    my $output_sam = $self->working_dir() . '/'
+        . $self->job_name
+        . '_pe.sam';
+    $output_sam =~ s{//}{/};
 
-	if ( $self->paired_length() ) {
-		my $paired_length = " -a " . $self->paired_length;
-		$self->sampe_options($paired_length);
-	}
+    if ( $self->paired_length() ) {
+            my $paired_length = " -a " . $self->paired_length;
+            $self->sampe_options($paired_length);
+    }
 
-        my @cmd_words = ($self->program, 'sampe');
-        push(@cmd_words, '-P') if $self->options('load_fm_index');
+    my @cmd_words = ($self->program, 'sampe');
+    push(@cmd_words, '-P') if $self->options('load_fm_index');
 
-        if ($self->read_group_fields->{'ID'}) {
-          my $rg_string = q('@RG\tID:) . $self->read_group_fields->{'ID'};
-          RG:
-          while (my ($tag, $value) = each %{$self->read_group_fields}) {
-            next RG if ($tag eq 'ID');
-            next RG if (!$value);
-            $rg_string .= '\t' . $tag . ':' . $value;
-          }
-          $rg_string .= q(');
-          push(@cmd_words, '-r', $rg_string);
-        }
-        push(@cmd_words, $self->reference, $mate1_sai, $mate2_sai);
-        push(@cmd_words, $self->get_fastq_cmd_string('mate1'));
-        push(@cmd_words, $self->get_fastq_cmd_string('mate2'));
-        push(@cmd_words, $output_sam);
+    if ($self->read_group_fields->{'ID'}) {
+      my $rg_string = q('@RG\tID:) . $self->read_group_fields->{'ID'};
+      RG:
+      while (my ($tag, $value) = each %{$self->read_group_fields}) {
+        next RG if ($tag eq 'ID');
+        next RG if (!$value);
+        $rg_string .= '\t' . $tag . ':' . $value;
+      }
+      $rg_string .= q(');
+      push(@cmd_words, '-r', $rg_string);
+    }
+    push(@cmd_words, $self->reference, $mate1_sai, $mate2_sai);
+    push(@cmd_words, $self->get_fastq_cmd_string('mate1'));
+    push(@cmd_words, $self->get_fastq_cmd_string('mate2'));
+    push(@cmd_words, $output_sam);
 
-        my $sampe_cmd = join(' ', @cmd_words);
+    my $sampe_cmd = join(' ', @cmd_words);
 
-        $self->output_files($output_sam);
-        $self->execute_command_line($sampe_cmd);
+    $self->output_files($output_sam);
+    $self->execute_command_line($sampe_cmd);
 
-	return $output_sam;
+    return $output_sam;
 }
 
 sub run_samse_alignment {
-	my ($self) = @_;
+    my ($self) = @_;
 
-	my $sai_file =
-	  $self->run_aln_mode( "frag" );
+    my $sai_file =
+      $self->run_aln_mode( "frag" );
 
-        my $output_sam = $self->working_dir() . '/'
-            . $self->job_name
-            . '_se.sam';
-        $output_sam =~ s{//}{/};
+    my $output_sam = $self->working_dir() . '/'
+        . $self->job_name
+        . '_se.sam';
+    $output_sam =~ s{//}{/};
 
-        my @cmd_words = ($self->program, 'samse');
+    my @cmd_words = ($self->program, 'samse');
 
-        if ($self->read_group_fields->{'ID'}) {
-          my $rg_string = q('@RG\tID:) . $self->read_group_fields->{'ID'};
-          RG:
-          while (my ($tag, $value) = each %{$self->read_group_fields}) {
-            next RG if ($tag eq 'ID');
-            next RG if (!$value);
-            $rg_string .= '\t' . $tag . ':' . $value;
-          }
-          $rg_string .= q(');
-          push(@cmd_words, '-r', $rg_string);
-        }
-        push(@cmd_words, $self->reference, $sai_file);
-        push(@cmd_words, $self->get_fastq_cmd_string('frag'));
-        push(@cmd_words, $output_sam);
+    if ($self->read_group_fields->{'ID'}) {
+      my $rg_string = q('@RG\tID:) . $self->read_group_fields->{'ID'};
+      RG:
+      while (my ($tag, $value) = each %{$self->read_group_fields}) {
+        next RG if ($tag eq 'ID');
+        next RG if (!$value);
+        $rg_string .= '\t' . $tag . ':' . $value;
+      }
+      $rg_string .= q(');
+      push(@cmd_words, '-r', $rg_string);
+    }
+    push(@cmd_words, $self->reference, $sai_file);
+    push(@cmd_words, $self->get_fastq_cmd_string('frag'));
+    push(@cmd_words, $output_sam);
 
-        my $samse_cmd = join(' ', @cmd_words);
-	  
-        $self->output_files($output_sam);
-        $self->execute_command_line($samse_cmd);
+    my $samse_cmd = join(' ', @cmd_words);
+      
+    $self->output_files($output_sam);
+    $self->execute_command_line($samse_cmd);
 
-	return $output_sam;
+    return $output_sam;
 }
 
 sub run_aln_mode {

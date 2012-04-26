@@ -6,6 +6,7 @@ use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::FileUtils qw(create_object_from_path);
 use ReseqTrack::Tools::FileSystemUtils qw(run_md5 delete_file);
 use ReseqTrack::Tools::HostUtils qw(get_host_object);
+use ReseqTrack::Tools::RunMetaInfoUtils qw(create_directory_path);
 use File::Basename qw(fileparse);
 use Getopt::Long;
 
@@ -61,6 +62,13 @@ throw("must specify one of -realign or -recalibrate, not both or neither")
     if (($realign && $recalibrate) || (!$realign && !$recalibrate));
 my $gatk_module = load_gatk_module($realign ? 'IndelRealigner' : 'QualityScoreRecalibrator');
 
+my @allowed_options = keys %{eval "$gatk_module".'::DEFAULT_OPTIONS'};
+foreach my $option (keys %options) {
+  throw("Don't recognise option $option. Acceptable options are: @allowed_options")
+    if (! grep {$option eq $_ } @allowed_options);
+}
+
+throw("Must specify an output directory") if (!$output_dir);
 
 my $db = ReseqTrack::DBSQL::DBAdaptor->new(
   -host   => $dbhost,
@@ -83,10 +91,20 @@ throw("Expecting one file; have ".@$others."\n")
     if (@$others != 1);
 my $input_file = $others->[0];
 
-if (!$output_dir) {
-  $output_dir = (fileparse($input_file->name))[1];
-  my $file_type = $input_file->type;
-  $output_dir =~ s/$file_type\/*$/$type_output/;
+if ($directory_layout) {
+  my $rmia = $db->get_RunMetaInfoAdaptor;
+  my $run_meta_info;
+  if ($name =~ /[ESD]RR\d{6}/) {
+    $run_meta_info = $rmia->fetch_by_run_id($&);
+  }
+  elsif ($name =~ /[ESD]RS\d{6}/) {
+    my $rmi_list = $rmia->fetch_by_sample_id($&);
+    $run_meta_info = $rmi_list->[0] if (@$rmi_list);
+  }
+
+  if ($run_meta_info) {
+    $output_dir = create_directory_path($run_meta_info, $directory_layout, $output_dir);
+  }
 }
 
 my $gatk_object = $gatk_module->new(

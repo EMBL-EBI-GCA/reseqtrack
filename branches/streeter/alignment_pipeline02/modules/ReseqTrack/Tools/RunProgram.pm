@@ -91,6 +91,8 @@ sub new {
   return $self;
 }
 
+sub DEFAULT_OPTIONS {return [];}
+
 =head2 run
 
   Arg [1]   : ReseqTrack::Tools::RunProgram

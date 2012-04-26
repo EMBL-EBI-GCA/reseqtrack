@@ -10,15 +10,24 @@ use Env qw( @PATH );
 
 use base qw(ReseqTrack::Tools::RunAlignment);
 
+sub DEFAULT_OPTIONS { return [
+        'gap_open_penalty' => '',
+        'gap_extension_penalty' => '',
+        'fast' => 0,
+        'allow_overwriting' => 1,
+        ];
+}
+
 sub new {
 
     my ( $class, @args ) = @_;
     my $self = $class->SUPER::new(@args);
 
-    my ( $genome_prefix, $hash_prefix, $build_genome_flag, $se_options, $pe_options)
+    my ( $genome_prefix, $hash_prefix, $build_genome_flag,)
         = rearrange( [
-            qw( GENOME_PREFIX HASH_PREFIX BUILD_GENOME_FLAG SE_OPTIONS PE_OPTIONS )
-                ], @args);
+            qw(
+            GENOME_PREFIX HASH_PREFIX BUILD_GENOME_FLAG
+                )], @args);
 
 
     #setting defaults
@@ -34,9 +43,6 @@ sub new {
     $self->genome_prefix($genome_prefix);
     $self->hash_prefix($hash_prefix);
     $self->build_genome_flag($build_genome_flag);
-    $self->se_options($se_options);
-    $self->pe_options($pe_options);
-
 
     return $self;
 
@@ -71,31 +77,31 @@ sub run_se_alignment {
         . $self->job_name
         . '_se.sam';
     $sam =~ s{//}{/};
-    if (-e $sam) {
-      delete_file($sam);
-    }
 
-    my $cmd_line;
-    $cmd_line = $self->program();
-    $cmd_line .= " -g " . $self->genome_prefix;
-    $cmd_line .= " -h " . $self->hash_prefix;
-    
-    if ($self->se_options) {
-        $cmd_line .= " " . $self->se_options;
-    }
+    my @cmd_words = ($self->program);
+    push(@cmd_words, '-g', $self->genome_prefix);
+    push(@cmd_words, '-h', $self->hash_prefix);
+    push(@cmd_words, '--gapopen='.$self->options('gap_open_penalty'))
+            if $self->options('gap_open_penalty');
+    push(@cmd_words, '--gapextend='.$self->options('gap_extension_penalty'))
+            if ($self->options('gap_extension_penalty'));
+    push(@cmd_words, '--fast') if ($self->options('fast'));
+    push(@cmd_words, '--overwrite') if ($self->options('allow_overwriting'));
 
     if ($self->read_group_fields->{'ID'}) {
-      $cmd_line .= " --readgroup=ID:" . $self->read_group_fields->{'ID'};
+      my $rg_string = "--readgroup=ID:" . $self->read_group_fields->{'ID'};
       RG:
       while (my ($tag, $value) = each %{$self->read_group_fields}) {
         next RG if ($tag eq 'ID');
         next RG if (!$value);
-        $cmd_line .= ",$tag:$value";
+        $rg_string .= ",$tag:$value";
       }
+      push(@cmd_words, $rg_string);
     }
+    push(@cmd_words, '-o', $sam);
+    push(@cmd_words, '-M', $self->get_static_fastq('frag'));
 
-    $cmd_line .= " -o " . $sam;
-    $cmd_line .= " -M " . $self->get_static_fastq('frag');
+    my $cmd_line = join(' ', @cmd_words);
 
     $self->sam_files($sam);
     $self->execute_command_line($cmd_line);
@@ -111,36 +117,34 @@ sub run_pe_alignment {
         . $self->job_name
         . '_pe.sam';
     $sam =~ s{//}{/};
-    if (-e $sam) {
-      delete_file($sam);
-    }
 
-    my $cmd_line;
-    $cmd_line = $self->program();
-    $cmd_line .= " -g " . $self->genome_prefix;
-    $cmd_line .= " -h " . $self->hash_prefix;
-    
-    if ($self->pe_options) {
-        $cmd_line .= " " . $self->pe_options;
-    }
+    my @cmd_words = ($self->program);
+    push(@cmd_words, '-g', $self->genome_prefix);
+    push(@cmd_words, '-h', $self->hash_prefix);
+    push(@cmd_words, '--gapopen='.$self->options('gap_open_penalty'))
+            if $self->options('gap_open_penalty');
+    push(@cmd_words, '--gapextend='.$self->options('gap_extension_penalty'))
+            if ($self->options('gap_extension_penalty'));
+    push(@cmd_words, '--fast') if ($self->options('fast'));
+    push(@cmd_words, '--overwrite') if ($self->options('allow_overwriting'));
 
-    if ($self->paired_length ) {
-        $cmd_line .= " --insertsize=" . $self->paired_length;
-    }
+    push(@cmd_words, '--insertsize='.$self->paired_length)
+            if ($self->paired_length);
 
     if ($self->read_group_fields->{'ID'}) {
-      $cmd_line .= " --readgroup=ID:" . $self->read_group_fields->{'ID'};
+      my $rg_string = "--readgroup=ID:" . $self->read_group_fields->{'ID'};
       RG:
       while (my ($tag, $value) = each %{$self->read_group_fields}) {
         next RG if ($tag eq 'ID');
         next RG if (!$value);
-        $cmd_line .= ",$tag:$value";
+        $rg_string .= ",$tag:$value";
       }
+      push(@cmd_words, $rg_string);
     }
+    push(@cmd_words, '-o', $sam);
+    push(@cmd_words, '-M', map {$self->get_static_fastq($_)} ('mate1', 'mate2'));
 
-    $cmd_line .= " -o " . $sam;
-    $cmd_line .= " -M " . $self->get_static_fastq('mate1')
-                . " " . $self->get_static_fastq('mate2');
+    my $cmd_line = join(' ', @cmd_words);
 
     $self->sam_files($sam);
     $self->execute_command_line($cmd_line);

@@ -117,23 +117,6 @@ sub generate_job_name {
 
 =cut
 
-sub options {
-    my ($self, $option_name, $option_value) = @_;
-
-    if (! $self->{'options'}) {
-        $self->{'options'} = {};
-    }
-
-    throw( "option_name not specified")
-        if (! $option_name);
-
-    if ($option_value) {
-        $self->{'options'}->{$option_name} = $option_value;
-    }
-
-    return $self->{'options'}->{$option_name};
-}
-
 sub check_bai_exists{
   my ($self) = @_;
 
@@ -143,11 +126,11 @@ sub check_bai_exists{
   print "$bamindex does not exist. Creating\n";
 
   my $samtools_object = ReseqTrack::Tools::RunSamtools->new(
-                -program => $self->samtools, -flag_index => 1,
+                -program => $self->samtools,
                 -input_files => $self->input_bam,
                         );
-  $samtools_object->run;
-  $bamindex = $samtools_object->output_bai_files->[0];
+  $samtools_object->run('index');
+  $bamindex = $samtools_object->output_files->[0];
   $self->created_files($bamindex);
 
   print "Created $bamindex\n\n";
