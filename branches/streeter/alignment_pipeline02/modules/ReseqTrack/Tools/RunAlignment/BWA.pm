@@ -39,7 +39,7 @@ use List::Util qw (first);
 
 =cut
 
-sub DEFAULT_OPTIONS { return [
+sub DEFAULT_OPTIONS { return {
         'read_trimming' => 15,
         'mismatch_penalty' => '',
         'gap_open_penalty' => '',
@@ -48,7 +48,7 @@ sub DEFAULT_OPTIONS { return [
         'max_gap_extensions' => '',
         'threads' => 1,
         'load_fm_index' => 1,
-        ];
+        };
 }
 
 sub new {
@@ -106,29 +106,26 @@ sub run_sampe_alignment {
         . '_pe.sam';
     $output_sam =~ s{//}{/};
 
-    if ( $self->paired_length() ) {
-            my $paired_length = " -a " . $self->paired_length;
-            $self->sampe_options($paired_length);
-    }
-
-    my @cmd_words = ($self->program, 'sampe');
+    my @cmd_words = ("bash -c '");
+    push(@cmd_words, $self->program, 'sampe');
     push(@cmd_words, '-P') if $self->options('load_fm_index');
 
     if ($self->read_group_fields->{'ID'}) {
-      my $rg_string = q('@RG\tID:) . $self->read_group_fields->{'ID'};
+      my $rg_string = q("@RG\tID:) . $self->read_group_fields->{'ID'};
       RG:
       while (my ($tag, $value) = each %{$self->read_group_fields}) {
         next RG if ($tag eq 'ID');
         next RG if (!$value);
         $rg_string .= '\t' . $tag . ':' . $value;
       }
-      $rg_string .= q(');
+      $rg_string .= q(");
       push(@cmd_words, '-r', $rg_string);
     }
     push(@cmd_words, $self->reference, $mate1_sai, $mate2_sai);
     push(@cmd_words, $self->get_fastq_cmd_string('mate1'));
     push(@cmd_words, $self->get_fastq_cmd_string('mate2'));
-    push(@cmd_words, $output_sam);
+    push(@cmd_words, '>', $output_sam);
+    push(@cmd_words, "'");
 
     my $sampe_cmd = join(' ', @cmd_words);
 
@@ -149,22 +146,24 @@ sub run_samse_alignment {
         . '_se.sam';
     $output_sam =~ s{//}{/};
 
-    my @cmd_words = ($self->program, 'samse');
+    my @cmd_words = ("bash -c '");
+    push(@cmd_words, $self->program, 'samse');
 
     if ($self->read_group_fields->{'ID'}) {
-      my $rg_string = q('@RG\tID:) . $self->read_group_fields->{'ID'};
+      my $rg_string = q("@RG\tID:) . $self->read_group_fields->{'ID'};
       RG:
       while (my ($tag, $value) = each %{$self->read_group_fields}) {
         next RG if ($tag eq 'ID');
         next RG if (!$value);
         $rg_string .= '\t' . $tag . ':' . $value;
       }
-      $rg_string .= q(');
+      $rg_string .= q(");
       push(@cmd_words, '-r', $rg_string);
     }
     push(@cmd_words, $self->reference, $sai_file);
     push(@cmd_words, $self->get_fastq_cmd_string('frag'));
-    push(@cmd_words, $output_sam);
+    push(@cmd_words, '>', $output_sam);
+    push(@cmd_words, "'");
 
     my $samse_cmd = join(' ', @cmd_words);
       
@@ -177,12 +176,11 @@ sub run_samse_alignment {
 sub run_aln_mode {
     my ( $self, $fastq_type ) = @_;
 
-    my $options = $self->aln_options;
-
     my $output_file = $self->working_dir . "/" . $self->job_name;
     $output_file .= ".$fastq_type.sai";
 
-    my @cmd_words = ($self->program, 'aln');
+    my @cmd_words = ("bash -c '");
+    push(@cmd_words, $self->program, 'aln');
 
     push(@cmd_words, '-q', $self->options('read_trimming'))
             if ($self->options('read_trimming'));
@@ -200,7 +198,8 @@ sub run_aln_mode {
     push(@cmd_words, '-t', $self->options('threads') || 1);
     push(@cmd_words, $self->reference);
     push(@cmd_words, $self->get_fastq_cmd_string($fastq_type));
-    push(@cmd_words, $output_file);
+    push(@cmd_words, '>', $output_file);
+    push(@cmd_words, "'");
 
     my $aln_command = join(' ', @cmd_words);
 

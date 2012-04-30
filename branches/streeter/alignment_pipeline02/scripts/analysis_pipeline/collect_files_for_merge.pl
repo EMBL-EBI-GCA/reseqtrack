@@ -4,6 +4,10 @@ use strict;
 
 use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::Exception;
+use ReseqTrack::Tools::HostUtils qw(get_host_object);
+use ReseqTrack::Tools::FileSystemUtils qw(run_md5 delete_file);
+use ReseqTrack::Tools::FileUtils qw(create_object_from_path);
+use ReseqTrack::Tools::RunMetaInfoUtils qw(create_directory_path);
 use Getopt::Long;
 
 my $dbhost;
@@ -11,10 +15,14 @@ my $dbuser;
 my $dbpass;
 my $dbport = 4175;
 my $dbname;
+my $host_name = '1000genomes.ebi.ac.uk';
 my $type_key;
 my $type_input;
 my $type_collection;
+my $type_merged;
 my $level;
+my $output_dir;
+my $directory_layout;
 my $help;
 
 &GetOptions( 
@@ -23,10 +31,14 @@ my $help;
 	    'dbuser=s'      => \$dbuser,
 	    'dbpass=s'      => \$dbpass,
 	    'dbport=s'      => \$dbport,
+            'host_name=s' => \$host_name,
 	    'level=s'      => \$level,
 	    'type_key=s'       => \$type_key,
 	    'type_input=s'       => \$type_input,
 	    'type_collection=s'       => \$type_collection,
+	    'type_merged=s'       => \$type_merged,
+            'output_dir=s' => \$output_dir,
+            'directory_layout=s' => \$directory_layout,
 	    'help!'         => \$help,
 	   );
 
@@ -36,6 +48,7 @@ if ($help) {
     exit(0);
 }
 
+throw("Must specify an output directory") if (!$output_dir);
 
 my $db = ReseqTrack::DBSQL::DBAdaptor->new(
 					   -host => $dbhost,
@@ -46,11 +59,14 @@ my $db = ReseqTrack::DBSQL::DBAdaptor->new(
 					  );
 
 my $ca = $db->get_CollectionAdaptor;
+my $rmia = $db->get_RunMetaInfoAdaptor;
+
 my %inputs;
 foreach my $collection (@{$ca->fetch_by_type($type_input)}) {
   $inputs{$collection->name} = $collection->others;
 }
 
+my %files_to_move;
 
 if ($level eq 'RUN') {
   my $key_collections = $ca->fetch_by_type($type_key);
@@ -62,15 +78,20 @@ if ($level eq 'RUN') {
       next COLLECTION if (!exists $inputs{$name});
       push(@others, @{$inputs{$name}});
     }
-    my $output_collection = ReseqTrack::Collection->new(
-            -name => $key_collection->name, -type => $type_collection,
-            -others => \@others);
-    $ca->store($output_collection);
+    if (@others == 1) {
+      $files_to_move{$key_collection->name} = $others[0];
+    }
+    else {
+      my $output_collection = ReseqTrack::Collection->new(
+              -name => $key_collection->name, -type => $type_collection,
+              -others => \@others);
+      $ca->store($output_collection);
+    }
   }
 }
 
+
 if ($level eq 'LIBRARY') {
-  my $rmia = $db->get_RunMetaInfoAdaptor;
   my %library_runs;
   foreach my $rmi (@{$rmia->fetch_all}) {
     push(@{$library_runs{$rmi->sample_id}{$rmi->library_name}}, $rmi->run_id);
@@ -83,16 +104,21 @@ if ($level eq 'LIBRARY') {
         next LIBRARY if (!exists $inputs{$run_id});
         push(@others, @{$inputs{$run_id}});
       }
-      my $output_collection = ReseqTrack::Collection->new(
-              -name => $sample_id.'_'.$library_name, -type => $type_collection,
-              -others => \@others);
-      $ca->store($output_collection);
+      my $output_name = $sample_id.'_'.$library_name;
+      if (@others == 1) {
+        $files_to_move{$output_name} = $others[0];
+      }
+      else {
+        my $output_collection = ReseqTrack::Collection->new(
+                -name => $output_name, -type => $type_collection,
+                -others => \@others);
+        $ca->store($output_collection);
+      }
     }
   }
 }
 
 if ($level eq 'SAMPLE') {
-  my $rmia = $db->get_RunMetaInfoAdaptor;
   my %sample_libraries;
   foreach my $rmi (@{$rmia->fetch_all}) {
     push(@{$sample_libraries{$rmi->sample_id}}, $rmi->library_name);
@@ -105,11 +131,68 @@ if ($level eq 'SAMPLE') {
       next SAMPLE if (!exists $inputs{$inputs_key});
       push(@others, @{$inputs{$inputs_key}});
     }
-    my $output_collection = ReseqTrack::Collection->new(
-            -name => $sample_id, -type => $type_collection,
-            -others => \@others);
-    $ca->store($output_collection);
+    if (@others == 1) {
+      $files_to_move{$sample_id} = $others[0];
+    }
+    else {
+      my $output_collection = ReseqTrack::Collection->new(
+              -name => $sample_id, -type => $type_collection,
+              -others => \@others);
+      $ca->store($output_collection);
+    }
   }
+}
+
+my $ha = $db->get_HistoryAdaptor;
+my $fa = $db->get_FileAdaptor;
+my $host = get_host_object($host_name, $db);
+while (my ($name, $file) = each %files_to_move) {
+
+  my $file_output_dir = $output_dir;
+  if ($directory_layout) {
+    my $run_meta_info;
+    if ($name =~ /[ESD]RR\d{6}/) {
+      $run_meta_info = $rmia->fetch_by_run_id($&);
+    }
+    elsif ($name =~ /[ESD]RS\d{6}/) {
+      my $rmi_list = $rmia->fetch_by_sample_id($&);
+      $run_meta_info = $rmi_list->[0] if (@$rmi_list);
+    }
+
+    if ($run_meta_info) {
+      $file_output_dir = create_directory_path($run_meta_info, $directory_layout, $output_dir);
+    }
+  }
+
+  my $old_file_path = $file->name;
+  my $new_file_path = "$file_output_dir/$name.bam";
+
+  my $history = ReseqTrack::History->new(
+      -other_id => $file->dbID, -table_name => 'file',
+      -comment => "deleted by $0");
+  $ha->store($history);
+  move ($old_file_path, $new_file_path)
+    or throw ("could not move $old_file_path to $new_file_path $!");
+
+  my $old_index_path = $old_file_path . '.bai';
+  if (-f $old_index_path) {
+    my $old_index = $fa->fetch_by_name($old_index_path);
+    if ($old_index) {
+      my $index_history = ReseqTrack::History->new(
+        -other_id => $old_index->dbID, -table_name => 'file',
+        -comment => "deleted by $0");
+      $ha->store($history);
+    }
+    delete_file($old_index_path);
+  }
+
+  my $merged_file = create_object_from_path($new_file_path, $type_merged, $host);
+  $merged_file->md5( run_md5($new_file_path) );
+  my $output_collection = ReseqTrack::Collection->new(
+          -name => $name, -type => $type_merged,
+          -others => [$merged_file]);
+  $ca->store($output_collection);
+
 }
 
 =pod
@@ -124,6 +207,8 @@ This script finds files that are ready to be merged for the next level of proces
 (i.e. run level, library level or sample level)
 Files must stored in collections, whose names are used to determine how they will be
 grouped together in the output collections.
+If a collection contains only one file to be 'merged' then it will be moved to a new
+location and given a new type (i.e. it mimics the effects of a merge event)
 
 For merging to sample level, the input collections must be named SampleID_LibraryName.
 The output collection will be named by the sample_id.
@@ -134,7 +219,7 @@ The output collection will be named SampleID_LibraryName.
 For merging to run level, a 'key_collection' will be used to determine the names of the
 input collections. The name of key_collection must be run_id, and the names of
 key_collection->others will be the identifiers. Usually the output collection from
-split_fastq.pl should be used as the key_collection.
+make_split_fastq_collections.pl should be used as the key_collection.
 The output collection will be named by the run_id
 
 =head1 OPTIONS
@@ -153,10 +238,20 @@ The output collection will be named by the run_id
 
   -type_input, type of the collections that will be searched for files
 
-  -type_collection, type of the output collection that will be written 
+  -type_collection, type of the output collection that will be written for files that
+  need to be merged
 
   -type_key, type of the 'key_collection' as described above.  Only needed when merging
   to run level
+
+  -type_merged, type of the output collection that will be written for files that do not
+  need to be merged
+
+  -output_dir, base directory to hold files that do not need to be merged
+
+  -directory_layout, specifies where the files will be located under output_dir.
+      Tokens matching method names in RunMetaInfo will be substituted with that method's
+      return value.
 
   -help, flag to print this help and exit
 
@@ -166,6 +261,8 @@ The output collection will be named by the run_id
 
   perl reseqtrack/event/collect_files_for_merge.pl $DB_OPTS -level SAMPLE
     -type_input LIBRARY_BAM -type_collection LIBRARY_BAM_SET
+    -type_merged SAMPLE_BAM
+    -output_dir /path/to/base/dir -directory_layout population/sample_id
 
 =cut
 

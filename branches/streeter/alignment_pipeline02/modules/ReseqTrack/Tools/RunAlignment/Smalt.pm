@@ -12,9 +12,9 @@ use Env qw( @PATH );
 
 use base qw(ReseqTrack::Tools::RunAlignment);
 
-sub DEFAULT_OPTIONS { return [
+sub DEFAULT_OPTIONS { return {
         'threads' => 1,
-        ];
+        };
 }
 
 sub new {
@@ -66,14 +66,16 @@ sub run_se_alignment {
 
     my $fastq = $self->fragment_file;
     my $fastq_cmd_string = ($self->first_read || $self->last_read) ? $self->get_fastq_cmd_string('frag')
-          : ($fastq =~ /\.gz(?:ip)$/) ? "< (gunzip -c $fastq )"
+          : ($fastq =~ /\.gz(?:ip)$/) ? "<(gunzip -c $fastq )"
           : $fastq;
 
-    my @cmd_words = ($self->program, 'map');
+    my @cmd_words = ("bash -c '");
+    push(@cmd_words, $self->program, 'map');
     push(@cmd_words, '-n', $self->options('threads') || 1);
     push(@cmd_words, '-f', 'sam');
     push(@cmd_words, '-o', $sam);
     push(@cmd_words, $self->index_prefix, $fastq_cmd_string);
+    push(@cmd_words, "'");
 
     my $cmd_line = join(' ', @cmd_words);
 
@@ -95,10 +97,10 @@ sub run_pe_alignment {
     my $fastq_mate2 = $self->mate2_file;
 
     my $fastq_cmd_string_mate1 = ($self->first_read || $self->last_read) ? $self->get_fastq_cmd_string('mate1')
-          : ($fastq_mate1 =~ /\.gz(?:ip)$/) ? "< (gunzip -c $fastq_mate1 )"
+          : ($fastq_mate1 =~ /\.gz(ip)?$/) ? "<(gunzip -c $fastq_mate1 )"
           : $fastq_mate1;
     my $fastq_cmd_string_mate2 = ($self->first_read || $self->last_read) ? $self->get_fastq_cmd_string('mate2')
-          : ($fastq_mate2 =~ /\.gz(?:ip)$/) ? "< (gunzip -c $fastq_mate2 )"
+          : ($fastq_mate2 =~ /\.gz(ip)?$/) ? "<(gunzip -c $fastq_mate2 )"
           : $fastq_mate2;
 
     my @cmd_words = ($self->program, 'map');
@@ -123,7 +125,7 @@ sub build_index {
     $index_prefix =~ s{//}{/};
 
     my $reference = $self->reference;
-    my $reference_cmd_string = ($reference =~ /\.gz(?:ip)$/) ? "<(gunzip -c $reference)" : $reference;
+    my $reference_cmd_string = ($reference =~ /\.gz(ip)?$/) ? "<(gunzip -c $reference)" : $reference;
 
     my $cmd_line = $self->program;
     $cmd_line .= ' index ' . $index_prefix . ' ' . $reference_cmd_string;

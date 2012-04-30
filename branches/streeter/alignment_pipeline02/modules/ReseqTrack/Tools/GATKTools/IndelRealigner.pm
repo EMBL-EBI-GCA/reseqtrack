@@ -34,11 +34,11 @@ use ReseqTrack::Tools::FileSystemUtils qw(check_file_exists);
 
 use base qw(ReseqTrack::Tools::GATKTools);
 
-sub DEFAULT_OPTIONS { return [
+sub DEFAULT_OPTIONS { return {
         'threads' => 1,
         'lod' => 0.4,
         'model' => 'KNOWNS_ONLY',
-        ];
+        };
 }
 
 sub new {
@@ -58,8 +58,6 @@ sub run_program {
 	my $self = shift;
 
         throw "no input bam" if (!$self->input_bam);
-        throw "\nNo IndelRealigner options\n"
-            if ( ! $self->{options}->{'IndelRealigner'});
         warn "No known indels files"
             if (! @{$self->known_sites_files});
         check_file_exists($_) foreach (@{$self->known_sites_files});
@@ -84,7 +82,7 @@ sub create_target_intervals_file {
   my @cmd_words = ($self->java_exe, $self->jvm_args, '-jar');
   push(@cmd_words, $self->gatk_path . '/' . $self->jar_file);
   push(@cmd_words, '-T', 'RealignerTargetCreator');
-  push(@cmd_words, '--num_threads=' . $self->options('threads') || 1);
+  push(@cmd_words, '-nt ' . $self->options('threads') || 1);
 
   foreach my $vcf (@{$self->known_sites_files}) {
     push(@cmd_words, '-known', $vcf);
@@ -111,7 +109,7 @@ sub create_indel_realign_bam {
   my @cmd_words = ($self->java_exe, $self->jvm_args, '-jar');
   push(@cmd_words, $self->gatk_path . '/' . $self->jar_file);
   push(@cmd_words, '-T', 'IndelRealigner');
-  push(@cmd_words, '--num_threads=' . $self->options('threads') || 1);
+  push(@cmd_words, '-nt ' . $self->options('threads') || 1);
   push(@cmd_words, '-LOD', $self->options('lod')) if ($self->options('lod'));
   push(@cmd_words, '-model', $self->options('model')) if ($self->options('model'));
   push(@cmd_words, '--disable_bam_indexing');

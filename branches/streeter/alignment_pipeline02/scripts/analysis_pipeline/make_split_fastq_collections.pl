@@ -21,7 +21,8 @@ my $dbport = 4175;
 my $dbname;
 my $host_name = '1000genomes.ebi.ac.uk';
 my $type_input;
-my $type_output;
+my $type_output_frag;
+my $type_output_mate;
 my $type_collection;
 my $max_reads;
 my $max_bases;
@@ -34,17 +35,13 @@ my $help;
   'dbpass=s'      => \$dbpass,
   'dbport=s'      => \$dbport,
   'host_name=s' => \$host_name,
-  'store!' => \$store,
-  'run_id=s' => \$run_id,
   'type_input=s' => \$type_input,
-  'type_output=s' => \$type_output,
+  'type_output_frag=s' => \$type_output_frag,
+  'type_output_mate=s' => \$type_output_mate,
   'type_collection=s' => \$type_collection,
   'max_reads=i' => \$max_reads,
   'max_bases=i' => \$max_bases,
-  'output_dir=s' => \$output_dir,
-  'program_file=s' => \$program_file,
   'help!'    => \$help,
-  'directory_layout=s' => \$directory_layout,
     );
 
 if ($help) {
@@ -109,12 +106,12 @@ foreach my $input_collection (@input_collections) {
         my $read_last = $i == $num_output_files -1 
                       ? $read_count1
                       : $read_first + $reads_per_split -1;
-        push(@collection_names, $input_collection->name . "_MATE$read_first,$read_last");
+        push(@collection_names, $input_collection->name . "_MATE$read_first-$read_last");
       }
     }
     foreach my $collection_name (@collection_names) {
       my $collection = ReseqTrack::Collection->new(
-                    -name => $collection_name, -type => $type_output,
+                    -name => $collection_name, -type => $type_output_mate,
                     -table_name => 'file', -others => [$mate1, $mate2]);
       push(@split_collections, $collection);
     }
@@ -140,12 +137,12 @@ foreach my $input_collection (@input_collections) {
         my $read_last = $i == $num_output_files -1 
                       ? $read_count
                       : $read_first + $reads_per_split -1;
-        push(@collection_names, $input_collection->name . "_FRAG$read_first,$read_last");
+        push(@collection_names, $input_collection->name . "_FRAG$read_first-$read_last");
       }
     }
     foreach my $collection_name (@collection_names) {
       my $collection = ReseqTrack::Collection->new(
-                    -name => $collection_name, -type => $type_output,
+                    -name => $collection_name, -type => $type_output_frag,
                     -table_name => 'file', -others => [$frag]);
       push(@split_collections, $collection);
     }
@@ -165,13 +162,13 @@ foreach my $input_collection (@input_collections) {
 
 =head1 NAME
 
-ReseqTrack/scripts/process/split_fastq.pl
+ReseqTrack/scripts/process/make_split_fastq_collections.pl
 
 =head1 SYNOPSIS
 
-    This script fetches a collection of fastq files. It splits the files into
-    smaller files of similar sizes. The number of reads or number of bases in the
-    output files does not exceed a certain limit.
+    This script fetches collections of fastq files. It calculates the best way to split
+    the files for alignment. It writes new collections to the databases with names like
+    NAME_MATE1-1000 and NAME_FRAG1-1000
 
 =head2 OPTIONS
 
@@ -184,24 +181,21 @@ ReseqTrack/scripts/process/split_fastq.pl
         -dbport, the port the mysql instance is running on
         -host_name, name of the host object to associate with the output files
             (default is 1000genomes.ebi.ac.uk)
-        -store, flag to store output fastq files to the database
 
       other options:
 
-        -run_id, the run_id for the collection of fastq files
-        -type_input, type of the collection of input files, e.g. FILTERED_FASTQ
-        -type_output, type of the output files and collection of output files, e.g. FASTQ_CHUNK
-        -type_collection, type of the collection of collections of output files, e.g. FASTQ_CHUNK_SET
+        -type_input, type of the input collection of files, e.g. FILTERED_FASTQ
+        -type_output_frag, type of the output collection of files for fragment, e.g. FASTQ_CHUNK_FRAG
+            (many of these are created for each input collection)
+        -type_output_mate, type of the output collection of files for mates, e.g. FASTQ_CHUNK_MATE
+            (many of these are created for each input collection)
+        -type_collection, type of the collection of collections of files, e.g. FASTQ_CHUNK_SET
+            (one of these is created for each input collection)
 
-        -max_reads, integer, the number of reads in any output file will not exceed this value
-        -max_bases, integer, the number of bases in any output file will not exceed this value
+        -max_reads, integer, the number of reads will not exceed this value
+        -max_bases, integer, the number of bases will not exceed this value
             Specify only one of -max_reads or -max_bases
 
-        -output_dir, base directory used for all output files
-        -directory_layout, specifies where the files will be located under output_dir.
-              Tokens matching method names in RunMetaInfo will be substituted with that method's return value.
-              Default value is population/sample_id/run_id
-        -program_file, path to the split executable
         -help, flag to print this help and exit
 
 
@@ -211,8 +205,8 @@ ReseqTrack/scripts/process/split_fastq.pl
     $DB_OPTS="-dbhost mysql-host -dbuser rw_user -dbpass **** -dbport 4197 -dbname my_database"
 
     perl ReseqTrack/scripts/process/split_fastq.pl  $DB_OPTS
-      -run_id ERR002097 -type_input FILTERED_FASTQ -type_output FASTQ_CHUNK -type_collection FASTQ_CHUNK_SET
-      -max_reads 2000000 -output_dir /path/to/dir -program_file ReseqTrack/c_code/split -store
+      -type_input FILTERED_FASTQ -type_output_frag FASTQ_CHUNK_FRAG -type_output_mate FASTQ_CHUNK_MATE
+      -type_collection FASTQ_CHUNK_SET -max_reads 2000000
 
 =cut
 

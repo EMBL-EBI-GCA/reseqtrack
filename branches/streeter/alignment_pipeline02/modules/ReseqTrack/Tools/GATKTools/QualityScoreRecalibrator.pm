@@ -34,7 +34,7 @@ use ReseqTrack::Tools::FileSystemUtils qw(check_file_exists);
 
 use base qw(ReseqTrack::Tools::GATKTools);
 
-sub DEFAULT_OPTIONS { return [
+sub DEFAULT_OPTIONS { return {
         'threads' => 1,
         'log_level' => 'INFO',
         'intervals' => join(',', 1..22, 'X', 'Y', 'MT'),
@@ -42,7 +42,7 @@ sub DEFAULT_OPTIONS { return [
         'quality_score_covariate' => 1,
         'cycle_covariate' => 1,
         'dinuc_covariate' => 1,
-        ];
+        };
 }
 
 sub new {

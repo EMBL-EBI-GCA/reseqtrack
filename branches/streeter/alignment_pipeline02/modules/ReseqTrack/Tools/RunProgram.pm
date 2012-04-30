@@ -81,7 +81,8 @@ sub new {
   $self->echo_cmd_line($echo_cmd_line);
   $self->save_files_for_deletion($save_files_for_deletion);
 
-  while (my ($option_name, $option_value) = each %{$self->DEFAULT_OPTIONS}) {
+  my $default_options = $self->DEFAULT_OPTIONS;
+  while (my ($option_name, $option_value) = each %$default_options) {
       $options->{$option_name} = $option_value if (! defined $options->{$option_name});
   }
   while (my ($option_name, $option_value) = each %$options) {
@@ -91,7 +92,7 @@ sub new {
   return $self;
 }
 
-sub DEFAULT_OPTIONS {return [];}
+sub DEFAULT_OPTIONS {return {};}
 
 =head2 run
 

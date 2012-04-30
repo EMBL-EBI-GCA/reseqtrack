@@ -69,14 +69,14 @@ use base qw(ReseqTrack::Tools::RunProgram);
 
 =cut
 
-sub DEFAULT_OPTIONS { return [
+sub DEFAULT_OPTIONS { return {
         'use_reference_index' => 0,
         'input_sort_status' => '', # can be 'c' for coordinate or 'n' for name
         'force_overwrite' => 1,
         'attach_RG_tag' => 0,
         'compute_BQ_tag' => 1,
         'ext_BAQ_calc' => 1,
-        ];
+        };
 }
 
 sub new {
@@ -110,13 +110,32 @@ sub run_fix_and_calmd {
 
     foreach my $input (@{$self->input_files}) {
       my $prefix = fileparse($input, qr/\.[sb]am/ );
-      my $output_bam = $self->working_dir . "/$prefix.fixed.bam";
+      my $output_bam = $self->working_dir . "/$prefix.fixed.md.bam";
       $output_bam =~ s{//}{/}g;
 
       my @cmds;
       push(@cmds, $self->_get_file_to_sorted_bam_cmd($input, 1, 1));
       push(@cmds, $self->_get_fixmate_cmd);
       push(@cmds, $self->_get_sort_cmd);
+      push(@cmds, $self->_get_calmd_cmd(1));
+
+      my $cmd = join(' | ', @cmds) . " > $output_bam";
+
+      $self->output_files($output_bam);
+      $self->execute_command_line($cmd);
+    }
+}
+
+sub run_calmd {
+    my $self = shift;
+
+    foreach my $input (@{$self->input_files}) {
+      my $prefix = fileparse($input, qr/\.[sb]am/ );
+      my $output_bam = $self->working_dir . "/$prefix.md.bam";
+      $output_bam =~ s{//}{/}g;
+
+      my @cmds;
+      push(@cmds, $self->_get_file_to_sorted_bam_cmd($input, 0, 1));
       push(@cmds, $self->_get_calmd_cmd(1));
 
       my $cmd = join(' | ', @cmds) . " > $output_bam";
@@ -245,7 +264,8 @@ sub run_merge {
     throw("file already exists and force_overwrite is not set")
             if (-e $output_bam && ! $self->options('force_overwrite'));
 
-    my @cmd_words = ($self->program, 'merge');
+    my @cmd_words = ("bash -c '");
+    push(@cmd_words, $self->program, 'merge');
     push(@cmd_words, '-f') if ($self->options('force_overwrite'));
     push(@cmd_words, '-r') if ($self->options('attach_RG_tag'));
     push(@cmd_words, $output_bam);
@@ -259,6 +279,7 @@ sub run_merge {
           push(@cmd_words, $input);
       }
     }
+    push(@cmd_words, "'");
     my $cmd = join(' ', @cmd_words);
 
     $self->output_files($output_bam);
@@ -281,12 +302,13 @@ sub run_merge {
 sub run_program {
     my ($self, $command) = @_;
 
-    my %subs = {'merge'             => \&run_merge,
+    my %subs = ('merge'             => \&run_merge,
                 'sort'              => \&run_sort,
                 'index'             => \&run_index,
                 'fix_and_calmd'     => \&run_fix_and_calmd ,
+                'calmd'             => \&run_calmd ,
                 'sam_to_bam'        => \&run_sam_to_bam,
-    };
+    );
 
     throw("Did not recognise command $command") if (!defined $subs{$command});
 
@@ -371,7 +393,7 @@ sub _get_sort_cmd {
     my ($self, $name_sort, $bam) = @_;
 
     my $prefix = $self->get_temp_dir .'/'. $self->job_name;
-    $prefix .= '.' . $name_sort ? 'nsort' : 'csort';
+    $prefix .= '.' . ($name_sort ? 'nsort' : 'csort');
 
     my @cmd_words = ($self->program, 'sort', '-o');
     push(@cmd_words, '-n') if ($name_sort);

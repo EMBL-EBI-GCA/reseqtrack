@@ -11,11 +11,11 @@ use List::Util qw (first);
 
 use base qw(ReseqTrack::Tools::RunAlignment);
 
-sub DEFAULT_OPTIONS { return [
+sub DEFAULT_OPTIONS { return {
         'threads' => 1,
         'colour_space' => 1,
         'offset' => 20,
-        ];
+        };
 }
 
 sub new {
@@ -113,29 +113,30 @@ sub run_localalign {
 }
 
 sub run_match {
-	my $self = shift;
+    my $self = shift;
 
-	my $tmp_bmf =  $self->working_dir . '/' . $self->job_name. ".bmf";
-        $tmp_bmf =~ s{//}{/};
+    my $tmp_bmf =  $self->working_dir . '/' . $self->job_name. ".bmf";
+    $tmp_bmf =~ s{//}{/};
 
-        my @cmd_words;
-	push(@cmd_words, $self->preprocess_exe());
-        push(@cmd_words, $self->get_fastq_cmd_string('mate1')) if ($self->mate1_file);
-        push(@cmd_words, $self->get_fastq_cmd_string('mate2')) if ($self->mate2_file);
-        push(@cmd_words, $self->get_fastq_cmd_string('frag')) if ($self->fragment_file);
+    my @cmd_words = ("bash -c '");
+    push(@cmd_words, $self->preprocess_exe());
+    push(@cmd_words, $self->get_fastq_cmd_string('mate1')) if ($self->mate1_file);
+    push(@cmd_words, $self->get_fastq_cmd_string('mate2')) if ($self->mate2_file);
+    push(@cmd_words, $self->get_fastq_cmd_string('frag')) if ($self->fragment_file);
 
-        push(@cmd_words, '|', $self->program, 'match');
-        push(@cmd_words, '-f', $self->reference);
-        push(@cmd_words, '-n', $self->options('threads') || 1);
-        push(@cmd_words, '-A', $self->options('colour_space') ? 1 : 0);
-        push(@cmd_words, '-T', $self->get_temp_dir);
+    push(@cmd_words, '|', $self->program, 'match');
+    push(@cmd_words, '-f', $self->reference);
+    push(@cmd_words, '-n', $self->options('threads') || 1);
+    push(@cmd_words, '-A', $self->options('colour_space') ? 1 : 0);
+    push(@cmd_words, '-T', $self->get_temp_dir);
 
-        push(@cmd_words, '>', $tmp_bmf);
+    push(@cmd_words, '>', $tmp_bmf);
+    push(@cmd_words, "'");
 
-        my $cmd_line = join(' ', @cmd_words);
+    my $cmd_line = join(' ', @cmd_words);
 
-        $self->created_files($tmp_bmf);
-        $self->execute_command_line($cmd_line);
+    $self->created_files($tmp_bmf);
+    $self->execute_command_line($cmd_line);
 
     return $tmp_bmf;
 }

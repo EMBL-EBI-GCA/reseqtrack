@@ -196,7 +196,7 @@ sub read_group_fields {
 sub get_fastq_cmd_string {
   my ($self, $fastq_type) = @_;
 
-  my $fastq = $fastq_type eq 'frag' ? $self->frag_file
+  my $fastq = $fastq_type eq 'frag' ? $self->fragment_file
             : $fastq_type eq 'mate1' ? $self->mate1_file
             : $fastq_type eq 'mate2' ? $self->mate2_file
             : '';
@@ -208,15 +208,15 @@ sub get_fastq_cmd_string {
 
   my $first_line = $first_read ? $first_read * 4 - 3 : 1;
   my $last_line = $last_read ? $last_read * 4 : '$';
-  my $cmd = ($fastq =~ /\.gz(?:ip)$/)
-        ? "< (gunzip -c $fastq | sed -n '$first_line,$last_line p')"
-        : "< (sed -n '$first_line,$last_line p' $fastq)";
+  my $cmd = ($fastq =~ /\.gz(ip)?$/)
+        ? "<(gunzip -c $fastq | sed -n $first_line,${last_line}p)"
+        : "<(sed -n $first_line,${last_line}p $fastq)";
   return $cmd;
 }
 
 sub get_static_fastq {
   my ($self, $fastq_type) = @_;
-  my $fastq = $fastq_type eq 'frag' ? $self->frag_file
+  my $fastq = $fastq_type eq 'frag' ? $self->fragment_file
             : $fastq_type eq 'mate1' ? $self->mate1_file
             : $fastq_type eq 'mate2' ? $self->mate2_file
             : '';
@@ -234,9 +234,9 @@ sub get_static_fastq {
   $temp_fastq .= "_2" if ($fastq_type eq 'mate2');
   $temp_fastq =~ s{//}{/}g;
 
-  my $cmd = ($fastq =~ /\.gz(?:ip)$/)
-        ? "gunzip -c $fastq | sed -n '$first_line,$last_line p'"
-        : "sed -n '$first_line,$last_line p' $fastq";
+  my $cmd = ($fastq =~ /\.gz(ip)?$/)
+        ? "gunzip -c $fastq | sed -n $first_line,${last_line}p"
+        : "sed -n $first_line,${last_line}p $fastq";
   $cmd .= " > $temp_fastq";
 
   $self->created_files($temp_fastq);

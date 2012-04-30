@@ -57,11 +57,11 @@ my $index_outputs;
   'index_outputs!' => \$index_outputs,
     );
 
-my @allowed_cmds = qw(merge sort index fix_and_calmd sam_to_bam);
+my @allowed_cmds = qw(merge sort index fix_and_calmd calmd sam_to_bam);
 throw("Don't recognise command $command. Acceptable commands are: @allowed_cmds")
   if (! grep {$command eq $_ } @allowed_cmds);
 
-my @allowed_options = keys %{ReseqTrac::RunSamtools::DEFAULT_OPTIONS};
+my @allowed_options = keys %{&ReseqTrack::Tools::RunSamtools::DEFAULT_OPTIONS};
 foreach my $option (keys %options) {
   throw("Don't recognise option $option. Acceptable options are: @allowed_options")
     if (! grep {$option eq $_ } @allowed_options);

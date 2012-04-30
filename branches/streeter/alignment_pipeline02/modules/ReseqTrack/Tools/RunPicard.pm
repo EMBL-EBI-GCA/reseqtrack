@@ -57,7 +57,7 @@ use base qw(ReseqTrack::Tools::RunProgram);
 
 =cut
 
-sub DEFAULT_OPTIONS { return [
+sub DEFAULT_OPTIONS { return {
         'input_sort_status' => '', # can be 'c' for coordinate or 'n' for name
         'sort_order' => 'coordinate',
         'create_index' => 0,
@@ -66,7 +66,7 @@ sub DEFAULT_OPTIONS { return [
         'max_records_in_ram' => 500000,
         'remove_duplicates' => 0,
         'use_threading' => 0,
-        ];
+        };
 }
 
 

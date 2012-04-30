@@ -33,6 +33,7 @@ my $store;
 my $delete_input;
 my $realign;
 my $recalibrate;
+my $directory_layout;
 
 &GetOptions( 
   'dbhost=s'      => \$dbhost,
@@ -56,13 +57,14 @@ my $recalibrate;
   'delete_input!' => \$delete_input,
   'realign!' => \$realign,
   'recalibrate!' => \$recalibrate,
+  'directory_layout=s' => \$directory_layout,
     );
 
 throw("must specify one of -realign or -recalibrate, not both or neither")
     if (($realign && $recalibrate) || (!$realign && !$recalibrate));
 my $gatk_module = load_gatk_module($realign ? 'IndelRealigner' : 'QualityScoreRecalibrator');
 
-my @allowed_options = keys %{eval "$gatk_module".'::DEFAULT_OPTIONS'};
+my @allowed_options = keys %{eval '&'."$gatk_module".'::DEFAULT_OPTIONS'};
 foreach my $option (keys %options) {
   throw("Don't recognise option $option. Acceptable options are: @allowed_options")
     if (! grep {$option eq $_ } @allowed_options);

@@ -10,12 +10,12 @@ use Env qw( @PATH );
 
 use base qw(ReseqTrack::Tools::RunAlignment);
 
-sub DEFAULT_OPTIONS { return [
+sub DEFAULT_OPTIONS { return {
         'gap_open_penalty' => '',
         'gap_extension_penalty' => '',
         'fast' => 0,
         'allow_overwriting' => 1,
-        ];
+        };
 }
 
 sub new {

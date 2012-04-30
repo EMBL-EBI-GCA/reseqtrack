@@ -6,6 +6,7 @@ use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::FileUtils;
 use ReseqTrack::Tools::FileSystemUtils qw(run_md5 );
 use ReseqTrack::Tools::HostUtils qw(get_host_object);
+use ReseqTrack::Tools::RunMetaInfoUtils qw(create_directory_path);
 use Getopt::Long;
 
 $| = 1;
@@ -32,6 +33,7 @@ my $first_read;
 my $last_read;
 my %read_group_fields;
 my $directory_layout;
+my %options;
 
 &GetOptions( 
   'dbhost=s'      => \$dbhost,
@@ -42,7 +44,6 @@ my $directory_layout;
   'name=s' => \$name,
   'type_input=s' => \$type_input,
   'type_output=s' => \$type_output,
-  'type_index=s' => \$type_index,
   'output_dir=s' => \$output_dir,
   'reference=s' => \$reference,
   'module_path=s' => \$module_path,
@@ -57,7 +58,15 @@ my $directory_layout;
   'last_read=s' => \$last_read,
   'RG_field=s' => \%read_group_fields,
   'directory_layout=s' => \$directory_layout,
+  'option=s' => \%options,
     );
+
+my $alignment_module = load_alignment_module($module_path, $module_name);
+my $allowed_options = get_allowed_options($alignment_module);
+foreach my $option (keys %options) {
+  throw("Don't recognise option $option. Acceptable options are: ".join(' ', @$allowed_options))
+    if (! grep {$option eq $_ } @$allowed_options);
+}
 
 throw("Must specify an output directory") if (!$output_dir);
 
@@ -102,13 +111,12 @@ if ($name =~ /[ESD]RR\d{6}/) {
 }
 
 if (! defined $first_read && ! defined $last_read) {
-  if ($name =~ /_(?:FRAG|MATE)(\d+),(\d+)/i) {
+  if ($name =~ /_(?:FRAG|MATE)(\d+)-(\d+)/i) {
     $first_read = $1;
     $last_read = $2;
   }
 }
 
-my $alignment_module = $module_path."::".$module_name;
 my $constructor_hash;
 while (my ($key, $value) = each %module_constructor_args) {
   $constructor_hash->{'-'.$key} = $value;
@@ -122,11 +130,11 @@ $constructor_hash->{-paired_length} = $paired_length;
 $constructor_hash->{-first_read} = $first_read;
 $constructor_hash->{-last_read} = $last_read;
 $constructor_hash->{-read_group_fields} = \%read_group_fields;
+$constructor_hash->{-options} = \%options;
 
-my $run_alignment = setup_alignment_module($alignment_module, $constructor_hash);
+my $run_alignment = $alignment_module->new(%$constructor_hash);
 
 $run_alignment->run;
-
 
 if($store){
   my $host = get_host_object($host_name, $db);
@@ -146,18 +154,25 @@ if($store){
   $ca->store($collection);
 }
 
-sub setup_alignment_module{
-  my ($alignment_module, $args) = @_;
-  my $file = "$alignment_module.pm";
+sub load_alignment_module {
+  my ($module_path, $module_name) = @_;
+  my $full_module_path = join('::', $module_path, $module_name);
+  my $file = "$full_module_path.pm";
   $file =~ s{::}{/}g;
   eval {
     require "$file";
   };
-  if($@){
-    throw("ReseqTrack::Tools::EventPipeline::setup_batch_submission_system ".
-          "Can't find $file [$@]");
+  if ($@) {
+    throw("cannot load $file: $@")
   }
-  my %constructor_args = %$args;
-  my $object = $alignment_module->new(%constructor_args);
-  return $object;
+  return $full_module_path;
+}
+
+sub get_allowed_options {
+  my $alignment_module = shift;
+  my $default_options_sub = '&'.$alignment_module . '::DEFAULT_OPTIONS';
+  return [] if (! eval "exists $default_options_sub");
+  my $default_options = eval "$default_options_sub";
+  my @allowed_options = keys %$default_options;
+  return \@allowed_options;
 }
