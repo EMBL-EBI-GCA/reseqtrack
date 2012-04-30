@@ -49,6 +49,8 @@ use ReseqTrack::Tools::GeneralUtils qw( execute_system_command );
 use Getopt::Long;
 use Sys::Hostname;
 use File::Basename;
+#use IO::Select;
+use POSIX;
 
 my $dbhost;
 my $dbuser;
@@ -148,20 +150,6 @@ print "$commandline\n";
 print "LSB_JOBINDEX: $submission_index\n";
 print "output for job" . $job->dbID . " " . $job->input_string . "\n";
 
-my $batch_submission_module = $batch_submission_path."::".$batch_submission_module_name;
-#eval "require $batch_submission_module";
-#if ($@) {
-#    my $warning = "Did not load package $batch_submission_module: $@";
-#    job_failed($job, $warning, $ja);
-#    throw($warning);
-#}
-my $batch_submission_object = eval {setup_batch_submission_system($batch_submission_module, {})};
-if ($@) {
-    my $warning = "Did not load package $batch_submission_module: $@";
-    job_failed($job, $warning, $ja);
-    throw($warning);
-}
-
 my $hostname = [split(/\./, hostname())];
 my $host = shift(@$hostname);
 $job->host($host);
@@ -180,35 +168,61 @@ $job->current_status('RUNNING');
 $ja->set_status($job);
 
 my $cmd = create_event_commandline($event, $input_string);
-my $exit;
 my $time_elapsed;
-eval {
-    print "\n*****" . $cmd . "******\n\n";
-    my $start_time = time;
-    $exit = execute_system_command($cmd);
-    $time_elapsed = time - $start_time;
-    print "\n**********\n";
-};
-if ($@) {
-    my $warning = $cmd . " failed with $@ error";
-    job_failed($job, $warning, $ja);
-} elsif ($exit != 0) {
-    my $warning = $cmd . " failed with " . $exit . " exit code";
-    job_failed($job, $warning, $ja);
-} else {
-    $job->current_status('SUCCESSFUL');
-    $ja->set_status($job);
+my $max_memory;
+my $max_swap;
+
+my $oldfh = select(STDOUT);
+$| = 1;
+select($oldfh);
+
+print "\n*****" . $cmd . "******\n\n";
+my $start_time = time;
+my $pid = fork;
+if (!defined $pid) {
+  my $warning = "could not fork: $!";
+  job_failed($job, $warning, $ja);
+  throw $warning
+}
+elsif(!$pid) {
+  exec($cmd) or do{
+    print STDERR "$cmd did not execute: $!\n";
+    exit(255);
+  }
+}
+
+while (! waitpid($pid, WNOHANG)) {
+  my ($memory, $vsize) = get_memory($$);
+  my $swap = $vsize - $memory;
+  $max_memory = $memory if (!$max_memory || $memory > $max_memory);
+  $max_swap = $swap if (!$max_swap || $swap > $max_swap);
+  sleep(10);
+}
+$time_elapsed = time - $start_time;
+print "\n**********\n";
+if (my $signal = $? & 127) {
+  my $warning = "process died with signal $signal";
+  job_failed($job, $warning, $ja);
+}
+elsif (my $exit = $? >>8) {
+  my $warning = "$cmd exited with value $exit";
+  job_failed($job, $warning, $ja);
+}
+else {
+  $job->current_status('SUCCESSFUL');
+  $ja->set_status($job);
 }
 
 
 if ($job->current_status eq 'SUCCESSFUL') {
   my $ca               = $db->get_EventCompleteAdaptor;
   my $other_name       = $job->input_string;
-  my ($memory, $swap) = eval{$batch_submission_object->memory_usage($submission_id, $submission_index)};
   if ($@) {
     my $warning = "could not get memory usage";
     job_failed($job, $warning, $ja);
   }
+  $max_memory = int($max_memory/1024 + 0.5);
+  $max_swap = int($max_swap/1024 + 0.5);
   my $completed_string = ReseqTrack::EventComplete->new(
       -event        => $event,
       -other_name   => $job->input_string,
@@ -216,8 +230,8 @@ if ($job->current_status eq 'SUCCESSFUL') {
       -adaptor      => $ca,
       -time_elapsed => $time_elapsed,
       -exec_host    => $host,
-      -memory_usage => $memory,
-      -swap_usage   => $swap,
+      -memory_usage => $max_memory,
+      -swap_usage   => $max_swap,
   );
   eval {
       $ca->store($completed_string);
@@ -234,10 +248,18 @@ if ($job->current_status eq 'SUCCESSFUL') {
 
 }
 if ($print_job_info) {
-  my $job_info = $batch_submission_object->job_info($submission_id, $submission_index);
   print "**********\nBatch job information:\n";
-  foreach my $line (@$job_info) {
-    print $line;
+  my $batch_submission_module = $batch_submission_path."::".$batch_submission_module_name;
+  my $batch_submission_object = eval {setup_batch_submission_system($batch_submission_module, {})};
+  if ($@) {
+    print "\nNo job info because package not loaded: $batch_submission_module\n";
+    print "runner script will continue to run\n";
+  }
+  else {
+    my $job_info = $batch_submission_object->job_info($submission_id, $submission_index);
+    foreach my $line (@$job_info) {
+      print $line;
+    }
   }
 }
 
@@ -269,5 +291,30 @@ sub job_failed {
   $job->current_status($status);
   $ja->set_status($job);
   $ja->unset_submission_id();
+}
+
+sub get_memory{
+  my $pid = shift;
+  my $ps_line = `ps --no-headers -o rss,vsize --pid $pid`;
+  $ps_line =~ s/^\s+//;
+  my ($memory, $vsize) = split(/\s+/, $ps_line);
+  my ($child_memory, $child_vsize) = get_child_memory($pid);
+  $memory += $child_memory;
+  $vsize += $child_vsize;
+  return $memory, $vsize;
+}
+
+sub get_child_memory {
+  my $parent_pid = shift;
+  my $ps_output = `ps --no-headers -o rss,vsize,pid --ppid $parent_pid`;
+  my ($memory, $vsize) = (0,0);
+  foreach my $ps_line (split(/\n/, $ps_output)) {
+    $ps_line =~ s/^\s+//;
+    my ($proc_memory, $proc_vsize, $proc_pid) = split(/\s+/, $ps_line);
+    my ($proc_child_memory, $proc_child_vsize) = get_child_memory($proc_pid);
+    $memory += $proc_memory + $proc_child_memory;
+    $vsize += $proc_vsize + $proc_child_vsize;
+  }
+  return ($memory, $vsize);
 }
 
