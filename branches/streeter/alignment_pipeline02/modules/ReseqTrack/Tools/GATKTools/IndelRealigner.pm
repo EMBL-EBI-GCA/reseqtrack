@@ -109,7 +109,6 @@ sub create_indel_realign_bam {
   my @cmd_words = ($self->java_exe, $self->jvm_args, '-jar');
   push(@cmd_words, $self->gatk_path . '/' . $self->jar_file);
   push(@cmd_words, '-T', 'IndelRealigner');
-  push(@cmd_words, '-nt ' . $self->options('threads') || 1);
   push(@cmd_words, '-LOD', $self->options('lod')) if ($self->options('lod'));
   push(@cmd_words, '-model', $self->options('model')) if ($self->options('model'));
   push(@cmd_words, '--disable_bam_indexing');

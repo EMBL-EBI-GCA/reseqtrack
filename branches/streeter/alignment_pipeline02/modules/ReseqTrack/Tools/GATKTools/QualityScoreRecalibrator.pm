@@ -85,9 +85,15 @@ sub create_recalibration_table {
   my @cmd_words = ($self->java_exe, $self->jvm_args, '-jar');
   push(@cmd_words, $self->gatk_path . '/' . $self->jar_file);
   push(@cmd_words, '-T', 'CountCovariates');
-  push(@cmd_words, '--num_threads=' . $self->options('threads') || 1);
+  push(@cmd_words, '-nt ' . $self->options('threads') || 1);
   push(@cmd_words, '-l', $self->options('log_level')) if ($self->options('log_level'));
-  push(@cmd_words, '--disable_bam_indexing');
+  push(@cmd_words, '-cov ReadGroupCovariate') if ($self->options('read_group_covariate'));
+  push(@cmd_words, '-cov QualityScoreCovariate') if ($self->options('quality_score_covariate'));
+  push(@cmd_words, '-cov CycleCovariate') if ($self->options('cycle_covariate'));
+  push(@cmd_words, '-cov DinucCovariate') if ($self->options('dinuc_covariate'));
+  foreach my $interval (split(/,/, $self->options('intervals'))) {
+      push(@cmd_words, '-L', $interval);
+  }
 
   push(@cmd_words, '-R', $self->reference);
   push(@cmd_words, '-I', $self->input_bam);
@@ -116,15 +122,11 @@ sub create_recalibrated_bam {
   my @cmd_words = ($self->java_exe, $self->jvm_args, '-jar');
   push(@cmd_words, $self->gatk_path . '/' . $self->jar_file);
   push(@cmd_words, '-T', 'TableRecalibration');
-  push(@cmd_words, '--num_threads=' . $self->options('threads') || 1);
   push(@cmd_words, '-l', $self->options('log_level')) if ($self->options('log_level'));
   foreach my $interval (split(/,/, $self->options('intervals'))) {
       push(@cmd_words, '-L', $interval);
   }
-  push(@cmd_words, '-cov ReadGroupCovariate') if ($self->options('read_group_covariate'));
-  push(@cmd_words, '-cov QualityScoreCovariate') if ($self->options('quality_score_covariate'));
-  push(@cmd_words, '-cov CycleCovariate') if ($self->options('cycle_covariate'));
-  push(@cmd_words, '-cov DinucCovariate') if ($self->options('dinuc_covariate'));
+  push(@cmd_words, '--disable_bam_indexing');
 
   push(@cmd_words, '-recalFile', $self->covariates_file);
   push(@cmd_words, '-R', $self->reference);

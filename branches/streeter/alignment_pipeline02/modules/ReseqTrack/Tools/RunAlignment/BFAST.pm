@@ -80,7 +80,7 @@ sub run_postprocess {
 
     my $cmd_line = join(' ', @cmd_words);
 
-    $self->sam_files($output_sam);
+    $self->output_files($output_sam);
     $self->execute_command_line($cmd_line);
 
 }

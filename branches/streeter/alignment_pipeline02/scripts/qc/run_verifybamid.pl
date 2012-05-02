@@ -23,7 +23,8 @@ my %rg_info;
 
 $input{echo_cmd_line} = 0;
 $input{test}          = 0;
-
+$input{not_event}     = 0;
+$input{chrom}         = "";
 
 my $Sample;
 my $passed_step1 = 0;
@@ -39,58 +40,128 @@ my $RG_adaptor;
 my $bam_file_obj;
 my $chr20 = 0; 
 
+
 GetOptions(
 	   \%input,    'dbhost=s',   'dbname=s',      'dbuser=s',
 	   'dbpass=s', 'dbport=s',   'working_dir=s', 'verbose!',
 	   'name=s',    'cfg_file=s', 'out_prefix=s', 'echo_cmd_line!',
 	   'bimp=s', 'debug!', 'selfonly!', 'update!', 'selfSM=s',
 	   'selfRG=s','bestRG=s', 'test!', 'save_files_for_deletion!',
-	   'chrom20!', 'snps_list=s','reference=s');
+	   'chrom20!', 'snps_list=s','reference=s','whole_genome!',
+	   'not_event!','coll_type=s', 'chrom=s');
 
 
 if ( defined $input{cfg_file} ) {
   get_params( $input{cfg_file}, \%input );
 }
 
+my ( $db, $fa,$ca )  = get_db_adaptors( \%input );
+
 
 if ( ! defined $input{chrom20}){
   $input{chrom20} = 0;
 } 
 
+if ( $input{chrom} eq "chrom20"){
+  $input{chrom20} = 1;
+} 
 
-#do not run on unmapped bams
-if ($input{name} =~ /unmapped/i){
-  my $msg = "\nYou are trying to run on what appears to be an unmapped bam\n";
-  $msg .= "This bam probably has an overlapping type with bams that should be tested\n";
-  $msg .= "Skipping this bam\n";
-  warning "$msg";
-  exit;
+
+if (! ($input{name}  =~ /\.bam$/)){
+	print "Pulling bam name from COLLECTION:" , $input{name},"\n";
+	
+	throw "No collection type given (option = -type)\n" 
+	unless ( defined $input{coll_type});
+
+	throw "No 'chrom' or 'mapped'  given (eg  -chrom chrom20, -chrom mapped)\n" 
+	unless ( defined $input{chrom});
+			
+	my $coll = $ca->fetch_by_name_and_type ($input{name}, $input{coll_type});
+	my $msg = "No collection info found for "
+		. $input{name} ." " .$input{coll_type}."\n";
+	
+	throw $msg if (!$coll);	
+	
+	my $others = $coll->others;
+	my @all_coll_bams;
+	my $use_bam;
+	foreach my $file (@$others){
+		push (@all_coll_bams,$file->name);
+		my $basename = basename($file->name);
+		my @bits = split (/\./,$basename);
+		if ($bits[1] eq $input{chrom}){
+			$use_bam = $file->name;
+		}
+	}
+	
+	if (! $use_bam){
+		my $msg = "Could not find bam fitting chrom " . $input{chrom};
+		$msg .= " in collection bams:\n";
+		my $line = join ("\n",@all_coll_bams);
+		$msg .= $line;
+		throw "$msg";
+		
+	}
+	print "\nRunning: $use_bam\n";
+	
+	$input{name} = $use_bam;
 }
 
-#do not run on any chrom11 bams
-if ($input{name} =~ /chrom11/i){
-  my $msg = "\nYou are trying to run on what appears to be an chromosome 11 bam\n";
-  $msg .= "This bam probably has an overlapping type with bams that should be tested\n";
-  $msg .= "Skipping this bam\n";
-  warning "$msg";
-  exit;
-}
 
-#do not run on exome chrom20 bams
-if ( ($input{name} =~ /chrom20/i) && ($input{name} =~ /exome/i ) ){
-  my $msg = "\nYou are trying to run on what appears to be an exome chromosome 20 bam\n";
-  $msg .= "This bam probably has an overlapping type with bams that should be tested\n";
-  $msg .= "Skipping this bam\n";
-  warning "$msg";
-  exit;
-}
 
-if (! ($input{name} =~ /vol1/)){
-  my $msg .= $input{name};
-  $msg .= "\nis not on \/nfs\/1000g-archive\/vol1\/ . Not running\n"; 
-  throw "$msg";
-}
 
+
+if ( $input{not_event} == 1 ){
+  #just run if not part of pipeline event
+  print "\n\nNot running in pipeline mode\n\n";
+}
+else{
+
+  print "\n\nRunning in event mode. Use option  '-not_event' to over-ride\n\n";
+
+  #whole_genome=1 in cfg file, assuming properly name bam.
+  if ($input{whole_genome} && ! ($input{name} =~ /\.mapped\./i) ){
+    my $msg = "Flagged to run on genome-wide set of snps.\n";
+    $msg .= "Cannot find 'mapped' in file name\n";
+    $msg .= $input{name}."\n";
+    warning "$msg";
+    exit;
+  }
+
+  #do not run on unmapped bams
+  if ($input{name} =~ /unmapped/i){
+    my $msg = "\nYou are trying to run on what appears to be an unmapped bam\n";
+    $msg .= "This bam probably has an overlapping type with bams that should be tested\n";
+    $msg .= "Skipping this bam\n";
+    warning "$msg";
+    exit;
+  }
+
+  #do not run on any chrom11 bams
+  if ($input{name} =~ /chrom11/i){
+    my $msg = "\nYou are trying to run on what appears to be an chromosome 11 bam\n";
+    $msg .= "This bam probably has an overlapping type with bams that should be tested\n";
+    $msg .= "Skipping this bam\n";
+    warning "$msg";
+    exit;
+  }
+
+  #do not run on exome chrom20 bams
+  if ( ($input{name} =~ /chrom20/i) && ($input{name} =~ /exome/i ) ){
+    my $msg = "\nYou are trying to run on what appears to be an exome chromosome 20 bam\n";
+    $msg .= "This bam probably has an overlapping type with bams that should be tested\n";
+    $msg .= "Skipping this bam\n";
+    warning "$msg";
+    exit;
+  }
+
+  #do not run on anything in staging area if running as event
+  if (! ($input{name} =~ /vol1/) ){
+    my $msg .= $input{name};
+    $msg .= "\nis not on \/nfs\/1000g-archive\/vol1\/ . Not running\n"; 
+    throw "$msg";
+  }
+}
 
 
 my ($sample2, $platform2, $algorithm2, $project2, $analysis2, $chrom2, $date2) =
@@ -104,7 +175,7 @@ if (!$have_snps) {
 
 
 
-my ( $db, $fa )  = get_db_adaptors( \%input );
+
 
 $bam_file_obj = $fa->fetch_by_name( $input{name} );
  
@@ -590,8 +661,9 @@ sub get_db_adaptors {
 					    );
 
   my $fa = $db->get_FileAdaptor;
+  my $ca = $db->get_CollectionAdaptor;
 
-  return ( $db, $fa );
+  return ( $db, $fa,$ca );
 }
 
 
