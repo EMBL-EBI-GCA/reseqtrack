@@ -4,11 +4,13 @@ use strict;
 use ReseqTrack::Tools::Exception;
 use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::FileUtils qw(get_count_stats create_object_from_path);
-use ReseqTrack::Tools::FileSystemUtils qw(run_md5);
+use ReseqTrack::Tools::FileSystemUtils qw(run_md5 check_directory_exists);
 use ReseqTrack::Tools::SequenceIndexUtils qw(assign_files);
 use ReseqTrack::Tools::HostUtils qw(get_host_object);
 use ReseqTrack::Tools::RunMetaInfoUtils qw( create_directory_path );
 use ReseqTrack::Tools::RunSplit;
+use File::Basename qw(fileparse);
+use File::Copy qw (move copy);
 use POSIX qw(ceil);
 use Getopt::Long;
 
@@ -31,6 +33,7 @@ my $max_reads;
 my $max_bases;
 my $help;
 my $directory_layout = 'population/sample_id/run_id';
+my $no_split_strategy = 'copy';
 
 &GetOptions( 
   'dbhost=s'      => \$dbhost,
@@ -50,6 +53,7 @@ my $directory_layout = 'population/sample_id/run_id';
   'program_file=s' => \$program_file,
   'help!'    => \$help,
   'directory_layout=s' => \$directory_layout,
+  'no_split_strategy=s' => \$no_split_strategy,
     );
 
 if ($help) {
@@ -59,6 +63,9 @@ if ($help) {
 
 throw("specify only one of max_reads or max_bases")
   if ($max_reads && $max_bases);
+
+throw("no_split_strategy must be move, copy, link or ignore")
+  if (!grep {$no_split_strategy eq $_} qw(move copy link ignore));
 
 my $db = ReseqTrack::DBSQL::DBAdaptor->new(
   -host   => $dbhost,
@@ -88,6 +95,7 @@ my ($mate1, $mate2, $frag) = assign_files($input_files);
 my ($mate1_path, $mate2_path, $frag_path) = map {$_ ? $_->name : ''} ($mate1, $mate2, $frag);
 
 my %line_count_hash;
+my @files_no_split;
 
 if ($mate1 && $mate2) {
   my ($read_count1, $base_count1) = get_count_stats($mate1);
@@ -99,10 +107,14 @@ if ($mate1 && $mate2) {
 
   my $num_output_files = $max_reads ? ceil($read_count1 / $max_reads)
                       : ceil( 0.5 * ($base_count1 +$base_count2) / $max_bases );
-  my $line_count = ($num_output_files == 1) ? 0
-                 : 4 * ceil($read_count1 / $num_output_files);
-  $line_count_hash{$mate1_path} = $line_count;
-  $line_count_hash{$mate2_path} = $line_count;
+  if ($num_output_files ==1) {
+    push(@files_no_split, $mate1_path, $mate2_path);
+  }
+  else {
+    my $line_count = 4 * ceil($read_count1 / $num_output_files);
+    $line_count_hash{$mate1_path} = $line_count;
+    $line_count_hash{$mate2_path} = $line_count;
+  }
 }
 else {
   throw("Don't have mate pair for ".$mate1_path) if ($mate1);
@@ -113,25 +125,54 @@ if ($frag) {
   my ($read_count, $base_count) = get_count_stats($frag);
   my $num_output_files = $max_reads ? ceil($read_count / $max_reads)
                       : ceil($base_count / $max_bases);
-  my $line_count = ($num_output_files == 1) ? 0
-                 : 4 * ceil($read_count / $num_output_files);
-  $line_count_hash{$frag_path} = $line_count;
+  if ($num_output_files ==1) {
+    push(@files_no_split, $frag_path);
+  }
+  else {
+    my $line_count = 4 * ceil($read_count / $num_output_files);
+    $line_count_hash{$frag_path} = $line_count;
+  }
 }
 
 my $full_output_dir = create_directory_path($run_meta_info, $directory_layout, $output_dir);
 
-my $run_split = ReseqTrack::Tools::RunSplit->new(
-    -program => $program_file,
-    -working_dir => $full_output_dir,
-    -line_count_hash => \%line_count_hash,
-    -job_name => $run_id);
+my $output_file_hash;
+if (scalar keys %line_count_hash) {
+  my $run_split = ReseqTrack::Tools::RunSplit->new(
+      -program => $program_file,
+      -working_dir => $full_output_dir,
+      -line_count_hash => \%line_count_hash,
+      -job_name => $run_id);
 
-$run_split->run;
+  $run_split->run;
+  $output_file_hash = $run_split->output_file_hash;
+}
+
+if ($no_split_strategy ne 'ignore' && scalar @files_no_split) {
+  check_directory_exists($full_output_dir);
+  foreach my $filepath (@files_no_split) {
+    my ($basename, $input_dir, $suffix) = fileparse($filepath, qr/\.[^\/]+/);
+    my $output_file = "$full_output_dir/$basename.not_split$suffix";
+    $output_file =~ s{//}{/}g;
+    $output_file_hash->{$filepath}->{''} = $output_file;
+    if ($no_split_strategy eq 'move') {
+      move ($filepath, $output_file)
+          or throw "move failed: $!";
+    }
+    elsif ($no_split_strategy eq 'copy') {
+      copy ($filepath, $output_file)
+          or throw "copy failed: $!";
+    }
+    elsif ($no_split_strategy eq 'link') {
+      symlink ($filepath, $output_file)
+          or throw "link failed: $!";
+    }
+  }
+}
 
 if ($store) {
   my $host = get_host_object($host_name, $db);
 
-  my $output_file_hash = $run_split->output_file_hash;
   my @split_collections;
 
   if ($mate1 && $mate2) {
@@ -152,7 +193,8 @@ if ($store) {
         $file->statistics($statistic);
         push(@files, $file);
       }
-      my $collection_name = $run_id . '_m' . $label;
+      my $collection_name = $run_id . '_m';
+      $collection_name .= $label if $label;
       my $collection = ReseqTrack::Collection->new(
                     -name => $collection_name, -type => $type_output,
                     -table_name => 'file', -others => \@files);
@@ -166,7 +208,8 @@ if ($store) {
       my $file= create_object_from_path($file_path, $type_output, $host);
       my $md5 = run_md5($file_path);
       $file->md5($md5);
-      my $collection_name = $run_id . '_f' . $label;
+      my $collection_name = $run_id . '_f';
+      $collection_name .= $label if $label;
       my $collection = ReseqTrack::Collection->new(
                     -name => $collection_name, -type => $type_output,
                     -table_name => 'file', -others => $file);

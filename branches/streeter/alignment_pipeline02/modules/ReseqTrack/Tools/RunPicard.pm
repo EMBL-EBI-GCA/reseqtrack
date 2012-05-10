@@ -58,14 +58,15 @@ use base qw(ReseqTrack::Tools::RunProgram);
 =cut
 
 sub DEFAULT_OPTIONS { return {
-        'input_sort_status' => '', # can be 'c' for coordinate or 'n' for name
+        'assume_sorted' => '',
         'sort_order' => 'coordinate',
         'create_index' => 0,
-        'index_ext' => '.bai', #can be '.bai' or '.bam.bai'
+        'index_ext' => '.bam.bai', #can be '.bai' or '.bam.bai'
         'verbosity' => 'INFO',
         'max_records_in_ram' => 500000,
         'remove_duplicates' => 0,
         'use_threading' => 0,
+        'validation_stringency' => '',
         };
 }
 
@@ -86,7 +87,7 @@ sub new {
   $self->java_exe($java_exe);
 
   $self->picard_dir($picard_dir || $ENV{PICARD});
-  $self->jvm_options( defined $jvm_options ? $jvm_options : '-Xmx2g' );
+  $self->jvm_options( defined $jvm_options ? $jvm_options : '-Xmx4g' );
 
   return $self;
 }
@@ -148,14 +149,14 @@ sub run_mark_duplicates {
         my @cmd_words = ($self->java_exe);
         push(@cmd_words, $self->jvm_options) if ($self->jvm_options);
         push(@cmd_words, '-jar', $jar);
-        push(@cmd_words, $self->get_standard_options);
+        push(@cmd_words, $self->_get_standard_options);
         push(@cmd_words, 'INPUT=' . $input);
         push(@cmd_words, 'OUTPUT=' . $bam);
         push(@cmd_words, 'METRICS_FILE=' . $metrics);
         push(@cmd_words, 'REMOVE_DUPLICATES='
                 . $self->options('remove_duplicates') ? 'true' : 'false');
         push(@cmd_words, 'ASSUME_SORTED='
-                . $self->options('input_sort_status') eq 'c' ? 'true' : 'false');
+                . $self->options('assume_sorted') ? 'true' : 'false') if defined $self->options('assume_sorted');
         push(@cmd_words, 'CREATE_INDEX='
                 . $self->options('create_index') ? 'true' : 'false');
 
@@ -209,7 +210,7 @@ sub run_alignment_metrics {
         push(@cmd_words, 'INPUT=' . $input);
         push(@cmd_words, 'OUTPUT=' . $output);
         push(@cmd_words, 'ASSUME_SORTED='
-                . $self->options('input_sort_status') eq 'c' ? 'true' : 'false');
+                . $self->options('assume_sorted') ? 'true' : 'false') if defined $self->options('assume_sorted');
         my $cmd = join(' ', @cmd_words);
 
         $self->output_files($output);
@@ -242,27 +243,21 @@ sub run_merge{
     my $jar = $self->_jar_path('MergeSamFiles.jar');
 
     my $sort_order = $self->options('sort_order');
-    my $assume_sorted;
-    if ($sort_order eq 'coordinate') {
-        $assume_sorted = $self->options('input_sort_status') eq 'c' ? 'true' : 'false';
-    }
-    elsif ($sort_order eq 'queryname') {
-        $assume_sorted = $self->options('input_sort_status') eq 'n' ? 'true' : 'false';
-    }
-    else {
-        $sort_order = 'null';
+    if ($sort_order ne 'coordinate' && $sort_order ne 'queryname') {
+      $sort_order = 'null';
     }
 
     my @cmd_words = ($self->java_exe);
     push(@cmd_words, $self->jvm_options) if ($self->jvm_options);
     push(@cmd_words, '-jar', $jar);
-    push(@cmd_words, $self->get_standard_options);
+    push(@cmd_words, $self->_get_standard_options);
     push(@cmd_words, map {"INPUT=$_"} @$input_bam_list);
     push(@cmd_words, 'OUTPUT=' . $bam);
     push(@cmd_words, 'CREATE_INDEX='
             . $self->options('create_index') ? 'true' : 'false');
     push(@cmd_words, 'SORT_ORDER=' . $sort_order);
-    push(@cmd_words, 'ASSUME_SORTED=' . $assume_sorted);
+    push(@cmd_words, 'ASSUME_SORTED='
+            . $self->options('assume_sorted') ? 'true' : 'false') if defined $self->options('assume_sorted');
     push(@cmd_words, 'USE_THREADING='
             . $self->options('use_threading') ? 'true' : 'false');
 
@@ -360,6 +355,8 @@ sub _get_standard_options {
         if ($self->options('verbosity'));
     push(@option_strings, 'MAX_RECORDS_IN_RAM=' . $self->options('max_records_in_ram'))
         if ($self->options('max_records_in_ram'));
+    push(@option_strings, 'VALIDATION_STRINGENCY=' . $self->options('validation_stringency'))
+        if ($self->options('validation_stringency'));
 
     return join(' ', @option_strings);
 }

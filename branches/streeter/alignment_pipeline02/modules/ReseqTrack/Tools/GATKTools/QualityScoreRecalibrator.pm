@@ -42,6 +42,7 @@ sub DEFAULT_OPTIONS { return {
         'quality_score_covariate' => 1,
         'cycle_covariate' => 1,
         'dinuc_covariate' => 1,
+        'solid_nocall_strategy' => 0,
         };
 }
 
@@ -94,6 +95,7 @@ sub create_recalibration_table {
   foreach my $interval (split(/,/, $self->options('intervals'))) {
       push(@cmd_words, '-L', $interval);
   }
+  push(@cmd_words, '--solid_nocall_strategy', 'LEAVE_READ_UNRECALIBRATED') if ($self->options('solid_nocall_strategy'));
 
   push(@cmd_words, '-R', $self->reference);
   push(@cmd_words, '-I', $self->input_bam);
@@ -127,6 +129,7 @@ sub create_recalibrated_bam {
       push(@cmd_words, '-L', $interval);
   }
   push(@cmd_words, '--disable_bam_indexing');
+  push(@cmd_words, '--solid_nocall_strategy', 'LEAVE_READ_UNRECALIBRATED') if ($self->options('solid_nocall_strategy'));
 
   push(@cmd_words, '-recalFile', $self->covariates_file);
   push(@cmd_words, '-R', $self->reference);

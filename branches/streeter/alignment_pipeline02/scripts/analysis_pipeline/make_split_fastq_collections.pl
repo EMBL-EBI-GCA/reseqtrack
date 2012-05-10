@@ -21,8 +21,7 @@ my $dbport = 4175;
 my $dbname;
 my $host_name = '1000genomes.ebi.ac.uk';
 my $type_input;
-my $type_output_frag;
-my $type_output_mate;
+my $type_output;
 my $type_collection;
 my $max_reads;
 my $max_bases;
@@ -36,8 +35,7 @@ my $help;
   'dbport=s'      => \$dbport,
   'host_name=s' => \$host_name,
   'type_input=s' => \$type_input,
-  'type_output_frag=s' => \$type_output_frag,
-  'type_output_mate=s' => \$type_output_mate,
+  'type_output=s' => \$type_output,
   'type_collection=s' => \$type_collection,
   'max_reads=i' => \$max_reads,
   'max_bases=i' => \$max_bases,
@@ -51,6 +49,11 @@ if ($help) {
 
 throw("specify only one of max_reads or max_bases")
   if ($max_reads && $max_bases);
+
+throw("must specify type of output")
+  if (!$type_output);
+throw("must specify type of collection")
+  if (!$type_collection);
 
 my $db = ReseqTrack::DBSQL::DBAdaptor->new(
   -host   => $dbhost,
@@ -111,7 +114,7 @@ foreach my $input_collection (@input_collections) {
     }
     foreach my $collection_name (@collection_names) {
       my $collection = ReseqTrack::Collection->new(
-                    -name => $collection_name, -type => $type_output_mate,
+                    -name => $collection_name, -type => $type_output,
                     -table_name => 'file', -others => [$mate1, $mate2]);
       push(@split_collections, $collection);
     }
@@ -142,7 +145,7 @@ foreach my $input_collection (@input_collections) {
     }
     foreach my $collection_name (@collection_names) {
       my $collection = ReseqTrack::Collection->new(
-                    -name => $collection_name, -type => $type_output_frag,
+                    -name => $collection_name, -type => $type_output,
                     -table_name => 'file', -others => [$frag]);
       push(@split_collections, $collection);
     }
@@ -185,9 +188,7 @@ ReseqTrack/scripts/process/make_split_fastq_collections.pl
       other options:
 
         -type_input, type of the input collection of files, e.g. FILTERED_FASTQ
-        -type_output_frag, type of the output collection of files for fragment, e.g. FASTQ_CHUNK_FRAG
-            (many of these are created for each input collection)
-        -type_output_mate, type of the output collection of files for mates, e.g. FASTQ_CHUNK_MATE
+        -type_output, type of the output collection of files
             (many of these are created for each input collection)
         -type_collection, type of the collection of collections of files, e.g. FASTQ_CHUNK_SET
             (one of these is created for each input collection)
@@ -205,8 +206,7 @@ ReseqTrack/scripts/process/make_split_fastq_collections.pl
     $DB_OPTS="-dbhost mysql-host -dbuser rw_user -dbpass **** -dbport 4197 -dbname my_database"
 
     perl ReseqTrack/scripts/process/split_fastq.pl  $DB_OPTS
-      -type_input FILTERED_FASTQ -type_output_frag FASTQ_CHUNK_FRAG -type_output_mate FASTQ_CHUNK_MATE
-      -type_collection FASTQ_CHUNK_SET -max_reads 2000000
+      -type_input FILTERED_FASTQ -type_output FASTQ_CHUNK -type_collection FASTQ_CHUNK_SET -max_reads 2000000
 
 =cut
 

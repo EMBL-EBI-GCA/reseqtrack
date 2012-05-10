@@ -72,6 +72,8 @@ use base qw(ReseqTrack::Tools::RunProgram);
 sub DEFAULT_OPTIONS { return {
         'use_reference_index' => 0,
         'input_sort_status' => '', # can be 'c' for coordinate or 'n' for name
+        'output_sort_status' => '', # can be 'c' for coordinate or 'n' for name
+        'uncompressed_output' => 0,
         'force_overwrite' => 1,
         'attach_RG_tag' => 0,
         'compute_BQ_tag' => 1,
@@ -117,7 +119,7 @@ sub run_fix_and_calmd {
       push(@cmds, $self->_get_file_to_sorted_bam_cmd($input, 1, 1));
       push(@cmds, $self->_get_fixmate_cmd);
       push(@cmds, $self->_get_sort_cmd);
-      push(@cmds, $self->_get_calmd_cmd(1));
+      push(@cmds, $self->_get_calmd_cmd($self->options('uncompessed_output')));
 
       my $cmd = join(' | ', @cmds) . " > $output_bam";
 
@@ -136,7 +138,13 @@ sub run_calmd {
 
       my @cmds;
       push(@cmds, $self->_get_file_to_sorted_bam_cmd($input, 0, 1));
-      push(@cmds, $self->_get_calmd_cmd(1));
+      if ($self->options('output_sort_status') eq 'n') {
+        push(@cmds, $self->_get_calmd_cmd(1));
+        push(@cmds, $self->_get_sort_cmd(1));
+      }
+      else {
+        push(@cmds, $self->_get_calmd_cmd($self->options('uncompressed_output')));
+      }
 
       my $cmd = join(' | ', @cmds) . " > $output_bam";
 
@@ -144,6 +152,29 @@ sub run_calmd {
       $self->execute_command_line($cmd);
     }
 }
+
+sub run_fixmate {
+    my $self = shift;
+
+    foreach my $input (@{$self->input_files}) {
+      my $prefix = fileparse($input, qr/\.[sb]am/ );
+      my $output_bam = $self->working_dir . "/$prefix.fixed.bam";
+      $output_bam =~ s{//}{/}g;
+
+      my @cmds;
+      push(@cmds, $self->_get_file_to_sorted_bam_cmd($input, 1, 1));
+      push(@cmds, $self->_get_fixmate_cmd);
+      if ($self->options('output_sort_status') eq 'c') {
+        push(@cmds, $self->_get_sort_cmd());
+      }
+
+      my $cmd = join(' | ', @cmds) . " > $output_bam";
+
+      $self->output_files($output_bam);
+      $self->execute_command_line($cmd);
+    }
+}
+
 
 
 
@@ -181,7 +212,18 @@ sub run_sam_to_bam {
       my $bam = $self->working_dir . "/$prefix.bam";
       $bam =~ s{//}{/}g;
 
-      my $cmd = $self->_get_sam_to_bam_cmd($input);
+      my $output_sort_status = $self->options('output_sort_status');
+
+      my $cmd;
+      if ($output_sort_status eq 'c') {
+        $cmd = $self->_get_file_to_sorted_bam_cmd($input, 0, $self->options('uncompressed_output'));
+      }
+      elsif ($output_sort_status eq 'n') {
+        $cmd = $self->_get_file_to_sorted_bam_cmd($input, 1, $self->options('uncompressed_output'));
+      }
+      else {
+        $cmd = $self->_get_sam_to_bam_cmd($input, $self->options('uncompressed_output'));
+      }
       $cmd .= " > $bam";
 
       $self->created_files($bam);
@@ -209,7 +251,9 @@ sub run_sort {
       my $output_bam = $self->working_dir . "/$prefix.sorted.bam";
       $output_bam =~ s{//}{/}g;
 
-      my $cmd = $self->_get_file_to_sorted_bam_cmd($input);
+      my $cmd = $self->options('output_sort_status') = 'n'
+            ? $self->_get_file_to_sorted_bam_cmd($input, 1)
+            : $self->_get_file_to_sorted_bam_cmd($input);
       $cmd .= " > $output_bam";
 
       $self->output_files($output_bam);
@@ -264,15 +308,23 @@ sub run_merge {
     throw("file already exists and force_overwrite is not set")
             if (-e $output_bam && ! $self->options('force_overwrite'));
 
+    my $output_sort_status = $self->options('output_sort_status');
+    my $input_sort_status = $self->options('input_sort_status');
+
     my @cmd_words = ("bash -c '");
     push(@cmd_words, $self->program, 'merge');
     push(@cmd_words, '-f') if ($self->options('force_overwrite'));
     push(@cmd_words, '-r') if ($self->options('attach_RG_tag'));
+    push(@cmd_words, '-n') if ($output_sort_status eq 'n');
+
     push(@cmd_words, $output_bam);
 
+    my $needs_sorting = ($output_sort_status eq 'n' && $input_sort_status ne 'n');
+    $needs_sorting ||= ($output_sort_status ne 'n' && $input_sort_status ne 'c');
+
     foreach my $input (@{$self->input_files}) {
-      if ($self->options('input_sort_status') ne 'c' || $input =~ /\.sam$/) {
-        my $file_to_sorted_bam_cmd = $self->_get_file_to_sorted_bam_cmd($input, 0, 1);
+      if ($needs_sorting || $input =~ /\.sam$/) {
+        my $file_to_sorted_bam_cmd = $self->_get_file_to_sorted_bam_cmd($input, ($output_sort_status eq 'n'), 1);
         push(@cmd_words, '<(', $file_to_sorted_bam_cmd, ')');
       }
       else {

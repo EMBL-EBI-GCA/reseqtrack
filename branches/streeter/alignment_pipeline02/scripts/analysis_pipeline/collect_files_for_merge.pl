@@ -17,7 +17,7 @@ my $dbport = 4175;
 my $dbname;
 my $host_name = '1000genomes.ebi.ac.uk';
 my $type_key;
-my $type_input;
+my @type_input;
 my $type_collection;
 my $type_merged;
 my $level;
@@ -34,7 +34,7 @@ my $help;
             'host_name=s' => \$host_name,
 	    'level=s'      => \$level,
 	    'type_key=s'       => \$type_key,
-	    'type_input=s'       => \$type_input,
+	    'type_input=s'       => \@type_input,
 	    'type_collection=s'       => \$type_collection,
 	    'type_merged=s'       => \$type_merged,
             'output_dir=s' => \$output_dir,
@@ -62,8 +62,10 @@ my $ca = $db->get_CollectionAdaptor;
 my $rmia = $db->get_RunMetaInfoAdaptor;
 
 my %inputs;
-foreach my $collection (@{$ca->fetch_by_type($type_input)}) {
-  $inputs{$collection->name} = $collection->others;
+foreach my $type_input (@type_input) {
+  foreach my $collection (@{$ca->fetch_by_type($type_input)}) {
+    $inputs{$collection->name} = $collection->others;
+  }
 }
 
 my %files_to_move;
@@ -236,7 +238,8 @@ The output collection will be named by the run_id
 
   -level, must be either 'RUN', 'LIBRARY' or 'SAMPLE'
 
-  -type_input, type of the collections that will be searched for files
+  -type_input, type of the collections that will be searched for files. Can be specified
+  multiple times
 
   -type_collection, type of the output collection that will be written for files that
   need to be merged

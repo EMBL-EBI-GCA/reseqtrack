@@ -15,6 +15,8 @@ sub DEFAULT_OPTIONS { return {
         'threads' => 1,
         'colour_space' => 1,
         'offset' => 20,
+        'postprocess_algorithm' => 3,
+        'pairing' => '',
         };
 }
 
@@ -75,6 +77,24 @@ sub run_postprocess {
     push(@cmd_words, $self->program, 'postprocess');
     push(@cmd_words, '-f', $self->reference);
     push(@cmd_words, '-i', $tmp_baf);
+    push(@cmd_words, '-a', $self->options('postprocess_algorithm')) if (defined $self->options('postprocess_algorithm'));
+    push(@cmd_words, '-Y', $self->options('pairing')) if (defined $self->options('pairing'));
+    push(@cmd_words, '-v', $self->paired_length) if ($self->paired_length);
+
+    if ($self->read_group_fields->{'ID'}) {
+      my $rg_string = "\@RG\tID:" . $self->read_group_fields->{'ID'};
+      while (my ($tag, $value) = each %{$self->read_group_fields}) {
+        next RG if ($tag eq 'ID');
+        next RG if (!$value);
+        $rg_string .= "\t$tag:$value";
+      }
+      my $RG_file = $self->working_dir . '/' . $self->job_name. ".RG_string";
+      $self->created_files($RG_file);
+      open (my $fh, '>', $RG_file) or throw ("could not open file $RG_file");
+      print $fh $rg_string;
+      close $fh;
+      push(@cmd_words, '-r', $RG_file);
+    }
 
     push(@cmd_words, '>', $output_sam);
 

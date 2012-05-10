@@ -109,6 +109,10 @@ sub run_sampe_alignment {
     my @cmd_words = ("bash -c '");
     push(@cmd_words, $self->program, 'sampe');
     push(@cmd_words, '-P') if $self->options('load_fm_index');
+    if ($self->paired_length) {
+      my $max_insert_size = 3 * $self->paired_length;
+      push(@cmd_words, '-a', $max_insert_size);
+    }
 
     if ($self->read_group_fields->{'ID'}) {
       my $rg_string = q("@RG\tID:) . $self->read_group_fields->{'ID'};

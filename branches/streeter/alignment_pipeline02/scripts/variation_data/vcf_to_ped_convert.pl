@@ -71,7 +71,7 @@ if ($region =~ /^(\w+):(\d+)-(\d+)$/) {
   ($region_chromosome, $region_start, $region_end) = ($1, $2, $3);
 }
 else {
-  die("did not recognise region $region");
+  $region_chromosome = $region;
 }
 
 if (! $output_ped) {
@@ -112,6 +112,7 @@ sub get_markers_genotypes {
         or die("cannot open vcf $!");
 
     my %column_indices;
+    my $found_chromosome = 0;
 
     LINE:
     while (my $line = <$VCF>) {
@@ -127,9 +128,13 @@ sub get_markers_genotypes {
         }
 
         my ($chromosome, $position, $name, $ref_allele, $alt_alleles) = @columns;
-        next LINE if ($chromosome ne $region_chromosome);
-        next LINE if ($position < $region_start);
-        last LINE if ($position > $region_end);
+        if ($chromosome ne $region_chromosome) {
+          last LINE if ($found_chromosome);
+          next LINE;
+        }
+        $found_chromosome = 1;
+        next LINE if (defined $region_start && $position < $region_start);
+        last LINE if (defined $region_end && $position > $region_end);
 
         my @allele_codes = map {$base_codes{$_} || 0} $ref_allele, (split(/,/, $alt_alleles));
         next LINE if ((scalar grep {$_} @allele_codes) < 2);
@@ -279,13 +284,14 @@ sub get_individuals {
                             This tool takes both vcf4.0 and vcf4.1 format files.
 	-sample_panel_file  Path to a locally or remotely accessible sample panel file, listing all individuals (first column)
                             and their population (second column)
-	-region		    Chromosomal region in the format of chr:start-end (1:1000000-100500).
+	-region		    Chromosomal region in the format of chr:start-end (e.g. 1:1000000-100500) or chr (e.g. 1)
 	-population         A population name, which must appear in the second column of the sample panel file.
                             Can be specified more than once for multiple populations.
 
 =head1	OPTIONAL ARGUMENTS
 
 	-tabix		    Path to the tabix executable; default is to search the path for 'tabix'
+                            tabix is not required if the vcf file is uncompressed and locally accessible
 	-output_ped	    Name of the output ped file (linkage pedigree file);
                             default is region.ped (e.g. 1_100000-100500.ped)
         -output_info        Name of the output info file (marker information file);
