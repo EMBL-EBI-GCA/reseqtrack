@@ -6,8 +6,6 @@ use warnings;
 use ReseqTrack::Tools::Exception qw(throw warning);
 use ReseqTrack::Tools::Argument qw(rearrange);
 use File::Basename qw(fileparse);
-use List::Util qw (first);
-use Env qw( @PATH );
 
 
 use base qw(ReseqTrack::Tools::RunAlignment);

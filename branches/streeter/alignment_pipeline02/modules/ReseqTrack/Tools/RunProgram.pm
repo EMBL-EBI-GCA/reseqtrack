@@ -17,28 +17,35 @@ package ReseqTrack::Tools::RunProgram;
 use strict;
 use warnings;
 
-use File::Path qw(mkpath);
-use ReseqTrack::Tools::FileSystemUtils;
+use ReseqTrack::Tools::FileSystemUtils
+    qw(check_file_exists check_directory_exists delete_directory
+    delete_file check_file_does_not_exist make_directory);
 use ReseqTrack::Tools::Exception qw(throw warning stack_trace_dump);
 use ReseqTrack::Tools::Argument qw(rearrange);
 use ReseqTrack::Tools::GeneralUtils qw(execute_system_command);
+use List::Util qw (first);
+use Env qw( @PATH );
 
 
 =head2 new
 
   Arg [-input_files]   :
-      arrayref of strings,  paths to any input files
+      string or arrayref of strings,  paths to any input files
   Arg [-program]   :
       string, the program (if in $PATH) or path to the program
   Arg [-job_name]   :
-      string, name of the job
+      string, name of the job. This will be generated automatically if not specified.
   Arg [-working_dir]   :
       string, default '/tmp/', path of the working directory
-
+  Arg [-options]   :
+      hashref, {option_name => option_value}
+      options specific to the child class
   Arg [-echo_cmd_line]   :
       boolean flag, default 0, echo the command line rather than execute commands
+      this option is designed for debugging purposes
   Arg [-save_files_for_deletion]   :
       boolean flag, default 0, save temporary files (i.e. do not delete them)
+      this option is designed for debugging purposes
 
   Function  : Creates a new ReseqTrack::Tools::RunProgram object 
   Returntype: ReseqTrack::Tools::RunProgram
@@ -48,8 +55,8 @@ use ReseqTrack::Tools::GeneralUtils qw(execute_system_command);
                 -program => "program",
                 -working_dir => '/path/to/dir/',
                 -job_name => "my_job",
-                -echo_cmd_line => 0,
-                -save_files_for_deletion => 0 );
+                -options => {"flag1" => 1, "flag2" => 0}
+                )
 
 =cut
 
@@ -92,15 +99,26 @@ sub new {
   return $self;
 }
 
+=head2 DEFAULT_OPTIONS
+
+  Function  : child classess can implement a DEFAULT_OPTIONS method which defines the
+              default values for $self->options
+  Returntype: hashref
+
+=cut
+
 sub DEFAULT_OPTIONS {return {};}
 
 =head2 run
 
   Arg [1]   : ReseqTrack::Tools::RunProgram
-  Function  : each child object should implement a run method
+  Arg [2]   : Any additional args will be passed to the child class
+  Function  : Calls the run_program method, which must be implemented by the child class
+              Does various checks that are needed for running any program
   Returntype: 
-  Exceptions: throws as this method should be implemented in the child class
-  Example   : 
+  Exceptions: Throws if program executable does not exist.
+              Throws if any of the input files do not exist.
+  Example   : $my_program_object->run;
 
 =cut
 
@@ -110,7 +128,12 @@ sub run {
   $self->_running(1);
 
   throw "do not have a program executable\n" if (! $self->program);
-  check_file_exists($self->program);
+  if (! -x $self->program) {
+    if ($self->program =~ m{/} || ! first {-x $_} map {$_.'/'.$self->program} @PATH) {
+      throw "cannot find program executable ".$self->program;
+    }
+  }
+
   foreach my $file (@{$self->input_files}) {
     check_file_exists($file);
   }
@@ -124,6 +147,14 @@ sub run {
   $self->_running(0);
   $self->delete_files;
 }
+
+=head2 execute_command_line
+
+  Function  : ensures that files will be deleted when a RunProgram object goes out of scope
+              This can happen either after successful completion or if the perl script quits 
+              unexpectedly e.g. when an exception is thrown.
+
+=cut
 
 sub DESTROY {
   my $self = shift;
@@ -157,7 +188,7 @@ sub execute_command_line {
   Arg [1]   : ReseqTrack::Tools::RunProgram
   Arg [2]   : boolean, optional, value of save_files_for_deletion flag
   Function  : accessor method for save_files_for_deletion flag.  Files marked for deletion
-  will not be deleted.
+              will not be deleted. Designed to be used for debugging purposes.
   Returntype: boolean
   Exceptions: 
   Example   : my $flag = $self->save_files_for_deletion;
@@ -177,7 +208,7 @@ sub save_files_for_deletion {
   Arg [1]   : ReseqTrack::Tools::RunProgram
   Arg [2]   : boolean, optional, value of echo_cmd_line flag
   Function  : accessor method for echo_cmd_line flag.  Command lines will be 'echoed'
-  but not executed.
+              but not executed. Designed to be used for debugging purposes.
   Returntype: boolean
   Exceptions: 
   Example   : my $flag = $self->echo_cmd_line;
@@ -198,7 +229,6 @@ sub echo_cmd_line {
   Arg [2]   : string, optional, program (if in $PATH) or path to program
   Function  : accessor method for the program
   Returntype: string
-  Exceptions: throws if executable does not exist
   Example   : my $program = $self->program;
 
 =cut
@@ -217,7 +247,6 @@ sub program {
   Arg [2]   : string, optional, job name
   Function  : accessor method for the job name
   Returntype: string
-  Exceptions: 
   Example   : my $job_name = $self->job_name;
 
 =cut
@@ -297,6 +326,7 @@ sub change_dir {
   Arg [1]   : ReseqTrack::Tools::RunProgram
   Arg [2]   : string or arrayref of strings
   Function  : accessor method for output files
+              output files are also added to the list of created files but marked to be saved from deletion
   Returntype: arrayref of strings
   Exceptions: n/a
   Example   : $self->output_files('path/to/file');
@@ -323,9 +353,8 @@ sub output_files {
 
   Arg [1]   : ReseqTrack::Tools::RunProgram
   Arg [2]   : string or arrayref of strings
-  Function  : accessor method for input files.  Also checks that each file exists.
+  Function  : accessor method for input files.
   Returntype: arrayref of strings
-  Exceptions: throws if file does not exist
   Example   : $self->input_files('path/to/file');
 
 =cut
@@ -346,15 +375,17 @@ sub input_files {
 }
 
 
-=head2 files_to_delete
+=head2 created_files
 
   Arg [1]   : ReseqTrack::Tools::RunProgram
   Arg [2]   : string or arrayref of strings
-  Function  : store files and directories to be deleted when delete_files is called
-  or when object goes out of scope
+  Arg [3]   : boolean, save_file_from_deletion, default 0
+  Function  : Store files and directories that have been created by the program or class
+              These files will be deleted when the object is destroyed.
+              Files marked with the save_file_from_deletion flag will only be saved if the run method
+              completes successfully i.e. they will be deleted if an error occurs
   Returntype: arrayref of strings
-  Exceptions: n/a
-  Example   : $self->files_to_delete('path/to/file');
+  Example   : $self->created_files('path/to/file');
 
 =cut
 
@@ -374,6 +405,17 @@ sub created_files {
   return \@files;
 }
 
+=head2 get_save_status
+
+  Arg [1]   : ReseqTrack::Tools::RunProgram
+  Arg [2]   : string, filename
+  Function  : returns true if a file has been marked to be saved from deletion.
+              This is called by the delete_files method.
+  Returntype: boolean
+  Example   : $save_file = $self->get_save_status('path/to/file');
+
+=cut
+
 sub get_save_status {
   my ($self, $file) = @_;
   return exists $self->{'created_files'}->{$file} ? $self->{'created_files'}->{$file} : 0;
@@ -382,7 +424,8 @@ sub get_save_status {
 =head2 delete_files
 
   Arg [1]   : ReseqTrack::Tools::RunProgram
-  Function  : remove files and directories stored in files_to_delete
+  Function  : remove files and directories stored in created_files
+              Files marked as save_from_deletion are also deleted if the program quits unexpectedly.
   Returntype: n/a
   Exceptions: throws if deletion was not successful
   Example   : $self->delete_files;
@@ -412,6 +455,18 @@ sub delete_files {
     return;
 }
 
+=head2 _running
+
+  Arg [1]   : ReseqTrack::Tools::RunProgram
+  Arg [2]   : boolean, program is running
+  Function  : accessor method for the _running flag.
+              This is set and unset by the run method
+              ALL files will be deleted if the RunProgram object is destroyed while this flag is set to 1.
+  Returntype: boolean
+  Example   : my $flag = $self->_running;
+
+=cut
+
 sub _running {
   my $self = shift;
   if (@_) {
@@ -420,27 +475,42 @@ sub _running {
   return $self->{'_running'};
 }
 
-sub _temp_dir {
-  my $self = shift;
-  if (@_) {
-    $self->{'_temp_dir'} = shift;
-  }
-  return $self->{'_temp_dir'};
-}
+=head2 get_temp_dir
+
+  Arg [1]   : ReseqTrack::Tools::RunProgram
+  Function  : Gets a temp directory for use by the child class.
+              Adds the temp directory to list of created files.
+  Returntype: String, path of temp directory
+  Exceptions: Throws if there is an error making the temp directory.
+  Example   : my $flag = $self->_running;
+
+=cut
 
 sub get_temp_dir {
     my $self = shift;
-    my $temp_dir = $self->_temp_dir;
+    my $temp_dir = $self->{'_temp_dir'};
     if (! $temp_dir) {
       $temp_dir = $self->working_dir()
             .'/'.$self->job_name.'.'.$$.'.tmp/';
       check_file_does_not_exist($temp_dir);
       $self->created_files($temp_dir);
-      $self->_temp_dir($temp_dir);
+      $self->{'_temp_dir'} = $temp_dir;
       make_directory($temp_dir);
     }
     return $temp_dir;
 }
+
+=head2 options
+
+  Arg [1]   : ReseqTrack::Tools::RunProgram
+  Arg [2]   : string, option_name
+  Arg [3]   : any, option_value
+  Function  : Accessor method for options required by the child class
+  Returntype: option_value
+  Exceptions: Throws if option_name is not specified.
+  Example   : my $option_value = $self->options('option_name');
+
+=cut
 
 
 sub options {

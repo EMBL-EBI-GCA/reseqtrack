@@ -42,8 +42,6 @@ use ReseqTrack::Tools::Exception qw(throw warning);
 use ReseqTrack::Tools::Argument qw(rearrange);
 use ReseqTrack::Tools::RunSamtools;
 use File::Basename;
-use List::Util qw (first);
-use Env qw( @PATH );
 
 use ReseqTrack::Tools::RunProgram;
 use ReseqTrack::Tools::FileSystemUtils qw(check_file_exists);
@@ -73,7 +71,7 @@ sub new {
 
 	#defaults
         if (!$self->program && !$java_exe) {
-          $java_exe = first {-x $_} map {"$_/java"} @PATH;
+          $java_exe = 'java';
         }
 	$jvm_args ||= "-Xmx4g";
         $gatk_path ||= $ENV{GATK};

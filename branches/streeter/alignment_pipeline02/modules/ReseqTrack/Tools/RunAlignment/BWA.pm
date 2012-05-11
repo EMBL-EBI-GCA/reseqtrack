@@ -7,8 +7,6 @@ use vars qw(@ISA);
 use ReseqTrack::Tools::Exception qw(throw warning);
 use ReseqTrack::Tools::Argument qw(rearrange);
 use ReseqTrack::Tools::RunAlignment;
-use Env qw( @PATH );
-use List::Util qw (first);
 
 @ISA = qw(ReseqTrack::Tools::RunAlignment);
 
@@ -61,7 +59,7 @@ sub new {
             $self->program($ENV{BWA} . '/bwa');
           }
           else {
-            $self->program(first {-x $_} map {"$_/bwa"} @PATH);
+            $self->program('bwa');
           }
         }
 

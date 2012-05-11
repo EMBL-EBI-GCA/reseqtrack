@@ -6,8 +6,6 @@ use warnings;
 use Data::Dumper;
 use ReseqTrack::Tools::Exception qw(throw warning);
 use ReseqTrack::Tools::Argument qw(rearrange);
-use Env qw( @PATH );
-use List::Util qw (first);
 
 use base qw(ReseqTrack::Tools::RunAlignment);
 
@@ -36,7 +34,7 @@ sub new {
             $self->program($ENV{BFAST} . '/bfast');
           }
           else {
-            $self->program(first {-x $_} map {"$_/bfast"} @PATH);
+            $self->program('bfast');
           }
         }
 

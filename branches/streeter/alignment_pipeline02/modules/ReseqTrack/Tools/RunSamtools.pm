@@ -23,8 +23,6 @@ use ReseqTrack::Tools::Exception qw(throw);
 use ReseqTrack::Tools::Argument qw(rearrange);
 use File::Basename qw(fileparse);
 use ReseqTrack::Tools::FileSystemUtils qw(check_file_exists check_file_does_not_exist make_directory);
-use List::Util qw (first);
-use Env qw( @PATH );
 
 use base qw(ReseqTrack::Tools::RunProgram);
 
@@ -97,7 +95,7 @@ sub new {
       $self->program($ENV{SAMTOOLS} . '/samtools');
     }
     else {
-      $self->program(first {-x $_} map {"$_/samtools"} @PATH);
+      $self->program('samtools');
     }
   }
 
@@ -251,7 +249,7 @@ sub run_sort {
       my $output_bam = $self->working_dir . "/$prefix.sorted.bam";
       $output_bam =~ s{//}{/}g;
 
-      my $cmd = $self->options('output_sort_status') = 'n'
+      my $cmd = $self->options('output_sort_status') eq 'n'
             ? $self->_get_file_to_sorted_bam_cmd($input, 1)
             : $self->_get_file_to_sorted_bam_cmd($input);
       $cmd .= " > $output_bam";

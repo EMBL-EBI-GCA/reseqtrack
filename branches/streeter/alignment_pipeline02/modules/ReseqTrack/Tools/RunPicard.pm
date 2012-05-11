@@ -22,8 +22,6 @@ use ReseqTrack::Tools::Exception qw(throw);
 use ReseqTrack::Tools::Argument qw(rearrange);
 use ReseqTrack::Tools::FileSystemUtils qw(check_file_does_not_exist make_directory);
 use File::Basename qw(fileparse);
-use List::Util qw (first);
-use Env qw( @PATH );
 use File::Copy qw (move);
 
 use base qw(ReseqTrack::Tools::RunProgram);
@@ -82,7 +80,7 @@ sub new {
         )], @args);
 
   if (!$self->program && !$java_exe) {
-    $java_exe = first {-x $_} map {"$_/java"} @PATH;
+    $java_exe = 'java';
   }
   $self->java_exe($java_exe);
 
@@ -110,11 +108,11 @@ sub run_program{
 
     throw("need a picard_dir") if ! $self->picard_dir;
 
-    my %subs = { 'mark_duplicates'   => \&run_mark_duplicates,
+    my %subs = ( 'mark_duplicates'   => \&run_mark_duplicates,
                 'merge'             => \&run_merge,
                 'sort'              => \&run_sort,
                 'alignment_metrics' => \&run_alignment_metrics ,
-    };
+    );
 
     throw("Did not recognise command $command") if (!defined $subs{$command});
 
@@ -154,11 +152,11 @@ sub run_mark_duplicates {
         push(@cmd_words, 'OUTPUT=' . $bam);
         push(@cmd_words, 'METRICS_FILE=' . $metrics);
         push(@cmd_words, 'REMOVE_DUPLICATES='
-                . $self->options('remove_duplicates') ? 'true' : 'false');
+                . ($self->options('remove_duplicates') ? 'true' : 'false'));
         push(@cmd_words, 'ASSUME_SORTED='
-                . $self->options('assume_sorted') ? 'true' : 'false') if defined $self->options('assume_sorted');
+                . ($self->options('assume_sorted') ? 'true' : 'false')) if defined $self->options('assume_sorted');
         push(@cmd_words, 'CREATE_INDEX='
-                . $self->options('create_index') ? 'true' : 'false');
+                . ($self->options('create_index') ? 'true' : 'false'));
 
         my $cmd = join(' ', @cmd_words);
 
@@ -210,7 +208,7 @@ sub run_alignment_metrics {
         push(@cmd_words, 'INPUT=' . $input);
         push(@cmd_words, 'OUTPUT=' . $output);
         push(@cmd_words, 'ASSUME_SORTED='
-                . $self->options('assume_sorted') ? 'true' : 'false') if defined $self->options('assume_sorted');
+                . ($self->options('assume_sorted') ? 'true' : 'false')) if defined $self->options('assume_sorted');
         my $cmd = join(' ', @cmd_words);
 
         $self->output_files($output);
@@ -236,9 +234,9 @@ sub run_merge{
     my $input_bam_list = $self->input_files;
     throw("need more than two or more files to merge") if (@$input_bam_list <2);
 
-    my $prefix = $self->working_dir . '/' . $self->job_name;
+    my $prefix = $self->working_dir . '/' . $self->job_name . "merge";
     $prefix =~ s{//}{/}g;
-    my $bam = "$prefix.merge.bam";
+    my $bam = "$prefix.bam";
 
     my $jar = $self->_jar_path('MergeSamFiles.jar');
 
@@ -254,12 +252,12 @@ sub run_merge{
     push(@cmd_words, map {"INPUT=$_"} @$input_bam_list);
     push(@cmd_words, 'OUTPUT=' . $bam);
     push(@cmd_words, 'CREATE_INDEX='
-            . $self->options('create_index') ? 'true' : 'false');
+            . ($self->options('create_index') ? 'true' : 'false'));
     push(@cmd_words, 'SORT_ORDER=' . $sort_order);
     push(@cmd_words, 'ASSUME_SORTED='
-            . $self->options('assume_sorted') ? 'true' : 'false') if defined $self->options('assume_sorted');
+            . ($self->options('assume_sorted') ? 'true' : 'false')) if defined $self->options('assume_sorted');
     push(@cmd_words, 'USE_THREADING='
-            . $self->options('use_threading') ? 'true' : 'false');
+            . ($self->options('use_threading') ? 'true' : 'false'));
 
     my $cmd = join(' ', @cmd_words);
 
@@ -320,7 +318,7 @@ sub run_sort{
     push(@cmd_words, 'INPUT=' . $input);
     push(@cmd_words, 'OUTPUT=' . $output);
     push(@cmd_words, 'CREATE_INDEX='
-            . $self->options('create_index') ? 'true' : 'false');
+            . ($self->options('create_index') ? 'true' : 'false'));
 
     my $cmd = join(' ', @cmd_words);
   

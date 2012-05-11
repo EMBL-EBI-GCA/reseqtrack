@@ -4,8 +4,6 @@ use strict;
 use warnings;
 use ReseqTrack::Tools::FileSystemUtils qw(check_file_does_not_exist);
 use ReseqTrack::Tools::Argument qw(rearrange);
-use List::Util qw (first);
-use Env qw( @PATH );
 
 
 use base qw(ReseqTrack::Tools::RunAlignment);
@@ -36,7 +34,7 @@ sub new {
         $self->program($ENV{STAMPY} . '/stampy');
       }
       else {
-        $self->program(first {-x $_} map {"$_/stampy"} @PATH);
+        $self->program('stampy');
       }
     }
 
