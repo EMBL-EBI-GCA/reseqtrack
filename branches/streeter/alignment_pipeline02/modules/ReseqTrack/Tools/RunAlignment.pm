@@ -34,24 +34,20 @@ use base qw(ReseqTrack::Tools::RunProgram);
 
   Arg [-reference]   :
       string, path to the reference genome
-  Arg [-ref_samtools_index]   :
-      string, path to the reference genome index file for samtools
-  Arg [-samtools]   :
-      string, the samtools executable (if in $PATH) or path to samtools
   Arg [-mate1_file]   :
       string, optional, path to the mate1 file.
   Arg [-mate2_file]   :
       string, optional, path to the mate2 file.
   Arg [-fragment_file]   :
       string, optional, path to the fragment file.
-  Arg [-convert_sam_to_bam]   :
-      boolean, default 1, flag to convert output to bam
-  Arg [-sort_bams]   :
-      boolean, default 1, flag to sort output bams
-  Arg [-merge_bams]   :
-      boolean, default 1, flag to merge all output to a single bam
-  Arg [-index_bams]   :
-      boolean, default 1, flag to index output bam(s)
+  Arg [-paired_length]   :
+      integer, insert size used by alignment program
+  Arg [-first_read]   :
+      integer, start alignment from this read in the fastq file
+  Arg [-last_read]   :
+      integer, end alignment at this read in the fastq file
+  Arg [-read_group_fields]   :
+      hashref, values to go in the RG tag e.g. {'ID' => 1, 'LB' => 'my_library'}
   + Arguments for ReseqTrack::Tools::RunProgram parent class
 
   Function  : Creates a new ReseqTrack::Tools::RunAlignment object.
@@ -63,10 +59,11 @@ use base qw(ReseqTrack::Tools::RunProgram);
                 -program => "alignmentprogram",
                 -working_dir => '/path/to/dir/',
                 -reference => '/path/to/ref.fa',
-                -samtools => '/path/to/samtools',
                 -mate1_file => '/path/to/mate1',
                 -mate2_file => '/path/to/mate2',
-                -fragment_file => '/path/to/fragment' );
+                -fragment_file => '/path/to/fragment',
+                -read_group_fields => {'ID' => 1, 'LB' => 'my_library'},
+                -paired_length => 3000);
 
 =cut
 
@@ -97,6 +94,18 @@ sub new {
   return $self;
 }
 
+=head2 run_program
+
+  Arg [1]   : ReseqTrack::Tools::RunAlignment
+  Function  : Calls the run_alignment method, which must be implemented by child class
+              This method is called by the RunProgram run method
+              Does various checks that are needed for running any alignment program
+  Returntype: 
+  Exceptions: 
+  Example   : $self->run();
+
+=cut
+
 sub run_program {
     my ($self) = @_;
 
@@ -126,7 +135,11 @@ sub generate_job_name {
     my $file = ${$self->input_files}[0];
     my $job_name = basename($file);
     $job_name =~ /\w+/;
-    $job_name = $& . $$;
+    $job_name = $&;
+    if ($self->first_read && $self->last_read) {
+      $job_name .= '_'.$self->first_read .'-'.$self->last_read;
+    }
+    $job_name .= $$;
 
     $self->job_name($job_name);
     return $job_name;
@@ -135,10 +148,10 @@ sub generate_job_name {
 
 
 
-=head2 run
+=head2 run_alignment
 
   Arg [1]   : ReseqTrack::Tools::RunAlignment
-  Function  : each child object should implement a run method
+  Function  : each child object should implement a run_alignment method
   Returntype: n/a
   Exceptions: throws as this method should be implement in the child class
   Example   : 
@@ -183,15 +196,20 @@ sub assign_fastq_files {
   return ( $mate1, $mate2, $frag );
 }
 
+=head2 get_fastq_cmd_string
 
-sub read_group_fields {
-  my ($self, $hash) = @_;
-  $self->{'read_group_fields'} ||= {};
-  while (my ($tag, $value) = each %$hash) {
-    $self->{'read_group_fields'}->{$tag} = $value;
-  }
-  return $self->{'read_group_fields'};
-}
+  Arg [1]   : ReseqTrack::Tools::RunAlignment
+  Arg [2]   : string, fastq_type, either 'frag', 'mate1' or 'mate2'
+  Function  : makes the string that should be used on the command line by child class
+              for the input fastq file for the alignment program.
+              This might be just a file name e.g. '/path/to/file.fq'
+              or something more complex e.g. '<(sed -n 1,1000p file.fq)'
+  Returntype: string
+  Exceptions: if there is no fastq file of the requested type
+  Example   : $self->assign_files;
+
+=cut
+
 
 sub get_fastq_cmd_string {
   my ($self, $fastq_type) = @_;
@@ -213,6 +231,19 @@ sub get_fastq_cmd_string {
         : "<(sed -n $first_line,${last_line}p $fastq)";
   return $cmd;
 }
+
+=head2 get_static_fastq
+
+  Arg [1]   : ReseqTrack::Tools::RunAlignment
+  Arg [2]   : string, fastq_type, either 'frag', 'mate1' or 'mate2'
+  Function  : This is an alternative to get_fastq_cmd_string
+              For use by alignment programs that won't accept <(....) as an input
+              Creates a temporary fastq file (if necessary) and adds it to created_files
+  Returntype: string
+  Exceptions: if there is no fastq file of the requested type
+  Example   : $self->assign_files;
+
+=cut
 
 sub get_static_fastq {
   my ($self, $fastq_type) = @_;
@@ -259,6 +290,15 @@ sub get_static_fastq {
 
 =cut
 
+
+sub read_group_fields {
+  my ($self, $hash) = @_;
+  $self->{'read_group_fields'} ||= {};
+  while (my ($tag, $value) = each %$hash) {
+    $self->{'read_group_fields'}->{$tag} = $value;
+  }
+  return $self->{'read_group_fields'};
+}
 
 sub reference {
     my ($self, $reference) = @_;

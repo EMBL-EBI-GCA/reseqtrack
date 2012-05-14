@@ -7,11 +7,11 @@ ReseqTrack::Tools::GATKTools
 
 =head1 SYNOPSIS
 
-Object to create a bam file that in realigned around
-known indel sites using GATK RealignerTargetCreator and
-IndelRealigner
+This is a base class for GATK tools e.g. IndelRealigner and QualityScoreRecalibrator
 
-ISA = ReseqTrack::Tools::RunAlignment
+Takes a bam file as input and makes a bam file as output
+
+ISA = ReseqTrack::Tools::RunProgram
 
 If ENV's $SAMTOOLS and $GATK are set, then no need to 
 pass to object. They will be assigned accordingly.
@@ -21,10 +21,12 @@ SAMTOOLS required to index bams and extract headers.
 example
 
 my $GATK = $IR->new(
-		     -java_exe        =>"/usr/bin/java" ,
-		     -jvm_args        =>"-Xmx4g",
- 		     -GATK_PATH     =>$GATK/GenomeAnalysisTK/",
-		     -working_dir     => $input{working_dir},
+     -java_exe        =>"/usr/bin/java" ,
+     -jvm_args        =>"-Xmx4g",
+     -GATK_PATH       =>$GATK/GenomeAnalysisTK/",
+     -working_dir     => '/path/to/dir/',
+     -reference       => '/path/to/reference',
+     -known_sites_files => '/path/to/file',
 );
 
 
@@ -37,7 +39,6 @@ package ReseqTrack::Tools::GATKTools;
 use strict;
 use warnings;
 
-use Data::Dumper;
 use ReseqTrack::Tools::Exception qw(throw warning);
 use ReseqTrack::Tools::Argument qw(rearrange);
 use ReseqTrack::Tools::RunSamtools;
@@ -101,19 +102,6 @@ sub generate_job_name {
     $self->job_name($job_name);
     return $job_name;
 }
-
-
-=head2 options
-
-  Arg [1]   : ReseqTrack::Tools::CallBySamtools or CallByUmake or CallByGATK
-  Arg [2]   : string, name of key e.g. "mpileup"
-  Arg [3]   : string, optional, options to be used on command line e.g. "-m 100000000"
-  Function  : accessor method for command line options
-  Returntype: string, command line options
-  Exceptions: n/a
-  Example   : my $mpileup_options = $self->options{'mpileup'};
-
-=cut
 
 sub check_bai_exists{
   my ($self) = @_;

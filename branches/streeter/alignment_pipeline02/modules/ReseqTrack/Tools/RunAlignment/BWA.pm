@@ -14,36 +14,35 @@ use ReseqTrack::Tools::RunAlignment;
 
 =head1 NAME
 
+ReseqTrack::Tools::RunAlignment::BWA
+
 =head1 SYNOPSIS
+
+class for running BWA. Child class of ReseqTrack::Tools::RunAlignment
 
 =head1 Example
 
-=head2 new
-
-  Arg [1]   : ReseqTrack:Tools::RunAlignment::BWA
-  Arg [2]   : string, options for the single ended bwa mod
-  Arg [3]   : string, options for paired end bwa mod
-  Function  : create a BWA object, defaults program name to bwa and
-  defaults to using ReseqTrack::Tools::RunAlignment::options for sampe options 
-  if sampe options aren't defined and options are
-  Returntype: ReseqTrack::Tools::RunAlignment::BWA
-  Exceptions: n/a
-  Example   : my $bwa = ReseqTrack::Tools::RunAlignment::BWA(
-                      -program => "bwa",
+my $bwa = ReseqTrack::Tools::RunAlignment::BWA(
                       -input => '/path/to/file'
                       -reference => '/path/to/reference',
-                      -samtools => '/path/to/samtools',
+                      -options => {'threads' => 4},
+                      -paired_length => 3000,
+                      -read_group_fields => {'ID' => 1, 'LB' => 'my_lib'},
+                      -first_read => 1000,
+                      -last_read => 2000,
                       );
+$bwa->run;
+my $output_file_list = $bwa->output_files;
 
 =cut
 
 sub DEFAULT_OPTIONS { return {
         'read_trimming' => 15,
-        'mismatch_penalty' => '',
-        'gap_open_penalty' => '',
-        'gap_extension_penalty' => '',
-        'max_gap_opens' => '',
-        'max_gap_extensions' => '',
+        'mismatch_penalty' => undef,
+        'gap_open_penalty' => undef,
+        'gap_extension_penalty' => undef,
+        'max_gap_opens' => undef,
+        'max_gap_extensions' => undef,
         'threads' => 1,
         'load_fm_index' => 1,
         };
@@ -65,19 +64,6 @@ sub new {
 
 	return $self;
 }
-
-=head2 accessor methods
-
-  Arg [1]   : ReseqTrack::Tools::RunAlignment::BWA
-  Arg [2]   : string, options string
-  Function  : samse_options and sampe_options are specific bwa commandline
-  options and these are the accessor methods for those variables
-  Returntype: string
-  Exceptions: n/a
-  Example   : my $options = $self->samse_options;
-
-=cut
-
 
 sub run_alignment {
     my ($self) = @_;

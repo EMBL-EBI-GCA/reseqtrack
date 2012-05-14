@@ -9,12 +9,40 @@ use ReseqTrack::Tools::Argument qw(rearrange);
 
 use base qw(ReseqTrack::Tools::RunAlignment);
 
+=pod
+
+=head1 NAME
+
+ReseqTrack::Tools::RunAlignment::BFAST
+
+=head1 SYNOPSIS
+
+class for running BFAST. Child class of ReseqTrack::Tools::RunAlignment
+
+=head1 Example
+
+my $bfast = ReseqTrack::Tools::RunAlignment::BFAST(
+                      -input => '/path/to/file'
+                      -reference => '/path/to/reference',
+                      -options => {'threads' => 4},
+                      -paired_length => 3000,
+                      -read_group_fields => {'ID' => 1, 'LB' => 'my_lib'},
+                      -first_read => 1000,
+                      -last_read => 2000,
+                      -preprocess_exe => '/path/to/1kg_2_bfast_fastq',
+                      );
+$bfast->run;
+my $output_file_list = $bfast->output_files;
+
+=cut
+
+
 sub DEFAULT_OPTIONS { return {
         'threads' => 1,
         'colour_space' => 1,
         'offset' => 20,
         'postprocess_algorithm' => 3,
-        'pairing' => '',
+        'pairing' => undef,
         };
 }
 
@@ -81,6 +109,7 @@ sub run_postprocess {
 
     if ($self->read_group_fields->{'ID'}) {
       my $rg_string = "\@RG\tID:" . $self->read_group_fields->{'ID'};
+      RG:
       while (my ($tag, $value) = each %{$self->read_group_fields}) {
         next RG if ($tag eq 'ID');
         next RG if (!$value);

@@ -13,10 +13,13 @@ IndelRealigner
 example
 
 my $REALIGN_AROUND_INDELS = $IR->new(
-		     -reference       => $reference,
-		     -input_files     => $input{input_files},
-		     -rtc_knowns      =>" -known $millsindels.vcf.gz ",
-		     -working_dir     => $input{working_dir},
+     -input_files     => '/path/to/bam'
+     -java_exe        =>"/usr/bin/java" ,
+     -jvm_args        =>"-Xmx4g",
+     -GATK_PATH       =>$GATK/GenomeAnalysisTK/",
+     -working_dir     => '/path/to/dir/',
+     -reference       => '/path/to/reference',
+     -known_sites_files => '/path/to/file',
 );
 
 

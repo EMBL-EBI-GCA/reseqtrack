@@ -26,22 +26,36 @@ use File::Copy qw (move);
 
 use base qw(ReseqTrack::Tools::RunProgram);
 
+=head2 DEFAULT_OPTIONS
+
+  Function  : Called by the RunProgram parent object in constructor
+  Returntype: hashref
+  Example   : my %options = %{&ReseqTrack::Tools:RunPicard::DEFAULT_OPTIONS};
+
+=cut
+
+sub DEFAULT_OPTIONS { return {
+        'assume_sorted' => undef, # assume input files are sorted, even if header says otherwise
+        'sort_order' => 'coordinate', # can be 'coordinate' or 'queryname'
+        'index_ext' => '.bam.bai', #can be '.bai' or '.bam.bai'
+        'verbosity' => 'INFO',
+        'max_records_in_ram' => 500000,
+        'remove_duplicates' => 0, # used by run_mark_duplicates
+        'use_threading' => 0, # used by merge
+        'validation_stringency' => undef,
+        };
+}
+
 =head2 new
 
   Arg [-picard_dir]   :
       string, directory containing picard jar files
-  Arg [-program]   :
-      string, the java executable
+  Arg [-java_exe]   :
+      string, the java executable, default is 'java'
   Arg [-jvm_options]   :
-      string, options for java, default is '-Xmx2g'
-  Arg [-options]   :
-      string, options for the picard jar file
-  Arg [-tmp_dir]   :
-      string, path of tmp_dir for picard, default is working_dir
-  Arg [-index_bai]   :
-      boolean, flag to produce an index file with suffix .bai
-  Arg [-index_bam_bai]   :
-      boolean, flag to produce an index file with suffix .bam.bai
+      string, options for java, default is '-Xmx4g'
+  Arg [-create_index]   :
+      boolean, flag to create index files for all outputs
   + Arguments for ReseqTrack::Tools::RunProgram parent class
 
   Function  : Creates a new ReseqTrack::Tools::RunPicard object.
@@ -51,32 +65,19 @@ use base qw(ReseqTrack::Tools::RunProgram);
                 -input_files => ['/path/sam1', '/path/sam2'],
                 -picard_dir => '/path/to/picard/',
                 -working_dir => '/path/to/dir/',
-                -index_bam_bai => 1);
+                -create_index => 1);
 
 =cut
-
-sub DEFAULT_OPTIONS { return {
-        'assume_sorted' => '',
-        'sort_order' => 'coordinate',
-        'create_index' => 0,
-        'index_ext' => '.bam.bai', #can be '.bai' or '.bam.bai'
-        'verbosity' => 'INFO',
-        'max_records_in_ram' => 500000,
-        'remove_duplicates' => 0,
-        'use_threading' => 0,
-        'validation_stringency' => '',
-        };
-}
 
 
 sub new {
   my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
 
-  my ( $java_exe, $picard_dir, $jvm_options,
+  my ( $java_exe, $picard_dir, $jvm_options, $create_index,
         )
     = rearrange( [
-         qw( JAVA_EXE PICARD_DIR JVM_OPTIONS
+         qw( JAVA_EXE PICARD_DIR JVM_OPTIONS CREATE_INDEX
         )], @args);
 
   if (!$self->program && !$java_exe) {
@@ -86,19 +87,22 @@ sub new {
 
   $self->picard_dir($picard_dir || $ENV{PICARD});
   $self->jvm_options( defined $jvm_options ? $jvm_options : '-Xmx4g' );
+  $self->create_index( $create_index );
 
   return $self;
 }
 
 
-=head2 run
+=head2 run_program
 
   Arg [1]   : ReseqTrack::Tools::RunPicard
-  Arg [2]   : string, either 'remove_duplicates', 'merge', 'sort' or 'mark_duplicates' 
+  Arg [2]   : string, command, must be one of the following:
+              'mark_duplicates', 'merge', 'sort' or 'alignment_metrics' 
   Function  : uses picard to process the files in $self->input_files.
-  Output is files are stored in $self->output_files
+              Output is files are stored in $self->output_files
+              This method is called by the RunProgram run method
   Returntype: 
-  Exceptions: 
+  Exceptions: Throws if it cannot find the picard_dir. Throws if command is not recognised.
   Example   : $self->run('merge');
 
 =cut
@@ -156,17 +160,17 @@ sub run_mark_duplicates {
         push(@cmd_words, 'ASSUME_SORTED='
                 . ($self->options('assume_sorted') ? 'true' : 'false')) if defined $self->options('assume_sorted');
         push(@cmd_words, 'CREATE_INDEX='
-                . ($self->options('create_index') ? 'true' : 'false'));
+                . ($self->create_index ? 'true' : 'false'));
 
         my $cmd = join(' ', @cmd_words);
 
         $self->output_files($bam);
         $self->created_files($metrics);
-        $self->created_files("$prefix.bai") if $self->options('create_index');
+        $self->created_files("$prefix.bai") if $self->create_index;
 
         $self->execute_command_line($cmd);
 
-        if ($self->options('create_index')) {
+        if ($self->create_index) {
             my $bai = "$prefix.bai";
             my $index_ext = $self->options('index_ext');
             if ($index_ext && $index_ext ne '.bai') {
@@ -188,7 +192,6 @@ sub run_mark_duplicates {
   Function  : uses CollectAlignmentSummaryMetrics.jar to generate alignment metrics file. Reads metrics. 
   Returntype: Collection of hashrefs. Keys described at http://picard.sourceforge.net/picard-metric-definitions.shtml#AlignmentSummaryMetrics
   Exceptions: 
-  Example   : my $statistics = $self->run_alignment_metrics
   
 =cut
 sub run_alignment_metrics {
@@ -252,7 +255,7 @@ sub run_merge{
     push(@cmd_words, map {"INPUT=$_"} @$input_bam_list);
     push(@cmd_words, 'OUTPUT=' . $bam);
     push(@cmd_words, 'CREATE_INDEX='
-            . ($self->options('create_index') ? 'true' : 'false'));
+            . ($self->create_index ? 'true' : 'false'));
     push(@cmd_words, 'SORT_ORDER=' . $sort_order);
     push(@cmd_words, 'ASSUME_SORTED='
             . ($self->options('assume_sorted') ? 'true' : 'false')) if defined $self->options('assume_sorted');
@@ -263,11 +266,11 @@ sub run_merge{
 
 
     $self->output_files($bam);
-    $self->created_files("$prefix.bai") if $self->options('create_index');
+    $self->created_files("$prefix.bai") if $self->create_index;
 
     $self->execute_command_line($cmd);
 
-    if ($self->options('create_index')) {
+    if ($self->create_index) {
       my $bai = "$prefix.bai";
       my $index_ext = $self->options('index_ext');
       if ($index_ext && $index_ext ne '.bai') {
@@ -318,16 +321,16 @@ sub run_sort{
     push(@cmd_words, 'INPUT=' . $input);
     push(@cmd_words, 'OUTPUT=' . $output);
     push(@cmd_words, 'CREATE_INDEX='
-            . ($self->options('create_index') ? 'true' : 'false'));
+            . ($self->create_index ? 'true' : 'false'));
 
     my $cmd = join(' ', @cmd_words);
   
     $self->output_files($output);
-    $self->created_files("$prefix.bai") if $self->options('create_index');
+    $self->created_files("$prefix.bai") if $self->create_index;
 
     $self->execute_command_line($cmd);
 
-    if ($self->options('create_index')) {
+    if ($self->create_index) {
         my $bai = "$prefix.bai";
         my $index_ext = $self->options('index_ext');
         if ($index_ext && $index_ext ne '.bai') {
@@ -387,6 +390,14 @@ sub jvm_options {
 sub java_exe {
   my $self = shift;
   return $self->program(@_);
+}
+
+sub create_index {
+  my $self = shift;
+  if (@_) {
+    $self->{'create_index'} = (shift) ? 1 : 0;
+  }
+  return $self->{'create_index'};
 }
 
 

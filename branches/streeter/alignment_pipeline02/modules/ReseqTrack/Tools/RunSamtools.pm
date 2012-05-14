@@ -26,28 +26,33 @@ use ReseqTrack::Tools::FileSystemUtils qw(check_file_exists check_file_does_not_
 
 use base qw(ReseqTrack::Tools::RunProgram);
 
+
+=head2 DEFAULT_OPTIONS
+
+  Function  : Called by the RunProgram parent object in constructor
+  Returntype: hashref
+  Example   : my %options = %{&ReseqTrack::Tools:RunSamtools::DEFAULT_OPTIONS};
+
+=cut
+
+sub DEFAULT_OPTIONS { return {
+        'use_reference_index' => 0, # use the -t option when importing a sam
+        'input_sort_status' => undef, # can be 'c' for coordinate or 'n' for name
+        'output_sort_status' => undef, # can be 'c' for coordinate or 'n' for name
+        'uncompressed_output' => 0,
+        'force_overwrite' => 1, # used by samtools merge
+        'attach_RG_tag' => 0, # used by samtools merge
+        'compute_BQ_tag' => 1, # used by samtools calmd
+        'ext_BAQ_calc' => 1, # used by samtools calmd
+        };
+}
+
 =head2 new
 
   Arg [-reference_index]   :
       string, path of the reference genome .fai file
   Arg [-reference]   :
       string, path of the reference
-  Arg [-flag_merge]   :
-      boolean, flag to merge all output to a single bam
-  Arg [-flag_sort]   :
-      boolean, flag to sort the bam files
-  Arg [-flag_index]   :
-      boolean, flag to index the bam files
-  Arg [-flag_sam_to_bam]   :
-      boolean, flag to convert input sams to bams
-  Arg [-flag_use_header]   :
-      boolean, flag to use header in input sams when converting to bam (i.e. don't use an index file)
-  Arg [-options_merge]   :
-      string, command line options to use with "samtools merge"
-  Arg [-options_sort]   :
-      string, command line options to use with "samtools sort"
-  Arg [-output_to_working_dir]   :
-      boolean, default 0, flag to write output files to the working directory rather than the input directory
   + Arguments for ReseqTrack::Tools::RunProgram parent class
 
   Function  : Creates a new ReseqTrack::Tools::RunSamtools object.
@@ -56,28 +61,9 @@ use base qw(ReseqTrack::Tools::RunProgram);
   Example   : my $run_alignment = ReseqTrack::Tools::RunSamtools->new(
                 -input_files => ['/path/sam1', '/path/sam2'],
                 -program => "samtools",
-                -working_dir => '/path/to/dir/',
-                -flag_sam_to_bam => 1,
-                -flag_merge => 1,
-                -flag_sort => 1,
-                -flag_index => 1,
-                -options_merge => "-r",
-                -options_sort => "-m 100000000"
-                -output_to_working_dir => 1 );
+                -working_dir => '/path/to/dir/');
 
 =cut
-
-sub DEFAULT_OPTIONS { return {
-        'use_reference_index' => 0,
-        'input_sort_status' => '', # can be 'c' for coordinate or 'n' for name
-        'output_sort_status' => '', # can be 'c' for coordinate or 'n' for name
-        'uncompressed_output' => 0,
-        'force_overwrite' => 1,
-        'attach_RG_tag' => 0,
-        'compute_BQ_tag' => 1,
-        'ext_BAQ_calc' => 1,
-        };
-}
 
 sub new {
   my ( $class, @args ) = @_;
@@ -190,17 +176,6 @@ sub find_reference_index {
     return $self->reference_index;
 }
 
-=head2 run_sam_to_bam
-
-  Arg [1]   : ReseqTrack::Tools::RunSamtools
-  Arg [2]   : string, path of sam file
-  Function  : uses samtools to convert sam to bam
-  Returntype: string, path of bam file
-  Exceptions: throws if there is no reference index file
-  Example   : my $bam = $self->run_sam_to_bam($sam);
-
-=cut
-
 sub run_sam_to_bam {
     my ($self) = @_;
 
@@ -230,17 +205,6 @@ sub run_sam_to_bam {
 
 }
 
-=head2 run_sort
-
-  Arg [1]   : ReseqTrack::Tools::RunSamtools
-  Arg [2]   : string, path of bam file
-  Function  : uses samtools to sort bam file
-  Returntype: string, path of sorted bam file
-  Exceptions: 
-  Example   : my $sorted_bam = $self->run_sort($bam);
-
-=cut
-
 sub run_sort {
     my $self = shift;
 
@@ -260,18 +224,6 @@ sub run_sort {
 }
 
 
-
-=head2 run_index
-
-  Arg [1]   : ReseqTrack::Tools::RunSamtools
-  Arg [2]   : string, path of bam file
-  Function  : uses samtools to index bam file
-  Returntype: string, path of index file
-  Exceptions: 
-  Example   : my $bai = $self->run_index($bam);
-
-=cut
-
 sub run_index {
     my $self = shift;
 
@@ -283,18 +235,6 @@ sub run_index {
         $self->execute_command_line($cmd);
     }
 }
-
-
-=head2 run_merge
-
-  Arg [1]   : ReseqTrack::Tools::RunSamtools
-  Arg [2]   : arrayref of strings, paths of bam files
-  Function  : uses samtools to merge bam files
-  Returntype: string, path of merged bam file
-  Exceptions: 
-  Example   : my $merged_bam = $self->run_index([$bam1, $bam2]);
-
-=cut
 
 sub run_merge {
     my $self = shift;
@@ -338,13 +278,16 @@ sub run_merge {
 }
 
 
-=head2 run
+=head2 run_program
 
   Arg [1]   : ReseqTrack::Tools::RunSamtools
+  Arg [2]   : string, command, must be one of the following:
+              merge, sort, index, fix_and_calmd, calmd, sam_to_bam
   Function  : uses samtools to process the files in $self->input_files.
-  Output is files are stored in $self->output_files
+              Output is files are stored in $self->output_files
+              This method is called by the RunProgram run method
   Returntype: 
-  Exceptions: 
+  Exceptions: Throws if the command is not recognised.
   Example   : $self->run();
 
 =cut

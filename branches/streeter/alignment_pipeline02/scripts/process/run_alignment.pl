@@ -176,3 +176,82 @@ sub get_allowed_options {
   my @allowed_options = keys %$default_options;
   return \@allowed_options;
 }
+
+=pod
+
+=head1 NAME
+
+reseqtrack/scripts/process/run_alignment.pl
+
+=head1 SYNOPSIS
+
+This script runs an alignment using any child class of ReseqTrack::Tools::RunAlignment
+
+=head1 OPTIONS
+
+  database options:
+
+    -dbhost, the name of the mysql-host
+    -dbname, the name of the mysql database
+    -dbuser, the name of the mysql user
+    -dbpass, the database password if appropriate
+    -dbport, the port the mysql instance is running on
+
+  other options:
+
+  -name, name of the collection of fastq files
+  If name is a run_id (or contains a run_id), the run_meta_info table will be used to get some info
+
+  -type_input, type of the collection of fastq files
+
+  -output_dir, base directory to hold files that do not need to be merged
+
+  -reference, path to the reference fasta file for the aligner
+
+  -module_path, the default is 'ReseqTrack::Tools::RunAlignment'
+
+  -module_name, should be e.g. 'Stampy', 'BWA', 'BFAST', 'Smalt'
+
+  -module_constructor_arg, command line format is -module_constructor_arg arg_name=arg_value.
+  Can be specified multiple times on the command line.
+  These constructor args are passed directly to the RunAlignment object.
+
+  -program_file, executable of the alignment program
+  NB some of the RunAlignment child classes can guess at its location if it is not specified
+
+  -store, boolean flag, to store output files in the database.
+
+  -host_name, default is '1000genomes.ebi.ac.uk', needed for storing output files
+
+  -type_output, collection type and file type when storing output files in the database
+
+  -paired_length, integer, insert size passed to the RunAlignment object.
+  Will be read from the run_meta_info table if not specified on the command line
+
+  -first_read, integer, start aligning from this read in the fastq file.
+  If not specified, it will be inferred from 'name' if name is something like ERR000001_FRAG1000-2000
+
+  -last_read, integer, stop aligning at this read in the fastq file.
+  If not specified, it will be inferred from 'name' if name is something like ERR000001_FRAG1000-2000
+
+  -RG_field, e.g. -RG_field ID=ERR000001 -RG_field LB=my_lib -RG_field SM=my_sample
+  If no RG fields are specified they will be taken from the run_meta_info table
+
+  -directory_layout, specifies where the files will be located under output_dir.
+      Tokens matching method names in RunMetaInfo will be substituted with that method's
+      return value.
+
+  -option, for constructing the options hash passed to the RunAlignment object
+  e.g. -option threads=4 -option
+
+=head1 Examples
+
+    $DB_OPTS="-dbhost mysql-host -dbuser rw_user -dbpass **** -dbport 4197 -dbname my_database"
+
+  perl reseqtrack/process/run_alignment.pl $DB_OPTS
+    -type_input FASTQ -type_output SAM -reference /path/to/ref
+    -module_name BWA -option threads=4 -program_name /path/to/bwa
+    -store -output_dir /path/to/base_dir/ -directory_layout population/sample_id/run_id
+
+=cut
+

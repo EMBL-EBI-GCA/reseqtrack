@@ -5,10 +5,11 @@ use strict;
 use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::Exception;
 use ReseqTrack::Tools::HostUtils qw(get_host_object);
-use ReseqTrack::Tools::FileSystemUtils qw(run_md5 delete_file);
+use ReseqTrack::Tools::FileSystemUtils qw(delete_file check_directory_exists);
 use ReseqTrack::Tools::FileUtils qw(create_object_from_path);
 use ReseqTrack::Tools::RunMetaInfoUtils qw(create_directory_path);
 use Getopt::Long;
+use File::Copy qw(move);
 
 my $dbhost;
 my $dbuser;
@@ -123,12 +124,12 @@ if ($level eq 'LIBRARY') {
 if ($level eq 'SAMPLE') {
   my %sample_libraries;
   foreach my $rmi (@{$rmia->fetch_all}) {
-    push(@{$sample_libraries{$rmi->sample_id}}, $rmi->library_name);
+    $sample_libraries{$rmi->sample_id}{$rmi->library_name} = 1;
   }
   SAMPLE:
   foreach my $sample_id (keys %sample_libraries) {
     my @others;
-    foreach my $library_name (@{$sample_libraries{$sample_id}}) {
+    foreach my $library_name (keys %{$sample_libraries{$sample_id}}) {
       my $inputs_key = $sample_id.'_'.$library_name;
       next SAMPLE if (!exists $inputs{$inputs_key});
       push(@others, @{$inputs{$inputs_key}});
@@ -144,6 +145,7 @@ if ($level eq 'SAMPLE') {
     }
   }
 }
+
 
 my $ha = $db->get_HistoryAdaptor;
 my $fa = $db->get_FileAdaptor;
@@ -165,13 +167,14 @@ while (my ($name, $file) = each %files_to_move) {
       $file_output_dir = create_directory_path($run_meta_info, $directory_layout, $output_dir);
     }
   }
+  check_directory_exists($file_output_dir);
 
   my $old_file_path = $file->name;
   my $new_file_path = "$file_output_dir/$name.bam";
 
   my $history = ReseqTrack::History->new(
       -other_id => $file->dbID, -table_name => 'file',
-      -comment => "deleted by $0");
+      -comment => "moved by $0 to $new_file_path");
   $ha->store($history);
   move ($old_file_path, $new_file_path)
     or throw ("could not move $old_file_path to $new_file_path $!");
@@ -189,7 +192,7 @@ while (my ($name, $file) = each %files_to_move) {
   }
 
   my $merged_file = create_object_from_path($new_file_path, $type_merged, $host);
-  $merged_file->md5( run_md5($new_file_path) );
+  $merged_file->md5( $file->md5 );
   my $output_collection = ReseqTrack::Collection->new(
           -name => $name, -type => $type_merged,
           -others => [$merged_file]);

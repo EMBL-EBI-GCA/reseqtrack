@@ -8,9 +8,36 @@ use ReseqTrack::Tools::Argument qw(rearrange);
 
 use base qw(ReseqTrack::Tools::RunAlignment);
 
+=pod
+
+=head1 NAME
+
+ReseqTrack::Tools::RunAlignment::Stampy
+
+=head1 SYNOPSIS
+
+class for running Stampy. Child class of ReseqTrack::Tools::RunAlignment
+
+=head1 Example
+
+my $stampy = ReseqTrack::Tools::RunAlignment::Stampy(
+                      -input => '/path/to/file'
+                      -genome_prefix => '/full/prefix',
+                      -hash_prefix => '/full/prefix',
+                      -options => {'fast' => 1},
+                      -paired_length => 3000,
+                      -read_group_fields => {'ID' => 1, 'LB' => 'my_lib'},
+                      -first_read => 1000,
+                      -last_read => 2000,
+                      );
+$stampy->run;
+my $output_file_list = $stampy->output_files;
+
+=cut
+
 sub DEFAULT_OPTIONS { return {
-        'gap_open_penalty' => '',
-        'gap_extension_penalty' => '',
+        'gap_open_penalty' => undef,
+        'gap_extension_penalty' => undef,
         'fast' => 0,
         'allow_overwriting' => 1,
         };
