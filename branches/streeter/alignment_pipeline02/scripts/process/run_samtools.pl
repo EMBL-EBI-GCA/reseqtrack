@@ -57,7 +57,7 @@ my $index_outputs;
   'index_outputs!' => \$index_outputs,
     );
 
-my @allowed_cmds = qw(merge sort index fix_and_calmd calmd sam_to_bam);
+my @allowed_cmds = qw(merge sort index fix_and_calmd calmd fixmate sam_to_bam);
 throw("Don't recognise command $command. Acceptable commands are: @allowed_cmds")
   if (! grep {$command eq $_ } @allowed_cmds);
 
@@ -68,6 +68,9 @@ foreach my $option (keys %options) {
 }
 
 throw("Must specify an output directory") if (!$output_dir);
+throw("Must specify an output type") if (!$type_output);
+throw("Must specify an index type if index_outputs flag is used")
+      if ($index_outputs && !$type_index);
 
 my $db = ReseqTrack::DBSQL::DBAdaptor->new(
   -host   => $dbhost,
@@ -178,3 +181,89 @@ if($delete_inputs){
     delete_file($file);
   }
 }
+
+=pod
+
+=head1 NAME
+
+reseqtrack/scripts/process/run_samtools.pl
+
+=head1 SYNOPSIS
+
+This script runs samtools to process sam / bam files.  It will do one of the following;
+  
+      merge: all sam / bam files in the collection are merged into a single sorted bam file
+      sort: sorts each sam / bam file in a collection (does not merge)
+      index: creates a bai file for each bam in a collection
+      fix_and_calmd: Runs fixmate and calmd for each bam in a collection (does not merge)
+      calmd: Runs calmd for each bam in a collection (does not merge)
+      fixmate: Runs fixmate for each bam in a collection (does not merge)
+      sam_to_bam: converts sam files to bam files (does not merge)
+
+The input files are taken from a collection in the database. The output files will be written to the database.
+The input files can be deleted, along with any index files, and this will be recorded in the History table of the database.
+
+
+=head1 OPTIONS
+
+  database options:
+
+    -dbhost, the name of the mysql-host
+    -dbname, the name of the mysql database
+    -dbuser, the name of the mysql user
+    -dbpass, the database password if appropriate
+    -dbport, the port the mysql instance is running on
+
+  other options:
+
+  -name, name of the collection of input files
+  If name is a run_id / sample_id (or contains a run_id / sample_id), the run_meta_info table will be used to get some info
+
+  -type_input, type of the collection of input files
+
+  -type_output, collection type and file type when storing output files in the database
+
+  -type_index, file type of the output bam index file
+      (used if the -index_outputs flag is used or if command= 'index')
+
+  -output_dir, base directory to hold files that do not need to be merged
+
+  -samtools, the samtools executable.
+  NB the Samtools class can guess the location of samtools if not specified.
+
+  -host_name, default is '1000genomes.ebi.ac.uk', needed for storing output files
+
+  -store, boolean flag, to store output files in the database.
+
+  -delete_inputs, boolean flag, to delete the original input files (and index if it exists)
+  and remove mark them as deleted in the database History table
+
+  -reference, path to the reference fasta file.
+  Used for calmd, and for converting sam to bam when the use_reference_index option is used
+
+  -reference_index, path to the reference index file.
+  Used for converting sam to bam when the use_reference_index option is used
+
+  -directory_layout, specifies where the files will be located under output_dir.
+      Tokens matching method names in RunMetaInfo will be substituted with that method's
+      return value.
+
+  -command, must be one of the following: 'merge', 'sort', 'index', 'fix_and_calmd', 'calmd', 'fixmate', 'sam_to_bam'
+  Tells the RunSamtools object how to process the input files
+
+  -options, for constructing the options hash passed to the RunSamtools object
+  e.g. -options use_reference_index=1
+
+  -index_outputs, flag to create an index file for any output bam file
+
+=head1 Examples
+
+    $DB_OPTS="-dbhost mysql-host -dbuser rw_user -dbpass **** -dbport 4197 -dbname my_database"
+
+  perl reseqtrack/process/run_samtools.pl $DB_OPTS -command calmd -index_outputs
+    -type_input BAM -type_output MD_BAM -type_index MD_BAI
+    -store -output_dir /path/to/base_dir/ -directory_layout population/sample_id/run_id
+    -reference /path/to/reference -options input_sort_status=n
+
+=cut
+

@@ -32,7 +32,7 @@ my $delete_inputs;
 my $directory_layout;
 my $command;
 my %options;
-my $index_outputs;
+my $create_index;
 
 &GetOptions( 
   'dbhost=s'      => \$dbhost,
@@ -54,20 +54,23 @@ my $index_outputs;
   'directory_layout=s' => \$directory_layout,
   'command=s' => \$command,
   'options=s' => \%options,
-  'index_outputs!' => \$index_outputs,
+  'create_index!' => \$create_index,
     );
 
 my @allowed_cmds = qw(mark_duplicates merge sort alignment_metrics);
 throw("Don't recognise command $command. Acceptable commands are: @allowed_cmds")
   if (! grep {$command eq $_ } @allowed_cmds);
 
-my @allowed_options = keys %{ReseqTrac::RunPicard::DEFAULT_OPTIONS};
+my @allowed_options = keys %{&ReseqTrack::Tools::RunPicard::DEFAULT_OPTIONS};
 foreach my $option (keys %options) {
   throw("Don't recognise option $option. Acceptable options are: @allowed_options")
     if (! grep {$option eq $_ } @allowed_options);
 }
 
 throw("Must specify an output directory") if (!$output_dir);
+throw("Must specify an output type") if (!$type_output);
+throw("Must specify an index type if create_index flag is used")
+      if ($create_index && !$type_index);
 
 my $db = ReseqTrack::DBSQL::DBAdaptor->new(
   -host   => $dbhost,
@@ -111,6 +114,7 @@ my $picard_object = ReseqTrack::Tools::RunPicard->new(
                     -java_exe                => $java_exe,
                     -jvm_options             => $jvm_options,
                     -picard_dir              => $picard_dir,
+                    -create_index            => $create_index,
                     );
 $picard_object->run($command);
 
@@ -136,7 +140,7 @@ if($store){
   my $fa = $db->get_FileAdaptor;
   my $bai_paths = $picard_object->output_bai_files;
   if (@$bai_paths) {
-    my $bais = create_objects_from_pathlist($bai_paths, $type_index, $host);
+    my $bais = create_objects_from_path_list($bai_paths, $type_index, $host);
     foreach my $bai (@$bais) {
       $bai->md5( run_md5($bai->name) );
       $fa->store($bai);
@@ -169,3 +173,83 @@ if($delete_inputs){
     delete_file($file);
   }
 }
+
+=pod
+
+=head1 NAME
+
+reseqtrack/scripts/process/run_picard.pl
+
+=head1 SYNOPSIS
+
+This script runs picard to process sam / bam files.  It will do one of the following;
+  
+      merge: all sam / bam files in the collection are merged into a single sorted bam file
+      mark_duplicates: mark or delete duplicates for each sam / bam file in a collection
+      sort: sorts each sam / bam file in a collection (does not merge)
+      alignment_metrics: make a metrics file for each sam / bam file in a collection
+
+The input files are taken from a collection in the database. The output files will be written to the database.
+The input files can be deleted, along with any index files, and this will be recorded in the History table of the database.
+
+
+=head1 OPTIONS
+
+  database options:
+
+    -dbhost, the name of the mysql-host
+    -dbname, the name of the mysql database
+    -dbuser, the name of the mysql user
+    -dbpass, the database password if appropriate
+    -dbport, the port the mysql instance is running on
+
+  other options:
+
+  -name, name of the collection of input files
+  If name is a run_id / sample_id (or contains a run_id / sample_id), the run_meta_info table will be used to get some info
+
+  -type_input, type of the collection of input files
+
+  -type_output, collection type and file type when storing output files in the database
+
+  -type_index, file type of the output bam index file (used if the -create_index flag is used)
+
+  -output_dir, base directory to hold files that do not need to be merged
+
+  -picard_dir, path to the directory containing the picard jar files
+  NB the RunPicard class can guess the location of picard_dir if the PICARD environment variable is set
+
+  -java_exesamtools, the java executable.  NB the RunPicard class uses the default 'java'
+
+  -jvm_args, options of java. The RunPicard class uses default values if nothing is specified.
+
+  -host_name, default is '1000genomes.ebi.ac.uk', needed for storing output files
+
+  -store, boolean flag, to store output files in the database.
+
+  -delete_inputs, boolean flag, to delete the original input files (and index if it exists)
+  and remove mark them as deleted in the database History table
+
+  -directory_layout, specifies where the files will be located under output_dir.
+      Tokens matching method names in RunMetaInfo will be substituted with that method's
+      return value.
+
+  -command, must be one of the following: 'merge', 'sort', 'mark_duplicates', 'alignment_metrics'
+  Tells the RunPicard object how to process the input files
+
+  -options, for constructing the options hash passed to the RunPicard object
+  e.g. -options assume_sorted=1 -options index_ext=.bai
+
+  -create_index, flag to create an index file for any output bam file
+
+=head1 Examples
+
+    $DB_OPTS="-dbhost mysql-host -dbuser rw_user -dbpass **** -dbport 4197 -dbname my_database"
+
+  perl reseqtrack/process/run_picard.pl $DB_OPTS -command merge -create_index
+    -type_input SAM -type_output MERGED_BAM -type_index MERGED_BAI
+    -store -output_dir /path/to/base_dir/ -directory_layout population/sample_id/run_id
+    -options use_threading=1 -options validation_stringency=SILENT
+
+=cut
+

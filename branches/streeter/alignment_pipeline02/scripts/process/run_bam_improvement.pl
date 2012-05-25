@@ -174,3 +174,83 @@ sub load_gatk_module {
   my $module = "ReseqTrack::Tools::GATKTools::$module_name";
   return $module;
 }
+
+=pod
+
+=head1 NAME
+
+reseqtrack/scripts/process/run_bam_improvement.pl
+
+=head1 SYNOPSIS
+
+This script is used to run either indel realignment or quality score recalibration on a bam file
+
+The input bam file is taken from a collection in the database. The output bam will be written to the database.
+The input bam file can be deleted, along with its index file, and this will be recorded in the History table of the database.
+
+=head1 OPTIONS
+
+  database options:
+
+    -dbhost, the name of the mysql-host
+    -dbname, the name of the mysql database
+    -dbuser, the name of the mysql user
+    -dbpass, the database password if appropriate
+    -dbport, the port the mysql instance is running on
+
+  other options:
+
+  -realign, boolean flag, run the Indel Realigner
+
+  -recalibrate, boolean flag, run the Quality Score Recalibrator
+
+  -name, name of a collection containing the bam file
+  If name is a run_id (or contains a run_id), the run_meta_info table will be used to get some info
+
+  -type_input, type of the collection containing the input bam file
+
+  -type_output, collection type and file type when storing output bam file in the database
+
+  -output_dir, base directory to hold files that do not need to be merged
+
+  -java_exe, path to the java executable. The GATKTools class can guess at its location if it is not specified.
+
+  -jvm_args, options of java. The GATKTools class uses default values if nothing is specified.
+
+  -gatk_path, path to a directory containing the gatk jar files.
+  Alternatively, the GATKTools class will use the $GATK environment variable if set.
+
+  -reference, path to the reference fasta file
+
+  -options, for constructing the options hash passed to the GATKTools object
+  e.g. -options threads=4
+
+  -known_sites_vcf, path to a vcf file.  Can be specified multiple times.
+  For the Indel Realigner, this contains known indels
+  For the Quality Score Recalibrator, this contains known polymorphic sites
+
+  -samtools, path to samtools executable. This is needed for creating index files
+  NB the Samtools class can guess the location of samtools if not specified.
+
+  -store, boolean flag, to store output bam file in the database.
+
+  -host_name, default is '1000genomes.ebi.ac.uk', needed for storing output bam file
+
+  -delete_input, boolean flag, to delete the original bam file (and index if it exists)
+  and remove mark them as deleted in the database History table
+
+  -directory_layout, specifies where the files will be located under output_dir.
+      Tokens matching method names in RunMetaInfo will be substituted with that method's
+      return value.
+
+=head1 Examples
+
+    $DB_OPTS="-dbhost mysql-host -dbuser rw_user -dbpass **** -dbport 4197 -dbname my_database"
+
+  perl reseqtrack/process/run_bam_improvement.pl $DB_OPTS -realign
+    -type_input BAM -type_output REALIGNED_BAM -output_dir /path/to/base_dir/
+    -reference /path/to/ref -options threads=4 -known_sites_vcf /path/to/vcf
+    -store -delete_input -directory_layout population/sample_id/run_id
+
+=cut
+
