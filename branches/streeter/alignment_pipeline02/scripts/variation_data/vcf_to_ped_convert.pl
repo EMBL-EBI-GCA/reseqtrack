@@ -25,7 +25,7 @@
 use Getopt::Long;
 use Net::FTP;
 use Env qw( @PATH );
-use List::Util qw (first);
+use List::Util qw (first max);
 
 use strict;
 use warnings;
@@ -40,6 +40,8 @@ my $output_ped;
 my $output_info;
 my $output_dir;
 my $help;
+my $max_maf = 1;
+my $min_maf = 0;
 
 GetOptions('population=s' => \@populations,
             'vcf=s' => \$vcf,
@@ -50,6 +52,8 @@ GetOptions('population=s' => \@populations,
             'output_info=s' => \$output_info,
             'output_dir=s' => \$output_dir,
             'help!' => \$help,
+            'max_maf=s' => \$max_maf,
+            'min_maf=s' => \$min_maf,
             );
 
 if ($help) {
@@ -141,6 +145,7 @@ sub get_markers_genotypes {
 
         my %marker_genotypes;
         my %alleles_present;
+        my $total_alleles = 0;
         foreach my $population (keys %individuals) {
             INDIVIDUAL:
             foreach my $individual (@{$individuals{$population}}) {
@@ -149,7 +154,10 @@ sub get_markers_genotypes {
                 if ($genotype_string =~ /(\d+)(?:\/|\|)(\d+)/) {
                   my @genotype_codes = ($allele_codes[$1], $allele_codes[$2]);
 
-                  $alleles_present{$_} = 1 foreach (grep {$_} @genotype_codes);
+                  foreach my $allele_code (grep {$_} @genotype_codes) {
+                    $alleles_present{$allele_code} ++;
+                    $total_alleles ++;
+                  }
                   $marker_genotypes{$population}{$individual} = \@genotype_codes;
                 }
                 else {
@@ -158,7 +166,11 @@ sub get_markers_genotypes {
             }
         }
 
-        next LINE if ((scalar grep {$_} keys %alleles_present) < 2);
+        next LINE if ((scalar keys %alleles_present) < 2);
+
+        my $major_allele_frequency = (max values %alleles_present) / $total_alleles;
+        next LINE if ((1-$major_allele_frequency) < $min_maf);
+        next LINE if ((1-$major_allele_frequency) > $max_maf);
 
         foreach my $population (keys %marker_genotypes) {
             foreach my $individual (keys %{$marker_genotypes{$population}}) {
@@ -297,6 +309,8 @@ sub get_individuals {
         -output_info        Name of the output info file (marker information file);
                             default is region.info (e.g. 1_1000000-100500.info)
         -output_dir         Name of a directory to place the output_ped and output_info files
+        -min_maf            Only include variations with a minor allele_frequency greater than or equal to this value
+        -max_maf            Only include variations with a minor allele_frequency less than or equal to this value
 	-help		    Print out help menu
 			
 =head1	OUTPUT FILES
@@ -307,4 +321,4 @@ sub get_individuals {
 
 =head1 EXAMPLE
 
-perl ~/ReseqTrack/scripts/variation_data/vcf_to_ped_converter.pl -vcf ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20110521/ALL.chr13.phase1_integrated_calls.20101123.snps_indels_svs.genotypes.vcf.gz -sample_panel_file ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20110521/phase1_integrated_calls.20101123.ALL.sample_panel -region 13:32889611-32973805 -population GBR -population FIN
+perl ~/ReseqTrack/scripts/variation_data/vcf_to_ped_converter.pl -vcf ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20110521/ALL.chr13.phase1_integrated_calls.20101123.snps_indels_svs.genotypes.vcf.gz -sample_panel_file ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20110521/phase1_integrated_calls.20101123.ALL.sample_panel -region 13:32889611-32973805 -population GBR -population FIN -min_maf 0.1
