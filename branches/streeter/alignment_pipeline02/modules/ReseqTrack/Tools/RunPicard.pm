@@ -237,7 +237,7 @@ sub run_merge{
     my $input_bam_list = $self->input_files;
     throw("need more than two or more files to merge") if (@$input_bam_list <2);
 
-    my $prefix = $self->working_dir . '/' . $self->job_name . "merge";
+    my $prefix = $self->working_dir . '/' . $self->job_name . ".merge";
     $prefix =~ s{//}{/}g;
     my $bam = "$prefix.bam";
 

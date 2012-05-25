@@ -112,7 +112,7 @@ foreach my $run_meta_info (@{$rmia_w->fetch_all}) {
 
 =head1 NAME
 
-reseqtrack/scripts/sync_dbs/get_fastq_from_reseqtrack.pl
+reseqtrack/scripts/analysis_pipeline/sync_dbs/get_fastq_from_reseqtrack.pl
 
 =head1 SYNOPSIS
 
@@ -150,7 +150,7 @@ Gets fastqs for all entries in the run_meta_info table of the write database.
     $DB_R_OPTS="-dbhost_r mysql-host -dbuser_r ro_user -dbpass_r **** -dbport_r 4197 -dbname_r my_database_1"
     $DB_W_OPTS="-dbhost_w mysql-host -dbuser_w rw_user -dbpass_w **** -dbport_w 4197 -dbname_w my_database_2"
 
-  perl reseqtrack/scripts/sync_dbs/get_fastq_from_reseqtrack.pl $DB_R_OPTS $DB_W_OPTS -type=FILTERED_FASTQ
+  perl reseqtrack/scripts/analysis_pipeline/sync_dbs/get_fastq_from_reseqtrack.pl $DB_R_OPTS $DB_W_OPTS -type=FILTERED_FASTQ
 
 =cut
 

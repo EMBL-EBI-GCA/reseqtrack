@@ -266,6 +266,10 @@ ReseqTrack/scripts/process/split_fastq.pl
               Tokens matching method names in RunMetaInfo will be substituted with that method's return value.
               Default value is population/sample_id/run_id
         -program_file, path to the split executable
+
+        -no_split_strategy, must be either 'move', 'copy', 'link' or 'ignore'
+              Tells the script what to do with the original fastq file if it does not need to be split
+
         -help, flag to print this help and exit
 
 
@@ -277,6 +281,7 @@ ReseqTrack/scripts/process/split_fastq.pl
     perl ReseqTrack/scripts/process/split_fastq.pl  $DB_OPTS
       -run_id ERR002097 -type_input FILTERED_FASTQ -type_output FASTQ_CHUNK -type_collection FASTQ_CHUNK_SET
       -max_reads 2000000 -output_dir /path/to/dir -program_file ReseqTrack/c_code/split -store
+      -no_split_strategy link
 
 =cut
 

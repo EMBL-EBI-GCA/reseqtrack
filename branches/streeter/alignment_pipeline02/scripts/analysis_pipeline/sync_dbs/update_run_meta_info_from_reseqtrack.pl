@@ -178,7 +178,7 @@ while (my ($run_id, $rmi_pair) = each %rmis) {
 
 =head1 NAME
 
-ReseqTrack/scripts/run_meta_info/update_run_meta_info_from_reseqtrack.pl
+reseqtrack/scripts/analysis_pipeline/sync_dbs/update_run_meta_info_from_reseqtrack.pl
 
 =head1 SYNOPSIS
 
@@ -232,7 +232,7 @@ let it.
     $DB_R_OPTS="-dbhost_r mysql-host -dbuser_r ro_user -dbpass_r **** -dbport_r 4197 -dbname_r my_database_1"
     $DB_W_OPTS="-dbhost_w mysql-host -dbuser_w rw_user -dbpass_w **** -dbport_w 4197 -dbname_w my_database_2"
 
-  perl reseqtrack/scripts/sync_dbs/update_run_meta_info_from_reseqtrack.pl $DB_R_OPTS $DB_W_OPTS -all_checks -collection_name=exome -collection_type=STUDY_TYPE
+  perl reseqtrack/scripts/analysis_pipeline/sync_dbs/update_run_meta_info_from_reseqtrack.pl $DB_R_OPTS $DB_W_OPTS -all_checks -collection_name=exome -collection_type=STUDY_TYPE
 
 =cut
 

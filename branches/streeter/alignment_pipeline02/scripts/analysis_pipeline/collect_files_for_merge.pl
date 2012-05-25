@@ -69,6 +69,15 @@ foreach my $type_input (@type_input) {
   }
 }
 
+my %existing_output_collections;
+foreach my $collection (@{$ca->fetch_by_type($type_collection)}) {
+  $existing_output_collections{$collection->name} = 1;
+}
+my %existing_merged;
+foreach my $collection (@{$ca->fetch_by_type($type_merged)}) {
+  $existing_merged{$collection->name} = 1;
+}
+
 my %files_to_move;
 
 if ($level eq 'RUN') {
@@ -76,6 +85,8 @@ if ($level eq 'RUN') {
 
   COLLECTION:
   foreach my $key_collection (@$key_collections) {
+    next COLLECTION if ($existing_output_collections{$key_collection->name});
+    next COLLECTION if ($existing_merged{$key_collection->name});
     my @others;
     foreach my $name (map {$_->name} @{$key_collection->others}) {
       next COLLECTION if (!exists $inputs{$name});
@@ -102,12 +113,14 @@ if ($level eq 'LIBRARY') {
   foreach my $sample_id (keys %library_runs) {
     LIBRARY:
     while (my ($library_name, $run_id_list) = each %{$library_runs{$sample_id}}) {
+      my $output_name = $sample_id.'_'.$library_name;
+      next LIBRARY if ($existing_output_collections{$output_name});
+      next LIBRARY if ($existing_merged{$output_name});
       my @others;
       foreach my $run_id (@$run_id_list) {
         next LIBRARY if (!exists $inputs{$run_id});
         push(@others, @{$inputs{$run_id}});
       }
-      my $output_name = $sample_id.'_'.$library_name;
       if (@others == 1) {
         $files_to_move{$output_name} = $others[0];
       }
@@ -128,6 +141,8 @@ if ($level eq 'SAMPLE') {
   }
   SAMPLE:
   foreach my $sample_id (keys %sample_libraries) {
+    next SAMPLE if ($existing_output_collections{$sample_id});
+    next SAMPLE if ($existing_merged{$sample_id});
     my @others;
     foreach my $library_name (keys %{$sample_libraries{$sample_id}}) {
       my $inputs_key = $sample_id.'_'.$library_name;
