@@ -247,7 +247,7 @@ The input bam file can be deleted, along with its index file, and this will be r
 
     $DB_OPTS="-dbhost mysql-host -dbuser rw_user -dbpass **** -dbport 4197 -dbname my_database"
 
-  perl reseqtrack/process/run_bam_improvement.pl $DB_OPTS -realign
+  perl reseqtrack/process/run_bam_improvement.pl $DB_OPTS -realign -name SRR000001
     -type_input BAM -type_output REALIGNED_BAM -output_dir /path/to/base_dir/
     -reference /path/to/ref -options threads=4 -known_sites_vcf /path/to/vcf
     -store -delete_input -directory_layout population/sample_id/run_id

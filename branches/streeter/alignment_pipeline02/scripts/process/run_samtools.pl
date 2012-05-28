@@ -260,7 +260,7 @@ The input files can be deleted, along with any index files, and this will be rec
 
     $DB_OPTS="-dbhost mysql-host -dbuser rw_user -dbpass **** -dbport 4197 -dbname my_database"
 
-  perl reseqtrack/process/run_samtools.pl $DB_OPTS -command calmd -index_outputs
+  perl reseqtrack/process/run_samtools.pl $DB_OPTS -command calmd -index_outputs -name SRR000001
     -type_input BAM -type_output MD_BAM -type_index MD_BAI
     -store -output_dir /path/to/base_dir/ -directory_layout population/sample_id/run_id
     -reference /path/to/reference -options input_sort_status=n

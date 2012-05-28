@@ -246,7 +246,7 @@ The input files can be deleted, along with any index files, and this will be rec
 
     $DB_OPTS="-dbhost mysql-host -dbuser rw_user -dbpass **** -dbport 4197 -dbname my_database"
 
-  perl reseqtrack/process/run_picard.pl $DB_OPTS -command merge -create_index
+  perl reseqtrack/process/run_picard.pl $DB_OPTS -command merge -create_index -name SRR000001
     -type_input SAM -type_output MERGED_BAM -type_index MERGED_BAI
     -store -output_dir /path/to/base_dir/ -directory_layout population/sample_id/run_id
     -options use_threading=1 -options validation_stringency=SILENT

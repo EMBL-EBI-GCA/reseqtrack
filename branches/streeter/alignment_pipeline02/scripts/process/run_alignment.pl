@@ -248,7 +248,7 @@ This script runs an alignment using any child class of ReseqTrack::Tools::RunAli
 
     $DB_OPTS="-dbhost mysql-host -dbuser rw_user -dbpass **** -dbport 4197 -dbname my_database"
 
-  perl reseqtrack/process/run_alignment.pl $DB_OPTS
+  perl reseqtrack/process/run_alignment.pl $DB_OPTS -name SRR000001
     -type_input FASTQ -type_output SAM -reference /path/to/ref
     -module_name BWA -option threads=4 -program_name /path/to/bwa
     -store -output_dir /path/to/base_dir/ -directory_layout population/sample_id/run_id
