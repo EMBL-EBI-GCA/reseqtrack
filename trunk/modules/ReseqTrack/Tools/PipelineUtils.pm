@@ -485,7 +485,7 @@ sub check_existing_jobs{
     if ($job) {
       print "Have job ".$job->dbID." ".$job->current_status."\n" if ($verbose);
       if ($job->current_status eq 'FAILED' || $job->current_status eq 'AWOL') {
-        if ($job->retry_count && $job->retry_count >= $retry_max) {
+        if (defined $job->retry_count && $job->retry_count >= $retry_max) {
           print "Job ".$job->dbID." has reached retry_max\n" if ($verbose);
           next INPUT;
         }
@@ -526,7 +526,7 @@ sub create_job_object{
                                                 $input_string);
   my $update = 0;
   if($job){
-    if($job->retry_count && $job->retry_count >= $retry_max){
+    if(defined $job->retry_count && $job->retry_count >= $retry_max){
       #print STDERR $job->input_string." ".$job->event->name." has been retried too "
       #    "many times\n";
       return undef;
