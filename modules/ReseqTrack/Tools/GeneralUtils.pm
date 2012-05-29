@@ -289,8 +289,8 @@ sub execute_system_command{
 =head2 execute_pipe_system_command
 
   Arg [1]   : string containing the command line
-  Function  : executes the command line and collects output 
-  Returntype: the STDOUT of the command
+  Function  : executes the command line and collects the first line of output. Best suited to simple output where creating a file is unecessary
+  Returntype: scalar of the first line of output, line end removed
   Exceptions: throws if command failed to execute or if exit code is not zero.
   Also throws if the command line is an empty string.
   Example   : my $line_count = execute_pipe_system_command('cat /path/to/file | grep -v pattern_to_filter_out | wc -l')
@@ -305,10 +305,9 @@ sub execute_pipe_system_command{
 	
 	open (my $fh, '-|', $command_line) or throw("command failed to open: $! $command_line");
 	
-	while (<$fh>){
-		$result .= $_;
-	}
-	
+	$result = <$fh>;
+	chomp $result;
+		
 	throw("command failed: $! $command_line")
         if ( $? == -1 );
 
