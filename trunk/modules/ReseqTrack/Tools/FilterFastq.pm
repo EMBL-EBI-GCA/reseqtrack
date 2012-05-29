@@ -498,9 +498,9 @@ sub check_read{
     return 0;
   }
 
-  # should not have non-printing characters in seq or qual lines
-  return 0 if  ( $self->non_printing_char_check ($header, $seq , "seq_line") );
-  return 0 if  ( $self->non_printing_char_check ($header, $qual, "qual_line") );
+  # throw if have non-printing characters in seq or qual lines
+   $self->non_printing_char_check ($header, $seq , "seq_line") ;
+   $self->non_printing_char_check ($header, $qual, "qual_line") ;
 
 
   $run_id = $self->run_id unless($run_id);
@@ -989,7 +989,7 @@ sub error_hash{
   Arg [4]   : line type ( seq or qual)
   Function  : check for characters in ascii range 3-127
   Returntype: boolean
-  Exceptions: NULL string passed
+  Exceptions: NULL string passed, non printing characters in string
   Example   :   $self->non_printing_char_check ($seq ,$header, "seq_line");
 
 =cut
@@ -1006,9 +1006,7 @@ sub  non_printing_char_check{
     my $bad_char_ord = ord($1);
     my $msg = "read: $header ";
     $msg .= "contains nonprinting character $descriptor (ascii = $bad_char_ord)\n";
-    print $msg;
-    $self->add_to_error_hash($msg);
-    return 1;
+    throw ("$msg");
   }
 
  return 0;
