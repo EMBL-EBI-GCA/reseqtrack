@@ -52,6 +52,10 @@ use File::Basename;
 #use IO::Select;
 use POSIX;
 
+my $term_sig =  0;
+$SIG{TERM} = \&termhandler;
+$SIG{INT} = \&termhandler;
+
 my $dbhost;
 my $dbuser;
 my $dbpass;
@@ -197,10 +201,17 @@ while (! waitpid($pid, WNOHANG)) {
   $max_memory = $memory if (!$max_memory || $memory > $max_memory);
   $max_swap = $swap if (!$max_swap || $swap > $max_swap);
   sleep(10);
+  if ($term_sig) {
+    kill 15, $pid;
+  }
 }
 $time_elapsed = time - $start_time;
 print "\n**********\n";
-if (my $signal = $? & 127) {
+if ($term_sig) {
+  my $warning = "received a signal";
+  job_failed($job, $warning, $ja);
+}
+elsif (my $signal = $? & 127) {
   my $warning = "process died with signal $signal";
   job_failed($job, $warning, $ja);
 }
@@ -318,3 +329,6 @@ sub get_child_memory {
   return ($memory, $vsize);
 }
 
+sub termhandler {
+    $term_sig = 1;
+}
