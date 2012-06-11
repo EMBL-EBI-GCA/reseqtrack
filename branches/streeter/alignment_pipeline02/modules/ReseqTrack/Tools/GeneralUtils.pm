@@ -29,7 +29,7 @@ use vars qw (@ISA  @EXPORT);
 @EXPORT = qw(current_time parse_movelist get_input_arg create_lock_string
              delete_lock_string is_locked useage convert_to_giga current_date 
 	     create_filename calculate_coverage trim_spaces execute_system_command
-	     get_params get_open_file_handle);
+	     execute_pipe_system_command get_params get_open_file_handle);
 
 
 
@@ -284,6 +284,44 @@ sub execute_system_command{
 
     return $exit;
 
+}
+
+=head2 execute_pipe_system_command
+
+  Arg [1]   : string containing the command line
+  Function  : executes the command line and collects the first line of output. Best suited to simple output where creating a file is unecessary
+  Returntype: scalar of the first line of output, line end removed
+  Exceptions: throws if command failed to execute or if exit code is not zero.
+  Also throws if the command line is an empty string.
+  Example   : my $line_count = execute_pipe_system_command('cat /path/to/file | grep -v pattern_to_filter_out | wc -l')
+
+=cut
+sub execute_pipe_system_command{
+	my ($command_line) = @_;
+	
+	throw("no command to execute") if (! $command_line);
+
+	my $result;
+	
+	open (my $fh, '-|', $command_line) or throw("command failed to open: $! $command_line");
+	
+	$result = <$fh>;
+	chomp $result;
+		
+	throw("command failed: $! $command_line")
+        if ( $? == -1 );
+
+    my $signal = $? & 127;
+    throw("process died with signal $signal $command_line")
+        if ($signal);
+
+    my $exit = $? >> 8;
+    throw("command exited with value $exit $command_line")
+        if ($exit != 0);	
+	
+	close $fh;
+	 
+	return $result;
 }
 
 =head2  get_params
