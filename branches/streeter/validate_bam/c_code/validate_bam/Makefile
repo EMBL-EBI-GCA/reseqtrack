@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS=-O3 -Wall
+CFLAGS=-O3
 SAMPATH=/nfs/1000g-work/G1K/work/bin/git_clone_samtools
 LDFLAGS=-L$(SAMPATH) -Wl,-rpath,$(SAMPATH)
 
