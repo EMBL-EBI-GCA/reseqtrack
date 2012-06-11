@@ -30,6 +30,7 @@ my $append_platform;
 my $samtools;
 my $host_name = '1000genomes.ebi.ac.uk';
 my $store;
+my $disable_md5;
 my $delete_input;
 my $directory_layout;
 my $SQ_assembly;
@@ -56,6 +57,7 @@ my $reuse_old_header;
   'samtools=s' => \$samtools,
   'host_name=s' => \$host_name,
   'store!' => \$store,
+  'disable_md5!' => \$disable_md5,
   'delete_input!' => \$delete_input,
   'directory_layout=s' => \$directory_layout,
   'SQ_assembly=s' => \$SQ_assembly,
@@ -159,7 +161,9 @@ if($store){
   my $host = get_host_object($host_name, $db);
 
   my $bam = create_object_from_path($reheader_object->output_files->[0], $type_output, $host);
-  $bam->md5( run_md5($bam->name) );
+  if (! $disable_md5) {
+    $bam->md5( run_md5($bam->name) );
+  }
   my $collection = ReseqTrack::Collection->new(
       -name => $name, -type => $type_output,
       -others => $bam);
@@ -243,6 +247,8 @@ The input bam file can be deleted, along with its index file, and this will be r
   -host_name, default is '1000genomes.ebi.ac.uk', needed for storing output bam file
 
   -store, boolean flag, to store output bam file in the database.
+
+  -disable_md5, boolean flag, files written to the database will not have an md5
 
   -delete_input, boolean flag, to delete the original bam file (and index if it exists)
   and remove mark them as deleted in the database History table

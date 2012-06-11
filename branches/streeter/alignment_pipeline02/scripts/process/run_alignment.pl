@@ -26,6 +26,7 @@ my %module_constructor_args;
 my $program_file;
 my $host_name = '1000genomes.ebi.ac.uk';
 my $store;
+my $disable_md5;
 my $update;
 my $type_output = 'SAM';
 my $paired_length;
@@ -52,6 +53,7 @@ my %options;
   'program_file=s' => \$program_file,
   'host_name=s' => \$host_name,
   'store!' => \$store,
+  'disable_md5!' => \$disable_md5,
   'update!' => \$update,
   'paired_length=s' => \$paired_length,
   'first_read=s' => \$first_read,
@@ -104,6 +106,7 @@ if ($name =~ /[ESD]RR\d{6}/) {
     $read_group_fields{'LB'} = $run_meta_info->library_name;
     $read_group_fields{'PI'} = $run_meta_info->paired_length;
     $read_group_fields{'SM'} = $run_meta_info->sample_name;
+    $read_group_fields{'DS'} = $run_meta_info->study_id;
     my $platform = $run_meta_info->instrument_platform;
     $platform =~ s/ABI_SOLID/SOLID/;
     $read_group_fields{'PL'} = $platform;
@@ -144,8 +147,9 @@ if($store){
   my $sam_filepaths = $run_alignment->output_files;
   my $sam_files = create_objects_from_path_list($sam_filepaths, $type_output, $host);
   foreach my $file(@$sam_files){
-    my $md5 = run_md5($file->name);
-    $file->md5($md5);
+    if (! $disable_md5) {
+      $file->md5(run_md5($file->name));
+    }
     $fa->store($file, $update);
   }
   my $collection = ReseqTrack::Collection->new(
@@ -220,6 +224,8 @@ This script runs an alignment using any child class of ReseqTrack::Tools::RunAli
   NB some of the RunAlignment child classes can guess at its location if it is not specified
 
   -store, boolean flag, to store output files in the database.
+
+  -disable_md5, boolean flag, files written to the database will not have an md5
 
   -host_name, default is '1000genomes.ebi.ac.uk', needed for storing output files
 

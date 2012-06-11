@@ -23,6 +23,7 @@ my $dbport = 4175;
 my $dbname;
 my $host_name = '1000genomes.ebi.ac.uk';
 my $store;
+my $disable_md5;
 my $run_id;
 my $type_input;
 my $type_output;
@@ -43,6 +44,7 @@ my $no_split_strategy = 'copy';
   'dbport=s'      => \$dbport,
   'host_name=s' => \$host_name,
   'store!' => \$store,
+  'disable_md5!' => \$disable_md5,
   'run_id=s' => \$run_id,
   'type_input=s' => \$type_input,
   'type_output=s' => \$type_output,
@@ -185,8 +187,9 @@ if ($store) {
       foreach my $mate ($mate1_path, $mate2_path){
         my $file_path = $output_file_hash->{$mate}->{$label};
         my $file = create_object_from_path($file_path, $type_output, $host);
-        my $md5 = run_md5($file_path);
-        $file->md5($md5);
+        if (! $disable_md5) {
+          $file->md5(run_md5($file_path));
+        }
         my $statistic = ReseqTrack::Statistic->new(
                     -attribute_name => 'paired_length',
                     -attribute_value => $run_meta_info->paired_length);
@@ -206,8 +209,9 @@ if ($store) {
   if ($frag) {
     while (my ($label, $file_path) = each(%{$output_file_hash->{$frag_path}})) {
       my $file= create_object_from_path($file_path, $type_output, $host);
-      my $md5 = run_md5($file_path);
-      $file->md5($md5);
+      if (! $disable_md5) {
+        $file->md5(run_md5($file_path));
+      }
       my $collection_name = $run_id . '_f';
       $collection_name .= $label if $label;
       my $collection = ReseqTrack::Collection->new(
@@ -249,6 +253,7 @@ ReseqTrack/scripts/process/split_fastq.pl
         -host_name, name of the host object to associate with the output files
             (default is 1000genomes.ebi.ac.uk)
         -store, flag to store output fastq files to the database
+        -disable_md5, boolean flag, files written to the database will not have an md5
 
       other options:
 

@@ -26,6 +26,7 @@ my $output_dir;
 my $samtools;
 my $host_name = '1000genomes.ebi.ac.uk';
 my $store;
+my $disable_md5;
 my $delete_inputs;
 my $reference;
 my $reference_index;
@@ -48,6 +49,7 @@ my $index_outputs;
   'samtools=s' => \$samtools,
   'host_name=s' => \$host_name,
   'store!' => \$store,
+  'disable_md5!' => \$disable_md5,
   'delete_inputs!' => \$delete_inputs,
   'reference=s' => \$reference,
   'reference_index=s' => \$reference_index,
@@ -137,8 +139,10 @@ if($store){
           if ($fa->fetch_by_name($path));
     }
     my $bams = create_objects_from_path_list($output_bam_paths, $type_output, $host);
-    foreach my $bam (@$bams) {
-      $bam->md5( run_md5($bam->name) );
+    if (! $disable_md5) {
+      foreach my $bam (@$bams) {
+        $bam->md5( run_md5($bam->name) );
+      }
     }
     my $collection = ReseqTrack::Collection->new(
         -name => $name, -type => $type_output,
@@ -150,7 +154,9 @@ if($store){
     my $fa = $db->get_FileAdaptor;
     my $bais = create_objects_from_pathlist($index_file_paths, $type_index, $host);
     foreach my $bai (@$bais) {
-      $bai->md5( run_md5($bai->name) );
+      if (! $disable_md5) {
+        $bai->md5( run_md5($bai->name) );
+      }
       $fa->store($bai);
     }
   }
@@ -234,6 +240,8 @@ The input files can be deleted, along with any index files, and this will be rec
   -host_name, default is '1000genomes.ebi.ac.uk', needed for storing output files
 
   -store, boolean flag, to store output files in the database.
+
+  -disable_md5, boolean flag, files written to the database will not have an md5
 
   -delete_inputs, boolean flag, to delete the original input files (and index if it exists)
   and remove mark them as deleted in the database History table

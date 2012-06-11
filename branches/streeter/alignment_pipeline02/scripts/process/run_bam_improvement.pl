@@ -30,6 +30,7 @@ my @known_sites_vcf;
 my $samtools;
 my $host_name = '1000genomes.ebi.ac.uk';
 my $store;
+my $disable_md5;
 my $delete_input;
 my $realign;
 my $recalibrate;
@@ -54,6 +55,7 @@ my $directory_layout;
   'samtools=s' => \$samtools,
   'host_name=s' => \$host_name,
   'store!' => \$store,
+  'disable_md5!' => \$disable_md5,
   'delete_input!' => \$delete_input,
   'realign!' => \$realign,
   'recalibrate!' => \$recalibrate,
@@ -113,7 +115,7 @@ my $gatk_object = $gatk_module->new(
                   -input_files             => $input_file->name,
                   -working_dir             => $output_dir,
                   -reference               => $reference,
-                  -samtools                => $samtools,
+                  -program                 => $samtools,
                   -job_name                => $name,
                   -java_exe                => $java_exe,
                   -jvm_args                => $jvm_args,
@@ -127,7 +129,9 @@ if($store){
   my $host = get_host_object($host_name, $db);
 
   my $bam = create_object_from_path($gatk_object->output_bam, $type_output, $host);
-  $bam->md5( run_md5($bam->name) );
+  if (! $disable_md5) {
+    $bam->md5( run_md5($bam->name) );
+  }
   my $collection = ReseqTrack::Collection->new(
       -name => $name, -type => $type_output,
       -others => $bam);
@@ -233,6 +237,8 @@ The input bam file can be deleted, along with its index file, and this will be r
   NB the Samtools class can guess the location of samtools if not specified.
 
   -store, boolean flag, to store output bam file in the database.
+
+  -disable_md5, boolean flag, files written to the database will not have an md5
 
   -host_name, default is '1000genomes.ebi.ac.uk', needed for storing output bam file
 

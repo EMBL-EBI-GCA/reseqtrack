@@ -22,9 +22,9 @@ use ReseqTrack::Tools::FileSystemUtils
     delete_file check_file_does_not_exist make_directory);
 use ReseqTrack::Tools::Exception qw(throw warning stack_trace_dump);
 use ReseqTrack::Tools::Argument qw(rearrange);
-use ReseqTrack::Tools::GeneralUtils qw(execute_system_command);
 use List::Util qw (first);
 use Env qw( @PATH );
+use POSIX;
 
 
 =head2 new
@@ -66,6 +66,13 @@ my $GLOBAL_ECHO_CMD_LINE;
 my $GLOBAL_SAVE_FILES_FOR_DELETION;
 my $GLOBAL_WORKING_DIR = "/tmp/";
 
+my $term_sig =  0;
+$SIG{TERM} = \&termhandler;
+$SIG{INT} = \&termhandler;
+sub termhandler {
+    $term_sig = 1;
+}
+
 sub new {
   my ( $class, @args ) = @_;
   my $self = {};
@@ -80,6 +87,9 @@ sub new {
              OPTIONS
              ECHO_CMD_LINE SAVE_FILES_FOR_DELETION )
 		], @args);
+
+  # temp line
+  $save_files_for_deletion = 1;
 
   $self->input_files($input_files);
   $self->program($program);
@@ -148,7 +158,7 @@ sub run {
   $self->delete_files;
 }
 
-=head2 execute_command_line
+=head2 DESTROY
 
   Function  : ensures that files will be deleted when a RunProgram object goes out of scope
               This can happen either after successful completion or if the perl script quits 
@@ -174,12 +184,35 @@ sub DESTROY {
 
 sub execute_command_line {
     my ($self, $command_line) = @_;
-    my $exit;
+
     if ($self->echo_cmd_line) {
         $command_line = "echo \'" . $command_line . "\'";
     }
     print $command_line . "\n";
-    $exit = execute_system_command( $command_line );
+
+    my $pid = fork;
+    if (!defined $pid) {
+      throw "could not fork: $!";
+    }
+    elsif(!$pid) {
+      exec($command_line) or do{
+        print STDERR "$command_line did not execute: $!\n";
+        exit(255);
+      }
+    }
+    while (! waitpid($pid, WNOHANG)) {
+      sleep(5);
+      if ($term_sig) {
+        kill 15, $pid;
+      }
+    }
+    throw("received a signal so command line was killed $command_line") if ($term_sig);
+    throw("command failed: $! $command_line") if ( $? == -1 );
+
+    my $signal = $? & 127;
+    throw("process died with signal $signal $command_line") if ($signal);
+    my $exit = $? >> 8;
+    throw("command exited with value $exit $command_line") if ($exit != 0);
     return $exit;
 }
 

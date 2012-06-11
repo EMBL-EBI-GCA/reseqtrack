@@ -22,7 +22,7 @@ use warnings;
 use ReseqTrack::Tools::Exception qw(throw);
 use ReseqTrack::Tools::Argument qw(rearrange);
 use File::Basename qw(fileparse);
-use ReseqTrack::Tools::FileSystemUtils qw(check_file_exists check_file_does_not_exist make_directory);
+use ReseqTrack::Tools::FileSystemUtils qw(check_file_exists make_directory);
 
 use base qw(ReseqTrack::Tools::RunProgram);
 
