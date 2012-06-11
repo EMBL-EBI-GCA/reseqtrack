@@ -22,23 +22,31 @@ typedef struct
   char *sample; // points to a bam_header string
   char *platform; // points to a bam_header string
   char *description; // points to a bam_header string
-  uint32_t num_total_bases;
-  uint32_t num_mapped_bases;
-  uint32_t num_total_reads;
-  uint32_t num_mapped_reads;
-  uint32_t num_mapped_reads_paired_in_sequencing;
-  uint32_t num_mapped_reads_properly_paired;
-  uint32_t num_NM_bases;
-  uint32_t num_NM_mismatched_bases;
-  uint32_t sum_quality_mapped_bases;
-  uint32_t sum_insert_sizes;
-  uint32_t num_insert_sizes;
-  uint32_t num_duplicate_reads;
-  uint32_t num_duplicate_bases;
 
-  khash_t(int32) *insert_sizes; // key is the insert size, value is the number of occurrences
+  uint32_t num_total_bases; // The sum of the length of all reads in this readgroup
+  uint32_t num_mapped_bases; // The total number of mapped bases for all reads in this readgroup that did not have flag 4 (== unmapped)
+  uint32_t num_total_reads; // The total number of reads in this readgroup
+  uint32_t num_mapped_reads; // The total number of reads in this readgroup that did not have flag 4 (== unmapped)
+  uint32_t num_mapped_reads_paired_in_sequencing; // Same as num_mapped_reads, also requiring flag 1 (== reads paired in sequecing)
+  uint32_t num_mapped_reads_properly_paired; // Same as num_mapped_reads, also requiring flag 2 (== mapped in a proper pair, inferred during alignment).
+  uint32_t num_NM_bases; // The sum of the length of all reads in this readgroup that have a NM tag
+  uint32_t num_NM_mismatched_bases; // The sum of the value of the NM tags for all reads in this readgroup
+  uint32_t sum_quality_mapped_bases; // Sum of the base qualities for mapped bases for all reads in this readgroup that did not have the flag 4 (== unmapped)
+  uint32_t num_duplicate_reads; // Number of reads which were marked as duplicates
+  uint32_t num_duplicate_bases; // The sum of the length of all reads which were marked as duplicates
 
+  // Insert sizes, counts all insert sizes greater than 0 for properly paired reads (requires flag 2) and with a mapping quality greater than 0
+  khash_t(int32) *insert_sizes; // key is the insert size, value is the number of occurrences in this read group
+  uint32_t num_insert_sizes; // The number of reads in this read group meeting the criteria
+  uint32_t sum_insert_sizes; // Sum of all valid insert sizes for this read group
+
+  // The following are calculated after the entire bam file has been read 
   uint32_t median_insert_size;
+  double percent_mismatched_bases; // = num_NUM_mismatched_bases / num_NM_bases
+  double avg_quality_mapped_bases; // = sum_quality_mapped_bases / num_total_bases
+  double mean_insert_size; // = sum_insert_sizes / num_insert_sizes
+  double insert_size_sd; // the standard deviation from the mean of insert sizes
+  uint32_t insert_size_median_abs_dev; // The median absolute deviation of insert sizes
 }
 rg_stats_t;
 
@@ -58,7 +66,11 @@ void *rg_stats_init(bam_header_t *bam_header) {
 
   int i;
   for(i=0; i<n_rg; i++) {
-    rg_stats_t *new_rg_stats = malloc(sizeof(rg_stats_t));
+    rg_stats_t *new_rg_stats = (rg_stats_t*) malloc(sizeof(rg_stats_t));
+    if (new_rg_stats == NULL) {
+      fprintf(stderr, "Out of memory\n");
+      exit(-1);
+    }
 
     int ret;
     khiter_t k = kh_put(rg_stats, rg_stats_hash, ID_array[i], &ret);
@@ -176,38 +188,40 @@ void update_stats(rg_stats_t *rg_stats, bam1_t *bam_line) {
   }
 }
 
-float calc_percentage_mismatched_bases(rg_stats_t *rg_stats) {
-  return 100 * (float) rg_stats->num_NM_mismatched_bases / rg_stats->num_NM_bases;
-}
 
-float calc_average_quality_mapped_bases(rg_stats_t *rg_stats) {
-  return (float) rg_stats->sum_quality_mapped_bases / rg_stats->num_total_bases;
-}
+// calculate the mean_insert_size (after the entire bam file has been read)
+void calc_insert_size_sd(rg_stats_t *rg_stats) {
+  double mean = rg_stats->mean_insert_size;
+  double variance = 0;
 
-double calc_mean_insert_size(rg_stats_t *rg_stats) {
-  return (double) (rg_stats->sum_insert_sizes) / rg_stats->num_insert_sizes;
-}
+  if (! isfinite(mean)) {
+    rg_stats->insert_size_sd = 0.0;
+    return;
+  }
 
-double calc_insert_size_sd(rg_stats_t *rg_stats) {
-  double mean = calc_mean_insert_size(rg_stats);
-  double sd;
   khiter_t k;
   for (k = kh_begin(rg_stats->insert_sizes); k != kh_end(rg_stats->insert_sizes); k++)
     if (kh_exist(rg_stats->insert_sizes, k)) {
       double diff = kh_key(rg_stats->insert_sizes, k) - mean;
-      sd += diff * diff * kh_value(rg_stats->insert_sizes, k);
+      variance += diff * diff * kh_value(rg_stats->insert_sizes, k);
     }
-  sd /= rg_stats->num_insert_sizes;
-  sd = sqrt(sd);
-  return sd;
+  variance /= rg_stats->num_insert_sizes;
+  rg_stats->insert_size_sd = sqrt(variance);
+  return;
 }
 
 // needed for the qsort function
 int compare_integers (const void * a, const void *b) {
   return ( *(uint32_t*)a - *(uint32_t*)b );
 }
-uint32_t calc_median_insert_size(rg_stats_t *rg_stats) {
-  uint32_t *insert_sizes = malloc(sizeof(uint32_t) * kh_size(rg_stats->insert_sizes));
+
+// calculate the median_insert_size (after the entire bam file has been read)
+void calc_median_insert_size(rg_stats_t *rg_stats) {
+  uint32_t *insert_sizes = (uint32_t*) malloc(sizeof(uint32_t) * kh_size(rg_stats->insert_sizes));
+  if (insert_sizes == NULL) {
+    fprintf(stderr, "Out of memory\n");
+    exit(-1);
+  }
 
   khiter_t k;
   uint8_t arr_size=0;
@@ -231,10 +245,11 @@ uint32_t calc_median_insert_size(rg_stats_t *rg_stats) {
 
   free(insert_sizes);
   rg_stats->median_insert_size = median;
-  return median;
+  return;
 }
 
-uint32_t calc_insert_size_abs_dev(rg_stats_t *rg_stats) {
+// calculate the insert size median absolute deviation (after the entire bam file has been read)
+void calc_insert_size_abs_dev(rg_stats_t *rg_stats) {
   khash_t(int32) *dev_hash = kh_init(int32);
   khiter_t k;
   for (k = kh_begin(rg_stats->insert_sizes); k != kh_end(rg_stats->insert_sizes); k++)
@@ -248,7 +263,11 @@ uint32_t calc_insert_size_abs_dev(rg_stats_t *rg_stats) {
         kh_value(dev_hash, k_dev) = kh_value(rg_stats->insert_sizes, k);
     }
 
-  uint32_t *dev_arr = malloc(sizeof(uint32_t) * kh_size(dev_hash));
+  uint32_t *dev_arr = (uint32_t*) malloc(sizeof(uint32_t) * kh_size(dev_hash));
+  if (dev_arr == NULL) {
+    fprintf(stderr, "Out of memory\n");
+    exit(-1);
+  }
   uint8_t arr_size=0;
   for (k = kh_begin(dev_hash); k != kh_end(dev_hash); k++)
     if (kh_exist(dev_hash, k)) {
@@ -270,15 +289,40 @@ uint32_t calc_insert_size_abs_dev(rg_stats_t *rg_stats) {
 
   kh_destroy(int32, dev_hash);
   free(dev_arr);
-  return median_dev;
+  rg_stats->insert_size_median_abs_dev = median_dev;
+  return;
+}
+
+// calculate statistics that can only be calculated after the entire bam file has been read
+void calc_final_rg_stats(void *_rg_stats_hash) {
+  khash_t(rg_stats) *rg_stats_hash = (khash_t(rg_stats)*) _rg_stats_hash;
+  khiter_t k;
+  for (k = kh_begin(rg_stats_hash); k != kh_end(rg_stats_hash); k++)
+    if (kh_exist(rg_stats_hash, k)) {
+      rg_stats_t *rg_stats = kh_value(rg_stats_hash, k);
+
+      rg_stats->percent_mismatched_bases = 100 * (double) rg_stats->num_NM_mismatched_bases / rg_stats->num_NM_bases;
+      rg_stats->avg_quality_mapped_bases =  (double) rg_stats->sum_quality_mapped_bases / rg_stats->num_total_bases;
+      rg_stats->mean_insert_size =  (double) rg_stats->sum_insert_sizes / rg_stats->num_insert_sizes;
+
+      calc_insert_size_sd(rg_stats);
+      calc_median_insert_size(rg_stats);
+      calc_insert_size_abs_dev(rg_stats);
+    }
 }
 
 
 
 
+// opens a file, writes statistics for all read groups
 void output_rg_stats(void *_rg_stats_hash, char* out_fname, char* bam_basename, unsigned char* md5) {
   khash_t(rg_stats) *rg_stats_hash = (khash_t(rg_stats)*) _rg_stats_hash;
   FILE *fp = fopen(out_fname, "w");
+  if (fp == NULL) {
+    fprintf(stderr, "Could not open file for writing: %s\n", out_fname);
+    exit(-1);
+  }
+
   uint8_t i;
   fprintf(fp, "bam_filename\tmd5\tstudy\tsample\tplatform\tlibrary\treadgroup");
   fprintf(fp, "\t#_total_bases\t#_mapped_bases\t#_total_reads\t#_mapped_reads");
@@ -305,12 +349,12 @@ void output_rg_stats(void *_rg_stats_hash, char* out_fname, char* bam_basename, 
       fprintf(fp, "\t%d", rg_stats->num_mapped_reads);
       fprintf(fp, "\t%d", rg_stats->num_mapped_reads_paired_in_sequencing);
       fprintf(fp, "\t%d", rg_stats->num_mapped_reads_properly_paired);
-      fprintf(fp, "\t%.2f", calc_percentage_mismatched_bases(rg_stats));
-      fprintf(fp, "\t%.2f", calc_average_quality_mapped_bases(rg_stats));
-      fprintf(fp, "\t%d", (int) calc_mean_insert_size(rg_stats));
-      fprintf(fp, "\t%.2f", calc_insert_size_sd(rg_stats));
-      fprintf(fp, "\t%d", calc_median_insert_size(rg_stats));
-      fprintf(fp, "\t%d", calc_insert_size_abs_dev(rg_stats));
+      fprintf(fp, "\t%.2f", rg_stats->percent_mismatched_bases);
+      fprintf(fp, "\t%.2f", rg_stats->avg_quality_mapped_bases);
+      fprintf(fp, "\t%d", (int) rg_stats->mean_insert_size);
+      fprintf(fp, "\t%.2f", rg_stats->insert_size_sd);
+      fprintf(fp, "\t%d", rg_stats->median_insert_size);
+      fprintf(fp, "\t%d", rg_stats->insert_size_median_abs_dev);
       fprintf(fp, "\t%d", rg_stats->num_duplicate_reads);
       fprintf(fp, "\t%d", rg_stats->num_duplicate_bases);
       fprintf(fp, "\n");
@@ -331,16 +375,21 @@ char *get_basename(char *full_filename) {
   size_t filename_length = strlen(filename);
   char* extension = filename + filename_length -4;
 
+  size_t basename_length;
+  if (filename_length >4 && (strcmp(extension, ".bam") ==0 || strcmp(extension, ".sam") ==0))
+    basename_length = filename_length -4;
+  else
+    basename_length = filename_length;
+
   char* basename;
-  if (filename_length >4 && (strcmp(extension, ".bam") ==0 || strcmp(extension, ".sam") ==0)) {
-    basename = malloc(filename_length - 3);
-    strncpy(basename, filename, filename_length -4);
-    basename[filename_length -4] = '\0';
+  basename = (char*) malloc(basename_length + 1);
+  if (basename == NULL) {
+    fprintf(stderr, "Out of memory\n");
+    exit(-1);
   }
-  else {
-    basename = malloc(filename_length +1);
-    strcpy(basename, filename);
-  }
+  strncpy(basename, filename, basename_length);
+  basename[basename_length] = '\0';
+
   return basename;
 }
 
@@ -349,13 +398,18 @@ char *get_basename(char *full_filename) {
 unsigned char * calc_md5(char* filename) {
   int inFile = open(filename, O_RDONLY);
   if (inFile < 0) {
-    printf("Could not open file\n");
+    fprintf(stderr, "Could not open file for reading: %s\n", filename);
+    exit(-1);
   }
 
   struct stat statbuf;
   fstat(inFile, &statbuf);
 
-  unsigned char *md5 = malloc(MD5_DIGEST_LENGTH);
+  unsigned char *md5 = (unsigned char*) malloc(MD5_DIGEST_LENGTH);
+  if (md5 == NULL) {
+    fprintf(stderr, "Out of memory\n");
+    exit(-1);
+  }
 
   unsigned char* file_buffer = (unsigned char*) mmap(0, statbuf.st_size, PROT_READ, MAP_SHARED, inFile, 0);
   MD5(file_buffer, statbuf.st_size, md5);
@@ -386,12 +440,8 @@ int main(int argc, char *argv[])
 
   if (optind < argc)
     bam_fname = argv[optind++];
-
-  if ( !bam_fname ) {
-    if ( isatty(fileno((FILE *)stdin)) )
-        usage();
-    bam_fname = "-";
-  }
+  else
+    usage();
 
   if ( !out_fname ) {
     usage();
@@ -402,7 +452,10 @@ int main(int argc, char *argv[])
 
   bamFile bam = NULL;
   if ((bam = bam_open(bam_fname, in_mode)) == 0)
+  {
     printf("Failed to open file %s\n", bam_fname);
+    exit(-1);
+  }
   bam_header_t *bam_header = bam_header_read(bam);
 
   khash_t(rg_stats) *rg_stats_hash = rg_stats_init(bam_header);
@@ -423,6 +476,8 @@ int main(int argc, char *argv[])
   bam_destroy1(bam_line);
   bam_close(bam);
 
+  calc_final_rg_stats(rg_stats_hash);
+
   output_rg_stats(rg_stats_hash, out_fname, bam_basename, md5);
   rg_stats_destroy(rg_stats_hash);
   bam_header_destroy(bam_header);
@@ -437,5 +492,5 @@ void usage()
 {
   printf("usage: validate_bam -o output_file [-s] input_file\n");
   printf("-s flag means input is in sam format\n");
-  exit(1);
+  exit(-1);
 }
