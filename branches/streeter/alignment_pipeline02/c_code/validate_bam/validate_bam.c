@@ -7,14 +7,11 @@
 #include <sam_header.h>
 #include <khash.h>
 #include <openssl/md5.h> /* for md5 */
-#include <sys/mman.h> /* for md5 */
-#include <fcntl.h> /* for md5 */
-#include <sys/stat.h> /* for fstat */
 
 
 void usage();
 
-KHASH_MAP_INIT_INT(int32, uint32_t) /* used to store insert sizes */
+KHASH_MAP_INIT_INT(int16, uint16_t) /* used to store insert sizes */
 KHASH_MAP_INIT_STR(tags, char*) /* used to store bam header tags */
 
 /* struct containing statistics for a read group */
@@ -26,30 +23,30 @@ typedef struct
   char *platform; /* points to a bam_header string */
   char *description; /* points to a bam_header string */
 
-  uint32_t num_total_bases; /* The sum of the length of all reads in this readgroup */
-  uint32_t num_mapped_bases; /* The total number of mapped bases for all reads in this readgroup that did not have flag 4 (== unmapped) */
-  uint32_t num_total_reads; /* The total number of reads in this readgroup */
-  uint32_t num_mapped_reads; /* The total number of reads in this readgroup that did not have flag 4 (== unmapped) */
-  uint32_t num_mapped_reads_paired_in_sequencing; /* Same as num_mapped_reads, also requiring flag 1 (== reads paired in sequecing) */
-  uint32_t num_mapped_reads_properly_paired; /* Same as num_mapped_reads, also requiring flag 2 (== mapped in a proper pair, inferred during alignment). */
-  uint32_t num_NM_bases; /* The sum of the length of all reads in this readgroup that have a NM tag */
-  uint32_t num_NM_mismatched_bases; /* The sum of the value of the NM tags for all reads in this readgroup */
-  uint32_t sum_quality_mapped_bases; /* Sum of the base qualities for mapped bases for all reads in this readgroup that did not have the flag 4 (== unmapped) */
-  uint32_t num_duplicate_reads; /* Number of reads which were marked as duplicates */
-  uint32_t num_duplicate_bases; /* The sum of the length of all reads which were marked as duplicates */
+  uint64_t num_total_bases; /* The sum of the length of all reads in this readgroup */
+  uint64_t num_mapped_bases; /* The total number of mapped bases for all reads in this readgroup that did not have flag 4 (== unmapped) */
+  uint64_t num_total_reads; /* The total number of reads in this readgroup */
+  uint64_t num_mapped_reads; /* The total number of reads in this readgroup that did not have flag 4 (== unmapped) */
+  uint64_t num_mapped_reads_paired_in_sequencing; /* Same as num_mapped_reads, also requiring flag 1 (== reads paired in sequecing) */
+  uint64_t num_mapped_reads_properly_paired; /* Same as num_mapped_reads, also requiring flag 2 (== mapped in a proper pair, inferred during alignment). */
+  uint64_t num_NM_bases; /* The sum of the length of all reads in this readgroup that have a NM tag */
+  uint64_t num_NM_mismatched_bases; /* The sum of the value of the NM tags for all reads in this readgroup */
+  uint64_t sum_quality_mapped_bases; /* Sum of the base qualities for mapped bases for all reads in this readgroup that did not have the flag 4 (== unmapped) */
+  uint64_t num_duplicate_reads; /* Number of reads which were marked as duplicates */
+  uint64_t num_duplicate_bases; /* The sum of the length of all reads which were marked as duplicates */
 
   /* Insert sizes, counts all insert sizes greater than 0 for properly paired reads (requires flag 2) and with a mapping quality greater than 0 */
-  khash_t(int32) *insert_sizes; /* key is the insert size, value is the number of occurrences in this read group */
+  khash_t(int16) *insert_sizes; /* key is the insert size, value is the number of occurrences in this read group */
   uint32_t num_insert_sizes; /* The number of reads in this read group meeting the criteria */
-  uint32_t sum_insert_sizes; /* Sum of all valid insert sizes for this read group */
+  uint64_t sum_insert_sizes; /* Sum of all valid insert sizes for this read group */
 
   /* The following are calculated after the entire bam file has been read  */
-  uint32_t median_insert_size;
+  uint16_t median_insert_size;
   double percent_mismatched_bases; /* = num_NUM_mismatched_bases / num_NM_bases */
   double avg_quality_mapped_bases; /* = sum_quality_mapped_bases / num_total_bases */
   double mean_insert_size; /* = sum_insert_sizes / num_insert_sizes */
   double insert_size_sd; /* the standard deviation from the mean of insert sizes */
-  uint32_t insert_size_median_abs_dev; /* The median absolute deviation of insert sizes */
+  uint16_t insert_size_median_abs_dev; /* The median absolute deviation of insert sizes */
 }
 rg_stats_t;
 
@@ -96,7 +93,7 @@ void *rg_stats_init(bam_header_t *bam_header) {
     k = kh_get(tags, PU_hash, ID_array[i]);
     new_rg_stats->platform_unit = (k == kh_end(PU_hash)) ? NULL : kh_value(PU_hash, k);
 
-    new_rg_stats->insert_sizes = kh_init(int32);
+    new_rg_stats->insert_sizes = kh_init(int16);
     new_rg_stats->num_total_bases = 0;
     new_rg_stats->num_mapped_bases = 0;
     new_rg_stats->num_total_reads = 0;
@@ -118,6 +115,7 @@ void *rg_stats_init(bam_header_t *bam_header) {
   kh_destroy(tags, SM_hash);
   kh_destroy(tags, PL_hash);
   kh_destroy(tags, DS_hash);
+  kh_destroy(tags, PU_hash);
   return rg_stats_hash;
 }
 
@@ -128,7 +126,7 @@ void rg_stats_destroy(void *_rg_stats_hash) {
   for (k = kh_begin(rg_stats_hash); k != kh_end(rg_stats_hash); k++)
     if (kh_exist(rg_stats_hash, k)) {
       rg_stats_t *rg_stats = kh_value(rg_stats_hash, k);
-      kh_destroy(int32, rg_stats->insert_sizes);
+      kh_destroy(int16, rg_stats->insert_sizes);
     }
   kh_destroy(rg_stats, rg_stats_hash);
   return;
@@ -169,7 +167,7 @@ void update_stats(rg_stats_t *rg_stats, bam1_t *bam_line) {
 
         rg_stats->num_insert_sizes ++;
         rg_stats->sum_insert_sizes += bam_line->core.isize;
-        k = kh_put(int32, rg_stats->insert_sizes, bam_line->core.isize, &ret);
+        k = kh_put(int16, rg_stats->insert_sizes, (uint16_t) bam_line->core.isize, &ret);
         if (!ret)
           kh_value(rg_stats->insert_sizes, k) ++;
         else
@@ -216,18 +214,18 @@ void calc_insert_size_sd(rg_stats_t *rg_stats) {
 
 /* needed for the qsort function */
 int compare_integers (const void * a, const void *b) {
-  return ( *(uint32_t*)a - *(uint32_t*)b );
+  return ( *(uint16_t*)a - *(uint16_t*)b );
 }
 
 /* calculate the median_insert_size (after the entire bam file has been read) */
 void calc_median_insert_size(rg_stats_t *rg_stats) {
   khiter_t k;
-  uint8_t arr_size, i;
-  uint32_t median = 0;
+  uint16_t arr_size, i;
+  uint16_t median = 0;
   uint32_t num_inserts_counted = 0;
   uint32_t stop_counting = (uint32_t) (0.5 * rg_stats->num_insert_sizes);
 
-  uint32_t *insert_sizes = (uint32_t*) malloc(sizeof(uint32_t) * kh_size(rg_stats->insert_sizes));
+  uint16_t *insert_sizes = (uint16_t*) malloc(sizeof(uint16_t) * kh_size(rg_stats->insert_sizes));
   if (insert_sizes == NULL) {
     fprintf(stderr, "Out of memory\n");
     exit(-1);
@@ -239,10 +237,10 @@ void calc_median_insert_size(rg_stats_t *rg_stats) {
       arr_size++;
     }
 
-  qsort(insert_sizes, arr_size, sizeof(uint32_t), compare_integers);
+  qsort(insert_sizes, arr_size, sizeof(uint16_t), compare_integers);
 
   for (i=0; num_inserts_counted < stop_counting ; i++) {
-    k = kh_get(int32, rg_stats->insert_sizes, insert_sizes[i]);
+    k = kh_get(int16, rg_stats->insert_sizes, insert_sizes[i]);
     num_inserts_counted += kh_value(rg_stats->insert_sizes, k);
     median = insert_sizes[i];
   }
@@ -254,26 +252,26 @@ void calc_median_insert_size(rg_stats_t *rg_stats) {
 
 /* calculate the insert size median absolute deviation (after the entire bam file has been read) */
 void calc_insert_size_abs_dev(rg_stats_t *rg_stats) {
-  khash_t(int32) *dev_hash = kh_init(int32);
+  khash_t(int16) *dev_hash = kh_init(int16);
   khiter_t k;
   uint8_t arr_size, i;
-  uint32_t median_dev = 0;
+  uint16_t median_dev = 0;
   uint32_t num_devs_counted = 0;
   uint32_t stop_counting = (uint32_t) (0.5 * rg_stats->num_insert_sizes);
-  uint32_t *dev_arr;
+  uint16_t *dev_arr;
 
   for (k = kh_begin(rg_stats->insert_sizes); k != kh_end(rg_stats->insert_sizes); k++)
     if (kh_exist(rg_stats->insert_sizes, k)) {
-      uint32_t deviation = abs(rg_stats->median_insert_size - kh_key(rg_stats->insert_sizes, k));
+      uint16_t deviation = abs(rg_stats->median_insert_size - kh_key(rg_stats->insert_sizes, k));
       int ret;
-      khiter_t k_dev = kh_put(int32, dev_hash, deviation, &ret);
+      khiter_t k_dev = kh_put(int16, dev_hash, deviation, &ret);
       if (!ret)
         kh_value(dev_hash, k_dev) += kh_value(rg_stats->insert_sizes, k);
       else
         kh_value(dev_hash, k_dev) = kh_value(rg_stats->insert_sizes, k);
     }
 
-  dev_arr = (uint32_t*) malloc(sizeof(uint32_t) * kh_size(dev_hash));
+  dev_arr = (uint16_t*) malloc(sizeof(uint16_t) * kh_size(dev_hash));
   if (dev_arr == NULL) {
     fprintf(stderr, "Out of memory\n");
     exit(-1);
@@ -284,15 +282,15 @@ void calc_insert_size_abs_dev(rg_stats_t *rg_stats) {
       arr_size++;
     }
 
-  qsort(dev_arr, arr_size, sizeof(uint32_t), compare_integers);
+  qsort(dev_arr, arr_size, sizeof(uint16_t), compare_integers);
 
   for (i=0; num_devs_counted < stop_counting ; i++) {
-    k = kh_get(int32, dev_hash, dev_arr[i]);
+    k = kh_get(int16, dev_hash, dev_arr[i]);
     num_devs_counted += kh_value(dev_hash, k);
     median_dev = dev_arr[i];
   }
 
-  kh_destroy(int32, dev_hash);
+  kh_destroy(int16, dev_hash);
   free(dev_arr);
   rg_stats->insert_size_median_abs_dev = median_dev;
   return;
@@ -348,20 +346,20 @@ void output_rg_stats(void *_rg_stats_hash, char* out_fname, char* bam_basename, 
       fprintf(fp, "\t%s", (rg_stats->platform ? rg_stats->platform : "-"));
       fprintf(fp, "\t%s", (rg_stats->library ? rg_stats->library : "-"));
       fprintf(fp, "\t%s", (rg_stats->platform_unit ? rg_stats->platform_unit : kh_key(rg_stats_hash, k)));
-      fprintf(fp, "\t%d", rg_stats->num_total_bases);
-      fprintf(fp, "\t%d", rg_stats->num_mapped_bases);
-      fprintf(fp, "\t%d", rg_stats->num_total_reads);
-      fprintf(fp, "\t%d", rg_stats->num_mapped_reads);
-      fprintf(fp, "\t%d", rg_stats->num_mapped_reads_paired_in_sequencing);
-      fprintf(fp, "\t%d", rg_stats->num_mapped_reads_properly_paired);
+      fprintf(fp, "\t%llu", rg_stats->num_total_bases);
+      fprintf(fp, "\t%llu", rg_stats->num_mapped_bases);
+      fprintf(fp, "\t%llu", rg_stats->num_total_reads);
+      fprintf(fp, "\t%llu", rg_stats->num_mapped_reads);
+      fprintf(fp, "\t%llu", rg_stats->num_mapped_reads_paired_in_sequencing);
+      fprintf(fp, "\t%llu", rg_stats->num_mapped_reads_properly_paired);
       fprintf(fp, "\t%.2f", rg_stats->percent_mismatched_bases);
       fprintf(fp, "\t%.2f", rg_stats->avg_quality_mapped_bases);
       fprintf(fp, "\t%d", isfinite(rg_stats->mean_insert_size) ? (int) rg_stats->mean_insert_size : 0);
       fprintf(fp, "\t%.2f", rg_stats->insert_size_sd);
       fprintf(fp, "\t%d", rg_stats->median_insert_size);
       fprintf(fp, "\t%d", rg_stats->insert_size_median_abs_dev);
-      fprintf(fp, "\t%d", rg_stats->num_duplicate_reads);
-      fprintf(fp, "\t%d", rg_stats->num_duplicate_bases);
+      fprintf(fp, "\t%llu", rg_stats->num_duplicate_reads);
+      fprintf(fp, "\t%llu", rg_stats->num_duplicate_bases);
       fprintf(fp, "\n");
     }
   fclose(fp);
@@ -402,16 +400,15 @@ char *get_basename(char *full_filename) {
 /* Reads a file and creates a string containing md5
 The calling function will need to free/destroy this string */
 unsigned char * calc_md5(char* filename) {
-  struct stat statbuf;
-  unsigned char *md5, *file_buffer;
+  unsigned char *md5, file_buffer[1024];
+  MD5_CTX md_context;
+  int bytes;
 
-  int inFile = open(filename, O_RDONLY);
-  if (inFile < 0) {
+  FILE *inFile = fopen(filename, "rb");
+  if (inFile == NULL) {
     fprintf(stderr, "Could not open file for reading: %s\n", filename);
     exit(-1);
   }
-
-  fstat(inFile, &statbuf);
 
   md5 = (unsigned char*) malloc(MD5_DIGEST_LENGTH);
   if (md5 == NULL) {
@@ -419,9 +416,13 @@ unsigned char * calc_md5(char* filename) {
     exit(-1);
   }
 
-  file_buffer = (unsigned char*) mmap(0, statbuf.st_size, PROT_READ, MAP_SHARED, inFile, 0);
-  MD5(file_buffer, statbuf.st_size, md5);
-  close(inFile);
+
+  MD5_Init(&md_context);
+  while (bytes = fread (file_buffer, 1, 1024, inFile) != 0)
+    MD5_Update (&md_context, file_buffer, bytes);
+  MD5_Final (md5, &md_context);
+
+  fclose(inFile);
   return md5;
 }
 
@@ -473,6 +474,7 @@ int main(int argc, char *argv[])
   bam_header = bam_header_read(bam);
 
   rg_stats_hash = rg_stats_init(bam_header);
+
 
 
   while (bam_read1(bam, bam_line) > 0) {
