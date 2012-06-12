@@ -7,9 +7,6 @@
 #include <sam_header.h>
 #include <khash.h>
 #include <openssl/md5.h> /* for md5 */
-#include <sys/mman.h> /* for md5 */
-#include <fcntl.h> /* for md5 */
-#include <sys/stat.h> /* for fstat */
 
 
 void usage();
@@ -26,22 +23,22 @@ typedef struct
   char *platform; /* points to a bam_header string */
   char *description; /* points to a bam_header string */
 
-  uint32_t num_total_bases; /* The sum of the length of all reads in this readgroup */
-  uint32_t num_mapped_bases; /* The total number of mapped bases for all reads in this readgroup that did not have flag 4 (== unmapped) */
-  uint32_t num_total_reads; /* The total number of reads in this readgroup */
-  uint32_t num_mapped_reads; /* The total number of reads in this readgroup that did not have flag 4 (== unmapped) */
-  uint32_t num_mapped_reads_paired_in_sequencing; /* Same as num_mapped_reads, also requiring flag 1 (== reads paired in sequecing) */
-  uint32_t num_mapped_reads_properly_paired; /* Same as num_mapped_reads, also requiring flag 2 (== mapped in a proper pair, inferred during alignment). */
-  uint32_t num_NM_bases; /* The sum of the length of all reads in this readgroup that have a NM tag */
-  uint32_t num_NM_mismatched_bases; /* The sum of the value of the NM tags for all reads in this readgroup */
-  uint32_t sum_quality_mapped_bases; /* Sum of the base qualities for mapped bases for all reads in this readgroup that did not have the flag 4 (== unmapped) */
-  uint32_t num_duplicate_reads; /* Number of reads which were marked as duplicates */
-  uint32_t num_duplicate_bases; /* The sum of the length of all reads which were marked as duplicates */
+  uint64_t num_total_bases; /* The sum of the length of all reads in this readgroup */
+  uint64_t num_mapped_bases; /* The total number of mapped bases for all reads in this readgroup that did not have flag 4 (== unmapped) */
+  uint64_t num_total_reads; /* The total number of reads in this readgroup */
+  uint64_t num_mapped_reads; /* The total number of reads in this readgroup that did not have flag 4 (== unmapped) */
+  uint64_t num_mapped_reads_paired_in_sequencing; /* Same as num_mapped_reads, also requiring flag 1 (== reads paired in sequecing) */
+  uint64_t num_mapped_reads_properly_paired; /* Same as num_mapped_reads, also requiring flag 2 (== mapped in a proper pair, inferred during alignment). */
+  uint64_t num_NM_bases; /* The sum of the length of all reads in this readgroup that have a NM tag */
+  uint64_t num_NM_mismatched_bases; /* The sum of the value of the NM tags for all reads in this readgroup */
+  uint64_t sum_quality_mapped_bases; /* Sum of the base qualities for mapped bases for all reads in this readgroup that did not have the flag 4 (== unmapped) */
+  uint64_t num_duplicate_reads; /* Number of reads which were marked as duplicates */
+  uint64_t num_duplicate_bases; /* The sum of the length of all reads which were marked as duplicates */
 
   /* Insert sizes, counts all insert sizes greater than 0 for properly paired reads (requires flag 2) and with a mapping quality greater than 0 */
   khash_t(int16) *insert_sizes; /* key is the insert size, value is the number of occurrences in this read group */
   uint32_t num_insert_sizes; /* The number of reads in this read group meeting the criteria */
-  uint32_t sum_insert_sizes; /* Sum of all valid insert sizes for this read group */
+  uint64_t sum_insert_sizes; /* Sum of all valid insert sizes for this read group */
 
   /* The following are calculated after the entire bam file has been read  */
   uint16_t median_insert_size;
@@ -118,6 +115,7 @@ void *rg_stats_init(bam_header_t *bam_header) {
   kh_destroy(tags, SM_hash);
   kh_destroy(tags, PL_hash);
   kh_destroy(tags, DS_hash);
+  kh_destroy(tags, PU_hash);
   return rg_stats_hash;
 }
 
@@ -348,20 +346,20 @@ void output_rg_stats(void *_rg_stats_hash, char* out_fname, char* bam_basename, 
       fprintf(fp, "\t%s", (rg_stats->platform ? rg_stats->platform : "-"));
       fprintf(fp, "\t%s", (rg_stats->library ? rg_stats->library : "-"));
       fprintf(fp, "\t%s", (rg_stats->platform_unit ? rg_stats->platform_unit : kh_key(rg_stats_hash, k)));
-      fprintf(fp, "\t%d", rg_stats->num_total_bases);
-      fprintf(fp, "\t%d", rg_stats->num_mapped_bases);
-      fprintf(fp, "\t%d", rg_stats->num_total_reads);
-      fprintf(fp, "\t%d", rg_stats->num_mapped_reads);
-      fprintf(fp, "\t%d", rg_stats->num_mapped_reads_paired_in_sequencing);
-      fprintf(fp, "\t%d", rg_stats->num_mapped_reads_properly_paired);
+      fprintf(fp, "\t%llu", rg_stats->num_total_bases);
+      fprintf(fp, "\t%llu", rg_stats->num_mapped_bases);
+      fprintf(fp, "\t%llu", rg_stats->num_total_reads);
+      fprintf(fp, "\t%llu", rg_stats->num_mapped_reads);
+      fprintf(fp, "\t%llu", rg_stats->num_mapped_reads_paired_in_sequencing);
+      fprintf(fp, "\t%llu", rg_stats->num_mapped_reads_properly_paired);
       fprintf(fp, "\t%.2f", rg_stats->percent_mismatched_bases);
       fprintf(fp, "\t%.2f", rg_stats->avg_quality_mapped_bases);
       fprintf(fp, "\t%d", isfinite(rg_stats->mean_insert_size) ? (int) rg_stats->mean_insert_size : 0);
       fprintf(fp, "\t%.2f", rg_stats->insert_size_sd);
       fprintf(fp, "\t%d", rg_stats->median_insert_size);
       fprintf(fp, "\t%d", rg_stats->insert_size_median_abs_dev);
-      fprintf(fp, "\t%d", rg_stats->num_duplicate_reads);
-      fprintf(fp, "\t%d", rg_stats->num_duplicate_bases);
+      fprintf(fp, "\t%llu", rg_stats->num_duplicate_reads);
+      fprintf(fp, "\t%llu", rg_stats->num_duplicate_bases);
       fprintf(fp, "\n");
     }
   fclose(fp);
@@ -402,16 +400,15 @@ char *get_basename(char *full_filename) {
 /* Reads a file and creates a string containing md5
 The calling function will need to free/destroy this string */
 unsigned char * calc_md5(char* filename) {
-  struct stat statbuf;
-  unsigned char *md5, *file_buffer;
+  unsigned char *md5, file_buffer[1024];
+  MD5_CTX md_context;
+  int bytes;
 
-  int inFile = open(filename, O_RDONLY);
-  if (inFile < 0) {
+  FILE *inFile = fopen(filename, "rb");
+  if (inFile == NULL) {
     fprintf(stderr, "Could not open file for reading: %s\n", filename);
     exit(-1);
   }
-
-  fstat(inFile, &statbuf);
 
   md5 = (unsigned char*) malloc(MD5_DIGEST_LENGTH);
   if (md5 == NULL) {
@@ -419,9 +416,13 @@ unsigned char * calc_md5(char* filename) {
     exit(-1);
   }
 
-  file_buffer = (unsigned char*) mmap(0, statbuf.st_size, PROT_READ, MAP_SHARED, inFile, 0);
-  MD5(file_buffer, statbuf.st_size, md5);
-  close(inFile);
+
+  MD5_Init(&md_context);
+  while (bytes = fread (file_buffer, 1, 1024, inFile) != 0)
+    MD5_Update (&md_context, file_buffer, bytes);
+  MD5_Final (md5, &md_context);
+
+  fclose(inFile);
   return md5;
 }
 
@@ -473,6 +474,7 @@ int main(int argc, char *argv[])
   bam_header = bam_header_read(bam);
 
   rg_stats_hash = rg_stats_init(bam_header);
+
 
 
   while (bam_read1(bam, bam_line) > 0) {
