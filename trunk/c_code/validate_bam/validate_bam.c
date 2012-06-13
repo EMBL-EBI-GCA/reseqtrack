@@ -25,13 +25,14 @@ typedef struct
 
   uint64_t num_total_bases; /* The sum of the length of all reads in this readgroup */
   uint64_t num_mapped_bases; /* The total number of mapped bases for all reads in this readgroup that did not have flag 4 (== unmapped) */
+  uint64_t num_bases_in_mapped_reads; /* The total number of bases for all reads in this readgroup that did not have flag 4 (== unmapped) */
   uint64_t num_total_reads; /* The total number of reads in this readgroup */
   uint64_t num_mapped_reads; /* The total number of reads in this readgroup that did not have flag 4 (== unmapped) */
   uint64_t num_mapped_reads_paired_in_sequencing; /* Same as num_mapped_reads, also requiring flag 1 (== reads paired in sequecing) */
   uint64_t num_mapped_reads_properly_paired; /* Same as num_mapped_reads, also requiring flag 2 (== mapped in a proper pair, inferred during alignment). */
   uint64_t num_NM_bases; /* The sum of the length of all reads in this readgroup that have a NM tag */
   uint64_t num_NM_mismatched_bases; /* The sum of the value of the NM tags for all reads in this readgroup */
-  uint64_t sum_quality_mapped_bases; /* Sum of the base qualities for mapped bases for all reads in this readgroup that did not have the flag 4 (== unmapped) */
+  uint64_t sum_quality_mapped_bases; /* Sum of the base qualities for all bases for all reads in this readgroup that did not have the flag 4 (== unmapped) */
   uint64_t num_duplicate_reads; /* Number of reads which were marked as duplicates */
   uint64_t num_duplicate_bases; /* The sum of the length of all reads which were marked as duplicates */
 
@@ -96,6 +97,7 @@ void *rg_stats_init(bam_header_t *bam_header) {
     new_rg_stats->insert_sizes = kh_init(int16);
     new_rg_stats->num_total_bases = 0;
     new_rg_stats->num_mapped_bases = 0;
+    new_rg_stats->num_bases_in_mapped_reads = 0;
     new_rg_stats->num_total_reads = 0;
     new_rg_stats->num_mapped_reads = 0;
     new_rg_stats->num_mapped_reads_paired_in_sequencing = 0;
@@ -144,16 +146,18 @@ void update_stats(rg_stats_t *rg_stats, bam1_t *bam_line) {
     uint8_t i,j;
 
     rg_stats->num_mapped_reads ++;
+    rg_stats->num_bases_in_mapped_reads += bam_line->core.l_qseq;
     for (i=0; i < bam_line->core.n_cigar; i++){
       int op = bam_cigar_op(cigar[i]);
       int oplen = bam_cigar_oplen(cigar[i]);
-      if (op == BAM_CMATCH || op == BAM_CEQUAL || op == BAM_CDIFF) {
+      if (op == BAM_CMATCH || op == BAM_CEQUAL || op == BAM_CDIFF)
         rg_stats->num_mapped_bases += oplen;
+      if (op != BAM_CDEL && op != BAM_CREF_SKIP) {
         for (j=0; j<oplen; j++)
           rg_stats->sum_quality_mapped_bases += qual[j];
-      }
-      if (op != BAM_CDEL && op != BAM_CREF_SKIP)
         qual += oplen;
+      }
+
     }
 
     if (bam_line->core.flag & BAM_FPAIRED)
@@ -305,7 +309,7 @@ void calc_final_rg_stats(void *_rg_stats_hash) {
       rg_stats_t *rg_stats = kh_value(rg_stats_hash, k);
 
       rg_stats->percent_mismatched_bases = 100 * (double) rg_stats->num_NM_mismatched_bases / rg_stats->num_NM_bases;
-      rg_stats->avg_quality_mapped_bases =  (double) rg_stats->sum_quality_mapped_bases / rg_stats->num_mapped_bases;
+      rg_stats->avg_quality_mapped_bases =  (double) rg_stats->sum_quality_mapped_bases / rg_stats->num_bases_in_mapped_reads;
       rg_stats->mean_insert_size =  (double) rg_stats->sum_insert_sizes / rg_stats->num_insert_sizes;
 
       calc_insert_size_sd(rg_stats);
