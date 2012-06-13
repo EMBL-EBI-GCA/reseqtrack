@@ -70,9 +70,9 @@ if($store){
   my $host = get_host_object($host_name, $db);
   my $fa = $db->get_FileAdaptor;
 
-  my @bas = create_objects_from_path_list($bam_validator->output_files, $type_output, $host);
+  my $bas_list = create_objects_from_path_list($bam_validator->output_files, $type_output, $host);
 
-  foreach my $bas (@bas) {
+  foreach my $bas (@$bas_list) {
     $bas->md5( run_md5($bas->name) );
     $fa->store($bas);
   }

@@ -85,10 +85,10 @@ sub run_sampe_alignment {
       $self->run_aln_mode( "mate1" );
     my $mate2_sai =
       $self->run_aln_mode( "mate2" );
-    my $output_sam = $self->working_dir() . '/'
-        . $self->job_name
-        . '_pe.sam';
-    $output_sam =~ s{//}{/};
+    my $output_file = $self->working_dir() . '/'
+        . $self->job_name . '_pe';
+    $output_file .= ($self->output_format eq 'BAM' ? '.bam' : '.sam');
+    $output_file =~ s{//}{/};
 
     my @cmd_words = ("bash -c '");
     push(@cmd_words, $self->program, 'sampe');
@@ -112,15 +112,18 @@ sub run_sampe_alignment {
     push(@cmd_words, $self->reference, $mate1_sai, $mate2_sai);
     push(@cmd_words, $self->get_fastq_cmd_string('mate1'));
     push(@cmd_words, $self->get_fastq_cmd_string('mate2'));
-    push(@cmd_words, '>', $output_sam);
+    if ($self->output_format eq 'BAM') {
+      push(@cmd_words, '|', $self->samtools, 'view -bS -');
+    }
+      push(@cmd_words, '>', $output_file);
     push(@cmd_words, "'");
 
     my $sampe_cmd = join(' ', @cmd_words);
 
-    $self->output_files($output_sam);
+    $self->output_files($output_file);
     $self->execute_command_line($sampe_cmd);
 
-    return $output_sam;
+    return $output_file;
 }
 
 sub run_samse_alignment {
@@ -129,10 +132,10 @@ sub run_samse_alignment {
     my $sai_file =
       $self->run_aln_mode( "frag" );
 
-    my $output_sam = $self->working_dir() . '/'
-        . $self->job_name
-        . '_se.sam';
-    $output_sam =~ s{//}{/};
+    my $output_file = $self->working_dir() . '/'
+        . $self->job_name . '_se';
+    $output_file .= ($self->output_format eq 'BAM' ? '.bam' : '.sam');
+    $output_file =~ s{//}{/};
 
     my @cmd_words = ("bash -c '");
     push(@cmd_words, $self->program, 'samse');
@@ -150,15 +153,19 @@ sub run_samse_alignment {
     }
     push(@cmd_words, $self->reference, $sai_file);
     push(@cmd_words, $self->get_fastq_cmd_string('frag'));
-    push(@cmd_words, '>', $output_sam);
+
+    if ($self->output_format eq 'BAM') {
+      push(@cmd_words, '|', $self->samtools, 'view -bS -');
+    }
+    push(@cmd_words, '>', $output_file);
     push(@cmd_words, "'");
 
     my $samse_cmd = join(' ', @cmd_words);
       
-    $self->output_files($output_sam);
+    $self->output_files($output_file);
     $self->execute_command_line($samse_cmd);
 
-    return $output_sam;
+    return $output_file;
 }
 
 sub run_aln_mode {

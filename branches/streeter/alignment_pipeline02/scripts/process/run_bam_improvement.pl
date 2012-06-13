@@ -35,6 +35,7 @@ my $delete_input;
 my $realign;
 my $recalibrate;
 my $directory_layout;
+my $intervals_file;
 
 &GetOptions( 
   'dbhost=s'      => \$dbhost,
@@ -60,6 +61,7 @@ my $directory_layout;
   'realign!' => \$realign,
   'recalibrate!' => \$recalibrate,
   'directory_layout=s' => \$directory_layout,
+  'intervals_file=s' => \$intervals_file,
     );
 
 throw("must specify one of -realign or -recalibrate, not both or neither")
@@ -123,6 +125,9 @@ my $gatk_object = $gatk_module->new(
                   -options                 => \%options,
                   -known_sites_files      => \@known_sites_vcf,
                   );
+if ($realign) {
+  $gatk_object->intervals_file($intervals_file);
+}
 $gatk_object->run;
 
 if($store){
@@ -232,6 +237,8 @@ The input bam file can be deleted, along with its index file, and this will be r
   -known_sites_vcf, path to a vcf file.  Can be specified multiple times.
   For the Indel Realigner, this contains known indels
   For the Quality Score Recalibrator, this contains known polymorphic sites
+
+  -intervals_file, path to an intervals file, only needed for the Indel Realigner with the knowns_only option set
 
   -samtools, path to samtools executable. This is needed for creating index files
   NB the Samtools class can guess the location of samtools if not specified.

@@ -96,8 +96,9 @@ sub run_postprocess {
     throw( "no baf file\n" )
         if (! $tmp_baf );
 
-    my $output_sam =  $self->working_dir . '/' . $self->job_name. ".sam";
-    $output_sam =~ s{//}{/};
+    my $output_file =  $self->working_dir . '/' . $self->job_name;
+    $output_file .= ($self->output_format eq 'BAM' ? '.bam' : '.sam');
+    $output_file =~ s{//}{/};
 
     my @cmd_words;
     push(@cmd_words, $self->program, 'postprocess');
@@ -123,11 +124,14 @@ sub run_postprocess {
       push(@cmd_words, '-r', $RG_file);
     }
 
-    push(@cmd_words, '>', $output_sam);
+    if ($self->output_format eq 'BAM') {
+      push(@cmd_words, '|', $self->samtools, 'view -bS -');
+    }
+    push(@cmd_words, '>', $output_file);
 
     my $cmd_line = join(' ', @cmd_words);
 
-    $self->output_files($output_sam);
+    $self->output_files($output_file);
     $self->execute_command_line($cmd_line);
 
 }

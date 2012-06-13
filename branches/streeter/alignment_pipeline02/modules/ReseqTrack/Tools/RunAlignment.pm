@@ -26,6 +26,7 @@ use ReseqTrack::Tools::Exception qw(throw warning stack_trace_dump);
 use ReseqTrack::Tools::Argument qw(rearrange);
 use ReseqTrack::Tools::SequenceIndexUtils qw(assign_files);
 use File::Basename qw(fileparse);
+use Env qw( @PATH );
 
 use base qw(ReseqTrack::Tools::RunProgram);
 
@@ -34,6 +35,10 @@ use base qw(ReseqTrack::Tools::RunProgram);
 
   Arg [-reference]   :
       string, path to the reference genome
+  Arg [-samtools]   :
+      string, path to samtools executable, used if output_format is 'BAM'
+  Arg [-output_format]   :
+      string, either 'SAM' (default) or 'BAM'.
   Arg [-mate1_file]   :
       string, optional, path to the mate1 file.
   Arg [-mate2_file]   :
@@ -71,12 +76,12 @@ sub new {
   my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
 
-  my ( $reference,
+  my ( $reference, $samtools, $output_format,
         $mate1_file, $mate2_file, $fragment_file, $paired_length,
         $read_group_fields, $first_read, $last_read,
         )
         = rearrange( [
-             qw( REFERENCE
+             qw( REFERENCE SAMTOOLS OUTPUT_FORMAT
              MATE1_FILE MATE2_FILE FRAGMENT_FILE PAIRED_LENGTH
              READ_GROUP_FIELDS FIRST_READ LAST_READ
              )
@@ -90,6 +95,14 @@ sub new {
   $self->read_group_fields($read_group_fields);
   $self->first_read($first_read);
   $self->last_read($last_read);
+  $self->output_format($output_format || 'SAM');
+
+  if (!$samtools) {
+    if ($ENV{SAMTOOLS}) {
+      $samtools = $ENV{SAMTOOLS} . '/samtools';
+    }
+  }
+  $self->samtools($samtools || 'samtools');
 
   return $self;
 }
@@ -111,6 +124,16 @@ sub run_program {
 
     if (!$self->fragment_file && !$self->mate1_file && !$self->mate2_file) {
       $self->assign_fastq_files;
+    }
+
+    my $output_format = $self->output_format;
+    throw($output_format . " is not a valid output format")
+      if ($output_format ne 'BAM' && $output_format ne 'SAM');
+
+    if ($output_format eq 'BAM' && ! -x $self->samtools) {
+      if ($self->samtools =~ m{/} || ! first {-x $_} map {$_.'/'.$self->samtools} @PATH) {
+        throw "cannot find samtools executable ".$self->samtools;
+      }
     }
 
     $self->run_alignment;
@@ -357,6 +380,22 @@ sub last_read {
         $self->{last_read} = shift;
     }
     return $self->{last_read};
+}
+
+sub samtools {
+    my $self = shift;
+    if (@_) {
+        $self->{samtools} = shift;
+    }
+    return $self->{samtools};
+}
+
+sub output_format {
+    my $self = shift;
+    if (@_) {
+        $self->{output_format} = shift;
+    }
+    return $self->{output_format};
 }
 
 1;

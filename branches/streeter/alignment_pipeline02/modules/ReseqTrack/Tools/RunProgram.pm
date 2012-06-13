@@ -88,9 +88,6 @@ sub new {
              ECHO_CMD_LINE SAVE_FILES_FOR_DELETION )
 		], @args);
 
-  # temp line
-  $save_files_for_deletion = 1;
-
   $self->input_files($input_files);
   $self->program($program);
   $self->job_name($job_name);

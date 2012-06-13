@@ -24,11 +24,13 @@ my $module_path = 'ReseqTrack::Tools::RunAlignment';
 my $module_name;
 my %module_constructor_args;
 my $program_file;
+my $samtools;
 my $host_name = '1000genomes.ebi.ac.uk';
 my $store;
 my $disable_md5;
 my $update;
-my $type_output = 'SAM';
+my $type_output = 'BAM';
+my $output_format = 'BAM';
 my $paired_length;
 my $first_read;
 my $last_read;
@@ -45,12 +47,14 @@ my %options;
   'name=s' => \$name,
   'type_input=s' => \$type_input,
   'type_output=s' => \$type_output,
+  'output_format=s' => \$output_format,
   'output_dir=s' => \$output_dir,
   'reference=s' => \$reference,
   'module_path=s' => \$module_path,
   'module_name=s' => \$module_name,
   'module_constructor_arg=s' => \%module_constructor_args,
   'program_file=s' => \$program_file,
+  'samtools=s' => \$samtools,
   'host_name=s' => \$host_name,
   'store!' => \$store,
   'disable_md5!' => \$disable_md5,
@@ -62,6 +66,10 @@ my %options;
   'directory_layout=s' => \$directory_layout,
   'option=s' => \%options,
     );
+
+$output_format = uc($output_format);
+throw("output format must be SAM or BAM")
+  if ($output_format ne 'BAM' && $output_format ne 'SAM');
 
 my $alignment_module = load_alignment_module($module_path, $module_name);
 my $allowed_options = get_allowed_options($alignment_module);
@@ -107,6 +115,7 @@ if ($name =~ /[ESD]RR\d{6}/) {
     $read_group_fields{'PI'} = $run_meta_info->paired_length;
     $read_group_fields{'SM'} = $run_meta_info->sample_name;
     $read_group_fields{'DS'} = $run_meta_info->study_id;
+    $read_group_fields{'PU'} = $run_meta_info->run_id;
     my $platform = $run_meta_info->instrument_platform;
     $platform =~ s/ABI_SOLID/SOLID/;
     $read_group_fields{'PL'} = $platform;
@@ -126,6 +135,8 @@ while (my ($key, $value) = each %module_constructor_args) {
 }
 $constructor_hash->{-input_files} = \@input_file_paths;
 $constructor_hash->{-program} = $program_file;
+$constructor_hash->{-samtools} = $samtools;
+$constructor_hash->{-output_format} = $output_format;
 $constructor_hash->{-working_dir} = $output_dir;
 $constructor_hash->{-reference} = $reference;
 $constructor_hash->{-job_name} = $name;
@@ -208,6 +219,10 @@ This script runs an alignment using any child class of ReseqTrack::Tools::RunAli
 
   -type_input, type of the collection of fastq files
 
+  -type_output, collection type and file type when storing output files in the database
+
+  -output_format, either 'SAM' or 'BAM'.  Default is 'BAM'.
+
   -output_dir, base directory to hold files that do not need to be merged
 
   -reference, path to the reference fasta file for the aligner
@@ -223,13 +238,14 @@ This script runs an alignment using any child class of ReseqTrack::Tools::RunAli
   -program_file, executable of the alignment program
   NB some of the RunAlignment child classes can guess at its location if it is not specified
 
+  -samtools, samtools executable, needed if output_format is 'BAM'
+  NB the RunAlignment class can guess at its location if it is not specified
+
   -store, boolean flag, to store output files in the database.
 
   -disable_md5, boolean flag, files written to the database will not have an md5
 
   -host_name, default is '1000genomes.ebi.ac.uk', needed for storing output files
-
-  -type_output, collection type and file type when storing output files in the database
 
   -paired_length, integer, insert size passed to the RunAlignment object.
   Will be read from the run_meta_info table if not specified on the command line

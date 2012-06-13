@@ -98,10 +98,10 @@ sub run_se_alignment {
     my $self = shift;
     return if !($self->fragment_file);
 
-    my $sam = $self->working_dir() . '/'
-        . $self->job_name
-        . '_se.sam';
-    $sam =~ s{//}{/};
+    my $output_file = $self->working_dir() . '/'
+        . $self->job_name . '_se';
+    $output_file .= ($self->output_format eq 'BAM' ? '.bam' : '.sam');
+    $output_file =~ s{//}{/};
 
     my @cmd_words = ($self->program);
     push(@cmd_words, '-g', $self->genome_prefix);
@@ -123,12 +123,16 @@ sub run_se_alignment {
       }
       push(@cmd_words, $rg_string);
     }
-    push(@cmd_words, '-o', $sam);
     push(@cmd_words, '-M', $self->get_static_fastq('frag'));
+
+    if ($self->output_format eq 'BAM') {
+      push(@cmd_words, '|', $self->samtools, 'view -bS -');
+    }
+    push(@cmd_words, '>', $output_file);
 
     my $cmd_line = join(' ', @cmd_words);
 
-    $self->sam_files($sam);
+    $self->output_files($output_file);
     $self->execute_command_line($cmd_line);
 
     return;
@@ -138,10 +142,10 @@ sub run_pe_alignment {
     my $self = shift;
     return if (!$self->mate1_file || !$self->mate2_file);
 
-    my $sam = $self->working_dir() . '/'
-        . $self->job_name
-        . '_pe.sam';
-    $sam =~ s{//}{/};
+    my $output_file = $self->working_dir() . '/'
+        . $self->job_name . '_pe';
+    $output_file .= ($self->output_format eq 'BAM' ? '.bam' : '.sam');
+    $output_file =~ s{//}{/};
 
     my @cmd_words = ($self->program);
     push(@cmd_words, '-g', $self->genome_prefix);
@@ -166,12 +170,16 @@ sub run_pe_alignment {
       }
       push(@cmd_words, $rg_string);
     }
-    push(@cmd_words, '-o', $sam);
     push(@cmd_words, '-M', map {$self->get_static_fastq($_)} ('mate1', 'mate2'));
+
+    if ($self->output_format eq 'BAM') {
+      push(@cmd_words, '|', $self->samtools, 'view -bS -');
+    }
+    push(@cmd_words, '>', $output_file);
 
     my $cmd_line = join(' ', @cmd_words);
 
-    $self->sam_files($sam);
+    $self->output_files($output_file);
     $self->execute_command_line($cmd_line);
 
     return;

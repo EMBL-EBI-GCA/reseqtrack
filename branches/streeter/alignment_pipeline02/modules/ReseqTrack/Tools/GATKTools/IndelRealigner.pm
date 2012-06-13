@@ -38,9 +38,9 @@ use ReseqTrack::Tools::FileSystemUtils qw(check_file_exists);
 use base qw(ReseqTrack::Tools::GATKTools);
 
 sub DEFAULT_OPTIONS { return {
-        'threads' => 1,
+        'threads' => 1, # only used for creating target intervals file
         'lod' => 0.4,
-        'model' => 'KNOWNS_ONLY',
+        'knowns_only' => 0,
         };
 }
 
@@ -48,10 +48,14 @@ sub new {
 	my ( $class, @args ) = @_;
 	my $self = $class->SUPER::new(@args);
 
+    my ( $intervals_file,)
+        = rearrange( [ qw( INTERVALS_FILE )], @args);
+
         #setting defaults
         if (!$self->jar_file) {
           $self->jar_file ("GenomeAnalysisTK.jar");
         }
+        $self->intervals_file($intervals_file);
 
 	return $self;
 }
@@ -69,7 +73,13 @@ sub run_program {
         $self->check_bai_exists();
 
 
-	$self->create_target_intervals_file();
+        if ($self->options('knowns_only')) {
+          check_file_exists($self->intervals_file);
+        }
+        else {
+          $self->create_target_intervals_file();
+        }
+
 	$self->create_indel_realign_bam();
 
 	return;
@@ -78,9 +88,9 @@ sub run_program {
 sub create_target_intervals_file {
   my $self = shift;
 
-  my $interval_file = $self->working_dir . '/'
+  my $intervals_file = $self->working_dir . '/'
         . $self->job_name . '.bam.interval_list';
-  $interval_file =~ s{//}{/}g;
+  $intervals_file =~ s{//}{/}g;
 
   my @cmd_words = ($self->java_exe, $self->jvm_args, '-jar');
   push(@cmd_words, $self->gatk_path . '/' . $self->jar_file);
@@ -91,12 +101,15 @@ sub create_target_intervals_file {
     push(@cmd_words, '-known', $vcf);
   }
   push(@cmd_words, '-R', $self->reference);
+
   push(@cmd_words, '-I', $self->input_bam);
-  push(@cmd_words, '-o', $interval_file);
+
+  push(@cmd_words, '-o', $intervals_file);
 
   my $cmd = join(' ', @cmd_words);
 
-  $self->intervals_file($interval_file);
+  $self->intervals_file($intervals_file);
+  $self->created_files($intervals_file);
   $self->execute_command_line ($cmd);
 
   return;
@@ -113,7 +126,7 @@ sub create_indel_realign_bam {
   push(@cmd_words, $self->gatk_path . '/' . $self->jar_file);
   push(@cmd_words, '-T', 'IndelRealigner');
   push(@cmd_words, '-LOD', $self->options('lod')) if ($self->options('lod'));
-  push(@cmd_words, '-model', $self->options('model')) if ($self->options('model'));
+  push(@cmd_words, '-model KNOWNS_ONLY') if ($self->options('knowns_only'));
   push(@cmd_words, '--disable_bam_indexing');
   push(@cmd_words, '--targetIntervals', $self->intervals_file);
 
@@ -139,7 +152,6 @@ sub intervals_file {
 
   if ($arg) {
     $self->{intervals_file} = $arg;
-    $self->created_files($arg);
   }
   return $self->{intervals_file};
 }
