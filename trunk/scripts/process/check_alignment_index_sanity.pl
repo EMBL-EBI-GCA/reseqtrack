@@ -136,6 +136,7 @@ foreach my $collection ( keys %collection_RG) {
 
 	my ($sample, $plat, $mapper, $analysis) = split(/\./, $collection);
 	$plat = "ILLUMINA" if ($plat =~ /illumina/);
+	$plat = "SOLID" if ($plat =~ /solid/ );
 	my $rg_cnt_seq_in = keys %{$col_rg_seq_in{$sample}{$plat}{$analysis}};
 	my $read_cnt_seq_in =  $col_read_cnt_seq_in{$sample}{$plat}{$analysis};
 	my $base_cnt_seq_in = $col_base_cnt_seq_in{$sample}{$plat}{$analysis};
@@ -144,6 +145,9 @@ foreach my $collection ( keys %collection_RG) {
 		
 		print "RG cnt inconsistent: $sample collection $collection has $rg_count RG in BAS "; 
 		print "$rg_cnt_seq_in RG in sequence index\n";
+		
+		print "collection $collection has:\n";
+		print join ("\n", keys %{$collection_files{$collection}}), "\n";
 		
 		my @list_based_on_bas = keys %{$collection_RG{$collection}};
 		my @list_based_on_seq_index = keys %{$col_rg_seq_in{$sample}{$plat}{$analysis}};

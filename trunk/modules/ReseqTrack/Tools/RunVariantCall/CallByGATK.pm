@@ -8,6 +8,7 @@ use ReseqTrack::Tools::Argument qw(rearrange);
 use File::Basename qw(basename fileparse);
 
 use base qw(ReseqTrack::Tools::RunVariantCall);
+use File::Path;
 
 =head2 new
 
@@ -51,7 +52,9 @@ use base qw(ReseqTrack::Tools::RunVariantCall);
   		If provided, we will calculate the SLOD. This argument is not enabled by default because it increases the runtime by an appreciable amount.
   Arg [-alleles]				:
   		The set of alleles at which to genotype when in GENOTYPE_MODE = GENOTYPE_GIVEN_ALLELES. 
-  
+  Arg [-super_pop_name]	:
+      string, default is "unknownPop", used in output file name and collection name
+      
   + Arguments for ReseqTrack::Tools::RunProgram parent class
 
   Please see GATK website for detailed descriptions about the paramenters:
@@ -72,7 +75,9 @@ use base qw(ReseqTrack::Tools::RunVariantCall);
                 -glm					=> 'BOTH',
                 -chrom					=> '1',
                 -region					=> '1-1000000',
-                -output_to_working_dir 	=> 1 );
+                -output_name_prefix		=> "PHASE1",
+                -super_pop_name			=> "ALL"
+                 );
 
 =cut
 
@@ -100,7 +105,8 @@ sub new {
   		$heterozygosity,
   		$group,
   		$annotation,
-  		$alleles)
+  		$alleles,
+  		$super_pop_name)
     = rearrange( [ qw( 	DBSNP 
     					DCOV 
     					COMPUTESLOD 
@@ -121,7 +127,8 @@ sub new {
     					HETEROZYGOSITY 
     					GROUP 
     					ANNOTATION 
-    					ALLELES) ], @args);
+    					ALLELES
+    					SUPER_POP_NAME) ], @args);
   
   my $gatk_path = $self->program;
 
@@ -165,6 +172,8 @@ sub new {
       $self->generate_job_name;
   }
 
+  $self->super_pop_name($super_pop_name);
+  
   return $self;
 }
 
@@ -252,6 +261,24 @@ sub dbSNP {
   return $self->{'dbSNP'};
 }
 
+=head2 super_pop_name
+  Arg [1]   : ReseqTrack::Tools::RunVariantCall::CallByGATK
+  Arg [2]   : string, required, super_pop_name used for calling the variants, can be things like EUR, ALL (for all pop) and unknownPop, it will be 
+			used in output file names
+  Function  : accessor method for super_pop_name
+  Returntype: string
+  Exceptions: n/a
+  Example   : my $super_pop_name = $self->super_pop_name;
+
+=cut
+
+sub super_pop_name {
+  my ($self, $super_pop_name) = @_;
+  if ($super_pop_name) {
+    $self->{'super_pop_name'} = $super_pop_name;
+  }
+  return $self->{'super_pop_name'};
+}
 
 =head2 derive_output_file_name 
 
@@ -265,21 +292,36 @@ sub dbSNP {
 =cut
 
 sub derive_output_file_name {  
-	my ( $self ) = @_;		
-	my $first_bam = basename($self->input_files->[0]);
-	my @tmp = split(/\./, $first_bam);
-	my $first_sample = $tmp[0];
-	my $sample_cnt = @{$self->input_files} - 1;
 	
+	
+	
+	my ( $self ) = @_;		
+
+	my $sample_cnt = @{$self->input_files};
 	my $output_file;
+	my $output_dir_by_chr;
+	my $out_dir = $self->working_dir;
+	$out_dir =~ s/\/$//;
+	
+	if ( $self->chrom ) {
+		$output_dir_by_chr = $out_dir . "/chr" . $self->chrom;
+	}
+	else{
+		$output_dir_by_chr = $out_dir;
+	}	
+	
+	mkpath($output_dir_by_chr) unless (-e $output_dir_by_chr);
+	
 	if ($self->region) {
-		$output_file = $self->working_dir . "/$first_sample" . "_and_" . $sample_cnt . "_others.chr" . $self->chrom . "_" . $self->region . ".gatk.vcf";
+		$output_file = $output_dir_by_chr . "/" . $self->output_name_prefix . "_" . $self->super_pop_name . "_of_" . $sample_cnt . "bams.chr" . $self->chrom . "_" . $self->region . ".gatk.vcf";
+
 	}
 	else {
-		$output_file = $self->working_dir . "/$first_sample" . "_and_" . $sample_cnt . "_others.gatk.vcf";
+		$output_file = $output_dir_by_chr . "/" . $self->output_name_prefix . "_" . $self->super_pop_name . "_of_" . $sample_cnt . "bams.gatk.vcf";
 	}
-	
+
 	return $self->output_files($output_file);
+	
 }	
 
 1;
