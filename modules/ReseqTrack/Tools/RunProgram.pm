@@ -44,6 +44,9 @@ my $num_run_programs = 0;
   Arg [-save_files_for_deletion]   :
       boolean flag, default 0, save temporary files (i.e. do not delete them)
 
+  Arg [-output_name_prefix] :
+  	  string, default is "RESULTS"; it is prefix to be put in output files
+  	  
   Function  : Creates a new ReseqTrack::Tools::RunProgram object 
   Returntype: ReseqTrack::Tools::RunProgram
   Exceptions: 
@@ -53,7 +56,9 @@ my $num_run_programs = 0;
                 -working_dir => '/path/to/dir/',
                 -job_name => "my_job",
                 -echo_cmd_line => 0,
-                -save_files_for_deletion => 0 );
+                -save_files_for_deletion => 0 
+                -output_name_prefix => 'PHASE1'
+                );
 
 =cut
 
@@ -64,10 +69,10 @@ sub new {
 
   #input files, we will allow single file name or list of file names
   my ( $input_files,  $program, $job_name, $working_dir,
-        $echo_cmd_line, $save_files_for_deletion )
+        $echo_cmd_line, $save_files_for_deletion, $output_name_prefix )
     = rearrange( [
          qw( INPUT_FILES PROGRAM JOB_NAME WORKING_DIR
-             ECHO_CMD_LINE SAVE_FILES_FOR_DELETION )
+             ECHO_CMD_LINE SAVE_FILES_FOR_DELETION OUTPUT_NAME_PREFIX)
 		], @args);
 
   if ( ! $working_dir){
@@ -80,6 +85,7 @@ sub new {
   $self->working_dir($working_dir);
   $self->echo_cmd_line($echo_cmd_line);
   $self->save_files_for_deletion($save_files_for_deletion);
+  $self->output_name_prefix($output_name_prefix);
 
   $num_run_programs++;
 
@@ -208,7 +214,12 @@ sub echo_cmd_line {
 sub program {
   my ( $self, $arg ) = @_;
   if ($arg) {
-    check_file_exists($arg);
+    if (-d $arg) {
+	check_directory_exists($arg);
+    }
+    else {
+    	check_file_exists($arg);
+    }
     $self->{'program'} = $arg;
   }
   return $self->{'program'};
@@ -293,6 +304,27 @@ sub working_dir {
   return $self->{'working_dir'};
 }
 
+
+=head2 output_dir
+
+  Arg [1]   : ReseqTrack::Tools::RunProgram
+  Arg [2]   : string, path of output directory
+  Function  : accessor method for output directory
+  Returntype: string
+  Exceptions: n/a
+  Example   : my $output_dir = $self->output_dir;
+
+=cut
+
+sub output_dir {
+  my ( $self, $arg ) = @_;
+  if ($arg) {
+    $self->{'output_dir'} = $arg;
+  }
+  return $self->{'output_dir'};
+}
+
+
 =head2 change_dir
 
   Arg [1]   : ReseqTrack::Tools::RunProgram
@@ -319,6 +351,26 @@ sub change_dir {
   chdir($dir)
     or throw( "Failed to change to $dir");
   return $dir;
+}
+
+
+=head2 output_name_prefix
+
+  Arg [1]   : ReseqTrack::Tools::RunProgram
+  Arg [2]   : string, optional, a prefix to be put in an output file name to identify the results of a particular run
+  Function  : accessor method for output_name_prefix
+  Returntype: strins
+  Exceptions: n/a
+  Example   : $self->output_name_prefix('PHASE1');
+
+=cut
+
+sub output_name_prefix {
+  my ($self, $output_name_prefix) = @_;
+  if ($output_name_prefix) {
+    $self->{'output_name_prefix'} = $output_name_prefix;
+  }
+  return $self->{'output_name_prefix'};
 }
 
 =head2 output_files

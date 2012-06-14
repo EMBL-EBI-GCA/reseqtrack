@@ -461,9 +461,11 @@ sub delete_directory {
 sub delete_file {
     my $file = shift;
 
-    if ( ! -e $file){
-      print "$file does not exist. Skipping delete\n";
-      return 1;
+    if ( ! -e $file ){
+      if ( ! -l $file ) {
+      	print "$file does not exist. Skipping delete\n";
+      	return 1;
+      }
     }
 
     unlink($file)
