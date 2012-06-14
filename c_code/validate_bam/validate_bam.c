@@ -322,7 +322,7 @@ void calc_final_rg_stats(void *_rg_stats_hash) {
 
 
 /* opens a file, writes statistics for all read groups */
-void output_rg_stats(void *_rg_stats_hash, char* out_fname, char* bam_basename, unsigned char* md5) {
+void output_rg_stats(void *_rg_stats_hash, char* out_fname, char* bam_basename, char* md5) {
   khash_t(rg_stats) *rg_stats_hash = (khash_t(rg_stats)*) _rg_stats_hash;
   khiter_t k;
   FILE *fp = fopen(out_fname, "w");
@@ -343,8 +343,7 @@ void output_rg_stats(void *_rg_stats_hash, char* out_fname, char* bam_basename, 
       uint8_t i;
       rg_stats_t *rg_stats = kh_value(rg_stats_hash, k);
       fprintf(fp, "%s\t", bam_basename);
-      for (i=0; i < MD5_DIGEST_LENGTH; i++)
-        fprintf(fp, "%02x", md5[i]);
+      fprintf(fp, "\t%s", md5);
       fprintf(fp, "\t%s", (rg_stats->description ? rg_stats->description : "unknown_study"));
       fprintf(fp, "\t%s", (rg_stats->sample ? rg_stats->sample : "-"));
       fprintf(fp, "\t%s", (rg_stats->platform ? rg_stats->platform : "-"));
@@ -401,10 +400,19 @@ char *get_basename(char *full_filename) {
   return basename;
 }
 
-/* Reads a file and creates a string containing md5
-The calling function will need to free/destroy this string */
-unsigned char * calc_md5(char* filename) {
-  unsigned char *md5, file_buffer[1024];
+void md5_to_str(unsigned char* md5, char* md5_string) {
+  char* current_position = md5_string;
+  int i;
+  for(i=0; i< MD5_DIGEST_LENGTH; i++) {
+    sprintf(current_position, "%02x", md5[i]);
+    current_position += 2;
+  }
+}
+
+/* Reads a file and creates md5
+Writes md5 as a string to md5_string */
+void calc_md5(char* filename, char* md5_string) {
+  unsigned char md5[MD5_DIGEST_LENGTH], file_buffer[1024];
   MD5_CTX md_context;
   int bytes;
 
@@ -414,20 +422,18 @@ unsigned char * calc_md5(char* filename) {
     exit(-1);
   }
 
-  md5 = (unsigned char*) malloc(MD5_DIGEST_LENGTH);
-  if (md5 == NULL) {
-    fprintf(stderr, "Out of memory\n");
-    exit(-1);
-  }
-
-
   MD5_Init(&md_context);
   while (bytes = fread (file_buffer, 1, 1024, inFile) != 0)
     MD5_Update (&md_context, file_buffer, bytes);
   MD5_Final (md5, &md_context);
+  if (fclose(inFile) != 0) {
+    fprintf(stderr,"Could not close file\n");
+    exit(-1);
+  }
 
-  fclose(inFile);
-  return md5;
+  md5_to_str(md5, md5_string);
+
+  return;
 }
 
 int main(int argc, char *argv[])
@@ -437,7 +443,7 @@ int main(int argc, char *argv[])
   char in_mode[5];
   int c;
   char* bam_basename;
-  unsigned char* md5;
+  char md5[33];
   bamFile bam = NULL;
   bam_header_t *bam_header = NULL;
   khash_t(rg_stats) *rg_stats_hash;
@@ -445,13 +451,20 @@ int main(int argc, char *argv[])
 
   strcpy(in_mode, "rb");
 
-  while((c = getopt(argc, argv, "so:")) != -1)
+  while((c = getopt(argc, argv, "so:m:")) != -1)
     switch (c) {
       case 'o':
         out_fname = optarg;
         break;
       case 's':
         strcpy(in_mode, "r");
+        break;
+      case 'm':
+        if (strlen(optarg) != 32) {
+          fprintf(stderr, "invalid md5: %s\n", optarg);
+          exit(-1);
+        }
+        strcpy(md5, optarg);
         break;
       case '?':
         usage();
@@ -468,7 +481,8 @@ int main(int argc, char *argv[])
   }
 
   bam_basename = get_basename(bam_fname);
-  md5 = calc_md5(bam_fname);
+  if (! strlen(md5))
+    calc_md5(bam_fname, md5);
 
   if ((bam = bam_open(bam_fname, in_mode)) == 0)
   {
@@ -503,7 +517,6 @@ int main(int argc, char *argv[])
   rg_stats_destroy(rg_stats_hash);
   bam_header_destroy(bam_header);
   free(bam_basename);
-  free(md5);
 
   return 0;
 }
@@ -511,7 +524,8 @@ int main(int argc, char *argv[])
 
 void usage()
 {
-  printf("usage: validate_bam -o output_file [-s] input_file\n");
+  printf("usage: validate_bam -o output_file [-s] -m md5 input_file\n");
   printf("-s flag means input is in sam format\n");
+  printf("md5 will be calculated if the -m flag is not given\n");
   exit(-1);
 }
