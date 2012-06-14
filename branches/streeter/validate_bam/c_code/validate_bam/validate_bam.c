@@ -483,8 +483,11 @@ int main(int argc, char *argv[])
 
   while (bam_read1(bam, bam_line) > 0) {
     uint8_t *rg_with_type = bam_aux_get(bam_line, "RG");
-    int ret;
-    khiter_t k = kh_put(rg_stats, rg_stats_hash, bam_aux2Z(rg_with_type), &ret);
+    khiter_t k = kh_get(rg_stats, rg_stats_hash, bam_aux2Z(rg_with_type));
+    if (k == kh_end(rg_stats_hash)) {
+      fprintf(stderr, "Unknown read group in bam: %s\n", bam_aux2Z(rg_with_type));
+      exit(-1);
+    }
     rg_stats_t *rg_stats = kh_value(rg_stats_hash, k);
 
     update_stats(rg_stats, bam_line);
