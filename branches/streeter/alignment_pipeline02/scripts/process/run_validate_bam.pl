@@ -23,6 +23,7 @@ my $type_output;
 my $program;
 my $host_name = '1000genomes.ebi.ac.uk';
 my $store;
+my $use_db_md5;
 
 &GetOptions( 
   'dbhost=s'      => \$dbhost,
@@ -36,6 +37,7 @@ my $store;
   'program=s' => \$program,
   'host_name=s' => \$host_name,
   'store!' => \$store,
+  'use_db_md5!' => \$use_db_md5,
     );
 
 my $db = ReseqTrack::DBSQL::DBAdaptor->new(
@@ -63,6 +65,13 @@ my $bam_validator = ReseqTrack::Tools::RunValidateBam->new(
                   -program                 => $program,
                   -job_name                => $name,
                   );
+
+if ($use_db_md5) {
+  my $fa = $db->get_FileAdaptor;
+  foreach my $file (@{$collection->others}) {
+    $bam_validator->md5($file->name, $file->md5);
+  }
+}
 
 $bam_validator->run;
 

@@ -122,7 +122,8 @@ sub run_calmd {
 
       my @cmds;
       push(@cmds, $self->_get_file_to_sorted_bam_cmd($input, 0, 1));
-      if ($self->options('output_sort_status') eq 'n') {
+      my $output_sort_status = $self->options('output_sort_status');
+      if ($output_sort_status && $output_sort_status eq 'n') {
         push(@cmds, $self->_get_calmd_cmd(1));
         push(@cmds, $self->_get_sort_cmd(1));
       }
@@ -344,16 +345,17 @@ sub _get_file_to_sorted_bam_cmd {
     return $self->_get_sam_to_sorted_bam_cmd($file, $name_sort, $uncompressed)
         if ($file =~ /\.sam$/);
 
+    my $input_sort_status = $self->options('input_sort_status');
     return $self->_get_sort_cmd(1, $file)
-        if ($name_sort && $self->options('input_sort_status') ne 'n');
+        if ($name_sort && (!$input_sort_status || $input_sort_status ne 'n'));
 
     return $self->_get_sort_cmd(0, $file)
-        if ($self->options('input_sort_status') ne 'c');
+        if (!$input_sort_status || $input_sort_status ne 'c');
 
     my @cmd_words = ($self->program, 'view', '-hb');
     push(@cmd_words, '-u') if $uncompressed;
     push(@cmd_words, $file);
-    return;
+    return join(' ', @cmd_words);
 }
 
 
