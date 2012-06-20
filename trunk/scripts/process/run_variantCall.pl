@@ -13,11 +13,11 @@ use File::Basename;
 use ReseqTrack::Tools::Loader::File;
 use Time::Local;
 
-### FIXME: gatk doesn't like a chrom_chunk over the contig bounary, 20:63000000-64000000 would fail for gatk as chrom20 has 63025520 
-
 my $start_time = time();
 
 $| = 1;
+
+#### FIXME< chrom X and Y should be treated differently
 
 my (
 	%input, # config file
@@ -82,7 +82,7 @@ GetOptions(
 	'tabix_dir=s',
   	'reference:s',
   	'algorithm=s',
-  	'parameters|options=s',
+  	'parameters=s',
 
   	'chrom_chunk:s',
   	'only_chrom:s',
@@ -194,8 +194,6 @@ if ($chrom_chunk) {
 	throw("chrom_chunk $chrom_chunk does not belong to chromosome specified by -only_chrom $only_chrom") if ($only_chrom && ($chrom ne $only_chrom)); ## "ne" works for both strings and numbers
 }	
 
-#### FIXME< chrom X and Y should be treated differently
-	
 my $db = ReseqTrack::DBSQL::DBAdaptor->new(
   -host   => $dbhost,
   -user   => $dbuser,
@@ -234,7 +232,7 @@ if($file_name_pattern){
   }
 }
 
-my $super_pop_name = "unknownPop"; ## set default
+my $super_pop_name = "unknownSupPop"; ## set default
 if ($super_pop && $bam_type) {
 	my $files = $fa->fetch_by_type($bam_type);
 	throw("No files found with type $bam_type") if (!$files || @$files==0);
@@ -249,11 +247,11 @@ if ($super_pop && $bam_type) {
 		throw("super population input should be 'all' or super_pop_name:string, string is sub pop seperated by ','") if ($super_pop !~ /,|:/); 
 		my $string;
 		($super_pop_name, $string) = split(/:/, $super_pop);
-		my @pops = split(/,/, $string);  #super_pop is a string, led by super_pop name, followed by sub-pop, separated by ','  EUR:IBS,CLM,CEU
+		my @pops = split(/,/, $string);  #super_pop is a string, led by super_pop name, followed by sub-pops separated by ','  EUR:IBS,CLM,CEU
 		foreach my $file(@$files) {
 			next if ( check_file_sanity($file->name, $chrom) eq 'skip' );
 			foreach my $pop ( @pops ) {
-				if ( $file->name =~ /$pop/) {
+				if ( $file->name =~ /$pop/i) {
 				 	push(@bams, $file->name);
 				}	
 			}	
@@ -306,11 +304,7 @@ foreach my $outfile ( @$flt_vcf ) {
 		if ($outfile =~ /vcf$|vcf.gz$/ ) {
 			my $zipped_vcf = bgzip_and_index($outfile, $tabix_dir);
 			$outfile = $zipped_vcf;
-		}				
-		
-		#if  ($outfile =~ /tbi$/) {
-		#	$output_file_type = "INDEX";
-		#}
+		}		
 			
 		my $loader = ReseqTrack::Tools::Loader::File->new
 		  (
@@ -332,7 +326,8 @@ foreach my $outfile ( @$flt_vcf ) {
 		  $file_objects = $loader->load_objects();
 		}
 		
-		### save the VCF file in collection_by_chrom, eventually after many jobs of the event are run, each collection would contain vcf files of different chrom chunks
+		### save the VCF file in collection_by_chrom, 
+		### after many jobs of the event are run, each collection would contain vcf files of different chrom chunks
 		if ($save_collection && $outfile !~ /tbi$/i ) {
 			my $collection_by_chrom_name = $output_name_prefix . "_" . $algorithm . "_$super_pop_name" . "_chr$chrom";
 			if ($outfile =~ /vcf/) {
@@ -348,7 +343,12 @@ foreach my $outfile ( @$flt_vcf ) {
 		
 		print "*********************************************************************************************************************************\n";
 		print "**** Output filtered VCF file path is $outfile\n";
-		print "**** Output filtered VCF file $outfile has been stored in the database\n" if ($store);
+		if ($store) {
+			print "**** Output filtered VCF file $outfile has been stored in the database\n";
+		}
+		else {
+			print "**** Output filtered VCF file path is $outfile; it is NOT stored in the database as -store is not specified\n";
+		}	
 		print "*********************************************************************************************************************************\n";  
 	}	
 	else {
@@ -370,28 +370,23 @@ sub parameters_hash{
   if ($string) {
       
     my @pairs;
-    #if ($string !~ /,/ && $string =~ /=>/ ) {
     if ($string !~ /,/ && $string =~ /:/ ) {
 		push @pairs, $string;
     }       
-    #elsif($string =~  /,/ && $string =~ /=>/){
     elsif($string =~  /,/ && $string =~ /:/){
 		@pairs = split (/,/, $string);
     }          
     else {
-          throw("Please provide both parameter name and value linked by :");
+          throw("Please provide running parameters as name and value separated by ':'  Multiple name and value pairs can be used and should be separated by ',' ");
 	}
 	
 	foreach my $pair(@pairs){
 		my ($key, $value) = split (/:/, $pair);
-          $key   =~ s/^\s+//g;
-          $key   =~ s/\s+$//g;
-          $value =~ s/^\s+//g;
-          $value =~ s/\s+$//g;
-          $key = "-" . $key;
-          $parameters_hash{$key} = $value;
-          print "key is $key, value is $value\n";
-#         validate_input_string($key, $algorithm);		 
+			$key   =~ s/^\s+|\s+$//g;
+          	$value =~ s/^\s+|\s+$//g; 
+          	$key = "-" . $key;
+          	$parameters_hash{$key} = $value;
+          	print "key is $key, value is $value\n";	 
     }#end of foreach pairs
   }# end of if ($string)
   
@@ -532,14 +527,15 @@ sub help_info {
 	output_name_prefix,		A short word you may like to put in the output vcf file and collection name as prefix to identify this round of calling 
 						(example "phase1" or "mouse" or "Tony")
 	store,				To store the output VCF file in the database
-	save_collection,		To store the output file into appropriate collections - collection_by_chrom and collection_by_chr_chunk 
+	save_collection,		To store the output file into appropriate collections 
 	update,				To replace an output VCF file in the database
 	keep_intermediate_file		Do not delete intermediate files
 	
  Variant calling parameters (required):
 	
-	-parameters,			Key and value pairs to pass options to different variant calling algorithms. Options are different for each algorithm:
-	-options,			same as -parameters
+	parameters,			Key and value pairs to pass options to different variant calling algorithms. Options are different for different callers.  Key and value are separated by ':'; if there are multiple key and value pairs, they 
+should be separated by ','  The pipeline does not check for the accuracy of the input parameter keys so take extra caution to use the precise string as defined by different callers.  
+Below lists the options we have implemented for each caller to take now. Please let us know if you want additional input parameters to be implemented.
 
 		Samtools:
 		
@@ -626,25 +622,28 @@ sub help_info {
 	
 	Output file name contains the following elements:
 	a user-specified prefix (such as PHASE1, TEST, TONY), default is RESULTS 
-	a super population name such as EUR or ALL taken from -super_pop option, if this option not available, default is unknownPop;
+	a super population name such as EUR or ALL taken from -super_pop option, if this option not available, default is unknownSupPop;
 	number of BAMs used for calling
 	chromosomal region if specified
 	algorithm name
 	
 	Below is a few examples of VCF files:
-	TEST_unknownPop_of_1bams.chr10_1000000-2000000.samtools.flt.vcf.gz
-	RESULTS_unknownPop_of_1bams.chr10_10000000-10500000.gatk.vcf.gz
+	TEST_unknownSupPop_of_1bams.chr10_1000000-2000000.samtools.flt.vcf.gz
+	RESULTS_unknownSupPop_of_1bams.chr10_10000000-10500000.gatk.vcf.gz
 	
-	Output for UMAKE is defined by UMAKE itself and is more complex. They are organized in different directories specified in section "RELATIVE DIRECTORY UNDER OUT_DIR" 
-	of the configuration file and separated into different chromosomes. Please browse the output dir for useful outputs.
-	For --snpcall, the VCF file can be found under the 'vcfs/chrx' folder.
+	Output for UMAKE is defined by UMAKE itself; it contains lots of intermediate files organized in diffrent sub-directories specified 
+	in section "RELATIVE DIRECTORY UNDER OUT_DIR" of the configuration file and separated into different chromosomes. For --snpcall, the 
+	most useful output is chrN.filtered.vcf.gz file under vcfs/chrN; to distinguish vcf files generated by different chromosome chunks,
+	we rename the file to include chromosome chunk info, such as in chr20.1000000-2000000.filtered.vcf.gz. When keep_intermediate_file is et to '0', 
+	all but the filtered.vcf.gz will be kept. 
 	
 	The script run_variantCall.pl will print the path to the most relevant output file when a run is done.  Output VCF files will be stored 
-	in the database as type "DCC_VCF" if option '-store' is specified. They will also be stored in specific collections of type "DCC_VCF" if -save_collection is specified
+	in the database as type "DCC_VCF" if option '-store' is specified. They will also be stored in specific collections of type "DCC_VCF" 
+	if -save_collection is specified.
 
 =head1 EXAMPLE COMMAND LINE
 
-perl $ZHENG_RT/scripts/process/run_variantCall.v3.pl \
+perl $ZHENG_RT/scripts/process/run_variantCall.pl \
 -cfg_file /nfs/1000g-work/G1K/work/zheng/snp_calling/samtools.cfg -chrom_chunk 20:5000000-5500000 -save_collection
 
 

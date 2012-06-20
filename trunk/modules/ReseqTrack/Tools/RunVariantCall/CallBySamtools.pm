@@ -388,6 +388,8 @@ and with ploidy 1 for chrY and non-pseudosomal regions of male chrX
 (1-60000 and 2699521-154931043). Ploidy can be set as an additional
 column to -s option of bcftools view, the accepted values are 1 or 2.
 
+For exome studies, extract on-target sites at the end using a tabix command (see mpileup web site use case example)
+
 =cut
 
 

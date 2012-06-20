@@ -352,4 +352,24 @@ When run, the module will generate java command like below:
 -stand_emit_conf 10.0  &
 
 
+#About setting -dcov:
+
+It recommend that -dcov is 10 times of average coverage in the samples;  if setting -dcov as 50 in running UnifiedGenotyper, 
+then all positions with a coverage over 50 will be downsampled? And for these positions, only 50 mapped reads will be used for variant calling.
+
+For exomes, a straight DP filter shouldn't be used because the relationship between misalignments and depth isn't clear for capture data.
+
+By default the Unified Genotyper downsamples each sample's coverage to no more than 250x (so there will be at most 250 * number_of_samples reads at 
+a site). Unless there is a good reason for wanting to change this value, we suggest using this default value especially for exome processing; allowing 
+too much coverage will require a lot more memory to run. When running on projects with many samples at low coverage (e.g. 1000 Genomes with 4x 
+coverage per sample) we usually lower this value to about 10 times the average coverage: '-dcov 40'.
+
+## About exome studies
+
+All calls made by unified genotyper are to be filtered by VQSR to remove large number of false positives. It is in this filtering step, on-target exome variants 
+are selected (adding    --maxGaussians 6 ???)  Cannot find a argument to take bed files.  Anyway look into the Best Practise section for more details:
+
+  http://www.broadinstitute.org/gsa/wiki/index.php/Best_Practice_Variant_Detection_with_the_GATK_v3#Whole_Exome_experiments
+
+
 
