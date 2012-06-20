@@ -137,7 +137,8 @@ my $bas_basename = $bam_basename . ".bas";
 ######################################################################################################
 ### Create BAS file if there isn't one in the db and in the dropbox and load it into the database. ###
 ######################################################################################################
-if (!$bas ) {  
+if (!$bas  ) {  
+#if (!$bas && $file_type !~ /NCBI/i ) {  
 	my $bas_base = $fa->fetch_by_filename($bas_basename);
 	my $found_bas_path;
 	
@@ -303,12 +304,12 @@ elsif ( $bas && check_this_md5($bas) == 1  ) { ## No need to do md5check for bas
 }
 else {
 	#print "The BAM file $bam and associated bas and bai files passed md5 check\n" if ($verbose);
-	#if ($bas) {
+	if ($bas) {
 		print LIST "$bam\n$bas_name\n$bai_name\n";
-	#}
-	#else {
-	#	print LIST "$bam\n$bai_name\n";
-	#}
+	}
+	else {
+		print LIST "$bam\n$bai_name\n";
+	}
 	close(LIST);
 
 	my $action_string = "archive";

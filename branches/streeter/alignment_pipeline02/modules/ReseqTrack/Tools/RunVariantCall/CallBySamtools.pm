@@ -8,6 +8,7 @@ use ReseqTrack::Tools::Argument qw(rearrange);
 use File::Basename qw(basename fileparse);
 
 use base qw(ReseqTrack::Tools::RunVariantCall);
+use File::Path;
 
 =head2 new
 
@@ -23,7 +24,9 @@ use base qw(ReseqTrack::Tools::RunVariantCall);
       Here is a list of options: bcftools view [-AbFGNQSucgv] [-D seqDict] [-l listLoci] [-i gapSNPratio] [-t mutRate] [-p varThres] [-P prior] [-1 nGroup1] [-d minFrac] [-U nPerm] [-X permThres] [-T trioType] 
   Arg [-vcfutils]   :
       string, command line options to use with "vcfutils.pl"
-
+  Arg [-super_pop_name]	:
+      string, default is "unknownPop", used in output file name and collection name
+      
   + Arguments for ReseqTrack::Tools::RunProgram parent class
 
   Function  : Creates a new ReseqTrack::Tools::RunVariantCall::CallBySamtools object.
@@ -32,7 +35,7 @@ use base qw(ReseqTrack::Tools::RunVariantCall);
   Example   : my $varCall_bySamtools = ReseqTrack::Tools::RunVariantCall::CallBySamtools->new(
                 -input_files 			=> ['/path/sam1', '/path/sam2'],
                 -program 				=> "/path/to/samtools",
-                -working_dir 			=> '/path/to/dir/',
+                -working_dir 			=> '/path/to/dir/',  ## this is working dir and output dir
                 -bcftools_path 			=> '/path/to/bcftools/',
                 -vcfutils_path 			=> '/path/to/vcfutils.pl/',
                 -reference				=> '/path/to/ref/',
@@ -41,7 +44,9 @@ use base qw(ReseqTrack::Tools::RunVariantCall);
                 -vcfutils 				=> '-D 100',
                 -chrom					=> '1',
                 -region					=> '1-1000000',
-                -output_to_working_dir 	=> 1 );
+                -output_name_prefix		=> PHASE1,
+                -super_pop_name			=> EUR (or all)
+                );
 
 =cut
 
@@ -53,13 +58,15 @@ sub new {
   		$vcfutils_path, 
   		$mpileup, 
   		$bcfview, 
-  		$vcfutils)
+  		$vcfutils,
+  		$super_pop_name)
     = rearrange( [
          qw( 	BCFTOOLS_PATH 
          		VCFUTILS_PATH 
          		MPILEUP 
          		BCFVIEW 
-         		VCFUTILS)
+         		VCFUTILS
+         		SUPER_POP_NAME )
 		], @args);	
   
   ## Set defaults
@@ -104,6 +111,8 @@ sub new {
   $self->options('mpileup', $mpileup);
   $self->options('bcfview', $bcfview);
   $self->options('vcfutils', $vcfutils); 
+  
+  $self->super_pop_name($super_pop_name);
   
   if (! $self->job_name) {
       $self->generate_job_name;
@@ -290,10 +299,31 @@ sub vcfutils_path {
 }
 
 
+=head2 super_pop_name
+  Arg [1]   : ReseqTrack::Tools::RunVariantCall::CallBySamtools
+  Arg [2]   : string, required, super_pop_name used for calling the variants, can be things like EUR, ALL (for all pop) and unknownPop, it will be 
+			used in output file names
+  Function  : accessor method for super_pop_name
+  Returntype: string
+  Exceptions: n/a
+  Example   : my $super_pop_name = $self->super_pop_name;
+
+=cut
+
+sub super_pop_name {
+  my ($self, $super_pop_name) = @_;
+  if ($super_pop_name) {
+    $self->{'super_pop_name'} = $super_pop_name;
+  }
+  return $self->{'super_pop_name'};
+}
+
+
 =head2 derive_output_file_name 
 
   Arg [1]   : ReseqTrack::Tools::RunVariantCall::CallBySamtools object
-  Function  : create an output VCF name based on input file information
+  Function  : create an output VCF name based on input file information; If chromosome is specified, 
+  put the output file in a sub-directory called "chrN"; to reduce number of files in the output directory
   Returntype: file path
   Exceptions: 
   Example   : my $output_file = $self->derive_output_file_name->[0];
@@ -303,19 +333,29 @@ sub vcfutils_path {
 
 sub derive_output_file_name {  
 	my ( $self ) = @_;		
-	my $first_bam = basename($self->input_files->[0]);
-	my @tmp = split(/\./, $first_bam);
-	my $first_sample = $tmp[0];
-	my $sample_cnt = @{$self->input_files} - 1;
-	
+
+	my $sample_cnt = @{$self->input_files};
 	my $output_file;
 
-
+	my $output_dir_by_chr;
+	my $out_dir = $self->working_dir;
+	$out_dir =~ s/\/$//;
+	
+	if ( $self->chrom ) {
+		$output_dir_by_chr = $out_dir . "/chr" . $self->chrom;
+	}
+	else{
+		$output_dir_by_chr = $out_dir;
+	}	
+	
+	mkpath($output_dir_by_chr) unless (-e $output_dir_by_chr);
+	
 	if ($self->region) {
-		$output_file = $self->working_dir . "/$first_sample" . "_and_" . $sample_cnt . "_others.chr" . $self->chrom . "_" . $self->region . ".samtools.flt.vcf";
+		$output_file = $output_dir_by_chr . "/" . $self->output_name_prefix . "_" . $self->super_pop_name . "_of_" . $sample_cnt . "bams.chr" . $self->chrom . "_" . $self->region . ".samtools.flt.vcf";
+
 	}
 	else {
-		$output_file = $self->working_dir . "/$first_sample" . "_and_" . $sample_cnt . "_others.samtools.flt.vcf";
+		$output_file = $output_dir_by_chr . "/" . $self->output_name_prefix . "_" . $self->super_pop_name . "_of_" . $sample_cnt . "bams.samtools.flt.vcf";
 	}
 
 	return $self->output_files($output_file);
@@ -347,6 +387,8 @@ bcftools view -p 0.99
 and with ploidy 1 for chrY and non-pseudosomal regions of male chrX
 (1-60000 and 2699521-154931043). Ploidy can be set as an additional
 column to -s option of bcftools view, the accepted values are 1 or 2.
+
+For exome studies, extract on-target sites at the end using a tabix command (see mpileup web site use case example)
 
 =cut
 

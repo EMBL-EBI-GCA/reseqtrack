@@ -162,10 +162,10 @@ foreach my $host ( @$remote_hosts ) {
 		if ($file->type =~ /BAM/ || $file->type =~ /BAI/ || $file->type =~ /BAS/) {
 			if ( $file_name && -e $file_name) {
 				my $size = -s $file_name;
-				if ( $size != $size_in_db && ( ( -M $file_name ) > 29) ) {	# if the file size is different from what is the db 
-																			# and the file has been 30 days or more old 
+				if ( $size != $size_in_db && ( ( -M $file_name ) > 99) ) {	# if the file size is different from what is the db 
+																			# and the file has been 100 days or more old 
 					$fail_flag = 1;
-					write_log($file, $loga, "PRE-PROCESSING: uploading failed? file in dropbox has different size as the one in db (dropbox $size, db $size_in_db) after 30 days");
+					write_log($file, $loga, "PRE-PROCESSING: uploading failed? file in dropbox has different size as the one in db (dropbox $size, db $size_in_db) after 100 days");
 					move_bam_to_trash($db, $file, $file_name, $run);
 				}
 				elsif ( $size == 0 && $size_in_db == 0) {

@@ -448,6 +448,13 @@ sub delete_file {
     throw ("no file name") if (!$file);
     print "Deleting $file\n" if ($verbose);
 
+    if ( ! -e $file ){
+      if ( ! -l $file ) {
+      	print "$file does not exist. Skipping delete\n";
+      	return 1;
+      }
+    }
+
     unlink($file)
         or throw( "file not deleted: $file $!");
 
