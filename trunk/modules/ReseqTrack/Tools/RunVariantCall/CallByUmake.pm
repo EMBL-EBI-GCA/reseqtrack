@@ -234,17 +234,18 @@ sub print_config_file {
 ## using tabix\
 ## Always set OFFSET_OFF_TARGET = 0 as this is no longer used as EXOME options)\
 ###############################################################################\n";	
-=head	
+
 	print CONFIG $fixed_text2;
 
-	print CONFIG "WRITE_TARGET_LOCI = TRUE\n"; # FOR TARGETED SEQUENCING ONLY -- Write loci file when performing pileup
-	print CONFIG "UNIFORM_TARGET_BED = " . $self->print_target_bed($self->chrom, $self->region) . "\n" if ($self->chrom); #path for target bed file
-	print CONFIG "OFFSET_OFF_TARGET = " . $self->options('offset_off_target') . "\n" if ($self->options('offset_off_target') ); # Extend target by given # of bases
-	print CONFIG "MULTIPLE_TARGET_MAP = \n"; # Target per individual : Each line contains [SM_ID] [TARGET_BED]
-	print CONFIG "TARGET_DIR = target\n"; # Directory to store target information
-	print CONFIG "SAMTOOLS_VIEW_TARGET_ONLY = TRUE\n";  # When performing samtools view, exclude off-target regions (may make command line too long)
-=cut
-####FIXME, un comment the above lines after run as whole chrom20
+	if ($self->region) { 
+		print CONFIG "WRITE_TARGET_LOCI = TRUE\n"; # FOR TARGETED SEQUENCING ONLY -- Write loci file when performing pileup
+		print CONFIG "UNIFORM_TARGET_BED = " . $self->print_target_bed($self->chrom, $self->region) . "\n" if ($self->chrom); #path for target bed file
+		print CONFIG "OFFSET_OFF_TARGET = " . $self->options('offset_off_target') . "\n" if ($self->options('offset_off_target') ); # Extend target by given # of bases
+		print CONFIG "MULTIPLE_TARGET_MAP = \n"; # Target per individual : Each line contains [SM_ID] [TARGET_BED]
+		print CONFIG "TARGET_DIR = target\n"; # Directory to store target information
+		print CONFIG "SAMTOOLS_VIEW_TARGET_ONLY = TRUE\n";  # When performing samtools view, exclude off-target regions (may make command line too long)
+	}
+
 	my $fixed_text3 = 
 "#\
 ###############################################################################\
