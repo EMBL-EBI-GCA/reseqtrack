@@ -12,6 +12,8 @@ use File::stat;
 use File::Path;
 use File::Temp qw/ tempfile tempdir /;
 use Time::localtime;
+use List::Util qw (first);
+use Env qw( @PATH );
 
 use vars qw (@ISA  @EXPORT);
 
@@ -29,7 +31,9 @@ use vars qw (@ISA  @EXPORT);
   delete_directory
   delete_file
   check_file_exists
+  check_file_does_not_exist
   check_directory_exists
+  check_executable
   make_directory
   create_tmp_process_dir  );
 
@@ -422,30 +426,13 @@ sub dump_dirtree_summary{
 =cut
 
 sub delete_directory {
-    my $dir = shift;
+  my ($dir, $verbose) = @_;
 
-    #remove directory contents first
-    opendir (my $dir_handle, $dir)
-        or throw("could not open $dir: $!");
-    my @files = grep !/^\.\.?$/, readdir($dir_handle);
-    foreach my $file (@files) {
-        $file = $dir . "/" . $file;
-        $file =~ s{//}{/};
-
-        if (-d $file){
-            delete_directory($file);
-        }
-        else {
-            delete_file($file);
-        }
-
-    }
-
-    rmdir($dir)
-        or throw( "directory not deleted: $dir $!");
-
-    return 1;
-
+  eval { rmtree($dir, $verbose)};
+  if ($@) {
+      throw ($@);
+  }
+  return 1;
 }
 
 =head2 delete_file
@@ -459,7 +446,10 @@ sub delete_directory {
 =cut
 
 sub delete_file {
-    my $file = shift;
+    my ($file, $verbose) = @_;
+
+    throw ("no file name") if (!$file);
+    print "Deleting $file\n" if ($verbose);
 
     if ( ! -e $file ){
       if ( ! -l $file ) {
@@ -479,18 +469,19 @@ sub delete_file {
   Arg [1]   : path to directory
   Function  : checks that the directory exists
   Returntype: 0/1 
-  Exceptions: throws if directory does not exist
+  Exceptions: throws if directory cannot be created
   Example   : check_directory_exists('/path/to/directory');
 
 =cut
 
 sub check_directory_exists {
   my $dir = shift;
- 
- throw( "$dir is a file, not a directory") if ( -e $dir && ! -d $dir );
- throw( "$dir does not exist")     if ( !-e $dir );
- if ( !( $dir =~ /^\// ) && -e $dir){
-  warn "Not full path to $dir. But it exists";
+
+  return 1 if (-d $dir);
+
+  eval { mkpath($dir, 0, 0775)};
+  if ($@) {
+      throw ($@);
   }
   return 1;
 }
@@ -510,8 +501,53 @@ sub check_file_exists {
  
  throw( "$file is a directory, not a file") if ( -d $file );
  throw( "$file does not exist")     if ( !-e $file );
- if ( !( $file =~ /^\// ) && -e $file){
+ if ( !( $file =~ /^\// ) ){
   warn "Not full path to $file. But it exists";
+  }
+  return 1;
+}
+
+=head2 check_file_does_not_exist
+
+  Arg [1]   : path to file
+  Function  : checks that the file does not exist
+  Returntype: 0/1 
+  Exceptions: throws if file exists.
+  Example   : check_file_does_not_exist('/path/to/file');
+
+=cut
+
+sub check_file_does_not_exist {
+  my $file = shift;
+
+  throw("$file already exists") if (-e $file);
+ 
+  if ( !( $file =~ /^\// ) ){
+    warn "Not full path to $file. But it does not exist";
+  }
+  return 1;
+}
+
+=head2 check_executable
+
+  Arg [1]   : path to file, or name of executable in path
+  Function  : checks that the file is an executable
+  Returntype: 0/1 
+  Exceptions: throws if file is not an executable
+  Example   : check_file_exists('/path/to/executable');
+  Example   : check_file_exists('executable_in_path');
+
+=cut
+
+sub check_executable {
+  my $executable = shift;
+
+  if ($executable =~ m{/}) {
+    throw "executable does not exist: $executable" if (! -e $executable);
+    throw "executable is not executable: $executable" if (! -x $executable);
+  }
+  elsif (! first {-x $_} map {$_.'/'.$executable} @PATH) {
+      throw "cannot find executable in path: $executable";
   }
   return 1;
 }

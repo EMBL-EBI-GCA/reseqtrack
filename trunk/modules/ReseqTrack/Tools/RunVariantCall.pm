@@ -23,11 +23,11 @@ use base qw(ReseqTrack::Tools::RunProgram);
   Returntype: ReseqTrack::Tools::RunVariantCall
   Exceptions: 
   Example   : my $run_varCall = ReseqTrack::Tools::RunVariantCall->new(
-                -program 		=> "variant call program name or path",
-                -working_dir 	=> '/path/to/dir/',
-                -reference 		=> '/path/to/ref.fa',
-				-chrom			=> 20,
-				-region			=> 1000000-2000000 );
+                -program         => "variant call program name or path",
+                -working_dir     => '/path/to/dir/',
+                -reference         => '/path/to/ref.fa',
+                -chrom            => 20,
+                -region            => 1000000-2000000 );
 
 =cut
 
@@ -44,6 +44,13 @@ sub new {
 
   return $self;
 }
+
+sub generate_job_name {
+    my $self = shift;
+    my $job_name = $self->chrom .'.'. $self->region;
+    return $self->job_name($job_name);
+}
+
 
 =head2 reference
 
@@ -76,7 +83,7 @@ sub reference {
 =cut
 
 sub chrom {
-	my ($self, $chr) = @_;
+    my ($self, $chr) = @_;
     if ($chr) {
         $self->{'chrom'} = $chr;
     }
@@ -96,14 +103,14 @@ sub chrom {
 =cut
 
 sub region {
-	my ($self, $region) = @_;
+    my ($self, $region) = @_;
     if ($region) {
         $self->{'region'} = $region;
     }
     return $self->{'region'};
 }
 
-=head2 run
+=head2 run_program
 
   Arg [1]   : ReseqTrack::Tools::RunVariantCall
   Function  : each child object should implement a run method
@@ -113,14 +120,14 @@ sub region {
 
 =cut
 
-sub run {
+sub run_program {
   my ($self) = @_;
   throw(  $self
-          . " must implement a run method as ReseqTrack::Tools::RunVariantCall "
+          . " must implement a run_program method as ReseqTrack::Tools::RunVariantCall "
           . "does not provide one" );
 }
 
-=head2 options							
+=head2 options                            
 
   Arg [1]   : ReseqTrack::Tools::CallBySamtools or CallByUmake or CallByGATK
   Arg [2]   : string, name of key e.g. "mpileup" 
@@ -160,12 +167,12 @@ sub options {
 =cut
 
 sub intermediate_output_file { ### FIXME: should this be an array?
-	my ($self, $file) = @_;
-	if ($file) {
-		$self->{'intermediate_output_file'} = $file;
-	}
-	return 	$self->{'intermediate_output_file'};
-}	
+    my ($self, $file) = @_;
+    if ($file) {
+        $self->{'intermediate_output_file'} = $file;
+    }
+    return     $self->{'intermediate_output_file'};
+}    
 
 
 1;

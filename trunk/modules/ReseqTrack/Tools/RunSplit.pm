@@ -22,6 +22,7 @@ use warnings;
 use ReseqTrack::Tools::Exception qw(throw);
 use ReseqTrack::Tools::Argument qw(rearrange);
 use File::Basename qw(fileparse);
+use File::Copy qw (move);
 
 use base qw(ReseqTrack::Tools::RunProgram);
 
@@ -86,57 +87,50 @@ sub new {
 
 =cut
 
-sub run{
+sub run_program{
     my ($self) = @_;
 
-    $self->change_dir();
-    my $dir = $self->working_dir();
+    foreach my $file(@{$self->input_files}){
+      throw ("must have a non-zero line count for $file") if (!$self->line_count($file));
+    }
 
     foreach my $file(@{$self->input_files}){
       my ($basename, $input_dir, $suffix) = fileparse($file, qr/\.[^\/]+/);
-      my $output_prefix = $dir . '/' . $basename . '.';
-      $output_prefix =~ s{//}{/};
       $suffix =~ s/\.gz$//;
 
-      my $line_count = $self->line_count($file);
+      my $tmp_dir = $self->get_temp_dir;
+      my $output_prefix = $tmp_dir . '/' . $basename . '.';
+      $output_prefix =~ s{//}{/}g;
 
-      if ($line_count) {
-        my $cmd_line = $self->program();
-        $cmd_line .= " -n $line_count ";
-        $cmd_line .= "-p $output_prefix ";
-        $cmd_line .= "-s $suffix ";
-        $cmd_line .= "-a ".$self->label_length." " if ($self->label_length);
-        $cmd_line .= $file;
+      my $cmd_line = $self->program();
+      $cmd_line .= " -n " . $self->line_count($file);
+      $cmd_line .= " -p $output_prefix ";
+      $cmd_line .= "-s $suffix ";
+      $cmd_line .= "-a ".$self->label_length." " if ($self->label_length);
+      $cmd_line .= $file;
 
-        $self->execute_command_line($cmd_line);
+      $self->execute_command_line($cmd_line);
 
-        opendir(my $DIR, $dir) or die "can't open $dir: $!";
-        my @dir_files = readdir($DIR);
-        closedir $DIR;
-        DIR_FILE:
-        foreach my $dir_file (@dir_files) {
-          next DIR_FILE if (!($dir_file =~ /$basename\.(\d+)$suffix\.gz/));
-          my $label = $1;
-          my $dir_file = $dir . '/' . $dir_file;
-          $dir_file =~ s{//}{/};
+      opendir(my $DIR, $tmp_dir) or die "can't open $tmp_dir: $!";
+      my @dir_files = readdir($DIR);
+      closedir $DIR;
+      DIR_FILE:
+      foreach my $dir_file (@dir_files) {
+        next DIR_FILE if (!($dir_file =~ /$basename\.(\d+)$suffix\.gz/));
+        my $label = $1;
+        my $dir_filepath = $tmp_dir . '/' . $dir_file;
+        my $target_filepath = $self->working_dir . '/' . $dir_file;
+        $dir_filepath =~ s{//}{/}g;
+        $target_filepath =~ s{//}{/}g;
 
-          $self->output_file_hash($file, $label, $dir_file);
-          $self->output_files($dir_file);
-        }
+        $self->output_file_hash($file, $label, $target_filepath);
+        $self->output_files($target_filepath);
+        print "moving $dir_filepath to $target_filepath\n";
+        move($dir_filepath, $target_filepath)
+              or throw "move failed: $!";
+      }
         
-      }
-      else {
-        my $output_file = $output_prefix . "1" . $suffix . ".gz";
-        my $cmd_line = ($file =~ /\.gz$/)
-              ? "cp -f $file $output_file"
-              : "gzip -c $file > $output_file";
-        $self->execute_command_line($cmd_line);
-        $self->output_files($output_file);
-        $self->output_file_hash($file, 1, $output_file);
-      }
-
     }
-
 }
 
 

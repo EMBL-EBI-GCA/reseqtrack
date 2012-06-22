@@ -159,13 +159,19 @@ if ($help) {
 	help_info();
 }
 
-=head
+
+=begin comment
+
 print "chr chunk is $chrom_chunk\n";
 print "output dir is $output_dir\n";
 print "algorithm is $algorithm\n"; 
 print "super_pop is $super_pop\ttype is $bam_type\n";
 print "parameters are $parameters\n";
+
+=end comment
+
 =cut
+
 
 if ( !$algorithm || $algorithm !~ /samtools|umake|gatk/i ) {
 	throw("Please provide snp calling algorithm you wish to use, can be samtools, gatk, or umake\n");
@@ -450,7 +456,7 @@ sub bgzip_and_index {
 	}
 	else {
 		$zip_vcf = $vcf;
-	}	
+	}
 	
 	eval {
 		`$tabix -p vcf $zip_vcf`;

@@ -301,7 +301,7 @@ while(1){
         print "reached submission limit so exiting loop\n";
         last LOOP;
     }
-    if (check_if_done($db, $retry_max) && !$submitted_count) {
+    if (!$submitted_count && check_if_done($db, $retry_max)) {
         print "pipeline complete so exiting loop\n";
         last LOOP;
     }
