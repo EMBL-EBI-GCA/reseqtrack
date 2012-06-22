@@ -15,34 +15,47 @@ It is a sub class of a ReseqTrack::Tools::RunProgram.
 =cut
 
 package ReseqTrack::Tools::RunPicard;
-use Data::Dumper;
 use strict;
 use warnings;
 
 use ReseqTrack::Tools::Exception qw(throw);
 use ReseqTrack::Tools::Argument qw(rearrange);
+use ReseqTrack::Tools::FileSystemUtils qw(check_executable);
 use File::Basename qw(fileparse);
+use File::Copy qw (move);
 
 use base qw(ReseqTrack::Tools::RunProgram);
+
+=head2 DEFAULT_OPTIONS
+
+  Function  : Called by the RunProgram parent object in constructor
+  Returntype: hashref
+  Example   : my %options = %{&ReseqTrack::Tools:RunPicard::DEFAULT_OPTIONS};
+
+=cut
+
+sub DEFAULT_OPTIONS { return {
+        'assume_sorted' => undef, # assume input files are sorted, even if header says otherwise
+        'sort_order' => 'coordinate', # can be 'coordinate' or 'queryname'
+        'index_ext' => '.bam.bai', #can be '.bai' or '.bam.bai'
+        'verbosity' => 'INFO',
+        'max_records_in_ram' => 500000,
+        'remove_duplicates' => 0, # used by run_mark_duplicates
+        'use_threading' => 0, # used by merge
+        'validation_stringency' => undef,
+        };
+}
 
 =head2 new
 
   Arg [-picard_dir]   :
       string, directory containing picard jar files
-  Arg [-program]   :
-      string, the java executable
+  Arg [-java_exe]   :
+      string, the java executable, default is 'java'
   Arg [-jvm_options]   :
-      string, options for java, default is '-Xmx2g'
-  Arg [-options]   :
-      string, options for the picard jar file
-  Arg [-tmp_dir]   :
-      string, path of tmp_dir for picard, default is working_dir
-  Arg [-index_bai]   :
-      boolean, flag to produce an index file with suffix .bai
-  Arg [-index_bam_bai]   :
-      boolean, flag to produce an index file with suffix .bam.bai
-  Arg [-replace_files]   :
-      boolean, default 1, any input file will be deleted after output is created.
+      string, options for java, default is '-Xmx4g'
+  Arg [-create_index]   :
+      boolean, flag to create index files for all outputs
   + Arguments for ReseqTrack::Tools::RunProgram parent class
 
   Function  : Creates a new ReseqTrack::Tools::RunPicard object.
@@ -52,7 +65,7 @@ use base qw(ReseqTrack::Tools::RunProgram);
                 -input_files => ['/path/sam1', '/path/sam2'],
                 -picard_dir => '/path/to/picard/',
                 -working_dir => '/path/to/dir/',
-                -index_bam_bai => 1);
+                -create_index => 1);
 
 =cut
 
@@ -61,100 +74,56 @@ sub new {
   my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
 
-  my ( $picard_dir, $jvm_options,
-        $index_bai, $index_bam_bai,
-        $options, $tmp_dir,
-        $replace_files,
-		)
+  my ( $java_exe, $picard_dir, $jvm_options, $create_index,
+        )
     = rearrange( [
-         qw( PICARD_DIR JVM_OPTIONS
-                INDEX_BAI INDEX_BAM_BAI
-                OPTIONS TMP_DIR
-                REPLACE_FILES )
-		], @args);
+         qw( JAVA_EXE PICARD_DIR JVM_OPTIONS CREATE_INDEX
+        )], @args);
 
-  throw("need a picard_dir") if ! $picard_dir;
-  $self->picard_dir($picard_dir);
+  $self->java_exe($java_exe || 'java');
+  $self->picard_dir($picard_dir || $self->program || $ENV{PICARD});
 
-  throw("need a java executable") if !$self->program;
-
-  $self->replace_files( defined $replace_files ? $replace_files : 1);
-  $self->jvm_options( defined $jvm_options ? $jvm_options : '-Xmx2g' );
-
-  $self->tmp_dir( defined $tmp_dir ? $tmp_dir : $self->working_dir );
-
-
-
-  $self->options($options);
-
-  if ($index_bai && $index_bam_bai) {
-      throw( "use -index_bai OR -index_bam_bai, not both" );
-  }
-  $self->flags('index_bam_bai', $index_bam_bai);
-  $self->flags('index_bai', $index_bai);
-
-  if (! $self->job_name) {
-      $self->generate_job_name;
-  }
-
+  $self->jvm_options( defined $jvm_options ? $jvm_options : '-Xmx4g' );
+  $self->create_index( $create_index );
 
   return $self;
 }
 
 
-=head2 run
+=head2 run_program
 
   Arg [1]   : ReseqTrack::Tools::RunPicard
-  Arg [2]   : string, either 'remove_duplicates', 'merge', 'sort' or 'mark_duplicates' 
+  Arg [2]   : string, command, must be one of the following:
+              'mark_duplicates', 'merge', 'sort' or 'alignment_metrics' 
   Function  : uses picard to process the files in $self->input_files.
-  Output is files are stored in $self->output_files
+              Output is files are stored in $self->output_files
+              This method is called by the RunProgram run method
   Returntype: 
-  Exceptions: 
+  Exceptions: Throws if it cannot find the picard_dir. Throws if command is not recognised.
   Example   : $self->run('merge');
 
 =cut
 
-sub run{
+sub run_program{
     my ($self, $command) = @_;
 
-	throw("Please specify a command") if (! $command);
+    throw("need a picard_dir") if ! $self->picard_dir;
+    throw("picard_dir is not a directory") if (! -d $self->picard_dir);
+    check_executable($self->java_exe);
 
-    if ($command eq 'remove_duplicates') {
-        $self->run_remove_duplicates;
-    }
-	elsif ($command eq 'mark_duplicates') {
-        $self->run_mark_duplicates;
-    }
-    elsif ($command eq 'merge') {
-        $self->run_merge;
-    }
-	elsif ($command eq 'sort') {
-		$self->run_sort;
-	}
-	elsif ($command eq 'alignment_metrics'){
-		$self->run_alignment_metrics;
-	}
-    else {
-        throw("Did not recognise command $command");
-    }
+    my %subs = ( 'mark_duplicates'   => \&run_mark_duplicates,
+                'merge'             => \&run_merge,
+                'sort'              => \&run_sort,
+                'alignment_metrics' => \&run_alignment_metrics ,
+    );
+
+    throw("Did not recognise command $command") if (!defined $subs{$command});
+
+    &{$subs{$command}}($self);
+    return;
 }
 
 
-=head2 run_remove_duplicates
-
-  Arg [1]   : ReseqTrack::Tools::RunPicard
-  Function  : uses MarkDuplicates.jar to remove duplicates
-  Returntype: 
-  Exceptions: 
-  Example   : $self->run_remove_duplicates
-
-=cut
-
-sub run_remove_duplicates{
-    my ($self) = @_;
-	return $self->_process_duplicates(1);
-
-}
 
 =head2 run_mark_duplicates
 
@@ -165,72 +134,53 @@ sub run_remove_duplicates{
   Example   : $self->run_mark_duplicates
 
 =cut
+
 sub run_mark_duplicates {
-	my ($self) = @_;
-	return $self->_process_duplicates(0);
-}
+    my $self = shift;
 
-sub _process_duplicates {
-	my ($self,$remove_duplicates) = @_;
-
-    $self->change_dir;
-
+    my $jar = $self->_jar_path('MarkDuplicates.jar');
     foreach my $input (@{$self->input_files}) {
-		my $suffix;
-		if ($remove_duplicates) {
-			$suffix = '.rmdup';
-		}
-		else {
-			$suffix = '.mrkdup';
-		}
-
+        my $suffix = $self->options('remove_duplicates') ? '.rmdup' : '.mrkdup';
         my $name = fileparse($input, qr/\.[sb]am/);
         my $prefix = $self->working_dir . '/' . $name . $suffix;
         $prefix =~ s{//}{/}g;
-
         my $bam = $prefix . '.bam';
         my $metrics = $prefix . '.metrics';
 
-		my $jar = $self->_jar_path('MarkDuplicates.jar');
+        my @cmd_words = ($self->java_exe);
+        push(@cmd_words, $self->jvm_options) if ($self->jvm_options);
+        push(@cmd_words, '-jar', $jar);
+        push(@cmd_words, $self->_get_standard_options);
+        push(@cmd_words, 'INPUT=' . $input);
+        push(@cmd_words, 'OUTPUT=' . $bam);
+        push(@cmd_words, 'METRICS_FILE=' . $metrics);
+        push(@cmd_words, 'REMOVE_DUPLICATES='
+                . ($self->options('remove_duplicates') ? 'true' : 'false'));
+        push(@cmd_words, 'ASSUME_SORTED='
+                . ($self->options('assume_sorted') ? 'true' : 'false')) if defined $self->options('assume_sorted');
+        push(@cmd_words, 'CREATE_INDEX='
+                . ($self->create_index ? 'true' : 'false'));
 
-        my $cmd = $self->program;
-        $cmd .= ' ' . $self->jvm_options if ($self->jvm_options);
-        $cmd .= ' -jar ' . $jar;
-        $cmd .= ' ' . $self->options if ($self->options);
-        $cmd .= ' TMP_DIR=' . $self->tmp_dir;
-        $cmd .= ' INPUT=' . $input;
-        $cmd .= ' OUTPUT=' . $bam;
-        $cmd .= ' METRICS_FILE=' . $metrics;
-		if ($remove_duplicates) {
-        	$cmd .= ' REMOVE_DUPLICATES=true';
-		}
-		else {
-			$cmd .= ' REMOVE_DUPLICATES=false';
-		}
+        my $cmd = join(' ', @cmd_words);
 
-        if ($self->flags('index_bai') || $self->flags('index_bam_bai')) {
-            $cmd .= ' CREATE_INDEX=true';
-        }
+        $self->output_files($bam);
+        $self->created_files($metrics);
+        $self->created_files("$prefix.bai") if $self->create_index;
 
         $self->execute_command_line($cmd);
 
-        $self->output_files($bam);
-        $self->files_to_delete($metrics);
-
-        if ($self->flags('index_bai') || $self->flags('index_bam_bai')) {
+        if ($self->create_index) {
             my $bai = "$prefix.bai";
-            if ($self->flags('index_bam_bai')) {
-                my $bam_bai = "$prefix.bam.bai";
-                $self->execute_command_line("mv $bai $bam_bai");
-                $bai = $bam_bai;
+            my $index_ext = $self->options('index_ext');
+            if ($index_ext && $index_ext ne '.bai') {
+                my $corrected_bai = "$prefix" . $index_ext;
+                move($bai, $corrected_bai)
+                  or throw "move failed: $!";
+                $bai = $corrected_bai;
             }
             $self->output_files($bai);
         }
 
-        if ($self->replace_files) {
-            $self->files_to_delete( $input );
-        }
-        
     }
     return;
 }
@@ -241,56 +191,32 @@ sub _process_duplicates {
   Function  : uses CollectAlignmentSummaryMetrics.jar to generate alignment metrics file. Reads metrics. 
   Returntype: Collection of hashrefs. Keys described at http://picard.sourceforge.net/picard-metric-definitions.shtml#AlignmentSummaryMetrics
   Exceptions: 
-  Example   : my $statistics = $self->run_alignment_metrics
   
 =cut
 sub run_alignment_metrics {
-	my ($self) = @_;
+    my ($self) = @_;
 
-	my ($input) = @{$self->input_files};
-	my ($name,$dir,$suffix) = fileparse($input, qr/\.[sb]am/);
-    my $base_name = $dir.'/'. $name;
-    
-	my $output = $base_name.'.metrics';
-	my $jar = $self->_jar_path('CollectAlignmentSummaryMetrics.jar');
+    my $jar = $self->_jar_path('CollectAlignmentSummaryMetrics.jar');
+    foreach my $input (@{$self->input_files}) {
+        my ($input) = @{$self->input_files};
+        my ($name,$dir) = fileparse($input, qr/\.[sb]am/);
+        my $base_name = $dir.'/'. $name;
+        
+        my $output = $base_name.'.metrics';
 
-    my $cmd = $self->program;
-    $cmd .= ' ' . $self->jvm_options if ($self->jvm_options);
-    $cmd .= ' -jar ' . $jar;
-    $cmd .= ' ' . $self->options if ($self->options);
-    $cmd .= ' INPUT=' . $input;
-    $cmd .= ' OUTPUT=' . $output;
+        my @cmd_words = ($self->java_exe);
+        push(@cmd_words, $self->jvm_options) if ($self->jvm_options);
+        push(@cmd_words, '-jar', $jar);
+        push(@cmd_words, 'INPUT=' . $input);
+        push(@cmd_words, 'OUTPUT=' . $output);
+        push(@cmd_words, 'ASSUME_SORTED='
+                . ($self->options('assume_sorted') ? 'true' : 'false')) if defined $self->options('assume_sorted');
+        my $cmd = join(' ', @cmd_words);
 
-    $self->execute_command_line($cmd);
+        $self->output_files($output);
+        $self->execute_command_line($cmd);
+    }
 
-    $self->output_files($output);
-
-    open(my $fh, "<", $output) or die "cannot open < $output: $!";
-
-	my (@titles, @statistics);
-	
-	while (my $line = <$fh>) {
-		next if $line =~ m/#/;
-		chomp $line;
-		my @vals = split /\s/, $line;
-		next unless @vals;
-		
-		if (@titles){
-			my %metrics;
-			push @statistics, \%metrics;
-			for my $i (0..scalar(@titles)){				
-				my ($key, $value) = ($titles[$i],$vals[$i]);
-				next unless ($key && $value);							
-				$metrics{$key} = $value;
-			}
-		}
-		else {
-			@titles = @vals;
-		}
-	}		
-	close $fh;
-	
-	return \@statistics;
 }
 
 =head2 run_merge
@@ -307,45 +233,52 @@ sub run_alignment_metrics {
 sub run_merge{
     my ($self) = @_;
 
-    $self->change_dir;
+    my $input_bam_list = $self->input_files;
+    throw("need more than two or more files to merge") if (@$input_bam_list <2);
 
-    my $prefix = $self->working_dir . '/' . $self->job_name;
+    my $prefix = $self->working_dir . '/' . $self->job_name . ".merge";
     $prefix =~ s{//}{/}g;
+    my $bam = "$prefix.bam";
 
-    my $bam = "$prefix.merge.bam";
+    my $jar = $self->_jar_path('MergeSamFiles.jar');
 
-	my $jar = $self->_jar_path('MergeSamFiles.jar');
-
-    my $cmd = $self->program;
-    $cmd .= ' ' . $self->jvm_options if ($self->jvm_options);
-    $cmd .= ' -jar ' . $jar;
-    $cmd .= ' ' . $self->options if ($self->options);
-    $cmd .= ' TMP_DIR=' . $self->tmp_dir;
-    foreach my $input (@{$self->input_files}) {
-        $cmd .= ' INPUT=' . $input;
+    my $sort_order = $self->options('sort_order');
+    if ($sort_order ne 'coordinate' && $sort_order ne 'queryname') {
+      $sort_order = 'null';
     }
-    $cmd .= ' OUTPUT=' . $bam;
 
-    if ($self->flags('index_bai') || $self->flags('index_bam_bai')) {
-        $cmd .= ' CREATE_INDEX=true';
-    }
+    my @cmd_words = ($self->java_exe);
+    push(@cmd_words, $self->jvm_options) if ($self->jvm_options);
+    push(@cmd_words, '-jar', $jar);
+    push(@cmd_words, $self->_get_standard_options);
+    push(@cmd_words, map {"INPUT=$_"} @$input_bam_list);
+    push(@cmd_words, 'OUTPUT=' . $bam);
+    push(@cmd_words, 'CREATE_INDEX='
+            . ($self->create_index ? 'true' : 'false'));
+    push(@cmd_words, 'SORT_ORDER=' . $sort_order);
+    push(@cmd_words, 'ASSUME_SORTED='
+            . ($self->options('assume_sorted') ? 'true' : 'false')) if defined $self->options('assume_sorted');
+    push(@cmd_words, 'USE_THREADING='
+            . ($self->options('use_threading') ? 'true' : 'false'));
+
+    my $cmd = join(' ', @cmd_words);
+
+
+    $self->output_files($bam);
+    $self->created_files("$prefix.bai") if $self->create_index;
 
     $self->execute_command_line($cmd);
 
-    $self->output_files($bam);
-
-    if ($self->flags('index_bai') || $self->flags('index_bam_bai')) {
-        my $bai = "$prefix.bai";
-        if ($self->flags('index_bam_bai')) {
-            my $bam_bai = "$prefix.bam.bai";
-            $self->execute_command_line("mv $bai $bam_bai");
-            $bai = $bam_bai;
-        }
-        $self->output_files($bai);
-    }
-
-    if ($self->replace_files) {
-        $self->files_to_delete( $self->input_files );
+    if ($self->create_index) {
+      my $bai = "$prefix.bai";
+      my $index_ext = $self->options('index_ext');
+      if ($index_ext && $index_ext ne '.bai') {
+        my $corrected_bai = "$prefix" . $index_ext;
+        move($bai, $corrected_bai)
+          or throw "move failed: $!";
+        $bai = $corrected_bai;
+      }
+      $self->output_files($bai);
     }
 
 
@@ -362,65 +295,80 @@ sub run_merge{
   Example   : $self->run_sort
 
 =cut
+
 sub run_sort{
-	my ($self,$sort_order) = @_;
-	
-	$sort_order ||= 'coordinate';
-	
-	$self->change_dir;
-	
-	my $jar = $self->_jar_path('SortSam.jar');
+  my ($self) = @_;
+    
+  my $sort_order = $self->options('sort_order');
+  if ($sort_order ne 'coordinate' && $sort_order ne 'queryname') {
+      $sort_order = 'null';
+  }
+          
+  my $jar = $self->_jar_path('SortSam.jar');
 
-	foreach my $input (@{$self->input_files}) {
-		my $name = fileparse($input, qr/\.[sb]am/);
-		my $prefix = $self->working_dir . '/' . $name . '.sorted';
-        $prefix =~ s{//}{/}g;
-        my $output = $prefix . '.bam';
-		
-		my $cmd = $self->program;
-	    $cmd .= ' ' . $self->jvm_options if ($self->jvm_options);
-	    $cmd .= ' -jar ' . $jar;
-	    $cmd .= ' ' . $self->options if ($self->options);
-        $cmd .= ' SORT_ORDER='. $sort_order;
-		$cmd .= ' INPUT=' . $input;
-		$cmd .= ' OUTPUT=' . $output;
-		
-		$self->execute_command_line($cmd);
+  foreach my $input (@{$self->input_files}) {
+    my $name = fileparse($input, qr/\.[sb]am/);
+    my $prefix = $self->working_dir . '/' . $name . '.sorted';
+    $prefix =~ s{//}{/}g;
+    my $output = $prefix . '.bam';
 
-	    $self->output_files($output);
-	
-		if ($self->replace_files) {
-            $self->files_to_delete( $input );
+    my @cmd_words = ($self->java_exe);
+    push(@cmd_words, $self->jvm_options) if ($self->jvm_options);
+    push(@cmd_words, '-jar', $jar);
+    push(@cmd_words, $self->_get_standard_options);
+    push(@cmd_words, 'SORT_ORDER=' . $sort_order);
+    push(@cmd_words, 'INPUT=' . $input);
+    push(@cmd_words, 'OUTPUT=' . $output);
+    push(@cmd_words, 'CREATE_INDEX='
+            . ($self->create_index ? 'true' : 'false'));
+
+    my $cmd = join(' ', @cmd_words);
+  
+    $self->output_files($output);
+    $self->created_files("$prefix.bai") if $self->create_index;
+
+    $self->execute_command_line($cmd);
+
+    if ($self->create_index) {
+        my $bai = "$prefix.bai";
+        my $index_ext = $self->options('index_ext');
+        if ($index_ext && $index_ext ne '.bai') {
+            my $corrected_bai = "$prefix" . $index_ext;
+            move($bai, $corrected_bai)
+              or throw "move failed: $!";
+            $bai = $corrected_bai;
         }
-		
+        $self->output_files($bai);
     }
+  
+  }
 
     return;   
 }
 
-sub _jar_path{
-	my ($self,$jar_file) = @_;
-	my $jar = $self->picard_dir . '/' . $jar_file;
-	$jar =~ s{//}{/}g;
-	
-	return $jar;
-}
-
-sub replace_files {
+sub _get_standard_options {
     my $self = shift;
-    if (@_) {
-        $self ->{'replace_files'} = (shift) ? 1 : 0;
-    }
-    return $self->{'replace_files'};
+
+    my @option_strings;
+    push(@option_strings, 'TMP_DIR=' . $self->get_temp_dir);
+    push(@option_strings, 'VERBOSITY=' . $self->options('verbosity'))
+        if ($self->options('verbosity'));
+    push(@option_strings, 'MAX_RECORDS_IN_RAM=' . $self->options('max_records_in_ram'))
+        if ($self->options('max_records_in_ram'));
+    push(@option_strings, 'VALIDATION_STRINGENCY=' . $self->options('validation_stringency'))
+        if ($self->options('validation_stringency'));
+
+    return join(' ', @option_strings);
 }
 
-sub picard_dir {
-    my ($self, $arg) = @_;
-    if ($arg) {
-        $self->{'picard_dir'} = $arg;
-    }
-    return $self->{'picard_dir'};
+sub _jar_path{
+    my ($self,$jar_file) = @_;
+    my $jar = $self->picard_dir . '/' . $jar_file;
+    $jar =~ s{//}{/}g;
+
+    return $jar;
 }
+
 
 sub jvm_options {
     my ($self, $arg) = @_;
@@ -430,53 +378,40 @@ sub jvm_options {
     return $self->{'jvm_options'};
 }
 
-sub options {
+sub picard_dir {
+  my $self = shift;
+  return $self->program(@_);
+}
+
+sub java_exe {
     my ($self, $arg) = @_;
     if ($arg) {
-        $self->{'options'} = $arg;
+        $self->{'java_exe'} = $arg;
     }
-    return $self->{'options'};
-}
-
-sub tmp_dir {
-    my ($self, $arg) = @_;
-    if ($arg) {
-        $self->{'tmp_dir'} = $arg;
-    }
-    return $self->{'tmp_dir'};
+    return $self->{'java_exe'};
 }
 
 
-
-=head2 flags
-
-  Arg [1]   : ReseqTrack::Tools::RunPicard
-  Arg [2]   : string, name of key e.g. "index_bai" or "index_bam_bai"
-  Arg [3]   : boolean, optional, turn flag on or off
-  Function  : accessor method for flags to use the various samtools utilities.
-  Returntype: boolean, flag
-  Exceptions: n/a
-  Example   : my $run_sort_flag = $self->flags{'index_bai'};
-
-=cut
-
-sub flags {
-    my ($self, $flag_name, $flag_value) = @_;
-
-    if (! $self->{'flags'}) {
-        $self->{'flags'} = {};
-    }
-
-    throw( "flag_name not specified")
-        if (! $flag_name);
-
-    if ($flag_value) {
-        $self->{'flags'}->{$flag_name} = $flag_value ? 1 : 0;
-    }
-
-    return $self->{'flags'}->{$flag_name};
+sub create_index {
+  my $self = shift;
+  if (@_) {
+    $self->{'create_index'} = (shift) ? 1 : 0;
+  }
+  return $self->{'create_index'};
 }
 
+
+sub output_bai_files {
+  my $self = shift;
+  my @files = grep {/\.bai$/} @{$self->output_files};
+  return \@files;
+}
+
+sub output_bam_files {
+  my $self = shift;
+  my @files = grep {/\.bam$/} @{$self->output_files};
+  return \@files;
+}
 
 
 1;

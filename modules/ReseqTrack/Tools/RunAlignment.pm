@@ -25,9 +25,8 @@ use warnings;
 use ReseqTrack::Tools::Exception qw(throw warning stack_trace_dump);
 use ReseqTrack::Tools::Argument qw(rearrange);
 use ReseqTrack::Tools::SequenceIndexUtils qw(assign_files);
-use ReseqTrack::Tools::FileSystemUtils qw(check_file_exists);
-use File::Basename;
-use ReseqTrack::Tools::RunSamtools;
+use File::Basename qw(fileparse);
+use Env qw( @PATH );
 
 use base qw(ReseqTrack::Tools::RunProgram);
 
@@ -36,24 +35,24 @@ use base qw(ReseqTrack::Tools::RunProgram);
 
   Arg [-reference]   :
       string, path to the reference genome
-  Arg [-ref_samtools_index]   :
-      string, path to the reference genome index file for samtools
   Arg [-samtools]   :
-      string, the samtools executable (if in $PATH) or path to samtools
+      string, path to samtools executable, used if output_format is 'BAM'
+  Arg [-output_format]   :
+      string, either 'SAM' (default) or 'BAM'.
   Arg [-mate1_file]   :
       string, optional, path to the mate1 file.
   Arg [-mate2_file]   :
       string, optional, path to the mate2 file.
   Arg [-fragment_file]   :
       string, optional, path to the fragment file.
-  Arg [-convert_sam_to_bam]   :
-      boolean, default 1, flag to convert output to bam
-  Arg [-sort_bams]   :
-      boolean, default 1, flag to sort output bams
-  Arg [-merge_bams]   :
-      boolean, default 1, flag to merge all output to a single bam
-  Arg [-index_bams]   :
-      boolean, default 1, flag to index output bam(s)
+  Arg [-paired_length]   :
+      integer, insert size used by alignment program
+  Arg [-first_read]   :
+      integer, start alignment from this read in the fastq file
+  Arg [-last_read]   :
+      integer, end alignment at this read in the fastq file
+  Arg [-read_group_fields]   :
+      hashref, values to go in the RG tag e.g. {'ID' => 1, 'LB' => 'my_library'}
   + Arguments for ReseqTrack::Tools::RunProgram parent class
 
   Function  : Creates a new ReseqTrack::Tools::RunAlignment object.
@@ -65,10 +64,11 @@ use base qw(ReseqTrack::Tools::RunProgram);
                 -program => "alignmentprogram",
                 -working_dir => '/path/to/dir/',
                 -reference => '/path/to/ref.fa',
-                -samtools => '/path/to/samtools',
                 -mate1_file => '/path/to/mate1',
                 -mate2_file => '/path/to/mate2',
-                -fragment_file => '/path/to/fragment' );
+                -fragment_file => '/path/to/fragment',
+                -read_group_fields => {'ID' => 1, 'LB' => 'my_library'},
+                -paired_length => 3000);
 
 =cut
 
@@ -76,97 +76,71 @@ sub new {
   my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
 
-  my ( $reference, $ref_samtools_index, $samtools,
+  my ( $reference, $samtools, $output_format,
         $mate1_file, $mate2_file, $fragment_file, $paired_length,
-        $merge_bams, $sort_bams, $index_bams, $convert_sam_to_bam)
+        $read_group_fields, $first_read, $last_read,
+        )
         = rearrange( [
-             qw( REFERENCE REF_SAMTOOLS_INDEX SAMTOOLS
+             qw( REFERENCE SAMTOOLS OUTPUT_FORMAT
              MATE1_FILE MATE2_FILE FRAGMENT_FILE PAIRED_LENGTH
-             MERGE_BAMS SORT_BAMS INDEX_BAMS CONVERT_SAM_TO_BAM)
+             READ_GROUP_FIELDS FIRST_READ LAST_READ
+             )
                     ], @args);
 
   $self->mate1_file($mate1_file);
   $self->mate2_file($mate2_file);
   $self->fragment_file($fragment_file);
   $self->reference($reference);
-  $self->ref_samtools_index($ref_samtools_index);
-  $self->samtools($samtools);
   $self->paired_length($paired_length);
+  $self->read_group_fields($read_group_fields);
+  $self->first_read($first_read);
+  $self->last_read($last_read);
+  $self->output_format($output_format || 'SAM');
 
-  if ( $fragment_file or $mate1_file or $mate2_file) {
-      foreach my $file ($fragment_file, $mate1_file, $mate2_file) {
-          if ($file && ! scalar grep {$_ eq $file} @{$self->input_files}) {
-              $self->input_files($file);
-          }
-      }
+  if (!$samtools) {
+    if ($ENV{SAMTOOLS}) {
+      $samtools = $ENV{SAMTOOLS} . '/samtools';
+    }
   }
-  else {
-      $self->assign_fastq_files;
-  }
-
-  if (! $self->job_name) {
-      $self->generate_job_name;
-  }
-
-  if ( defined($convert_sam_to_bam) && ! $convert_sam_to_bam) {
-      $self->flag_sam_to_bam(0);
-      $self->flag_merge_bams(0);
-      $self->flag_sort_bams(0);
-      $self->flag_index_bams(0);
-  }
-  else {
-      $self->flag_sam_to_bam(1);
-      $self->flag_merge_bams( defined($merge_bams) ? $merge_bams : 1);
-      $self->flag_sort_bams( defined($sort_bams) ? $sort_bams : 1);
-      $self->flag_index_bams( defined($sort_bams) ? $sort_bams : 1);
-  }
-  
-
+  $self->samtools($samtools || 'samtools');
 
   return $self;
 }
 
-=head2 run_samtools
+=head2 run_program
 
   Arg [1]   : ReseqTrack::Tools::RunAlignment
-  Function  : uses samtools to process files listed in $self->sam_files
+  Function  : Calls the run_alignment method, which must be implemented by child class
+              This method is called by the RunProgram run method
+              Does various checks that are needed for running any alignment program
   Returntype: 
   Exceptions: 
-  Example   : $self->run_samtools;
+  Example   : $self->run();
 
 =cut
 
-sub run_samtools {
-    my $self = shift;
-    my $sam_has_header = shift;
+sub run_program {
+    my ($self) = @_;
 
-    my $samtools_object = ReseqTrack::Tools::RunSamtools->new(
-                        -program                 => $self->samtools,
-                        -working_dir             => $self->working_dir,
-                        -echo_cmd_line           => $self->echo_cmd_line,
-                        -save_files_for_deletion => $self->save_files_for_deletion,
-                        -job_name                => $self->job_name,
-                        -reference_index         => $self->ref_samtools_index,
-                        -reference               => $self->reference,
-                        -output_to_working_dir   => 1,
-                        -replace_files           => 1,
-                        -flag_merge              => $self->flag_merge_bams,
-                        -flag_sort               => $self->flag_sort_bams,
-                        -flag_index              => $self->flag_index_bams,
-                        -flag_sam_to_bam         => $self->flag_sam_to_bam,
-                        -flag_use_header         => $sam_has_header,
-                        );
+    if (!$self->fragment_file && !$self->mate1_file && !$self->mate2_file) {
+      $self->assign_fastq_files;
+    }
 
+    my $output_format = $self->output_format;
+    throw($output_format . " is not a valid output format")
+      if ($output_format ne 'BAM' && $output_format ne 'SAM');
 
-    $samtools_object->input_files( $self->sam_files );
+    if ($output_format eq 'BAM' && ! -x $self->samtools) {
+      if ($self->samtools =~ m{/} || ! first {-x $_} map {$_.'/'.$self->samtools} @PATH) {
+        throw "cannot find samtools executable ".$self->samtools;
+      }
+    }
 
-    $samtools_object->run();
-
-    $self->output_files( $samtools_object->output_files );
-
-    return;
+    $self->run_alignment;
 
 }
+
+
 
 =head2 generate_job_name
 
@@ -183,8 +157,12 @@ sub generate_job_name {
 
     my $file = ${$self->input_files}[0];
     my $job_name = basename($file);
-    $job_name =~ s/^([A-Za-z0-9]+).*/$1/;
-    $job_name .= "." . $$;
+    $job_name =~ /\w+/;
+    $job_name = $&;
+    if ($self->first_read && $self->last_read) {
+      $job_name .= '_'.$self->first_read .'-'.$self->last_read;
+    }
+    $job_name .= $$;
 
     $self->job_name($job_name);
     return $job_name;
@@ -192,49 +170,21 @@ sub generate_job_name {
 
 
 
-=head2 sam_files
 
-  Arg [1]   : ReseqTrack::Tools::RunAlignent
-  Arg [2]   : string or arrayref of strings
-  Function  : accessor method for sam files.
-  Returntype: arrayref of strings
-  Exceptions: 
-  Example   : $self->sam_files('path/to/file');
-
-=cut
-
-sub sam_files {
-  my ( $self, $arg ) = @_;
-
-  if (! $self->{'sam_files'}) {
-      $self->{'sam_files'} = [] ;
-  }
-
-  if ($arg) {
-    if ( ref($arg) eq 'ARRAY' ) {
-        push( @{ $self->{'sam_files'} }, @$arg );
-    } else {
-        push( @{ $self->{'sam_files'} }, $arg );
-    }
-  }
-
-  return $self->{'sam_files'};
-}
-
-=head2 run
+=head2 run_alignment
 
   Arg [1]   : ReseqTrack::Tools::RunAlignment
-  Function  : each child object should implement a run method
+  Function  : each child object should implement a run_alignment method
   Returntype: n/a
   Exceptions: throws as this method should be implement in the child class
   Example   : 
 
 =cut
 
-sub run {
+sub run_alignment {
   my ($self) = @_;
   throw(  $self
-          . " must implement a run method as ReseqTrack::Tools::RunAlignment "
+          . " must implement a run_alignment method as ReseqTrack::Tools::RunAlignment "
           . "does not provide one" );
 }
 
@@ -269,51 +219,87 @@ sub assign_fastq_files {
   return ( $mate1, $mate2, $frag );
 }
 
-=head2 output_bam_files
+=head2 get_fastq_cmd_string
 
   Arg [1]   : ReseqTrack::Tools::RunAlignment
-  Function  : gets bam files from the list of output files
-  Returntype: arrayref of filepaths
-  Exceptions: 
-  Example   : my $bams = $self->output_bam_files;
+  Arg [2]   : string, fastq_type, either 'frag', 'mate1' or 'mate2'
+  Function  : makes the string that should be used on the command line by child class
+              for the input fastq file for the alignment program.
+              This might be just a file name e.g. '/path/to/file.fq'
+              or something more complex e.g. '<(sed -n 1,1000p file.fq)'
+  Returntype: string
+  Exceptions: if there is no fastq file of the requested type
+  Example   : $self->assign_files;
 
 =cut
 
-sub output_bam_files {
-    my $self = shift;
 
-    my @output_bams;
-    foreach my $file (@{$self->output_files}) {
-        if ( $file =~ /\.bam$/ ) {
-            push( @output_bams, $file);
-        }
-    }
+sub get_fastq_cmd_string {
+  my ($self, $fastq_type) = @_;
 
-    return \@output_bams;
+  my $fastq = $fastq_type eq 'frag' ? $self->fragment_file
+            : $fastq_type eq 'mate1' ? $self->mate1_file
+            : $fastq_type eq 'mate2' ? $self->mate2_file
+            : '';
+  throw("no file for fastq_type $fastq_type") if (!$fastq);
+
+  my $first_read = $self->first_read;
+  my $last_read = $self->last_read;
+  return $fastq if (!$first_read && !$last_read);
+
+  my $first_line = $first_read ? $first_read * 4 - 3 : 1;
+  my $last_line = $last_read ? $last_read * 4 : '$';
+  my $cmd = ($fastq =~ /\.gz(ip)?$/)
+        ? "<(gunzip -c $fastq | sed -n $first_line,${last_line}p)"
+        : "<(sed -n $first_line,${last_line}p $fastq)";
+  return $cmd;
 }
 
-=head2 output_bai_files
+=head2 get_static_fastq
 
   Arg [1]   : ReseqTrack::Tools::RunAlignment
-  Function  : gets bai files from the list of output files
-  Returntype: arrayref of filepaths
-  Exceptions: 
-  Example   : my $bai_files = $self->output_bai_files;
+  Arg [2]   : string, fastq_type, either 'frag', 'mate1' or 'mate2'
+  Function  : This is an alternative to get_fastq_cmd_string
+              For use by alignment programs that won't accept <(....) as an input
+              Creates a temporary fastq file (if necessary) and adds it to created_files
+  Returntype: string
+  Exceptions: if there is no fastq file of the requested type
+  Example   : $self->assign_files;
 
 =cut
 
-sub output_bai_files {
-    my $self = shift;
+sub get_static_fastq {
+  my ($self, $fastq_type) = @_;
+  my $fastq = $fastq_type eq 'frag' ? $self->fragment_file
+            : $fastq_type eq 'mate1' ? $self->mate1_file
+            : $fastq_type eq 'mate2' ? $self->mate2_file
+            : '';
+  throw("no file for fastq_type $fastq_type") if (!$fastq);
 
-    my @output_bai_files;
-    foreach my $file (@{$self->output_files}) {
-        if ( $file =~ /\.bai$/ ) {
-            push( @output_bai_files, $file);
-        }
-    }
+  my $first_read = $self->first_read;
+  my $last_read = $self->last_read;
+  return $fastq if (!$first_read && !$last_read);
 
-    return \@output_bai_files;
+  my $first_line = $first_read ? $first_read * 4 - 3 : 1;
+  my $last_line = $last_read ? $last_read * 4 : '$';
+
+  my $temp_fastq = $self->working_dir . "/" . $self->job_name;
+  $temp_fastq .= "_1" if ($fastq_type eq 'mate1');
+  $temp_fastq .= "_2" if ($fastq_type eq 'mate2');
+  $temp_fastq =~ s{//}{/}g;
+
+  my $cmd = ($fastq =~ /\.gz(ip)?$/)
+        ? "gunzip -c $fastq | sed -n $first_line,${last_line}p"
+        : "sed -n $first_line,${last_line}p $fastq";
+  $cmd .= " > $temp_fastq";
+
+  $self->created_files($temp_fastq);
+  $self->execute_cmd($cmd);
+
+  return $temp_fastq;
 }
+
+
 
 
 =head2 accessor methods
@@ -327,28 +313,19 @@ sub output_bai_files {
 
 =cut
 
-sub samtools {
-    my ($self, $samtools) = @_;
-    if ($samtools) {
-        check_file_exists($samtools);
-        $self->{'samtools'} = $samtools;
-    }
-    return $self->{'samtools'};
-}
 
-sub ref_samtools_index {
-    my ($self, $ref_samtools_index) = @_;
-    if ($ref_samtools_index) {
-        check_file_exists($ref_samtools_index);
-        $self->{'ref_samtools_index'} = $ref_samtools_index;
-    }
-    return $self->{'ref_samtools_index'};
+sub read_group_fields {
+  my ($self, $hash) = @_;
+  $self->{'read_group_fields'} ||= {};
+  while (my ($tag, $value) = each %$hash) {
+    $self->{'read_group_fields'}->{$tag} = $value;
+  }
+  return $self->{'read_group_fields'};
 }
 
 sub reference {
     my ($self, $reference) = @_;
     if ($reference) {
-        check_file_exists($reference);
         $self->{'reference'} = $reference;
     }
     return $self->{'reference'};
@@ -358,6 +335,7 @@ sub fragment_file {
   my ($self, $fragment_file) = @_;
   if ($fragment_file) {
     $self->{'fragment_file'} = $fragment_file;
+    $self->input_files($fragment_file);
   }
   return $self->{'fragment_file'};
 }
@@ -366,6 +344,7 @@ sub mate1_file {
   my ($self, $mate1_file) = @_;
   if ($mate1_file) {
     $self->{'mate1_file'} = $mate1_file;
+    $self->input_files($mate1_file);
   }
   return $self->{'mate1_file'};
 }
@@ -374,46 +353,49 @@ sub mate2_file {
   my ($self, $mate2_file) = @_;
   if ($mate2_file) {
     $self->{'mate2_file'} = $mate2_file;
+    $self->input_files($mate2_file);
   }
   return $self->{'mate2_file'};
 }
 
 sub paired_length {
     my $self = shift;
-
     if (@_) {
         $self->{paired_length} = shift;
     }
     return $self->{paired_length};
 }
 
-sub flag_merge_bams {
+sub first_read {
     my $self = shift;
     if (@_) {
-        $self->{flag_merge_bams} = shift;
+        $self->{first_read} = shift;
     }
-    return $self->{flag_merge_bams};
+    return $self->{first_read};
 }
-sub flag_sort_bams {
+
+sub last_read {
     my $self = shift;
     if (@_) {
-        $self->{flag_sort_bams} = shift;
+        $self->{last_read} = shift;
     }
-    return $self->{flag_sort_bams};
+    return $self->{last_read};
 }
-sub flag_index_bams {
+
+sub samtools {
     my $self = shift;
     if (@_) {
-        $self->{flag_index_bams} = shift;
+        $self->{samtools} = shift;
     }
-    return $self->{flag_index_bams};
+    return $self->{samtools};
 }
-sub flag_sam_to_bam {
+
+sub output_format {
     my $self = shift;
     if (@_) {
-        $self->{flag_sam_to_bam} = shift;
+        $self->{output_format} = shift;
     }
-    return $self->{flag_sam_to_bam};
+    return $self->{output_format};
 }
 
 1;

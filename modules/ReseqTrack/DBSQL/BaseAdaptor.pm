@@ -185,6 +185,7 @@ sub store_statistics{
   if($object->statistics && @{$object->statistics} >= 1){
     foreach my $statistics(@{$object->statistics}){
       $statistics->other_id($object->dbID);
+      $statistics->table_name($object->object_table_name);
       $hist_a->store($statistics, $update) unless($statistics->dbID);
     }
   }

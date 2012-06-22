@@ -521,7 +521,7 @@ sub create_directory_path{
       $method_matches++;
     }
             
-    $dir_path .= '/';
+    $dir_path .= '/' if ($dir_path);
     $dir_path .= $layout_chunk;
   }
 
