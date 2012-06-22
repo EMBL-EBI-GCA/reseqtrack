@@ -20,7 +20,7 @@ use warnings;
 
 use ReseqTrack::Tools::Exception qw(throw);
 use ReseqTrack::Tools::Argument qw(rearrange);
-use ReseqTrack::Tools::FileSystemUtils qw(check_file_does_not_exist make_directory);
+use ReseqTrack::Tools::FileSystemUtils qw(check_executable);
 use File::Basename qw(fileparse);
 use File::Copy qw (move);
 
@@ -80,12 +80,9 @@ sub new {
          qw( JAVA_EXE PICARD_DIR JVM_OPTIONS CREATE_INDEX
         )], @args);
 
-  if (!$self->program && !$java_exe) {
-    $java_exe = 'java';
-  }
-  $self->java_exe($java_exe);
+  $self->java_exe($java_exe || 'java');
+  $self->picard_dir($picard_dir || $self->program || $ENV{PICARD});
 
-  $self->picard_dir($picard_dir || $ENV{PICARD});
   $self->jvm_options( defined $jvm_options ? $jvm_options : '-Xmx4g' );
   $self->create_index( $create_index );
 
@@ -111,6 +108,8 @@ sub run_program{
     my ($self, $command) = @_;
 
     throw("need a picard_dir") if ! $self->picard_dir;
+    throw("picard_dir is not a directory") if (! -d $self->picard_dir);
+    check_executable($self->java_exe);
 
     my %subs = ( 'mark_duplicates'   => \&run_mark_duplicates,
                 'merge'             => \&run_merge,
@@ -371,14 +370,6 @@ sub _jar_path{
 }
 
 
-sub picard_dir {
-    my ($self, $arg) = @_;
-    if ($arg) {
-        $self->{'picard_dir'} = $arg;
-    }
-    return $self->{'picard_dir'};
-}
-
 sub jvm_options {
     my ($self, $arg) = @_;
     if ($arg) {
@@ -387,10 +378,19 @@ sub jvm_options {
     return $self->{'jvm_options'};
 }
 
-sub java_exe {
+sub picard_dir {
   my $self = shift;
   return $self->program(@_);
 }
+
+sub java_exe {
+    my ($self, $arg) = @_;
+    if ($arg) {
+        $self->{'java_exe'} = $arg;
+    }
+    return $self->{'java_exe'};
+}
+
 
 sub create_index {
   my $self = shift;

@@ -12,6 +12,8 @@ use File::stat;
 use File::Path;
 use File::Temp qw/ tempfile tempdir /;
 use Time::localtime;
+use List::Util qw (first);
+use Env qw( @PATH );
 
 use vars qw (@ISA  @EXPORT);
 
@@ -31,6 +33,7 @@ use vars qw (@ISA  @EXPORT);
   check_file_exists
   check_file_does_not_exist
   check_directory_exists
+  check_executable
   make_directory
   create_tmp_process_dir  );
 
@@ -521,6 +524,30 @@ sub check_file_does_not_exist {
  
   if ( !( $file =~ /^\// ) ){
     warn "Not full path to $file. But it does not exist";
+  }
+  return 1;
+}
+
+=head2 check_executable
+
+  Arg [1]   : path to file, or name of executable in path
+  Function  : checks that the file is an executable
+  Returntype: 0/1 
+  Exceptions: throws if file is not an executable
+  Example   : check_file_exists('/path/to/executable');
+  Example   : check_file_exists('executable_in_path');
+
+=cut
+
+sub check_executable {
+  my $executable = shift;
+
+  if ($executable =~ m{/}) {
+    throw "executable does not exist: $executable" if (! -e $executable);
+    throw "executable is not executable: $executable" if (! -x $executable);
+  }
+  elsif (! first {-x $_} map {$_.'/'.$executable} @PATH) {
+      throw "cannot find executable in path: $executable";
   }
   return 1;
 }

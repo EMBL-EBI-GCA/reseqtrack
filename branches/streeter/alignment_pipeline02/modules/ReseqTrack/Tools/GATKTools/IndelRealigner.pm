@@ -33,7 +33,7 @@ use warnings;
 
 use ReseqTrack::Tools::Argument qw(rearrange);
 use ReseqTrack::Tools::Exception qw(throw warning);
-use ReseqTrack::Tools::FileSystemUtils qw(check_file_exists);
+use ReseqTrack::Tools::FileSystemUtils qw(check_file_exists check_executable);
 
 use base qw(ReseqTrack::Tools::GATKTools);
 
@@ -51,10 +51,6 @@ sub new {
     my ( $intervals_file,)
         = rearrange( [ qw( INTERVALS_FILE )], @args);
 
-        #setting defaults
-        if (!$self->jar_file) {
-          $self->jar_file ("GenomeAnalysisTK.jar");
-        }
         $self->intervals_file($intervals_file);
 
 	return $self;
@@ -71,6 +67,7 @@ sub run_program {
         $self->check_jar_file_exists;
         check_file_exists($self->reference);
         $self->check_bai_exists();
+        check_executable($self->java_exe);
 
 
         if ($self->options('knowns_only')) {

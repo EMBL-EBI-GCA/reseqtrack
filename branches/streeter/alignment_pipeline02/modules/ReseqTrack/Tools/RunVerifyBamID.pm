@@ -49,8 +49,6 @@ sub run {
 
   $self->construct_run_cmd();
 
-  $self->change_dir();
-
   $self->add_outfiles();
  
   $self->execute_command_line($self->command_line);

@@ -31,7 +31,7 @@ use warnings;
 
 use ReseqTrack::Tools::Argument qw(rearrange);
 use ReseqTrack::Tools::Exception qw(throw warning);
-use ReseqTrack::Tools::FileSystemUtils qw(check_file_exists);
+use ReseqTrack::Tools::FileSystemUtils qw(check_file_exists check_executable);
 
 use base qw(ReseqTrack::Tools::GATKTools);
 
@@ -51,11 +51,6 @@ sub new {
 	my ( $class, @args ) = @_;
 	my $self = $class->SUPER::new(@args);
 
-        #setting defaults
-        if (!$self->jar_file) {
-          $self->jar_file ("GenomeAnalysisTK.jar");
-        }
-
 	return $self;
 }
 
@@ -68,6 +63,7 @@ sub run_program {
         $self->check_jar_file_exists;
         check_file_exists($self->reference);
         $self->check_bai_exists();
+        check_executable($self->java_exe);
 
 
 	$self->create_recalibration_table();

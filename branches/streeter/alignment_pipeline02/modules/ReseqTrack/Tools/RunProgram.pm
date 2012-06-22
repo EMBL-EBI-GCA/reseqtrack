@@ -19,10 +19,9 @@ use warnings;
 
 use ReseqTrack::Tools::FileSystemUtils
     qw(check_file_exists check_directory_exists delete_directory
-    delete_file check_file_does_not_exist make_directory);
+    delete_file check_file_does_not_exist make_directory check_executable);
 use ReseqTrack::Tools::Exception qw(throw warning stack_trace_dump);
 use ReseqTrack::Tools::Argument qw(rearrange);
-use List::Util qw (first);
 use Env qw( @PATH );
 use POSIX;
 
@@ -58,15 +57,9 @@ use POSIX;
                 -program => "program",
                 -working_dir => '/path/to/dir/',
                 -job_name => "my_job",
-<<<<<<< .working
                 -options => {"flag1" => 1, "flag2" => 0}
-                )
-=======
-                -echo_cmd_line => 0,
-                -save_files_for_deletion => 0 
                 -output_name_prefix => 'PHASE1'
                 );
->>>>>>> .merge-right.r593
 
 =cut
 
@@ -145,11 +138,10 @@ sub run {
 
   $self->_running(1);
 
-  throw "do not have a program executable\n" if (! $self->program);
-  if (! -x $self->program) {
-    if ($self->program =~ m{/} || ! first {-x $_} map {$_.'/'.$self->program} @PATH) {
-      throw "cannot find program executable ".$self->program;
-    }
+  my $program = $self->program;
+  throw "do not have a program executable\n" if (! $program);
+  if (! -d $program) {
+    check_executable($program);
   }
 
   foreach my $file (@{$self->input_files}) {
@@ -196,6 +188,7 @@ sub execute_command_line {
     if ($self->echo_cmd_line) {
         $command_line = "echo \'" . $command_line . "\'";
     }
+    print "Executing command:\n";
     print $command_line . "\n";
 
     my $pid = fork;
@@ -573,7 +566,7 @@ sub get_temp_dir {
     my $temp_dir = $self->{'_temp_dir'};
     if (! $temp_dir) {
       $temp_dir = $self->working_dir()
-            .'/'.$self->job_name.'.'.$$.'.tmp/';
+            .'/'.$self->job_name.'.'.$$.'.tmp';
       check_file_does_not_exist($temp_dir);
       $self->created_files($temp_dir);
       $self->{'_temp_dir'} = $temp_dir;

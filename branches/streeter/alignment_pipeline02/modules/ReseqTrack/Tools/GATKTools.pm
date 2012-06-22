@@ -23,7 +23,7 @@ example
 my $GATK = $IR->new(
      -java_exe        =>"/usr/bin/java" ,
      -jvm_args        =>"-Xmx4g",
-     -GATK_PATH       =>$GATK/GenomeAnalysisTK/",
+     -gatk_path       =>$GATK/GenomeAnalysisTK/",
      -working_dir     => '/path/to/dir/',
      -reference       => '/path/to/reference',
      -known_sites_files => '/path/to/file',
@@ -45,7 +45,7 @@ use ReseqTrack::Tools::RunSamtools;
 use File::Basename;
 
 use ReseqTrack::Tools::RunProgram;
-use ReseqTrack::Tools::FileSystemUtils qw(check_file_exists);
+use ReseqTrack::Tools::FileSystemUtils qw(check_file_exists check_executable);
 use vars qw(@ISA);
 
 @ISA = qw(ReseqTrack::Tools::RunProgram);
@@ -54,13 +54,13 @@ sub new {
 	my ( $class, @args ) = @_;
 	my $self = $class->SUPER::new(@args);
 
-	my ( $java_exe, $jvm_args, $options, $gatk_path ,
+	my ( $java_exe, $jvm_args, $jar_file, $gatk_path ,
 	     $reference, $samtools, $known_sites_files) = rearrange(
 		[
 			qw(
 			  JAVA_EXE
 			  JVM_ARGS
-			  OPTIONS
+                          JAR_FILE
 			  GATK_PATH
                           REFERENCE
                           SAMTOOLS
@@ -70,23 +70,13 @@ sub new {
 		@args
 	);
 
-	#defaults
-        if (!$self->program && !$java_exe) {
-          $java_exe = 'java';
-        }
-	$jvm_args ||= "-Xmx4g";
-        $gatk_path ||= $ENV{GATK};
-
-	$self->java_exe($java_exe);
-	$self->jvm_args($jvm_args);
-	$self->gatk_path($gatk_path);
+        $self->java_exe($java_exe || 'java');
+        $self->jvm_args( defined $jvm_args ? $jvm_args : '-Xmx4g' );
+        $self->jar_file( $jar_file || "GenomeAnalysisTK.jar");
+	$self->gatk_path($gatk_path || $self->program || $ENV{GATK});
 	$self->reference($reference);
         $self->samtools($samtools);
         $self->known_sites_files($known_sites_files);
-
-        while (my @key_value = each(%$options)) {
-          $self->options(@key_value);
-        }
 
 	return $self;
 }
@@ -146,8 +136,11 @@ sub check_jar_file_exists {
 }
 
 sub java_exe {
-  my $self = shift;
-  return $self->program(@_);
+    my ($self, $arg) = @_;
+    if ($arg) {
+        $self->{'java_exe'} = $arg;
+    }
+    return $self->{'java_exe'};
 }
 
 sub jvm_args {
@@ -160,12 +153,8 @@ sub jvm_args {
 
 
 sub gatk_path {
-	my ( $self, $arg ) = @_;
-	if ($arg) {
-		$self->{gatk_path} = $arg;
-	}
-	return $self->{gatk_path};
-
+  my $self = shift;
+  return $self->program(@_);
 }
 
 sub jar_file {
@@ -180,7 +169,7 @@ sub jar_file {
 sub samtools {
   my ( $self, $arg ) = @_;
   if ($arg) {
-    check_file_exists($arg);
+    check_executable($arg);
     $self->{samtools} = $arg;
   }
   return $self->{samtools};
