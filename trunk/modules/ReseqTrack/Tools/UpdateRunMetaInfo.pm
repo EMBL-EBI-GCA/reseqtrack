@@ -234,7 +234,7 @@ sub population_rules {
     throw("rules must be an arrayref") if (ref $rules ne 'ARRAY');
     $self->{population_rules} = $rules;
   }
-  if (!$self->{rules} || $force_update){
+  if (!$self->{population_rules} || $force_update){
     $self->{population_rules} = $self->dcc_db->get_PopulationRuleAdaptor->fetch_all_in_order();
   }
   return $self->{population_rules};
