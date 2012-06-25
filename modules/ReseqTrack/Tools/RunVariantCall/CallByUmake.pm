@@ -361,7 +361,7 @@ sub target_bed {
 sub run_program {
     my ($self) = @_;  
 
-    $self->umake_output_dir($self->get_temp_dir);
+    $self->umake_output_dir($self->get_temp_dir(1));
     
     $self->print_bam_index_file;
     
