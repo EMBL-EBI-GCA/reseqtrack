@@ -553,21 +553,28 @@ sub _running {
 =head2 get_temp_dir
 
   Arg [1]   : ReseqTrack::Tools::RunProgram
+  Arg [2]   : boolean, default 0, allow_test_mode
   Function  : Gets a temp directory for use by the child class.
               Adds the temp directory to list of created files.
+              (in test mode, the temp directory is allowed to be an existing directory)
   Returntype: String, path of temp directory
   Exceptions: Throws if there is an error making the temp directory.
-  Example   : my $flag = $self->_running;
+  Example   : my $dir = $self->get_temp_dir;
 
 =cut
 
 sub get_temp_dir {
-    my $self = shift;
+    my ($self, $allow_test_mode) = @_;
     my $temp_dir = $self->{'_temp_dir'};
     if (! $temp_dir) {
-      $temp_dir = $self->working_dir()
-            .'/'.$self->job_name.'.'.$$.'.tmp';
-      check_file_does_not_exist($temp_dir);
+      $temp_dir = $self->working_dir() .'/'.$self->job_name;
+      if ($allow_test_mode && $GLOBAL_SAVE_FILES_FOR_DELETION) {
+        warn("directory already exists: $temp_dir") if (-d $temp_dir);
+      }
+      else {
+        $temp_dir .= '.'.$$.'.tmp';
+        check_file_does_not_exist($temp_dir);
+      }
       $self->created_files($temp_dir);
       $self->{'_temp_dir'} = $temp_dir;
       make_directory($temp_dir);
