@@ -458,8 +458,9 @@ sub bgzip_and_index {
 		$zip_vcf = $vcf;
 	}
 	
+	my $index_file = $vcf . ".tbi";
 	eval {
-		`$tabix -p vcf $zip_vcf`;
+		`$tabix -p vcf $zip_vcf` unless (-e $index_file);
 	};
 	throw("indexing failed for $zip_vcf, $@\n") if $@;
 				
@@ -498,7 +499,7 @@ sub help_info {
  Run program arguments (required):
     
 	algorithm,			can be one of the three: samtools, gatk, umake
-	reference,			Reference genome; default is ncbi build 37  		
+	reference,			Reference genome; default is ncbi build 37  (umake requires a umfa file in addition to the fa file)		
 	
  BAM input arguments (4 ways to input BAMs for calling, one and only one is required):
 	

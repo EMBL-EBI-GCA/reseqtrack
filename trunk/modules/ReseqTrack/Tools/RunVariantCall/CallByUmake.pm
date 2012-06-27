@@ -388,46 +388,27 @@ sub run_program {
 ### prepare for this file to be stored in db and other files to be deleted if keep_intermediate_file == 0
 sub sieve_umake_output_dir {
     my ($self) = @_;
-    my @outfiles_to_del;
 
 	my ($output_files, $outdir_hash) = list_files_in_dir($self->umake_output_dir);
 	
 	foreach my $sub_dir ( keys %$outdir_hash ) {
-		my $flag_to_keep = 0;
+
 		foreach my $out_file ( @{$outdir_hash->{$sub_dir}} ) {
 			my $out_file_path = $sub_dir . "/" . $out_file;
-			#print "outfile $out_file_path\n";
 			if ($out_file =~ /filtered.vcf.gz$|filtered.vcf.gz.tbi$/) {
 				
 				my $chunk = $self->region;
 				my $edited_out_file = $out_file;
 				$edited_out_file =~ s/filtered/$chunk.filtered/;  
-				#my $edited_out_file_path = $sub_dir . "/" . $edited_out_file;
-				my $edited_out_file_path = $self->umake_output_dir . "/" . $edited_out_file;
-				my $exit2;
-				eval{
-					`mv $out_file_path $edited_out_file_path`;
-				};
-				if( $exit2 && $exit2 > 0 ){
-					throw("Failed to change the output filtered vcf file name $out_file_path. exit code $exit2");
-				} 
+				my $edited_out_file_path = $self->working_dir . "/" . $edited_out_file;
 				
+				move($out_file_path, $edited_out_file_path) 
+					or throw("Failed to change the output filtered vcf file name $out_file_path: $!");
+									
 				$self->output_files($edited_out_file_path);	
-				$flag_to_keep = 1;
-				#print "sub dir to save $sub_dir\n";
-			}
-			else {
-				push @outfiles_to_del, $out_file_path if ($sub_dir eq $self->umake_output_dir  );;
 			}
 		}	
-		push @outfiles_to_del, $sub_dir if ($flag_to_keep == 0 && ($sub_dir ne $self->umake_output_dir && $sub_dir ne $self->umake_output_dir . "/vcfs" ) );
-		#push @outfiles_to_del, $sub_dir if ($flag_to_keep == 0 && $sub_dir ne $self->umake_output_dir  );
 	}
-	
-	#print "To delete...\n" . join("\n", @outfiles_to_del) . "\n";
-	
-	$self->files_to_delete(\@outfiles_to_del);
-	#files stored in hash files_to_delete will be deleted at the end of the run, by destructor DESTROY 
 	return $self;
 }				
 			
