@@ -498,3 +498,41 @@ sub get_db_adaptors {
 	  return ( $db, $fa, $ca,$va );
 }
 
+=pod
+
+=head1 NAME
+
+  run_20120626_verifybamid.pl
+
+=head1 SYNOPSIS
+
+  The Umich VerifybamID program to QC bam files
+
+ More info
+ http://www.ebi.ac.uk/seqdb/confluence/display/1000GEN/BAM+QC+Using+VerifyBamID
+ 
+ for useful information.
+
+  example command line:
+  perl run_20120626_verifybamid.pl -chrom mapped -cfg_file $reseq-personal/rseqpipe/prog_conf/verifybamid_20120620_low_coverage_whole_genome.cfg -bam_name $FTP_SITE/data/HG00867/alignment/HG00867.mapped.SOLID.bfast.CDX.low_coverage.20111114.bam
+
+ '-test', will run script but not store results
+
+  for running on a single file
+  
+  -cgf_file contents can be overwritten on the command line 
+  dbhost=mysql-g1kdcc-public
+  dbuser=g1krw
+  dbport=4197
+  dbname=g1k_archive_staging_track
+  dbpass=xxxx
+  vcf=/nfs/1000g-work/G1K/work/REFERENCE/20120626_verifybam_vcfs/WHOLE_GENOME/omni_wg_2141_76000_filtered.vcf.gz
+  working_dir=/nfs/1000g-work/G1K/scratch/rseqpipe/verifybamid/tmp/LOW_COVERAGE_WG
+  program=/nfs/1000g-work/G1K/work/bin/verifybamid_20120620/verifyBamID/bin/verifyBamID
+  chrom=mapped
+  collection_type=BAM
+
+ bam must be on ftp site to run as an event
+ ( You can override all checks ( chrom 11, unmapped bams) using '-no_event' option
+
+=cut
