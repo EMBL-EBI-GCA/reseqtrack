@@ -28,6 +28,7 @@ use ReseqTrack::DBSQL::VerifyBamIDSampleAdaptor;
 use ReseqTrack::DBSQL::FileTypeRuleAdaptor;
 use ReseqTrack::DBSQL::PopulationRuleAdaptor;
 use ReseqTrack::DBSQL::StudyIDAdaptor;
+use ReseqTrack::DBSQL::VerifyBamIDAdaptor;
 
 sub new {
   my($class, @args) = @_;
@@ -297,6 +298,14 @@ sub get_StudyIDAdaptor{
   return $self->{study_id_adaptor};
 }
 
+sub get_VerifyBamIDAdaptor{
+  my ($self) = @_;
+  if(!$self->{VerifyBamIDAdaptor}){
+    $self->{VerifyBamIDAdaptor} = ReseqTrack::DBSQL::VerifyBamIDAdaptor->
+        new($self);
+  }
 
+  return $self->{VerifyBamIDAdaptor};
+}
 
 1;
