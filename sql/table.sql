@@ -346,6 +346,42 @@ CREATE TABLE `verifybamid_sample` (
 );
 
 
+CREATE TABLE  verifybamid(
+        verifybamid_id          INT  unsigned    NOT NULL AUTO_INCREMENT,
+        file_id                 INT  unsigned    NOT NULL,
+        sample                  VARCHAR (15)     NOT NULL,
+        read_group              VARCHAR (15)     NOT NULL,
+        chip_id                 VARCHAR (15),
+        snps                    INT ,
+        num_reads               INT ,
+        avg_depth               float,
+        free_contam             float,
+        free_mlogl_est_contam   float ,
+        free_mlogl_zero_contam  float,
+        free_ref_bias_ref_het   float,
+        free_ref_bias_refhomalt float,
+        chip_contam             float,
+        chip_mlogl_est_contam   float,
+        chip_mlogl_zero_contam  float,
+        chip_ref_bias_ref_het   float,
+        chip_ref_bias_refhomalt float,
+        depth_homref_site       float,
+        rel_depth_het_site      float ,
+        rel_depth_homalt_site   float,
+        run_mode                VARCHAR(10),
+        used_genotypes          INT,
+        target_region           VARCHAR(15),
+        vcf                     VARCHAR(50) NOT NULL ,
+        verdict                 VARCHAR(20) ,
+        performed               datetime    NOT NULL,
+
+     PRIMARY KEY (verifybamid_id),
+     UNIQUE(file_id, read_group)
+);
+
+
+
+
 #Now to add entries to the two standard tables
 
 INSERT INTO archive_action (archive_action_id, action) values(1, 'archive');
