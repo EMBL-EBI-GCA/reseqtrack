@@ -156,7 +156,11 @@ sub options {
     return $self->{'options'}->{$option_name};
 }
 
+
+
 =head2 intermediate_output_file
+
+PERHAPS can remove this function all together, the created_file function in RunProgram might do similar things
 
   Arg [1]   : ReseqTrack::Tools::RunVariantCall
   Function  : stores/gets intermediate output file such as raw vcf
