@@ -165,7 +165,8 @@ sub run_variant_calling {
     $self->created_files($output_raw_bcf);
     $self->execute_command_line($cmd);
 
-    return $self->intermediate_output_file($output_raw_bcf);
+#    return $self->intermediate_output_file($output_raw_bcf);
+	return $self;	
 }
 
 =head2 run_variant_filtering
