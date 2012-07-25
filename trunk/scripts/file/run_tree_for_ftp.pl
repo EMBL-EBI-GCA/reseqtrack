@@ -33,7 +33,7 @@ my $output_path;
 my $verbose;
 my $debug;
 my $dir_to_tree = '/nfs/1000g-archive/vol1/ftp';
-my $CHANGELOG = '/nfs/1000g-archive/vol1/ftp/CHANGELOG';
+my $CHANGELOG;
 my $STAGING_DIR="/nfs/1000g-work/G1K/archive_staging/ftp";
 
 my $check_old;
@@ -64,6 +64,7 @@ my $file_list;
 	    'check_old=s' =>\$check_old,
 	    'check_new=s' =>\$check_new,
 	    'staging_dir=s'   => \$STAGING_DIR,
+	    'change_log=s'   => \$CHANGELOG,
 	    'skip!'=>\$skip_cleanup,
 	    'archive_sleep=s' => \$archive_sleep,
 	    'debug!' => \$debug,
@@ -78,6 +79,11 @@ mkpath($log_dir) unless(-d $log_dir);
 throw("Can't run if ".$log_dir." log dir does not exist") unless(-d $log_dir);
 my $logging_filepath = logging_filepath($log_dir);
 my $log_fh = logging_fh($logging_filepath);
+
+if (!$CHANGELOG) {
+  $CHANGELOG = $dir_to_tree . '/CHANGELOG';
+  $CHANGELOG =~ s{//}{/}g;
+}
 
 
 #RES need $date now , this is run close to midnight.
