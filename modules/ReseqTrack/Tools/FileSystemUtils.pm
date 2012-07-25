@@ -332,7 +332,7 @@ sub check_md5 {
 sub dump_dirtree_summary{
   my ($input_dir, $output_file, $skip_regex, $fa, $file_list) = @_;
   my $no_md5s = 0;
-  $skip_regex = 'current.tree';
+  $skip_regex ||= 'current.tree';
 
   my ($files, $hash);# = list_files_in_dir($input_dir, 1);
 
