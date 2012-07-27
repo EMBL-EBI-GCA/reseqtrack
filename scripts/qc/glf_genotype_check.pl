@@ -172,7 +172,7 @@ if ( ! $ALIGNER ) {
 
 $run_alignment = $ALIGNER->new( %alignment_hash );
 
-$run_alignment->files_to_delete($tmp_dir);
+$run_alignment->created_files($tmp_dir);
 
 $run_alignment->run();
 
