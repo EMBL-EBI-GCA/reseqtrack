@@ -169,11 +169,11 @@ sub create_run_program_object {
 
   my $tmp_dir = create_tmp_process_dir( $input{working_dir} );
   # might as well run 'free' everything. --chip_mix on by default
-  $$input{options} .= (" --free-full --chip-full  ");
-
-   # suggested by Hyun
-   $$input{options} .= " --ignoreRG " unless (defined $input{do_read_groups});
-
+   my %option_hash = ("--free-full", 1, "--chip-full", 1);
+   
+  # suggested by Hyun
+  %option_hash = ("--free-full", 1, "--chip-full", 1, "--ignoreRG", 1) unless (defined $input{do_read_groups});
+  
   my $PROG_TYPE = 'ReseqTrack::Tools::RunVerifyBamID';
   my $PROG = $PROG_TYPE->new(
 			     -program                 => $$input{program},
@@ -181,7 +181,7 @@ sub create_run_program_object {
 			     -input_files             => $$input{bam_name},
 			     -echo_cmd_line           => $$input{echo_cmd_line},
 			     -out_prefix              => $$input{out_prefix},
-			     -options                 => $$input{options},
+			     -options		     => \%option_hash,	
 			     -working_dir             => $tmp_dir,
 			     -save_files_for_deletion => $$input{save_files_for_deletion},
 			     -debug                   => $$input{debug},
