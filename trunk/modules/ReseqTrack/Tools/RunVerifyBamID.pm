@@ -67,7 +67,13 @@ sub construct_run_cmd {
 
 	$cmd .= "--vcf " . $self->vcf . " ";
 	$cmd .= "--bam " . $bam . " ";
-	$cmd .= $self->options . " " if (defined $self->options );
+	
+	if (defined $self->options ) {
+		foreach my $option (  keys %{$self->options} ) {
+			$cmd .= $option . " ";
+		}
+	}
+
 	$cmd .= "--" . $self->run_mode . " " if ( defined $self->run_mode) ;
 
 	if (defined $self->debug){
@@ -172,12 +178,20 @@ sub bestSM {
 	return $self->{bestSM};
 }
 
+
 sub options {
 	my ( $self, $arg ) = @_;
+	 $self->{'options'} ||= {};
 	if ($arg) {
-		$self->{options} = $arg;
+		if ( ref($arg) eq 'HASH' ) {
+			foreach my $option_name ( keys %$arg ) {
+				my $option_value =~ s/^\s+|\s+$//g;
+				$self->{'options'}->{$option_name} = $option_value;
+			}
+		} 	
 	}
-	return $self->{options};
+	my %options = %{$self->{'options'}};
+	return \%options;
 }
 
 sub debug {
