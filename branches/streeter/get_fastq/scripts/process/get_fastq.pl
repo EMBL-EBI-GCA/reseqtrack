@@ -71,10 +71,11 @@ my $db = ReseqTrack::DBSQL::DBAdaptor->new(
 
 my $era_db = get_erapro_conn($era_dbuser, $era_dbpass);
 
+my $meta_info = $db->get_RunMetaInfoAdaptor->fetch_by_run_id($run_id);
+throw("Failed to find a run meta info object for ".$run_id." from ".$dbname)
+    unless($meta_info);
+
 if ($directory_layout) {
-  my $meta_info = $db->get_RunMetaInfoAdaptor->fetch_by_run_id($run_id);
-  throw("Failed to find a run meta info object for ".$run_id." from ".$dbname)
-      unless($meta_info);
   $output_dir = create_directory_path($meta_info, $directory_layout, $output_dir);
 }
 
@@ -85,7 +86,7 @@ while (my ($key, $value) = each %module_options) {
   $constructor_hash{'-'.$key} = $value;
 }
 $constructor_hash{-output_dir} = $output_dir;
-$constructor_hash{-run_id} = $run_id;
+$constructor_hash{-run_meta_info} = $meta_info;
 $constructor_hash{-source_root_dir} = $source_root_location;
 $constructor_hash{-clobber} = $clobber;
 $constructor_hash{-db} = $era_db;
