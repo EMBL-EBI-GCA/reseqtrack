@@ -59,6 +59,12 @@ sub new {
   return $self;
 }
 
+=head2 run
+
+returns the number of files that were copied
+
+=cut
+
 sub run {
   my $self = shift;
 
@@ -68,6 +74,7 @@ sub run {
   throw("do not have a source root directory") if !$self->source_root_dir;
 
   if ($self->check_fastq_available == 0) {
+    print "no fastq files available for ".$self->run_id."\n";
     return 0;
   }
   if ($self->check_status == 0) {
@@ -82,17 +89,33 @@ sub run {
   return scalar @{$self->output_files};
 }
 
+=head2 run
+
+returns 1 if fastq are available; otherwise 0
+
+=cut
+
 sub check_fastq_available {
   my $self = shift;
   my $era_rmia = $self->db->get_ERARunMetaInfoAdaptor;
   return $era_rmia->is_fastq_available($self->run_id);
 }
 
+=head2 run
+
+returns 1 if status is OK; otherwise 0
+
+=cut
+
 sub check_status {
   my $self = shift;
   my $era_rmia = $self->db->get_ERARunMetaInfoAdaptor;
   my $status = $era_rmia->get_status($self->run_id);
-  return $status eq 'public' ? 1 : 0;
+  if ($status ne 'public') {
+    print "status is not public for ".$self->run_id."\n";
+    return 0;
+  }
+  return 1;
 }
 
 sub get_fastq_details {
