@@ -134,7 +134,6 @@ foreach my $host ( @$remote_hosts ) {
 	}
 	
 	foreach my $file ( @$files ) {
-		#next if ( $file->name =~ /release_v1/); #### FIXME, remove line
 		print "Host $host_name: ". $file->name . "\n" if ($verbose);
 		my $original_file_name = $file->name;
 		

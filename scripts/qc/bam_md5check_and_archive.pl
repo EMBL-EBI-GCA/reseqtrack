@@ -137,8 +137,8 @@ my $bas_basename = $bam_basename . ".bas";
 ######################################################################################################
 ### Create BAS file if there isn't one in the db and in the dropbox and load it into the database. ###
 ######################################################################################################
-if (!$bas  ) {  
-#if (!$bas && $file_type !~ /NCBI/i ) {  
+#if (!$bas  ) {  
+if (!$bas && $file_type !~ /NCBI/i ) {  
 	my $bas_base = $fa->fetch_by_filename($bas_basename);
 	my $found_bas_path;
 	
