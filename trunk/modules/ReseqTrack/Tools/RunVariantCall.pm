@@ -127,6 +127,7 @@ sub run_program {
           . "does not provide one" );
 }
 
+
 =head2 options                            
 
   Arg [1]   : ReseqTrack::Tools::CallBySamtools or CallByUmake or CallByGATK
@@ -139,6 +140,7 @@ sub run_program {
 
 =cut
 
+=head
 sub options {
     my ($self, $option_name, $option_value) = @_;
 
@@ -155,8 +157,36 @@ sub options {
 
     return $self->{'options'}->{$option_name};
 }
+=cut
 
+=head2 parameters
 
+  Arg [1]   : ReseqTrack::Tools::RunVariantCall
+  Arg [2]   : hashref of strings
+  Function  : accessor method for parameters passed on to a program. Very similar to method "options", this takes a hash ref as 
+  Returntype: arrayref of strings
+  Example   : $self->parameters('maxGaussians=6');
+
+=cut
+
+sub parameters {
+  my ( $self, $arg ) = @_;
+
+  $self->{'parameters'} ||= {};
+  if ($arg) {
+      if ( ref($arg) eq 'HASH' ) {    
+      	foreach my $parameter_name ( keys %$arg ) {
+      	    my $parameter_value = $arg->{$parameter_name};
+      	    $parameter_value =~ s/^\s+|\s+$//g;
+			$self->{'parameters'}->{$parameter_name} = $parameter_value;
+    	}
+      }
+  }
+
+  my %parameters = %{$self->{'parameters'}};
+  
+  return \%parameters;
+}
 
 =head2 intermediate_output_file
 

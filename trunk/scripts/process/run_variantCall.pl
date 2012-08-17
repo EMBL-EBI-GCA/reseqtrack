@@ -20,42 +20,10 @@ $| = 1;
 #### FIXME< chrom X and Y should be treated differently
 
 my (
-	%input, # config file
-    $dbhost,
-    $dbuser,
-    $dbpass,
-    $dbport,
-    $dbname,
-	
-	$collection_name,
-    $collection_type,
-    $file_name_pattern,
-	$bam_list,
-	$super_pop, #this will query the db for chromosomal BAM files with type TD_BAM, belong to a super population (or all population), will call chrom chunk by chrom chunk
-	$bam_type,
-	
-	$reference,	
+	%input, # config file	
 	$module_name,
-	$program_path,
-	$tabix_dir,
     $chrom,
     $region,
-    $chrom_chunk, #in the format of chrom:start-end, this will come from input_string table when the script is run as an event
-    $only_chrom,  # only work on a specified chromosome, even though the input_string table contains all chromosomes; other chrs jobs would be failed
-    $algorithm,
-    $parameters,
-    $output_dir,
-    $output_file_type,
-    $output_name_prefix,
-    $host_name,
-	
-	$verbose,
-	$store,
-	$update,
-	$save_collection,
-	$keep_intermediate_file,
-	$help,
-   	
    	@bams,
    );
  
@@ -75,7 +43,7 @@ GetOptions(
 	'collection_type=s',
   	'file_name_pattern=s',
   	'bam_list=s',
-  	'super_pop:s',
+  	'super_pop:s', #this will query the db for chromosomal BAM files with type TD_BAM, belong to a super population (or all population), will call chrom chunk by chrom chunk
   	'bam_type:s',
   
 	'program=s',
@@ -84,8 +52,8 @@ GetOptions(
   	'algorithm=s',
   	'parameters=s',
 
-  	'chrom_chunk:s',
-  	'only_chrom:s',
+  	'chrom_chunk:s', #in the format of chrom:start-end, this will come from input_string table when the script is run as an event
+  	'only_chrom:s', # only work on a specified chromosome, even though the input_string table contains all chromosomes; other chrs jobs would be failed
   	  	  	  	
   	'output_dir=s',
   	'output_file_type:s',
@@ -121,67 +89,25 @@ $input{output_file_type} = "DCC_VCF" if ( !$input{output_file_type} );
 $input{output_name_prefix} = "RESULTS" if ( !$input{output_name_prefix} );
 $input{keep_intermediate_file} = 0 if (!$input{keep_intermediate_file});
 
-$dbhost = $input{dbhost};
-$dbuser = $input{dbuser};
-$dbpass = $input{dbpass};
-$dbport = $input{dbport};
-$dbname = $input{dbname};
-
-$collection_name = $input{collection_name};
-$collection_type = $input{collection_type};
-$file_name_pattern = $input{file_name_pattern};
-$bam_list = $input{bam_list};
-$super_pop = $input{super_pop}; 
-$bam_type = $input{bam_type};
-	
-$reference = $input{reference};
-$program_path = $input{program};
-$tabix_dir = $input{tabix_dir};
-$algorithm = $input{algorithm};
-$parameters = $input{parameters};
-
-$chrom_chunk = $input{chrom_chunk};
-$only_chrom = $input{only_chrom};
-	
-$output_dir = $input{output_dir};
-$output_name_prefix = $input{output_name_prefix};
-
-$host_name = $input{host};
-$output_file_type = $input{output_file_type};
-$keep_intermediate_file = $input{keep_intermediate_file};
-$verbose = $input{verbose};
-$store = $input{store};
-$update = $input{update};
-$save_collection = $input{save_collection};
-$help = $input{help};
-
-if ($help) {
+if ($input{help}) {
 	help_info();
 }
 
+print "chr chunk is $input{chrom_chunk}\n";
+print "output dir is $input{output_dir}\n";
+print "algorithm is $input{algorithm}\n"; 
+print "super_pop is $input{super_pop}\ttype is $input{bam_type}\n";
+print "parameters are $input{parameters}\n";
 
-=begin comment
-
-print "chr chunk is $chrom_chunk\n";
-print "output dir is $output_dir\n";
-print "algorithm is $algorithm\n"; 
-print "super_pop is $super_pop\ttype is $bam_type\n";
-print "parameters are $parameters\n";
-
-=end comment
-
-=cut
-
-
-if ( !$algorithm || $algorithm !~ /samtools|umake|gatk/i ) {
+if ( !$input{algorithm} || $input{algorithm} !~ /samtools|umake|gatk/i ) {
 	throw("Please provide snp calling algorithm you wish to use, can be samtools, gatk, or umake\n");
 }
 
-if ( !$reference) {
+if ( !$input{reference}) {
 	warn("No reference genome is provided, will use the default reference genome");
 }	
 
-if(!($collection_name && $collection_type) && !$bam_list && !$file_name_pattern && !($super_pop && $bam_type) ){
+if(!($input{collection_name} && $input{collection_type}) && !$input{bam_list} && !$input{file_name_pattern} && !($input{super_pop} && $input{bam_type}) ){
   throw("Please provide some input arguments by one of the following ways: " .
   		"-collection_name and -collection_type\n" .
   		"-bam_list\n" .
@@ -190,48 +116,48 @@ if(!($collection_name && $collection_type) && !$bam_list && !$file_name_pattern 
 }
 
 ### Fail jobs with chrom_chunk from input_string table that don't match $only_chrom 
-if ($chrom_chunk) {
-	if ($chrom_chunk =~ /:/ ) {
-		($chrom, $region) = split(/:/, $chrom_chunk);
+if ($input{chrom_chunk}) {
+	if ($input{chrom_chunk} =~ /:/ ) {
+		($chrom, $region) = split(/:/, $input{chrom_chunk});
 	}
 	else {
-		$chrom = $chrom_chunk;
+		$chrom = $input{chrom_chunk};
 	}	
-	throw("chrom_chunk $chrom_chunk does not belong to chromosome specified by -only_chrom $only_chrom") if ($only_chrom && ($chrom ne $only_chrom)); ## "ne" works for both strings and numbers
+	throw("chrom_chunk $input{chrom_chunk} does not belong to chromosome specified by -only_chrom $input{only_chrom}") if ($input{only_chrom} && ($input{chrom} ne $input{only_chrom})); ## "ne" works for both strings and numbers
 }	
 
 my $db = ReseqTrack::DBSQL::DBAdaptor->new(
-  -host   => $dbhost,
-  -user   => $dbuser,
-  -port   => $dbport,
-  -dbname => $dbname,
-  -pass   => $dbpass,
+  -host   => $input{dbhost},
+  -user   => $input{dbuser},
+  -port   => $input{dbport},
+  -dbname => $input{dbname},
+  -pass   => $input{dbpass},
     );
 
 my $fa = $db->get_FileAdaptor;
 
-if($collection_type && $collection_name){
+if($input{collection_type} && $input{collection_name}){
   my $collection =
-    $db->get_CollectionAdaptor->fetch_by_name_and_type($collection_name,
-                                                        $collection_type);
-  throw("No collection found for $collection_name and $collection_type") if (!$collection); 
+    $db->get_CollectionAdaptor->fetch_by_name_and_type($input{collection_name},
+                                                        $input{collection_type});
+  throw("No collection found for $input{collection_name} and $input{collection_type}") if (!$collection); 
   foreach my $file (@{$collection->others}){
     next if ( check_file_sanity($file->name, $chrom) eq 'skip' );
     push(@bams, $file->name);
   }
 }
 
-if($bam_list){
-  my $lines = get_lines_from_file($bam_list);
+if($input{bam_list}){
+  my $lines = get_lines_from_file($input{bam_list});
   foreach my $line(@$lines){
     next if ( check_file_sanity($line, $chrom) eq 'skip');
     push(@bams, $line);
   }
 }
 
-if($file_name_pattern){
-  my $files = $fa->fetch_all_like_name($file_name_pattern);
-  throw("No files found containing pattern $file_name_pattern") if (!$files || @$files ==0);
+if($input{file_name_pattern}){
+  my $files = $fa->fetch_all_like_name($input{file_name_pattern});
+  throw("No files found containing pattern $input{file_name_pattern}") if (!$files || @$files ==0);
   foreach my $file(@$files){
     next if ( check_file_sanity($file->name, $chrom) eq 'skip' );
     push(@bams, $file->name);
@@ -239,10 +165,10 @@ if($file_name_pattern){
 }
 
 my $super_pop_name = "unknownSupPop"; ## set default
-if ($super_pop && $bam_type) {
-	my $files = $fa->fetch_by_type($bam_type);
-	throw("No files found with type $bam_type") if (!$files || @$files==0);
-	if ($super_pop =~ /all/i) {
+if ($input{super_pop} && $input{bam_type}) {
+	my $files = $fa->fetch_by_type($input{bam_type});
+	throw("No files found with type $input{bam_type}") if (!$files || @$files==0);
+	if ($input{super_pop} =~ /all/i) {
 		$super_pop_name = "all";
 		foreach my $file(@$files) {
 			next if ( check_file_sanity($file->name, $chrom) eq 'skip' );
@@ -250,9 +176,9 @@ if ($super_pop && $bam_type) {
   		}
 	}
 	else {  
-		throw("super population input should be 'all' or super_pop_name:string, string is sub pop seperated by ','") if ($super_pop !~ /,|:/); 
+		throw("super population input should be 'all' or super_pop_name:string, string is sub pop seperated by ','") if ($input{super_pop} !~ /,|:/); 
 		my $string;
-		($super_pop_name, $string) = split(/:/, $super_pop);
+		($super_pop_name, $string) = split(/:/, $input{super_pop});
 		my @pops = split(/,/, $string);  #super_pop is a string, led by super_pop name, followed by sub-pops separated by ','  EUR:IBS,CLM,CEU
 		foreach my $file(@$files) {
 			next if ( check_file_sanity($file->name, $chrom) eq 'skip' );
@@ -270,13 +196,13 @@ $db->dbc->disconnect_when_inactive(1);
 print "Input BAMs are:\n";
 print join ("\n", @bams), "\n";
 
-if ($algorithm =~ /samtools/i) {
+if ($input{algorithm} =~ /samtools/i) {
 	$module_name = "CallBySamtools";
 }	
-elsif ( $algorithm =~ /gatk/i || $algorithm =~ /unified_genotyper/i ) {
+elsif ( $input{algorithm} =~ /gatk/i || $input{algorithm} =~ /unified_genotyper/i ) {
 	$module_name = "CallByGATK";
 }
-elsif ( $algorithm =~ /umake/i ) {
+elsif ( $input{algorithm} =~ /umake/i ) {
 	$module_name = "CallByUmake";
 }	
 else {
@@ -285,15 +211,16 @@ else {
 
 my $varCalling_module = $module_path . '::'. $module_name;
 
-my $constructor_hash = parameters_hash($parameters, $algorithm);
+my $constructor_hash;
+$constructor_hash->{-parameters} = parameters_hash($input{parameters});
 $constructor_hash->{-input_files} = \@bams;
-$constructor_hash->{-program} = $program_path;
-$constructor_hash->{-working_dir} = $output_dir;
-$constructor_hash->{-reference} = $reference;
+$constructor_hash->{-program} = $input{program};
+$constructor_hash->{-working_dir} = $input{output_dir};
+$constructor_hash->{-reference} = $input{reference};
 $constructor_hash->{-chrom} = $chrom if ($chrom);
 $constructor_hash->{-region} = $region if ($region);
-$constructor_hash->{-save_files_for_deletion} = $keep_intermediate_file;
-$constructor_hash->{-output_name_prefix} = $output_name_prefix;
+$constructor_hash->{-save_files_for_deletion} = $input{keep_intermediate_file};
+$constructor_hash->{-output_name_prefix} = $input{output_name_prefix};
 $constructor_hash->{-super_pop_name} = $super_pop_name; 
 
 my $object = construct_new_object($varCalling_module, $constructor_hash);
@@ -306,26 +233,29 @@ $db->dbc->disconnect_when_inactive(0);
 
 foreach my $outfile ( @$flt_vcf ) {  
 	if ( -e $outfile ) {	
-		
+		my $loader;
 		if ($outfile =~ /vcf$|vcf.gz$/ ) {
-			my $zipped_vcf = bgzip_and_index($outfile, $tabix_dir);
+			my $zipped_vcf = bgzip_and_index($outfile, $input{tabix_dir});
 			$outfile = $zipped_vcf;
-		}		
-			
-		my $loader = ReseqTrack::Tools::Loader::File->new
-		  (
-		   -file => [$outfile],
-		   -do_md5 => 1,
-		   -hostname => $host_name,
-		   -db => $db,
-		   -assign_types => 0,
-		   -check_types => 0,
-		   -type => $output_file_type,
-		   -update_existing => $update,
-		  );
+			my $tabix_file = $outfile . ".tbi";
+		
+			$loader = ReseqTrack::Tools::Loader::File->new
+		 		 (
+				   -file => [$outfile, $tabix_file],
+				   -do_md5 => 1,
+				   -hostname => $input{host},
+				   -db => $db,
+				   -assign_types => 0,
+				   -check_types => 0,
+				   -type => $input{output_file_type},
+				   -update_existing => $input{update},
+				  );
+		}
+
+		next if ($outfile =~ /vcf.gz.tbi$/);
 		
 		my $file_objects;
-		if($store){
+		if($input{store}){
 		  $loader->process_input();
 		  $loader->create_objects();
 		  $loader->sanity_check_objects();
@@ -334,13 +264,13 @@ foreach my $outfile ( @$flt_vcf ) {
 		
 		### save the VCF file in collection_by_chrom, 
 		### after many jobs of the event are run, each collection would contain vcf files of different chrom chunks
-		if ($save_collection && $outfile !~ /tbi$/i ) {
-			my $collection_by_chrom_name = $output_name_prefix . "_" . $algorithm . "_$super_pop_name" . "_chr$chrom";
+		if ($input{save_collection} && $outfile !~ /tbi$/i ) {
+			my $collection_by_chrom_name = $input{output_name_prefix} . "_" . $input{algorithm} . "_$super_pop_name" . "_chr$chrom";
 			if ($outfile =~ /vcf/) {
 				my $collection_by_chrom =  ReseqTrack::Collection->new(
 				  -name => $collection_by_chrom_name,
 				  -others => $file_objects,
-				  -type => $output_file_type,  
+				  -type => $input{output_file_type},  
 				  -table_name => 'file',
 				);
 				$db->get_CollectionAdaptor->store($collection_by_chrom);  ## new files will be added in without over write the old ones.
@@ -349,7 +279,7 @@ foreach my $outfile ( @$flt_vcf ) {
 		
 		print "*********************************************************************************************************************************\n";
 		print "**** Output filtered VCF file path is $outfile\n";
-		if ($store) {
+		if ($input{store}) {
 			print "**** Output filtered VCF file $outfile has been stored in the database\n";
 		}
 		else {
@@ -369,7 +299,7 @@ print "Job took " . ($end_time - $start_time)/60 . " minutes\n";
 #### SUBS ####
 ##############
 sub parameters_hash{
-  my ($string, $algorithm2) = @_;
+  my ($string) = @_;
 
   my %parameters_hash;
 
@@ -390,7 +320,6 @@ sub parameters_hash{
 		my ($key, $value) = split (/:/, $pair);
 			$key   =~ s/^\s+|\s+$//g;
           	$value =~ s/^\s+|\s+$//g; 
-          	$key = "-" . $key;
           	$parameters_hash{$key} = $value;
           	print "key is $key, value is $value\n";	 
     }#end of foreach pairs
@@ -420,7 +349,6 @@ sub check_file_sanity{
   my $flag = 'ok';
  
   throw($file." does not exist on the current filesystem") unless(-e $file);
- 
   $flag = 'skip' if ($file !~ /\.bam$/);
  
   if ($chrom) {
@@ -428,10 +356,10 @@ sub check_file_sanity{
       my @bits = split(/_|\./, $file);
       my $file_chr = "NA";
       foreach my $bit ( @bits) {
-          if ($bit =~ /chr/) {
+          if ($bit =~ /chr/i) {
               $file_chr = $bit;
-              $file_chr =~ s/chrom//;
-              $file_chr =~ s/chr//;
+              $file_chr =~ s/chrom//i;
+              $file_chr =~ s/chr//i;
           }
       }        
 
@@ -546,12 +474,14 @@ Below lists the options we have implemented for each caller to take now. Please 
 
 		Samtools:
 		
-		parameter keys have to be one or more of the followings. Please see Samtools page for details -
+		Commonly used parameter keys can be one or more of the followings. Please see Samtools page for details -
 		http://samtools.sourceforge.net/samtools.shtml#3
 		
-		mpileup: 
-		bcfview: 
-		vcfutils:
+		mpileup:	string, command line options to use with "samtools mpileup"
+      				Here is a list of options: samtools mpileup [-EBug] [-C capQcoef]  [-l list] [-M capMapQ] [-Q minBaseQ] [-q minMapQ]
+		bcfview: 	string, command line options to use with "bcftools view"
+      				Here is a list of options: bcftools view [-AbFGNQSucgv] [-D seqDict] [-l listLoci] [-i gapSNPratio] [-t mutRate] [-p varThres] [-P prior] [-1 nGroup1] [-d minFrac] [-U nPerm] [-X permThres] [-T trioType]
+		vcfutils:	string, command line options to use with "vcfutils.pl"
 		bcftools_path: 
 		vcfutils_path:
 		
@@ -568,47 +498,47 @@ Below lists the options we have implemented for each caller to take now. Please 
 		
 		gatk:
 		
-		Parameter keys have to be one or more of the followings. Please see GATK website for detailed descriptions - 
-		http://www.broadinstitute.org/gsa/gatkdocs/release/org_broadinstitute_sting_gatk_walkers_genotyper_UnifiedGenotyper.html#--output_mode
+		Commonly used parameter keys can be one or more of the followings. Please see GATK website for detailed descriptions and additional parameters - 
+		http://www.broadinstitute.org/gsa/gatkdocs/release/org_broadinstitute_sting_gatk_walkers_genotyper_UnifiedGenotyper.html
 		dbSNP: 
-  		dcov: 
-  		computeSLOD:
-  		stand_emit_conf: 
-  		stand_call_conf: 
-  		debug_file:
-  		glm:
-  		genotyping_mode: 
-  		pcr_error_rate: 
-  		p_nonref_model: 
-  		minIndelCnt:
-  		output_mode:
-  		min_mapping_quality_score:
-  		min_base_quality_score:
-  		metrics_file:
-  		max_deletion_fraction:
-  		indel_heterozygosity:
-  		heterozygosity:
-  		group:
+  		dcov: 				integer, command line options to use with "samtools mpileup"
+  		computeSLOD:		If provided, we will calculate the SLOD. This argument is not enabled by default because it increases the runtime by an appreciable amount.
+  		stand_emit_conf:	float, The minimum phred-scaled confidence threshold at which variants not at 'trigger' track sites should be emitted (and filtered if less than the calling threshold).
+  		stand_call_conf:	float, The minimum phred-scaled confidence threshold at which variants not at 'trigger' track sites should be called. 
+  		debug_file:			File to print all of the annotated and detailed debugging output.
+  		glm:				string, genotype_likelihood_model, choose one of the followings "SNP", "BOTH", "INDEL"
+  		genotyping_mode:	String, Default is DISCOVERY. Should we output confident genotypes (i.e. including ref calls) or just the variants? Choose one of the two "DISCOVERY" or "GENOTYPE_GIVEN_ALLELES"
+  		pcr_error_rate:		Double with default value 1.0E-4
+  		p_nonref_model:		Non-reference probability calculation model to employ -- EXACT is the default option, while GRID_SEARCH is also available. 
+  		minIndelCnt:		Minimum number of consensus indels required to trigger genotyping run. int with default value 5
+  		output_mode:		Should we output confident genotypes (i.e. including ref calls) or just the variants? Default is EMIT_VARIANTS_ONLY
+  		min_mapping_quality_score:	Minimum read mapping quality required to consider a read for calling.
+  		min_base_quality_score:		Minimum base quality required to consider a base for calling.
+  		metrics_file:		File to print any relevant callability metrics output.
+  		max_deletion_fraction:		Maximum fraction of reads with deletions spanning this locus for it to be callable [to disable, set to < 0 or > 1; default:0.05].
+  		indel_heterozygosity:		Heterozygosity for indel calling. This argument informs the prior probability of having an indel at a site.
+  		heterozygosity:		Heterozygosity value used to compute prior likelihoods for any locus.
+  		group:				One or more classes/groups of annotations to apply to variant calls. Which groups of annotations to add to the output VCF file.
   		annotation:
-  		alleles:
+  		alleles:			The set of alleles at which to genotype when in GENOTYPE_MODE = GENOTYPE_GIVEN_ALLELES.
 		
 		umake:
 
-		Parameters keys have to be one or more of the following. Details can be found in UMAKE website - 
+		Commonly used parameters keys can be one or more of the following. Additional parameters can be found in UMAKE website - 
 		http://genome.sph.umich.edu/wiki/UMAKE#Configuration_File
 				
-		offset_off_target:
+		offset_off_target:	option for EXOME sequencing, extend target by given # of bases  
 		target_bed:  
-  		dbSNP: 
-  		indel_prefix: 
-  		hm3_prefix: 
-  		FILTER_MAX_SAMPLE_DP: 
-  		FILTER_MIN_SAMPLE_DP:
-  		FILTER_MQ:
-  		FILTER_FLAG:
-  		unit_chunk:
-  		LD_Nsnps:
-  		LD_overlap:
+  		dbSNP: 			string, path to prefix of dbsnp vcf rod file
+  		indel_prefix:	string, path to prefix of indel file
+  		hm3_prefix: 	string, path to prefix of hapmap3 file
+  		FILTER_MAX_SAMPLE_DP:	argument for filtering
+  		FILTER_MIN_SAMPLE_DP:	argument for filtering
+  		FILTER_MQ:		filter output calls by samtools view MQ, default is 3
+  		FILTER_FLAG:	filter output calls by samtools view flag, deafult is 0x0704
+  		unit_chunk:		size of chromosomal chunk to call variants on; default is 5Mb
+  		LD_Nsnps:		Chunk size of genotype refinement, default is 10,000 SNPs
+  		LD_overlap:		overlapping sizes of chunks, default is 1,000 SNPs
 		
 
 =head1 SYNOPSIS

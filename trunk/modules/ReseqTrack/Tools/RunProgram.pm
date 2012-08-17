@@ -106,7 +106,8 @@ sub new {
   while (my ($option_name, $option_value) = each %$options) {
       $self->options($option_name, $option_value);
   }
-
+  $self->parameters($options);
+  
   return $self;
 }
 
@@ -608,7 +609,5 @@ sub options {
 
     return $self->{'options'}->{$option_name};
 }
-
-
 
 1;
