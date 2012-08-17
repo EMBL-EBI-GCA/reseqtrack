@@ -16,14 +16,10 @@ use File::Path;
           string, optional, path to bcftools if it cannot be worked out from samtools path
   Arg [-vcfutils_path]    :
           string, optional, path to vcfutils.pl if it cannot be worked out from samtools path         
-  Arg [-mpileup]   :
-      string, command line options to use with "samtools mpileup"
+  Arg [-parameters]   :
+      hashref, command line options to use with "samtools mpileup", "bcftools view" and "vcfutils.pl"
       Here is a list of options: samtools mpileup [-EBug] [-C capQcoef]  [-l list] [-M capMapQ] [-Q minBaseQ] [-q minMapQ] 
-  Arg [-bcfview]   :
-      string, command line options to use with "bcftools view"
       Here is a list of options: bcftools view [-AbFGNQSucgv] [-D seqDict] [-l listLoci] [-i gapSNPratio] [-t mutRate] [-p varThres] [-P prior] [-1 nGroup1] [-d minFrac] [-U nPerm] [-X permThres] [-T trioType] 
-  Arg [-vcfutils]   :
-      string, command line options to use with "vcfutils.pl"
   Arg [-super_pop_name]    :
       string, default is "unknownPop", used in output file name and collection name
       
@@ -36,16 +32,16 @@ use File::Path;
                 -input_files             => ['/path/sam1', '/path/sam2'],
                 -program                 => "/path/to/samtools",
                 -working_dir             => '/path/to/dir/',  ## this is working dir and output dir
-                -bcftools_path             => '/path/to/bcftools/',
-                -vcfutils_path             => '/path/to/vcfutils.pl/',
-                -reference                => '/path/to/ref/',
-                -mpileup                 => '-ug',
-                -bcfview                 => '-bvcg',
-                -vcfutils                 => '-D 100',
-                -chrom                    => '1',
-                -region                    => '1-1000000',
-                -output_name_prefix        => PHASE1,
-                -super_pop_name            => EUR (or all)
+                -bcftools_path           => '/path/to/bcftools/',
+                -vcfutils_path           => '/path/to/vcfutils.pl/',
+                -reference               => '/path/to/ref/',
+                -parameters              => {	'mpileup'=>'-ug', 
+                								'bcfview'=>'-bvcg', 
+                								'vcfutils'=>'-D 100' }
+                -chrom                   => '1',
+                -region                  => '1-1000000',
+                -output_name_prefix      => PHASE1,
+                -super_pop_name          => EUR (or all)
                 );
 
 =cut
@@ -56,16 +52,12 @@ sub new {
 
   my (     $bcftools_path, 
           $vcfutils_path, 
-          $mpileup, 
-          $bcfview, 
-          $vcfutils,
+		  $parameters,
           $super_pop_name)
     = rearrange( [
          qw(     BCFTOOLS_PATH 
                  VCFUTILS_PATH 
-                 MPILEUP 
-                 BCFVIEW 
-                 VCFUTILS
+				 PARAMETERS
                  SUPER_POP_NAME )
         ], @args);    
   
@@ -101,23 +93,24 @@ sub new {
       $self->vcfutils_path($vcfutils_path);
   }
 
-  print "input mpileup option is $mpileup\n";     
-  $self->options('mpileup', $mpileup);
-  $self->options('bcfview', $bcfview);
-  $self->options('vcfutils', $vcfutils); 
+  $self->parameters($parameters);
+
+#  print "parameter hash keys are:\n";
+#  print join("\n", keys %{$self->parameters}) . "\n";
   
   $self->super_pop_name($super_pop_name);
   
   return $self;
 }
 
+=head
 sub DEFAULT_OPTIONS { return {
         'mpileup' => '-ug',
         'bcfview' => '-bvcg',
         'vcfutils' => '-d 2',
         };
 }
-
+=cut
 
 =head2 run_variant_calling
 
@@ -135,10 +128,13 @@ sub run_variant_calling {
 
     my $cmd = $self->program . " mpileup";
 
-    if ($self->options('mpileup')) {
-        $cmd .= " " . $self->options('mpileup');
-        print "mpileup option is " . $self->options('mpileup') . "\n";
-    }           
+	if ($self->parameters->{'mpileup'} ) {
+		$cmd .= " " . $self->parameters->{'mpileup'};
+		print "mpileup option is " . $self->parameters->{'mpileup'} . "\n";	
+	}	
+	else {
+		throw("Please provide parameters for running mpileup using tag -parameters");
+	}	           
 
     $cmd .= " -f " . $self->reference;
     
@@ -154,11 +150,14 @@ sub run_variant_calling {
     }    
     
     $cmd .= " | " . $self->bcftools_path . " view";
-    
-    if ($self->options('bcfview')) {
-        $cmd .= " " . $self->options('bcfview');
-        print "bcfview option is " . $self->options('bcfview') . "\n";
-    }  
+
+	if ($self->parameters->{'bcfview'} ) {
+		$cmd .= " " . $self->parameters->{'bcfview'};
+		print "bcfview option is " . $self->parameters->{'bcfview'} . "\n";	
+	}	
+	else {
+		throw("Please provide parameters for running bcfview using tag -parameters");
+	}   
 
     $cmd .= " - > $output_raw_bcf";
 
@@ -190,9 +189,13 @@ sub run_variant_filtering {
     my $cmd = $self->bcftools_path . " view $input_raw_bcf | ";
     $cmd .= $self->vcfutils_path . " varFilter";
 
-    if ($self->options('vcfutils')) {
-        $cmd .= " " . $self->options('vcfutils');
-    }   
+	if ($self->parameters->{'vcfutils'} ) {
+		$cmd .= " " . $self->parameters->{'vcfutils'};
+		print "vcfutils option is " . $self->parameters->{'vcfutils'} . "\n";	
+	}	
+	else {
+		throw("Please provide parameters for running vcfutils using tag -parameters");
+	}
     
     $cmd .= " > $output_filtered_vcf ";
     $self->execute_command_line($cmd);
@@ -374,8 +377,6 @@ and with ploidy 1 for chrY and non-pseudosomal regions of male chrX
 column to -s option of bcftools view, the accepted values are 1 or 2.
 
 For exome studies, extract on-target sites at the end using a tabix command (see mpileup web site use case example)
-
-=cut
 
 
 
