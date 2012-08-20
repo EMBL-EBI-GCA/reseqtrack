@@ -14,6 +14,8 @@ use File::Path;
 use File::Basename;
 use Benchmark;
 use Data::Dumper;
+use File::Basename;
+
 $| = 1;
 
 my $term_sig =  0;
@@ -77,6 +79,14 @@ if ($help) {
 if ($test) {
     $once = 1;
 }
+
+if (!$runner){
+	# guess the runner script using the default name and the dir of the running script
+	my ($script_name,$script_path) = fileparse($0);
+	$runner = $script_path."runner.pl";
+	print "runner was not specified, will try to use $runner $/ " if ($verbose);
+}
+
 throw($runner." runner script must exist") unless(-e $runner);
 
 print "Starting to run pipeline based on ".$dbname."\n" if($verbose);

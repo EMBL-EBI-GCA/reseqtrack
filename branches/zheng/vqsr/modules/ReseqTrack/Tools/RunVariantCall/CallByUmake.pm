@@ -13,30 +13,16 @@ use base qw(ReseqTrack::Tools::RunVariantCall);
 
 =head2 new
 
+  Arg [-parameters]	:
+  	  hashref of different parameters to pass on to the program; 
   Arg [-dbSNP]   :
       string, path to prefix of dbsnp vcf rod files    
   Arg [-hm3_prefix]   :
       string, path to prefix of hapmap3 files
   Arg [-indel_prefix]   :
       string, path to prefix of indel vcf files
-  Arg [-FILTER_MAX_SAMPLE_DP]   :
-      integer, argument for filtering
-  Arg [-FILTER_MIN_SAMPLE_DP]    :
-        integer, argument for filtering
-  Arg [-offset_off_target]    :
-        integer,option for EXOME sequencing, extend target by given # of bases    
   Arg [-target_bed]    :
         string,     
-   Arg [-FILTER_MQ]    : 
-        integer, filter output calls by samtools view MQ, default is 3 
-  Arg [-FILTER_FLAG]    : 
-        string, filter output calls by samtools view flag, deafult is 0x0704
-  Arg [-unit_chunk]    :
-        integer,    size of chromosomal chunk to call variants on; default is 5Mb 
-  Arg [-LD_Nsnps]    :
-        integer,   Chunk size of genotype refinement, default is 10,000 SNPs
-  Arg [-LD_overlap]    :
-        integer, overlapping sizes of chunks, default is 1,000 SNPs
                                              
   + Arguments for ReseqTrack::Tools::RunProgram parent class
 
@@ -47,48 +33,39 @@ use base qw(ReseqTrack::Tools::RunVariantCall);
                 -input_files             => ['/path/sam1', '/path/sam2'],
                 -program                 => "/path/to/gatk",
                 -working_dir             => '/path/to/dir/',
-                -reference                => '/path/to/ref/',
-                -dbSNP                    => 'prefix to dbSNP rod file',
-                -hm3_prefix                => 'prefix to hapmap3 files',
+                -reference               => '/path/to/ref/',
+                -dbSNP                   => 'prefix to dbSNP rod file',
+                -hm3_prefix              => 'prefix to hapmap3 files',
                 -indel_prefix            => 'prefix to indel vcf files',
-                -offset_off_target        => 50,
-                -FILTER_MAX_SAMPLE_DP    => 20,
-                -FFILTER_MIN_SAMPLE_DP    => 0.5,
-                -FILTER_MQ                => 3,
-                -FILTER_FLAG            => 0x0704,
-                -chrom                    => '1',
-                -region                    => '1-1000000' );
+                -parameters					=>{ 'offset_off_target'=> 50,
+                								'FILTER_MAX_SAMPLE_DP'=>20,
+                								'FFILTER_MIN_SAMPLE_DP'=>0.5,
+                								'FILTER_MQ'=>3,
+                								'FILTER_FLAG'=>0x0704 }
+                -chrom                   => '1',
+                -region                  => '1-1000000' );
 
 =cut
 
 sub new {
+  print "*************************************************************************************************************************************************\n";	
+  print "********* CallByUmake.pm MODULE NEEDS TO RUN WITH THE LATEST VERSION OF PERL, PERL5.12 OR OVER. WHICH IS INSTALLED IN PG-TRACE CLUSTERS *********\n"; 
+  print "*************************************************************************************************************************************************\n";
   my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
 
-  my (     $offset_off_target, 
-          $dbSNP, 
+  my (    $dbSNP, 
+  		  $parameters,
           $target_bed, 
           $indel_prefix, 
-          $hm3_prefix, 
-          $FILTER_MAX_SAMPLE_DP, 
-          $FILTER_MIN_SAMPLE_DP,
-          $FILTER_MQ,
-          $FILTER_FLAG,
-          $unit_chunk,
-          $LD_Nsnps,
-          $LD_overlap)
-    = rearrange( [ qw(     OFFSET_OFF_TARGET 
-                        DBSNP 
+          $hm3_prefix,    
+          $unit_chunk )
+    = rearrange( [ qw(  DBSNP 
+    					PARAMETERS
                         TARGET_BED 
                         INDEL_PREFIX 
                         HM3_PREFIX 
-                        FILTER_MAX_SAMPLE_DP 
-                        FILTER_MIN_SAMPLE_DP
-                        FILTER_MQ
-                        FILTER_FLAG
-                          UNIT_CHUNK
-                          LD_NSNPS
-                          LD_OVERLAP ) ], @args);
+                        UNIT_CHUNK ) ], @args);
 
   ## Set defaults     
       
@@ -102,16 +79,9 @@ sub new {
     $self->dbSNP($dbSNP) if ($dbSNP);
     $self->indel_prefix($indel_prefix) if ($indel_prefix);
     $self->hm3_prefix($hm3_prefix) if ($hm3_prefix);
-          
-    $self->options('offset_off_target', $offset_off_target);
-    $self->options('FILTER_MAX_SAMPLE_DP', $FILTER_MAX_SAMPLE_DP);
-    $self->options('FILTER_MIN_SAMPLE_DP', $FILTER_MIN_SAMPLE_DP);
-    $self->options('FILTER_MQ', $FILTER_MQ);
-    $self->options('FILTER_FLAG', $FILTER_FLAG);          
-    $self->options('unit_chunk', $unit_chunk) if ($unit_chunk);
-    $self->options('LD_Nsnps', $LD_Nsnps) if ($LD_Nsnps);
-    $self->options('LD_overlap', $LD_overlap) if ($LD_overlap);
-      
+    
+    $self->parameters($parameters);
+     
     #throw("When run umake, please specify a chromosome and a region") if (!$self->chrom || !$self->region ); 
      ### FIXME, revive above after test 
     
@@ -224,7 +194,7 @@ sub print_config_file {
     if ($self->region) { 
         print CONFIG "WRITE_TARGET_LOCI = TRUE\n"; # FOR TARGETED SEQUENCING ONLY -- Write loci file when performing pileup
         print CONFIG "UNIFORM_TARGET_BED = " . $self->print_target_bed($self->chrom, $self->region) . "\n" if ($self->chrom); #path for target bed file
-        print CONFIG "OFFSET_OFF_TARGET = " . $self->options('offset_off_target') . "\n" if ($self->options('offset_off_target') ); # Extend target by given # of bases
+        print CONFIG "OFFSET_OFF_TARGET = " . $self->parameters->{'offset_off_target'} . "\n" if ($self->parameters->{'offset_off_target'}  ); # Extend target by given # of bases
         print CONFIG "MULTIPLE_TARGET_MAP = \n"; # Target per individual : Each line contains [SM_ID] [TARGET_BED]
         print CONFIG "TARGET_DIR = target\n"; # Directory to store target information
         print CONFIG "SAMTOOLS_VIEW_TARGET_ONLY = TRUE\n";  # When performing samtools view, exclude off-target regions (may make command line too long)
@@ -278,10 +248,10 @@ sub print_config_file {
 ###############################################################################\n";
     print CONFIG $fixed_text5;
     
-    print CONFIG "SAMTOOLS_VIEW_FILTER = -q " . $self->options('FILTER_MQ') . " -F " . $self->options('FILTER_FLAG') . "\n"; # samtools view filter (-q by MQ, -F by flag)\n";
+    print CONFIG "SAMTOOLS_VIEW_FILTER = -q " . $self->parameters->{'FILTER_MQ'} . " -F " . $self->parameters->{'FILTER_FLAG'} . "\n"; # samtools view filter (-q by MQ, -F by flag)\n";
 
-    print CONFIG "FILTER_MAX_SAMPLE_DP = " . $self->options('FILTER_MAX_SAMPLE_DP') . "\n";  # Max Depth per Sample (20x default) -- will generate FILTER_MAX_TOTAL_DP automatically\
-    print CONFIG "FILTER_MIN_SAMPLE_DP = " . $self->options('FILTER_MIN_SAMPLE_DP') . "\n";  # Min Depth per Sample (0.5x defaul) -- will generate FILTER_MIN_TOTAL_DP automatically\
+    print CONFIG "FILTER_MAX_SAMPLE_DP = " . $self->parameters->{'FILTER_MAX_SAMPLE_DP'} . "\n";  # Max Depth per Sample (20x default) -- will generate FILTER_MAX_TOTAL_DP automatically\
+    print CONFIG "FILTER_MIN_SAMPLE_DP = " . $self->parameters->{'FILTER_MIN_SAMPLE_DP'} . "\n";  # Min Depth per Sample (0.5x defaul) -- will generate FILTER_MIN_TOTAL_DP automatically\
     print CONFIG "FILTER_ARGS = --write-vcf --filter --maxDP \$(FILTER_MAX_TOTAL_DP) --minDP \$(FILTER_MIN_TOTAL_DP) --maxAB 70 --maxSTR 20 --minSTR -20 --winIndel 5 --maxSTZ 5 --minSTZ -5 --maxAOI 5 # arguments for filtering (refer to vcfCooker for details)\n";
 
     my $fixed_text6 =
@@ -304,9 +274,9 @@ GLF_INDEX = glfIndex.ped  # glfMultiples/glfExtract index file info\
 
     print CONFIG $fixed_text6;
     
-    print CONFIG "UNIT_CHUNK = " . $self->options('unit_chunk') . "\n";      # Chunk size of SNP calling : 5Mb is default\
-    print CONFIG "LD_NSNPS = " . $self->options('LD_Nsnps') . "\n";          # Chunk size of genotype refinement : 10,000 SNPs\
-    print CONFIG "LD_OVERLAP = " . $self->options('LD_overlap') . "\n";        # Overlapping # of SNPs between chunks : 1,000 SNPs\
+    print CONFIG "UNIT_CHUNK = " . $self->parameters->{'unit_chunk'} . "\n";      # Chunk size of SNP calling : 5Mb is default\
+    print CONFIG "LD_NSNPS = " . $self->parameters->{'LD_Nsnps'} . "\n";          # Chunk size of genotype refinement : 10,000 SNPs\
+    print CONFIG "LD_OVERLAP = " . $self->parameters->{'LD_overlap'} . "\n";        # Overlapping # of SNPs between chunks : 1,000 SNPs\
 
     my $fixed_text7 =
 "RUN_INDEX_FORCE = FALSE   # Regenerate BAM index file even if it exists\
@@ -399,7 +369,7 @@ sub sieve_umake_output_dir {
 				
 				my $chunk = $self->region;
 				my $edited_out_file = $out_file;
-				$edited_out_file =~ s/filtered/$chunk.filtered/;  
+				$edited_out_file =~ s/filtered/$chunk.umake/;  
 				my $edited_out_file_path = $self->working_dir . "/" . $edited_out_file;
 				
 				move($out_file_path, $edited_out_file_path) 

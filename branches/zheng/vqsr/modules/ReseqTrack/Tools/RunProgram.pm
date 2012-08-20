@@ -42,7 +42,7 @@ use POSIX;
   Arg [-echo_cmd_line]   :
       boolean flag, default 0, echo the command line rather than execute commands
       this option is designed for debugging purposes
-  Arg [-save_files_for_deletion]   :
+  Arg [-save_files_from_deletion]   :
       boolean flag, default 0, save temporary files (i.e. do not delete them)
       this option is designed for debugging purposes
 
@@ -66,7 +66,7 @@ use POSIX;
 
 # package variables:
 my $GLOBAL_ECHO_CMD_LINE;
-my $GLOBAL_SAVE_FILES_FOR_DELETION;
+my $GLOBAL_save_files_from_deletion;
 my $GLOBAL_WORKING_DIR = "/tmp/";
 
 my $term_sig =  0;
@@ -84,11 +84,11 @@ sub new {
   #input files, we will allow single file name or list of file names
   my ( $input_files,  $program, $job_name, $working_dir,
         $options,
-        $echo_cmd_line, $save_files_for_deletion, $output_name_prefix )
+        $echo_cmd_line, $save_files_from_deletion, $output_name_prefix )
     = rearrange( [
          qw( INPUT_FILES PROGRAM JOB_NAME WORKING_DIR
              OPTIONS
-             ECHO_CMD_LINE SAVE_FILES_FOR_DELETION OUTPUT_NAME_PREFIX)
+             ECHO_CMD_LINE save_files_from_deletion OUTPUT_NAME_PREFIX)
 		], @args);
 
   $self->input_files($input_files);
@@ -96,7 +96,7 @@ sub new {
   $self->job_name($job_name);
   $self->working_dir($working_dir);
   $self->echo_cmd_line($echo_cmd_line);
-  $self->save_files_for_deletion($save_files_for_deletion);
+  $self->save_files_from_deletion($save_files_from_deletion);
   $self->output_name_prefix($output_name_prefix);
 
   my $default_options = $self->DEFAULT_OPTIONS;
@@ -106,7 +106,8 @@ sub new {
   while (my ($option_name, $option_value) = each %$options) {
       $self->options($option_name, $option_value);
   }
-
+  $self->parameters($options);
+  
   return $self;
 }
 
@@ -217,24 +218,24 @@ sub execute_command_line {
     return $exit;
 }
 
-=head2 save_files_for_deletion
+=head2 save_files_from_deletion
 
   Arg [1]   : ReseqTrack::Tools::RunProgram
-  Arg [2]   : boolean, optional, value of save_files_for_deletion flag
-  Function  : accessor method for save_files_for_deletion flag.  Files marked for deletion
+  Arg [2]   : boolean, optional, value of save_files_from_deletion flag
+  Function  : accessor method for save_files_from_deletion flag.  Files marked for deletion
               will not be deleted. Designed to be used for debugging purposes.
   Returntype: boolean
   Exceptions: 
-  Example   : my $flag = $self->save_files_for_deletion;
+  Example   : my $flag = $self->save_files_from_deletion;
 
 =cut
 
-sub save_files_for_deletion {
+sub save_files_from_deletion {
   my $self = shift;
   if (@_) {
-    $GLOBAL_SAVE_FILES_FOR_DELETION = (shift) ? 1 : 0;
+    $GLOBAL_save_files_from_deletion = (shift) ? 1 : 0;
   }
-  return $GLOBAL_SAVE_FILES_FOR_DELETION;
+  return $GLOBAL_save_files_from_deletion;
 }
 
 =head2 echo_cmd_line
@@ -510,7 +511,7 @@ sub get_save_status {
 sub delete_files {
     my $self = shift;
 
-    return if ($self->save_files_for_deletion);
+    return if ($self->save_files_from_deletion);
 
     my $input_files = $self->input_files;
     my $output_files = $self->output_files;
@@ -568,7 +569,7 @@ sub get_temp_dir {
     my $temp_dir = $self->{'_temp_dir'};
     if (! $temp_dir) {
       $temp_dir = $self->working_dir() .'/'.$self->job_name;
-      if ($allow_test_mode && $GLOBAL_SAVE_FILES_FOR_DELETION) {
+      if ($allow_test_mode && $GLOBAL_save_files_from_deletion) {
         warn("directory already exists: $temp_dir") if (-d $temp_dir);
       }
       else {
@@ -608,7 +609,5 @@ sub options {
 
     return $self->{'options'}->{$option_name};
 }
-
-
 
 1;
