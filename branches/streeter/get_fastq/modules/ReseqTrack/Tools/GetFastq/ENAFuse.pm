@@ -3,6 +3,8 @@ package ReseqTrack::Tools::GetFastq::ENAFuse;
 use strict;
 use warnings;
 
+use Digest::SHA qw(sha512_hex);
+
 use base qw(ReseqTrack::Tools::GetFastq);
 
 =pod
@@ -60,10 +62,14 @@ sub make_output_hash {
   throw("do not have a fuse user name") if !$self->fuse_user;
   throw("do not have a fuse password") if !$self->fuse_password;
 
+  my $string = '/' . $self->fuse_user . '/' . $self->run_meta_info->study_id
+            . '/' . $self->fuse_password . '/';
+  my $digest = sha512_hex($string);
+
   my $output_dir = $self->output_dir;
   $output_dir .= '/' . $self->fuse_user;
   $output_dir .= '/' . $self->run_meta_info->study_id;
-  $output_dir .= '/' . $self->fuse_user . $self->run_meta_info->study_id . $self->fuse_password;
+  $output_dir .= '/' . $digest;
   my $name_hash = $self->name_hash;
   my %output_hash;
   while (my ($basename, $source_path) = each %$name_hash) {

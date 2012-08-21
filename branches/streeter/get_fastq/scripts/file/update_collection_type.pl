@@ -135,7 +135,7 @@ elsif ( %collections_to_withdraw ) {
 	         	$type = "EXOME_BC_BAM";
 	     	}
 	     	else {
-	     		$type = "EXOME_BAM";
+	     		$type = "EXOME_BAM";			
 	     	}
 	     }	  
 	     elsif ($bam_col_name =~ /mosaik/i && $bam_col_name !~ /exome/i ) {

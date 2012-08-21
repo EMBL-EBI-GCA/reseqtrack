@@ -80,10 +80,6 @@ if($all_checks){
   $check_unidentified = 1;
 }
 
-if($update_existing || $store_new){
-  $update_collections = 1;
-}
-
 if(($store_new + $update_existing + $update_collections + $check_sample + 
     $check_status + $check_unidentified) == 0){
   print STDERR "There script has nothing to do you need to specify at least ".
