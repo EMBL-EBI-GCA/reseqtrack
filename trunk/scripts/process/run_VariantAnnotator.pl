@@ -163,7 +163,7 @@ print "Job took $length minutes\n";
 
 =head1 EXAMPLE COMMAND LINE	
 
-perl $ZHENG_RB_VQSR/scripts/process/run_VariantAnnotator.pl \
+perl $ZHENG_RT/scripts/process/run_VariantAnnotator.pl \
 -reference /nfs/1000g-work/G1K/work/bin/gatk_resource_bundle/human_g1k_v37.fasta \
 -dbsnp /nfs/1000g-work/G1K/work/bin/gatk_resource_bundle/dbsnp_135.b37.vcf \
 -input_bams /nfs/1000g-work/G1K/scratch/zheng/transpose_bam_chr20/low_coverage_PUR_SOLID_chrom20.bam \

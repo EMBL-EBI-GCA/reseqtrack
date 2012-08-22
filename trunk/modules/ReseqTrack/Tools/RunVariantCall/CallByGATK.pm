@@ -63,15 +63,14 @@ sub new {
   $self->reference("/nfs/1000g-work/G1K/scratch/zheng/reference_genomes/human_g1k_v37.fasta") if (! $self->reference);
   $self->gatk_path("/nfs/1000g-work/G1K/work/bin/gatk/dist/") if (! $self->gatk_path);
    
-  $self->parameters($parameters); ## This is a function in RunVariantCall module   
-
-  print "parameter hash keys are:\n";
-  print join("\n", keys %{$self->parameters}) . "\n";
+  $self->options($parameters); ## This is a function in RunProgram module   
+  print "option hash keys are:\n";
+  print join("\n", keys %{$self->options}) . "\n";
   
-  if (! defined $self->parameters->{'dbSNP'}) {
+  if (! defined $self->options->{'dbSNP'}) {
       throw("Please provide dbSNP VCF file path for gatk run in parameters\n");
   }
-  print "dbSNP is " . $self->parameters->{'dbSNP'} . "\n";
+  print "dbSNP is " . $self->options->{'dbSNP'} . "\n";
   
   $self->super_pop_name($super_pop_name);
   print "super pop is $super_pop_name\n";
@@ -132,9 +131,9 @@ sub run_program {
     
     $cmd .= "-o $outfile "; 
 
-	if ( $self->parameters ) {
-		foreach my $tag ( keys ( %{$self->parameters} ) ) {
-            my $value = $self->parameters->{$tag};
+	if ( $self->options ) {
+		foreach my $tag ( keys ( %{$self->options} ) ) {
+            my $value = $self->options->{$tag};
             if (defined $value) {
                 if ($tag =~ /dbSNP/i ) {
                 	 #$cmd .= "-B:dbsnp,VCF $value "; ## this is for earlier version of gatk prior to gatk-1.6
@@ -145,7 +144,7 @@ sub run_program {
                 }
             }
         }
-    }   
+    }        
     
     if ($self->chrom) {
         $cmd .= "-L " . $self->chrom;

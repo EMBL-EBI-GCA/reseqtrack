@@ -80,7 +80,7 @@ sub new {
     $self->indel_prefix($indel_prefix) if ($indel_prefix);
     $self->hm3_prefix($hm3_prefix) if ($hm3_prefix);
     
-    $self->parameters($parameters);
+    $self->options($parameters);
      
     #throw("When run umake, please specify a chromosome and a region") if (!$self->chrom || !$self->region ); 
      ### FIXME, revive above after test 
@@ -194,7 +194,7 @@ sub print_config_file {
     if ($self->region) { 
         print CONFIG "WRITE_TARGET_LOCI = TRUE\n"; # FOR TARGETED SEQUENCING ONLY -- Write loci file when performing pileup
         print CONFIG "UNIFORM_TARGET_BED = " . $self->print_target_bed($self->chrom, $self->region) . "\n" if ($self->chrom); #path for target bed file
-        print CONFIG "OFFSET_OFF_TARGET = " . $self->parameters->{'offset_off_target'} . "\n" if ($self->parameters->{'offset_off_target'}  ); # Extend target by given # of bases
+        print CONFIG "OFFSET_OFF_TARGET = " . $self->options->{'offset_off_target'} . "\n" if ($self->options->{'offset_off_target'}  ); # Extend target by given # of bases
         print CONFIG "MULTIPLE_TARGET_MAP = \n"; # Target per individual : Each line contains [SM_ID] [TARGET_BED]
         print CONFIG "TARGET_DIR = target\n"; # Directory to store target information
         print CONFIG "SAMTOOLS_VIEW_TARGET_ONLY = TRUE\n";  # When performing samtools view, exclude off-target regions (may make command line too long)
@@ -248,10 +248,10 @@ sub print_config_file {
 ###############################################################################\n";
     print CONFIG $fixed_text5;
     
-    print CONFIG "SAMTOOLS_VIEW_FILTER = -q " . $self->parameters->{'FILTER_MQ'} . " -F " . $self->parameters->{'FILTER_FLAG'} . "\n"; # samtools view filter (-q by MQ, -F by flag)\n";
+    print CONFIG "SAMTOOLS_VIEW_FILTER = -q " . $self->options->{'FILTER_MQ'} . " -F " . $self->options->{'FILTER_FLAG'} . "\n"; # samtools view filter (-q by MQ, -F by flag)\n";
 
-    print CONFIG "FILTER_MAX_SAMPLE_DP = " . $self->parameters->{'FILTER_MAX_SAMPLE_DP'} . "\n";  # Max Depth per Sample (20x default) -- will generate FILTER_MAX_TOTAL_DP automatically\
-    print CONFIG "FILTER_MIN_SAMPLE_DP = " . $self->parameters->{'FILTER_MIN_SAMPLE_DP'} . "\n";  # Min Depth per Sample (0.5x defaul) -- will generate FILTER_MIN_TOTAL_DP automatically\
+    print CONFIG "FILTER_MAX_SAMPLE_DP = " . $self->options->{'FILTER_MAX_SAMPLE_DP'} . "\n";  # Max Depth per Sample (20x default) -- will generate FILTER_MAX_TOTAL_DP automatically\
+    print CONFIG "FILTER_MIN_SAMPLE_DP = " . $self->options->{'FILTER_MIN_SAMPLE_DP'} . "\n";  # Min Depth per Sample (0.5x defaul) -- will generate FILTER_MIN_TOTAL_DP automatically\
     print CONFIG "FILTER_ARGS = --write-vcf --filter --maxDP \$(FILTER_MAX_TOTAL_DP) --minDP \$(FILTER_MIN_TOTAL_DP) --maxAB 70 --maxSTR 20 --minSTR -20 --winIndel 5 --maxSTZ 5 --minSTZ -5 --maxAOI 5 # arguments for filtering (refer to vcfCooker for details)\n";
 
     my $fixed_text6 =
@@ -274,9 +274,9 @@ GLF_INDEX = glfIndex.ped  # glfMultiples/glfExtract index file info\
 
     print CONFIG $fixed_text6;
     
-    print CONFIG "UNIT_CHUNK = " . $self->parameters->{'unit_chunk'} . "\n";      # Chunk size of SNP calling : 5Mb is default\
-    print CONFIG "LD_NSNPS = " . $self->parameters->{'LD_Nsnps'} . "\n";          # Chunk size of genotype refinement : 10,000 SNPs\
-    print CONFIG "LD_OVERLAP = " . $self->parameters->{'LD_overlap'} . "\n";        # Overlapping # of SNPs between chunks : 1,000 SNPs\
+    print CONFIG "UNIT_CHUNK = " . $self->options->{'unit_chunk'} . "\n";      # Chunk size of SNP calling : 5Mb is default\
+    print CONFIG "LD_NSNPS = " . $self->options->{'LD_Nsnps'} . "\n";          # Chunk size of genotype refinement : 10,000 SNPs\
+    print CONFIG "LD_OVERLAP = " . $self->options->{'LD_overlap'} . "\n";        # Overlapping # of SNPs between chunks : 1,000 SNPs\
 
     my $fixed_text7 =
 "RUN_INDEX_FORCE = FALSE   # Regenerate BAM index file even if it exists\

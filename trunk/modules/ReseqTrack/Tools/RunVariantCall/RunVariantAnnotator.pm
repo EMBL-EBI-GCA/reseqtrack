@@ -43,7 +43,7 @@ sub new {
   $self->dbsnp($dbsnp);
   $self->anno($anno);
   $self->anno_group($anno_group);
-  $self->parameters($parameters);
+  $self->options($parameters);
   $self->input_vcf($input_vcf);
 
   return $self;
@@ -99,9 +99,9 @@ sub run_program {
         throw("Please provide either a list of annotations to be calculated or a annotation_group to be calculated");
     }              
        
-    if ( $self->parameters ) {
-        foreach my $p ( keys %{$self->parameters} ) {
-            $cmd .= "-" . $p . " " . $self->parameters->{$p} . "  \\\n";
+    if ( $self->options ) {
+        foreach my $p ( keys %{$self->options} ) {
+            $cmd .= "-" . $p . " " . $self->options->{$p} . "  \\\n";
         }
     }  
     
