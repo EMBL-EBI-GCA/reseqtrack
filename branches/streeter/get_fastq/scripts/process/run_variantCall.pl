@@ -212,14 +212,14 @@ else {
 my $varCalling_module = $module_path . '::'. $module_name;
 
 my $constructor_hash;
-$constructor_hash->{-parameters} = parameters_hash($input{parameters});
+$constructor_hash->{-options} = parameters_hash($input{parameters});
 $constructor_hash->{-input_files} = \@bams;
 $constructor_hash->{-program} = $input{program};
 $constructor_hash->{-working_dir} = $input{output_dir};
 $constructor_hash->{-reference} = $input{reference};
 $constructor_hash->{-chrom} = $chrom if ($chrom);
 $constructor_hash->{-region} = $region if ($region);
-$constructor_hash->{-save_files_for_deletion} = $input{keep_intermediate_file};
+$constructor_hash->{-save_files_from_deletion} = $input{keep_intermediate_file};
 $constructor_hash->{-output_name_prefix} = $input{output_name_prefix};
 $constructor_hash->{-super_pop_name} = $super_pop_name; 
 

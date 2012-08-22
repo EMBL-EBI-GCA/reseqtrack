@@ -186,7 +186,7 @@ print "Job took $length minutes\n";
 
 =head1 EXAMPLE COMMAND LINE	
 
-perl $ZHENG_RB_VQSR/scripts/process/run_VQSR.pl \
+perl $ZHENG_RT/scripts/process/run_VQSR.pl \
 -reference /nfs/1000g-work/G1K/work/bin/gatk_resource_bundle/human_g1k_v37.fasta \
 -resources dbSNP="known=true,training=false,truth=false,prior=8.0 /nfs/1000g-work/G1K/work/bin/gatk_resource_bundle/dbsnp_135.b37.vcf" \
 -resources hapmap="known=false,training=true,truth=true,prior=15.0 /nfs/1000g-work/G1K/work/bin/gatk_resource_bundle/hapmap_3.3.b37.sites.vcf" \

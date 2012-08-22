@@ -68,7 +68,7 @@ sub new {
   ### SET DEFAULT
   $self->gatk_path('/nfs/1000g-work/G1K/work/bin/gatk/dist/') if (! $self->gatk_path); #this calls ->program
     
-  $self->parameters($parameters_AR);
+  $self->options($parameters_AR);
   $self->save_files_from_deletion($save_files_from_deletion);
   $self->tranchesFile($tranchesFile);
   $self->recalFile($recalFile);
@@ -100,9 +100,9 @@ sub run_program {
         $vcf_basename = basename($vcf);
     }       
     
-    if ( $self->parameters ) {
-        foreach my $p ( keys %{$self->parameters} ) {
-            $cmd .= "-" . $p . " " . $self->parameters->{$p} . "  \\\n";
+    if ( $self->options ) {
+        foreach my $p ( keys %{$self->options} ) {
+            $cmd .= "-" . $p . " " . $self->options->{$p} . "  \\\n";
         }
     }  
     
