@@ -481,7 +481,7 @@ sub check_directory_exists {
 
   eval { mkpath($dir, 0, 0775)};
   if ($@) {
-      throw ($@);
+      throw ("Failed to create $dir: $@");
   }
   return 1;
 }

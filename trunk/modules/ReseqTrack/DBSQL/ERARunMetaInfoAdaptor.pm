@@ -86,6 +86,17 @@ sub is_fastq_available{
 	" not sure how to interpret");
 }
 
+sub get_status{
+  my ($self, $run_id) = @_;
+  my $sql = "select status from ".$self->table_name.
+    " where run_id = ?";
+  my $sth = $self->prepare($sql);
+  $sth->bind_param(1, $run_id);
+  $sth->execute;
+  my ($status) = $sth->fetchrow;
+  return $status;
+}
+
 sub fetch_by_run_file_name{
   my ($self, $run_id) = @_;
   my $sql = "select ".$self->columns." from ".$self->table_name. 
