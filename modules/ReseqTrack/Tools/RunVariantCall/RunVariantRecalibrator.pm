@@ -75,7 +75,7 @@ sub new {
     
   $self->resources($resources);
   $self->use_annotation($use_annotation);
-  $self->parameters($parameters_VR);
+  $self->options($parameters_VR);
   $self->save_files_from_deletion($save_files_from_deletion);
 
   return $self;
@@ -125,9 +125,9 @@ sub run_program {
     $cmd .= "-tranchesFile " . 	$self->working_dir . "/output.tranches \\\n";
     $cmd .= "-rscriptFile " . 	$self->working_dir . "/output.plots.R \\\n";
   
-    if ( $self->parameters ) {
-        foreach my $p ( keys %{$self->parameters} ) {
-            $cmd .= "-" . $p . " " . $self->parameters->{$p} . "  \\\n";
+    if ( $self->options ) {
+        foreach my $p ( keys %{$self->options} ) {
+            $cmd .= "-" . $p . " " . $self->options->{$p} . "  \\\n";
         }
     }         
     
