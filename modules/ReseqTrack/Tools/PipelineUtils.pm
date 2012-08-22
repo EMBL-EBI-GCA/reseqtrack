@@ -24,6 +24,7 @@ use warnings;
 use Exporter;
 use ReseqTrack::Job;
 use ReseqTrack::Tools::Exception qw(throw warning stack_trace_dump);
+use ReseqTrack::Tools::FileSystemUtils qw(check_directory_exists);
 use File::Path;
 use File::Basename;
 use Sys::Hostname;
@@ -578,14 +579,7 @@ sub create_job_output_stem{
   my $name = basename($input_string);
   my $num = int(rand($num_output_dirs));
   my $dir = $event->output_path . "/$num/";
-  if(! -e $dir){
-    eval{
-      mkpath($dir);
-    };
-    if($@){
-      throw("Failed to create ".$dir." $@");
-    }
-  }
+  check_directory_exists($dir);
   my $ident = int(rand(10000));
   my $stem = $dir."/".$name."_".$event->name."_".$ident;
   $stem =~ s/\/\//\//;
