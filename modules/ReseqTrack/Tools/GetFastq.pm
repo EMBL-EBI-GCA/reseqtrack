@@ -53,7 +53,7 @@ sub new {
   $self->output_dir($output_dir);
   $self->run_meta_info($run_meta_info);
   $self->db($db);
-  $self->source_root_dir($source_root_dir);
+  $self->source_root_dir($source_root_dir || '/nfs/era-pub');
   $self->clobber($clobber);
 
   return $self;
