@@ -26,6 +26,8 @@ my $fastq_getter = ReseqTrack::Tools::GetFastq::ENAFuse(
                       -source_root_dir => '/mount/ena/dir',
                       -fuse_user => 'username',
                       -fuse_password => 'mypassword',
+                      -fuse_user => 'username',
+                      -fuse_scphost => 'fusehost.ebi.ac.uk',
                       );
 $fastq_getter->run;
 my $output_file_list = $fastq_getter->output_files;
@@ -37,11 +39,13 @@ sub new {
     my ( $class, @args ) = @_;
     my $self = $class->SUPER::new(@args);
 
-    my ( $fuse_password, $fuse_user)
-        = rearrange( [ qw( FUSE_PASSWORD FUSE_USER )], @args);
+    my ( $fuse_password, $fuse_user, $fuse_scphost, $fuse_scpuser)
+        = rearrange( [ qw( FUSE_PASSWORD FUSE_USER FUSE_SCPHOST FUSE_SCPUSER)], @args);
 
     $self->fuse_password($fuse_password);
     $self->fuse_user($fuse_user);
+    $self->fuse_scphost($fuse_scphost);
+    $self->fuse_scpuser($fuse_scpuser || 'anonymous');
 
     return $self;
 }
@@ -57,7 +61,7 @@ sub check_status {
   return 1;
 }
 
-sub make_output_hash {
+sub get_fastq_details {
   my $self = shift;
   throw("do not have a fuse user name") if !$self->fuse_user;
   throw("do not have a fuse password") if !$self->fuse_password;
@@ -65,20 +69,34 @@ sub make_output_hash {
   my $string = '/' . $self->fuse_user . '/' . $self->run_meta_info->study_id
             . '/' . $self->fuse_password . '/';
   my $digest = sha512_hex($string);
+  my $root_dir = $self->source_root_dir;
+  $root_dir .= '/' if ($root_dir !~ /\/$/);
+  $root_dir .= $self->fuse_user .'/'. $self->run_meta_info->study_id .'/'. $digest;
 
-  my $output_dir = $self->output_dir;
-  $output_dir .= '/' . $self->fuse_user;
-  $output_dir .= '/' . $self->run_meta_info->study_id;
-  $output_dir .= '/' . $digest;
-  my $name_hash = $self->name_hash;
-  my %output_hash;
-  while (my ($basename, $source_path) = each %$name_hash) {
-    my $output_path = $output_dir . '/' . $basename;
-    $output_path =~ s{//}{/}g;
-    $output_hash{$source_path} = $output_path;
-  }
-  $self->output_hash(\%output_hash);
+  my ($db_md5_hash, $db_size_hash, $name_hash) =
+      ReseqTrack::Tools::ERAUtils::get_fastq_details($self->run_meta_info->run_id, $self->db, $root_dir);
+  $self->db_md5_hash($db_md5_hash);
+  $self->db_size_hash($db_size_hash);
+  $self->name_hash($name_hash);
 }
+
+sub get_files {
+  my $self = shift;
+  if (! $self->fuse_scphost) {
+    warn("no fuse_scphost, so will get files using 'copy'");
+    return $self->SUPER::get_files;
+  }
+
+  my $scp = Net::SCP->new($self->fuse_scphost, $self->fuse_scpuser);
+  my $output_hash = $self->output_hash;
+  while (my($source_path, $output_path) = each %$output_hash) {
+    $scp->scp($source_path, $output_path)
+        or throw("Failed scp from $source_path on ".$self->fuse_scphost." to $output_path: $scp->{errstr}");
+    chmod 0644, $output_path;
+    $self->output_files($output_path);
+  }
+}
+
 
 sub fuse_password{
   my ($self, $fuse_password) = @_;
@@ -95,6 +113,24 @@ sub fuse_user{
   }
   return $self->{fuse_user};
 }
+
+sub fuse_scphost{
+  my ($self, $fuse_scphost) = @_;
+  if(defined($fuse_scphost)){
+    $self->{fuse_scphost} = $fuse_scphost;
+  }
+  return $self->{fuse_scphost};
+}
+
+sub fuse_scpuser{
+  my ($self, $fuse_scpuser) = @_;
+  if(defined($fuse_scpuser)){
+    $self->{fuse_scpuser} = $fuse_scpuser;
+  }
+  return $self->{fuse_scpuser};
+}
+
+
 
 
 1;
