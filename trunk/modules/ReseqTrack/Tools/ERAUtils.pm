@@ -192,7 +192,6 @@ sub fix_sample_swap{
 }
 
 
-# OK to delete:
 sub get_fastq_details{
   my ($run_id, $era_db, $ftp_root) = @_;
   
@@ -203,8 +202,6 @@ sub get_fastq_details{
   my %sizehash;
   my %namehash;
   $sth->execute($run_id);
-  #print $sql."\n";
-  #prunt $run_id."\n";
   while(my ($filename, $dirname, $md5, $vol, $bytes) = $sth->fetchrow){
     my $ftp_path = $ftp_root;
     $ftp_path .= "/" unless($ftp_path =~ /\/$/);
