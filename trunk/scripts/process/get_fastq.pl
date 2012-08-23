@@ -13,7 +13,7 @@ use ReseqTrack::Tools::RunMetaInfoUtils qw( create_directory_path );
 $| = 1;
 
 my $run_id;
-my $source_root_location = '/nfs/era-pub';
+my $source_root_location;
 my $host_name = '1000genomes.ebi.ac.uk';
 my $file_type;
 my $clobber;
