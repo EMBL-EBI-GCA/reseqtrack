@@ -25,7 +25,7 @@ use warnings;
 use ReseqTrack::Tools::Exception qw(throw warning stack_trace_dump);
 use ReseqTrack::Tools::Argument qw(rearrange);
 use ReseqTrack::Tools::SequenceIndexUtils qw(assign_files);
-use File::Basename qw(fileparse);
+use File::Basename;
 use Env qw( @PATH );
 
 use base qw(ReseqTrack::Tools::RunProgram);
