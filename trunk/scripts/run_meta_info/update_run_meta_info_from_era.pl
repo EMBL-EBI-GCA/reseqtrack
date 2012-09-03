@@ -227,7 +227,7 @@ if there are associated public files, if there are they are withdrawn
 -collection_type, this is the type of collection object the runs should be grouped
                   into
 
--study_id_list, this is the study id list which defined what makes up a collection
+-study_id_file, this is the study id list which defined what makes up a collection
 
 -help, this is a binary flag to print out the help
 
