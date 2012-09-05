@@ -147,10 +147,12 @@ sub run {
   }
 
   $self->change_dir;
-  $self->run_program(@args);
+  my @returned_values = $self->run_program(@args);
 
   $self->_running(0);
   $self->delete_files;
+
+  return @returned_values;
 }
 
 =head2 DESTROY
@@ -183,8 +185,8 @@ sub execute_command_line {
     if ($self->echo_cmd_line) {
         $command_line = "echo \'" . $command_line . "\'";
     }
-    print "Executing command:\n";
-    print $command_line . "\n";
+    print "Executing command:$/";
+    print $command_line . $/;
 
     my $pid = fork;
     if (!defined $pid) {

@@ -66,7 +66,8 @@ my $check_unidentified;
 
 
 if($help){
-  useage();
+  exec('perldoc', $0);
+  exit(0);
 }
 my $original_run = $run;
 $summary = 1 if($verbose);

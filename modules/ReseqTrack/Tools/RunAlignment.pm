@@ -390,6 +390,14 @@ sub samtools {
     return $self->{samtools};
 }
 
+sub picard {
+    my $self = shift;
+    if (@_) {
+        $self->{picard} = shift;
+    }
+    return $self->{picard};
+}
+
 sub output_format {
     my $self = shift;
     if (@_) {

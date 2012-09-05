@@ -139,6 +139,7 @@ sub store{
   $sth->finish();
   $input_string->dbID($dbID) if($dbID);
   $input_string->adaptor($self);
+  return $input_string;
 }
 
 
@@ -155,7 +156,7 @@ sub update{
   $sth->bind_param(3, $input_string->dbID);
   $sth->execute();
   $sth->finish();
-  return;
+  return $input_string;
 }
 
 sub object_from_hashref{

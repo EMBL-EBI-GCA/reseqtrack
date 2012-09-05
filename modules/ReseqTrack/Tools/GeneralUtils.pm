@@ -92,8 +92,8 @@ sub current_date{
   my @months = qw(01 02 03 04 05 06 07 08 09 10 11 12);
   my ($second, $minute, $hour, $dayOfMonth, $month, $yearOffset, $dayOfWeek, $dayOfYear, $daylightSavings) = localtime();
   my $year = 1900 + $yearOffset;
-  $dayOfMonth = sprintf("%02.d", $dayOfMonth);
-  my $theTime = $year.$months[$month].$dayOfMonth;
+  my $formatted_dayOfMonth = sprintf("%02d", $dayOfMonth);
+  my $theTime = $year.$months[$month].$formatted_dayOfMonth;
   return $theTime;
 }
 
@@ -297,8 +297,8 @@ sub execute_system_command{
 
 =cut
 sub execute_pipe_system_command{
-	my ($command_line) = @_;
-	
+	my ($command_line, $verbose) = @_;
+		
 	throw("no command to execute") if (! $command_line);
 
 	my $result;

@@ -9,6 +9,7 @@ use ReseqTrack::Tools::HostUtils qw(get_host_object);
 use ReseqTrack::Tools::RunMetaInfoUtils qw(create_directory_path);
 use Getopt::Long;
 
+
 $| = 1;
 
 my $dbhost;
@@ -165,7 +166,9 @@ if($store){
   }
   my $collection = ReseqTrack::Collection->new(
       -name => $name, -type => $type_output,
-      -others => $sam_files);
+      -others => $sam_files,
+	  -table_name => 'file',
+	);
   $ca->store($collection);
 }
 
