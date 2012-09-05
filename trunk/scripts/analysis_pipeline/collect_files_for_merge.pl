@@ -25,6 +25,7 @@ my $level;
 my $output_dir;
 my $directory_layout;
 my $help;
+my $verbose;
 
 &GetOptions( 
 	    'dbhost=s'      => \$dbhost,
@@ -32,15 +33,16 @@ my $help;
 	    'dbuser=s'      => \$dbuser,
 	    'dbpass=s'      => \$dbpass,
 	    'dbport=s'      => \$dbport,
-            'host_name=s' => \$host_name,
+        'host_name=s' => \$host_name,
 	    'level=s'      => \$level,
 	    'type_key=s'       => \$type_key,
 	    'type_input=s'       => \@type_input,
 	    'type_collection=s'       => \$type_collection,
 	    'type_merged=s'       => \$type_merged,
-            'output_dir=s' => \$output_dir,
-            'directory_layout=s' => \$directory_layout,
+        'output_dir=s' => \$output_dir,
+        'directory_layout=s' => \$directory_layout,
 	    'help!'         => \$help,
+	    'verbose' => \$verbose,
 	   );
 
 
@@ -66,16 +68,19 @@ my %inputs;
 foreach my $type_input (@type_input) {
   foreach my $collection (@{$ca->fetch_by_type($type_input)}) {
     $inputs{$collection->name} = $collection->others;
+	print "Found input collection: ".$collection->name.$/ if $verbose;
   }
 }
 
 my %existing_output_collections;
 foreach my $collection (@{$ca->fetch_by_type($type_collection)}) {
   $existing_output_collections{$collection->name} = 1;
+  print "Found output collection: ".$collection->name.$/ if $verbose;	
 }
 my %existing_merged;
 foreach my $collection (@{$ca->fetch_by_type($type_merged)}) {
   $existing_merged{$collection->name} = 1;
+  print "Found merged collection: ".$collection->name.$/ if $verbose;
 }
 
 my %files_to_move;
@@ -94,12 +99,14 @@ if ($level eq 'RUN') {
     }
     if (@others == 1) {
       $files_to_move{$key_collection->name} = $others[0];
+	  	print "Found file to move for colleciton: ".$key_collection->name.$/ if $verbose;
     }
     else {
       my $output_collection = ReseqTrack::Collection->new(
               -name => $key_collection->name, -type => $type_collection,
               -others => \@others);
       $ca->store($output_collection);
+	  print "Created merge collection: ".$key_collection->name.$/ if $verbose;	
     }
   }
 }
@@ -123,12 +130,14 @@ if ($level eq 'LIBRARY') {
       }
       if (@others == 1) {
         $files_to_move{$output_name} = $others[0];
+		print "Found file to move for library: $library_name $/" if $verbose;
       }
       else {
         my $output_collection = ReseqTrack::Collection->new(
                 -name => $output_name, -type => $type_collection,
                 -others => \@others);
         $ca->store($output_collection);
+		print "Created merge library: $library_name $/" if $verbose;	
       }
     }
   }
@@ -151,12 +160,14 @@ if ($level eq 'SAMPLE') {
     }
     if (@others == 1) {
       $files_to_move{$sample_id} = $others[0];
+	  print "Found file to move for sample: $sample_id $/" if $verbose;
     }
     else {
       my $output_collection = ReseqTrack::Collection->new(
               -name => $sample_id, -type => $type_collection,
               -others => \@others);
       $ca->store($output_collection);
+	  print "Created merge sample: $sample_id $/" if $verbose;	
     }
   }
 }

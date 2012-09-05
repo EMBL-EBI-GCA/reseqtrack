@@ -8,6 +8,7 @@ use ReseqTrack::Tools::FileSystemUtils qw(run_md5 delete_file);
 use ReseqTrack::Tools::HostUtils qw(get_host_object);
 use ReseqTrack::Tools::RunMetaInfoUtils qw(create_directory_path);
 use ReseqTrack::Tools::RunPicard;
+use ReseqTrack::Tools::StatisticsUtils;
 use File::Basename qw(fileparse);
 use Getopt::Long;
 
@@ -34,6 +35,7 @@ my $directory_layout;
 my $command;
 my %options;
 my $create_index;
+my $store_stats;
 
 &GetOptions( 
   'dbhost=s'      => \$dbhost,
@@ -57,9 +59,10 @@ my $create_index;
   'command=s' => \$command,
   'options=s' => \%options,
   'create_index!' => \$create_index,
-    );
+  'store_stats!' => \$store_stats,
+);
 
-my @allowed_cmds = qw(mark_duplicates merge sort alignment_metrics);
+my @allowed_cmds = ReseqTrack::Tools::RunPicard->get_valid_commands;
 throw("Don't recognise command $command. Acceptable commands are: @allowed_cmds")
   if (! grep {$command eq $_ } @allowed_cmds);
 
@@ -118,26 +121,43 @@ my $picard_object = ReseqTrack::Tools::RunPicard->new(
                     -picard_dir              => $picard_dir,
                     -create_index            => $create_index,
                     );
-$picard_object->run($command);
+my ($metrics) = $picard_object->run($command);
+
+throw("store_stats is set, but the command has not produced any") if ($store_stats && !$metrics);
 
 if($store){
   my $host = get_host_object($host_name, $db);
 
-  my $bam_paths = $picard_object->output_bam_files;
-  if (@$bam_paths) {
-    foreach my $path (@$bam_paths) {
+  my @file_paths = @{$picard_object->output_bam_files};
+  push @file_paths, @{$picard_object->output_metrics_files} if $store_stats;
+	
+  if (@file_paths) {
+    foreach my $path (@file_paths) {
       throw("database already has file with name $path")
           if ($fa->fetch_by_name($path));
     }
-    my $bams = create_objects_from_path_list($bam_paths, $type_output, $host);
+    my $files = create_objects_from_path_list(\@file_paths, $type_output, $host);
     if (! $disable_md5) {
-      foreach my $bam (@$bams) {
-        $bam->md5( run_md5($bam->name) );
+      foreach my $file (@$files) {
+        $file->md5( run_md5($file->name) );
       }
     }
+
     my $collection = ReseqTrack::Collection->new(
         -name => $name, -type => $type_output,
-        -others => $bams);
+        -others => $files);
+
+	if ($store_stats && $metrics){
+		for my $metrics_row (@$metrics){
+			while (my ($key,$value) = each %$metrics_row){
+				if (defined $value && defined $key) {
+					my $stat = create_statistic_for_object($collection, $key, $value);
+					$collection->statistics($stat);
+				}
+			}
+		}
+	}	
+
     $ca->store($collection);
   }
 

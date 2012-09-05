@@ -57,11 +57,16 @@ my $host = get_host_object($host_name,$db);
 my $file_adaptor = $db->get_FileAdaptor;
 my $file = $file_adaptor->fetch_by_name($file_name);
 
+my $options = {
+	"VALIDATION_STRINGENCY" => "LENIENT",
+	"REFERENCE_SEQUENCE" => $reference_sequence,
+};
+
 my %picard_config = (
 	-program		=> $java_path,
 	-picard_dir		=> $picard_dir,
 	-jvm_options	=> $jvm_options,
-	-options		=> "VALIDATION_STRINGENCY=LENIENT REFERENCE_SEQUENCE=$reference_sequence",
+	-options		=> $options,
 	-input_files	=> [$file_name],
 );
 
@@ -75,7 +80,7 @@ for my $metrics (@$alignment_metrics) {
 	my $category = $metrics->{'CATEGORY'};
 	while (my ($key, $value) = each %$metrics) {
 		next if $key eq 'CATEGORY';
-		push @$statistics, create_statistic_for_object($file,$category.'_'.$key,$value);
+		push @$statistics, create_statistic_for_object($file,$category.'_'.$key,$value) if (defined $value);
 	}	 
 }
 
