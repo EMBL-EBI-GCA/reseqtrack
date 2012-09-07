@@ -189,9 +189,15 @@ sub parse_files {
 	#print "Key: $key Value: $value\n"; 
       	
 	# Check if this header/key is already defined
-	if (exists($config->{$header}->{$key})) {
-	  throw("$key is already defined for [$header]; cannot be redefined");
-	} else {
+	if (exists($config->{$header}->{$key}) && $key =~ /options/i) {
+	  warning("$key is already defined for [$header]; the value is appended to exisiting values");
+	  $config->{$header}->{$key} .= " " . $value;
+	  #print "$header:$key=$value\n";
+	} 
+	elsif ( exists($config->{$header}->{$key}) ) {
+	  throw("$key is already defined for [$header]; cannot re-define");
+	}
+	else {
 	  # store them in the config hash
 	  $config->{$header}->{$key} = $value;
 	  #print "$header:$key=$value\n";
