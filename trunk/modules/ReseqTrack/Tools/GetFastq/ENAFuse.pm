@@ -6,7 +6,7 @@ use warnings;
 use ReseqTrack::Tools::Argument qw(rearrange);
 use ReseqTrack::Tools::Exception qw(throw warning);
 use ReseqTrack::Tools::ERAUtils qw ();
-#use Digest::SHA qw(sha512_hex);
+use Digest::SHA qw(sha512_hex);
 use Net::FTP;
 
 use base qw(ReseqTrack::Tools::GetFastq);
@@ -75,10 +75,13 @@ sub get_fastq_details {
 
   my $string = '/' . $self->fuse_user . '/' . $self->run_meta_info->study_id
             . '/' . $self->fuse_password . '/';
-  #my $digest = sha512_hex($string);
-  my $digest = `echo -n '$string' |  sha512sum`;
-  chomp $digest;
-  $digest =~ s/\s.*//;
+  my $digest = sha512_hex($string);
+
+  ###### Alternative version if sha512_hex does not work
+  #my $digest = `echo -n '$string' |  sha512sum`;
+  #chomp $digest;
+  #$digest =~ s/\s.*//;
+  ######
 
   my $root_dir .= join('/', $self->fuse_mount_dir,
                         $self->fuse_user,
@@ -105,6 +108,7 @@ sub get_files {
     or throw('cannot connect to '.$self->fuse_ftphost.": $@");
   $ftp->login('anonymous')
     or throw('cannot login to '.$self->fuse_ftphost.' as anonymous: '.$ftp->message);
+  $ftp->binary;
 
   my $output_hash = $self->output_hash;
   while (my($source_path, $output_path) = each %$output_hash) {
