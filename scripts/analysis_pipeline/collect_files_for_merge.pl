@@ -201,12 +201,13 @@ while (my ($name, $file) = each %files_to_move) {
   my $history = ReseqTrack::History->new(
       -other_id => $file->dbID, -table_name => 'file',
       -comment => "moved by $0 to $new_file_path");
-  $ha->store($history);
   move ($old_file_path, $new_file_path)
     or throw ("could not move $old_file_path to $new_file_path $!");
+  $ha->store($history);
 
   my $old_index_path = $old_file_path . '.bai';
   if (-f $old_index_path) {
+    delete_file($old_index_path);
     my $old_index = $fa->fetch_by_name($old_index_path);
     if ($old_index) {
       my $index_history = ReseqTrack::History->new(
@@ -214,7 +215,6 @@ while (my ($name, $file) = each %files_to_move) {
         -comment => "deleted by $0");
       $ha->store($history);
     }
-    delete_file($old_index_path);
   }
 
   my $merged_file = create_object_from_path($new_file_path, $type_merged, $host);

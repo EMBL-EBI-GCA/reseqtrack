@@ -69,10 +69,16 @@ foreach my $option (keys %options) {
     if (! grep {$option eq $_ } @allowed_options);
 }
 
-throw("Must specify an output directory") if (!$output_dir);
-throw("Must specify an output type") if (!$type_output);
+
+throw("Must specify an output directory") if (!$output_dir && $command ne 'index');
+throw("Must specify an output type") if (!$type_output && $command ne 'index');
 throw("Must specify an index type if index_outputs flag is used")
       if ($index_outputs && !$type_index);
+
+if ($command eq 'index') {
+  $type_index ||= $type_output;
+  throw("Must specify an index type or output type") if (!$type_index);
+}
 
 my $db = ReseqTrack::DBSQL::DBAdaptor->new(
   -host   => $dbhost,
@@ -152,7 +158,7 @@ if($store){
 
   if (@$index_file_paths) {
     my $fa = $db->get_FileAdaptor;
-    my $bais = create_objects_from_pathlist($index_file_paths, $type_index, $host);
+    my $bais = create_objects_from_path_list($index_file_paths, $type_index, $host);
     foreach my $bai (@$bais) {
       if (! $disable_md5) {
         $bai->md5( run_md5($bai->name) );
