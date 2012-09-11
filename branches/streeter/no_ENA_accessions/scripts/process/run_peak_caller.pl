@@ -1,0 +1,310 @@
+#!/usr/bin/env perl
+
+use strict;
+use ReseqTrack::Tools::Exception;
+use ReseqTrack::DBSQL::DBAdaptor;
+use ReseqTrack::Tools::FileUtils qw(create_objects_from_path_list);
+use ReseqTrack::Tools::RunPeakCall::Fseq;
+use ReseqTrack::Tools::HostUtils qw(get_host_object);
+use ReseqTrack::Tools::RunMetaInfoUtils qw(create_directory_path);
+use ReseqTrack::Tools::GeneralUtils qw(execute_system_command execute_pipe_system_command);
+use ReseqTrack::Tools::FileSystemUtils qw(run_md5);
+use ReseqTrack::Tools::StatisticsUtils qw(create_statistic_for_object);
+
+use Statistics::Descriptive;
+
+use File::Copy "move";
+use File::Basename qw(fileparse);
+
+use Data::Dumper;
+use Getopt::Long;
+
+$| = 1;
+
+my ($dbhost, $dbuser, $dbpass, $dbport, $dbname);
+my ($name, $type_input, $type_output,$output_dir,$directory_layout,$gzip_output);
+my ($store,$verbose,$program,$disable_md5);
+my $control_type;
+my $strip_duplicates;
+my $do_peak_stats = 1;
+my $module_path = 'ReseqTrack::Tools::RunPeakCall';
+my $module_name;
+my $host_name = '1000genomes.ebi.ac.uk';
+my $bam_to_bed_path = 'bamToBed';
+my $samtools_path = 'samtools';
+my $intersect_bed_path = 'intersectBed';
+my $control_experiment_type = 'ChIP-Seq Input';
+my $save_temp_files = 0;
+my %options;
+
+&GetOptions( 
+	'dbhost=s'      => \$dbhost,
+	'dbname=s'      => \$dbname,
+	'dbuser=s'      => \$dbuser,
+	'dbpass=s'      => \$dbpass,
+	'dbport=s'      => \$dbport,
+	'name=s' => \$name,
+	'type_input=s' => \$type_input,
+	'type_output=s' => \$type_output,
+	'output_dir=s' => \$output_dir,
+	'directory_layout=s' => \$directory_layout,
+	'gzip_output!' => \$gzip_output,		
+	'store!' => \$store,
+	'verbose!' => \$verbose,
+	'program=s' => \$program,
+	'disable_md5!' => \$disable_md5,
+	'options=s' => \%options,
+	'bam_to_bed_path=s' => \$bam_to_bed_path,
+	'strip_duplicates!' => \$strip_duplicates,
+	'samtools_path=s' => \$samtools_path,
+	'module_path=s' => \$module_path,
+	'module_name=s' => \$module_name,
+	'intersect_bed_path=s' => \$intersect_bed_path,
+	'peak_stats!' => \$do_peak_stats,
+	'control_type=s' => \$control_type,
+	'control_experiment_type=s' => \$control_experiment_type,
+	'save_temp_files=s' => \$save_temp_files,	
+);
+
+throw("Must specify an output directory") if (!$output_dir);
+throw("Must specify an output type") if (!$type_output);
+
+my $peak_call_module = load_module($module_path, $module_name);
+my $allowed_options = get_allowed_options($peak_call_module);
+foreach my $option (keys %options) {
+  throw("Don't recognise option $option. Acceptable options are: ".join(' ', @$allowed_options))
+    if (! grep {$option eq $_ } @$allowed_options);
+}
+
+
+# dba + adaptors
+my $db = ReseqTrack::DBSQL::DBAdaptor->new(
+  -host   => $dbhost,
+  -user   => $dbuser,
+  -port   => $dbport,
+  -dbname => $dbname,
+  -pass   => $dbpass,
+);
+throw("Could not create db adaptor") if (! $db);
+
+$db->dbc->disconnect_when_inactive(1);
+my $ca = $db->get_CollectionAdaptor;
+my $fa = $db->get_FileAdaptor;
+my $rmia = $db->get_RunMetaInfoAdaptor;
+
+#inputs
+my $collection = $ca->fetch_by_name_and_type($name, $type_input);
+throw("Failed to find a collection for ".$name." ".$type_input." from ".$dbname) unless($collection);
+
+my $input_files = $collection->others;
+my @input_filepaths = map {$_->{'name'}} @$input_files;
+
+my $run_meta_info = get_run_meta_info($name,$rmia);
+$output_dir = create_directory_path($run_meta_info, $directory_layout, $output_dir) if ($directory_layout);
+my $control_filepaths = get_control_file_paths($run_meta_info,$control_experiment_type,$control_type) if ($control_type);
+ 
+print 'Found input files '.join( ', ', @input_filepaths).$/ if $verbose;
+print 'Found control files '.join( ', ', @$control_filepaths).$/ if $verbose;
+
+# run analysis
+my $peak_caller = $peak_call_module->new(
+	-input_files => \@input_filepaths,
+	-control_files => $control_filepaths,
+	-program => $program,
+	-working_dir => $output_dir,
+	-options => \%options,
+	-echo_cmd_line => $verbose,
+	-job_name => $name,
+	-strip_duplicates => $strip_duplicates,
+	-bam_to_bed_path => $bam_to_bed_path,
+	-samtools_path => $samtools_path,	
+	-save_files_from_deletion => $save_temp_files,
+);
+
+$peak_caller->run();
+my @files = @{$peak_caller->output_files};
+
+for my $output (@files){
+	throw("Cannot find output file: $output") if (! -e $output)
+}
+
+print "Peak calling complete$/" if $verbose;
+
+my %peak_stats = gather_peak_stats($peak_caller->bed_file, \@input_filepaths) if ($do_peak_stats && $peak_caller->bed_file);
+
+if ($gzip_output){
+	for (my $i = 0; $i < scalar(@files); $i++) {
+			execute_system_command("gzip -f $files[$i]");
+			$files[$i] .= '.gz';	
+	}
+}
+my $host = get_host_object($host_name, $db);
+
+
+foreach my $path (@files) {
+	throw("database already has file with name $path")if ($store && $fa->fetch_by_name($path));
+}
+
+my $file_objects = create_objects_from_path_list(\@files, $type_output, $host);
+if (! $disable_md5) {
+	foreach my $file_object (@$file_objects) {
+		$file_object->md5( run_md5($file_object->name) );
+	}
+}
+my $collection = ReseqTrack::Collection->new(
+	-name => $name,
+	-type => $type_output,
+	-others => $file_objects
+);
+
+if ($do_peak_stats){
+	my @stats;
+	while (my ($key, $value) = each %peak_stats) {
+		push @stats, create_statistic_for_object($collection,$key,$value) if ($key);
+	}
+	$collection->statistics(\@stats);
+}
+
+$ca->store($collection) if($store);
+
+sub load_module {
+  my ($module_path, $module_name) = @_;
+  my $full_module_path = join('::', $module_path, $module_name);
+  my $file = "$full_module_path.pm";
+  $file =~ s{::}{/}g;
+  eval {
+    require "$file";
+  };
+  if ($@) {
+    throw("cannot load $file: $@")
+  }
+  return $full_module_path;
+}
+
+sub get_allowed_options {
+  my $alignment_module = shift;
+  my $default_options_sub = '&'.$alignment_module . '::DEFAULT_OPTIONS';
+  return [] if (! eval "exists $default_options_sub");
+  my $default_options = eval "$default_options_sub";
+  my @allowed_options = keys %$default_options;
+  return \@allowed_options;
+}
+
+sub get_total_reads {
+	my ($input_filepaths) = @_;
+	
+	my $read_count = 0;
+	
+	for my $f (@$input_filepaths){
+		my $cmd;
+		if ($f =~ m/\.bed$/){
+			$cmd = "cat $f | grep -v \\# | wc -l";
+		}		
+		elsif($f =~ m/\.bam$/){
+			$cmd = "samtools view -c $f";
+		}
+		else {
+			throw("Cannot get read count for $f");
+		}
+		
+		print "Executing pipe command: $cmd $/" if $verbose;
+		$read_count =+ execute_pipe_system_command($cmd);
+		
+		print "Read count $read_count$/" if $verbose;
+	}
+	
+	return $read_count;
+}
+
+sub get_reads_in_peaks {
+	my ($input_filepaths,$bed_file_path, $intersect_bed_path) = @_;
+	
+	my $reads_in_peaks = 0;
+	
+	for my $f (@$input_filepaths){
+		my $cmd;
+		if ($f =~ m/\.bed$/){
+			$cmd = "cat $bed_file_path | grep -v \\# | $intersect_bed_path -a $f -b stdin -bed | wc -l";
+		}		
+		elsif($f =~ m/\.bam$/){
+			$cmd = "cat $bed_file_path | grep -v \\# | $intersect_bed_path -abam $f -b stdin -bed | wc -l";
+		}
+		else {
+			throw("Cannot get intersection count for $f");
+		}
+		print "Executing pipe command: $cmd $/" if $verbose;
+		$reads_in_peaks =+ execute_pipe_system_command($cmd);
+
+		print "Reads in peaks $reads_in_peaks$/" if $verbose;
+	}
+	
+	return $reads_in_peaks
+}
+
+sub get_run_meta_info{
+	my ($name,$rmia) = @_;
+	
+	my $run_meta_info;
+	if ($name =~ /[ESD]RR\d{6}/) {
+		$run_meta_info = $rmia->fetch_by_run_id($&);
+	}
+	elsif ($name =~ /[ESD]RS\d{6}/) {
+		my $rmi_list = $rmia->fetch_by_sample_id($&);
+		$run_meta_info = $rmi_list->[0] if (@$rmi_list);
+	}
+	
+	return $run_meta_info;
+}
+
+sub get_control_file_paths {
+	my ($run_meta_info,$control_experiment_type,$control_type) = @_;
+	
+	my @control_filepaths;
+	my $control_runs = $rmia->fetch_by_column_names(["run_meta_info.sample_id","run_meta_info.experiment_type"],[$run_meta_info->sample_id,$control_experiment_type] );
+	
+	for my $cr (@$control_runs) {		
+		my $control_collection = $ca->fetch_by_name_and_type($cr->run_id,$control_type);
+		next if (!$control_collection);
+		my @file_paths = map {$_->name} @{$control_collection->others};
+		push @control_filepaths, @file_paths;  
+	}
+	
+	return \@control_filepaths;
+}
+
+sub gather_peak_stats {
+	my ($bed_file, $input_filepaths) = @_;
+	
+	my $total_reads = get_total_reads($input_filepaths);
+	my $reads_in_peaks = get_reads_in_peaks($input_filepaths,$bed_file,$intersect_bed_path);
+	
+	if ($total_reads){
+		$peak_stats{peak_enrichment} = ($reads_in_peaks / $total_reads);
+	}
+	else {
+		$peak_stats{peak_enrichment} = undef;
+	}
+		
+	my $stats = Statistics::Descriptive::Full->new();
+	open(my $bed_fh, '<', $bed_file) or die "Could not open $bed_file";
+	while(<$bed_fh>){
+		next if (m/^#/);
+		chomp;
+		my ($seq,$start,$end) = split /\t/;
+		my $length = $end - $start + 1;
+		$stats->add_data($length);
+	}
+	close $bed_fh;
+	
+	$peak_stats{peak_count} = $stats->count();
+	$peak_stats{peak_length_mean} = $stats->mean();
+	$peak_stats{peak_length_median} = $stats->median();
+	$peak_stats{peak_length_std_dev} =  $stats->standard_deviation();
+	$peak_stats{peak_length_variance} = $stats->variance();
+	
+
+	map {print "Stat: $_ ".$peak_stats{$_}.$/} keys %peak_stats if ($verbose);
+
+
+	return %peak_stats;
+}
