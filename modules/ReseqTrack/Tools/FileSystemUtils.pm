@@ -330,7 +330,7 @@ sub check_md5 {
 }
 
 sub dump_dirtree_summary{
-  my ($input_dir, $output_file, $skip_regex, $fa, $file_list) = @_;
+  my ($input_dir, $output_file, $skip_regex, $fa, $file_list, $output_prefix) = @_;
   my $no_md5s = 0;
   $skip_regex ||= 'current.tree';
 
@@ -363,8 +363,7 @@ sub dump_dirtree_summary{
     }
   }
   my $trim = $input_dir;
-  $trim =~ s/ftp//;
-  $trim =~ s/\/\/$/\//;
+  $trim =~ s/\/\/+/\//g;
   foreach my $file(@$files){
     next if($file =~ /$skip_regex/);
     my $dir = dirname($file);
@@ -374,12 +373,13 @@ sub dump_dirtree_summary{
       $md5 = $file_md5s{$files};
     }
     my $mod_dir = $dir;
-    $mod_dir =~ s/$trim//;
+    $mod_dir =~ s/$trim\/*//;
+    $mod_dir = $mod_dir ? $output_prefix . '/' . $mod_dir : $output_prefix;
+    $mod_dir =~ s{//+}{/}g;
     unless($dirs{$mod_dir}){
       my $dir_size = -s $dir;
       my $dir_stamp = ctime(stat($dir)->mtime);
       $label = 'directory';
-      $dir =~ s/$input_dir//;   
       print $fh join("\t", $mod_dir, $label, $dir_size, $dir_stamp);
       print $fh "\t " if($fa);
       print $fh "\n";
@@ -399,6 +399,8 @@ sub dump_dirtree_summary{
     my $date_string = ctime(stat($file)->mtime);
     $label = 'file';
     $file =~ s/$trim//;
+    $file = $output_prefix . '/' . $file;
+    $file =~ s{//+}{/}g;
     print $fh join("\t", $file, $label, $size, $date_string);
 
    # print $fh "\t".$md5sum if($fa);

@@ -16,6 +16,7 @@ my $dbname;
 my $output_path;
 my $dir_to_tree;
 my $old_tree_name = 'current.tree';
+my $output_prefix;
 my $file_list;
 
 &GetOptions( 
@@ -28,6 +29,7 @@ my $file_list;
       'output_path=s' => \$output_path,      
       'old_tree_name=s' => \$old_tree_name,      
       'file_list=s' => \$file_list,      
+      'output_prefix=s' => \$output_prefix,      
      );
 
 my $db = ReseqTrack::DBSQL::DBAdaptor->new(
@@ -40,7 +42,12 @@ my $db = ReseqTrack::DBSQL::DBAdaptor->new(
 
 my $fa = $db->get_FileAdaptor;
 
-dump_dirtree_summary($dir_to_tree,  $output_path, $old_tree_name, $fa, $file_list);
+if (!defined $output_prefix) {
+  $dir_to_tree =~ /([^\/]+)\/*$/;
+  $output_prefix = $1;
+}
+
+dump_dirtree_summary($dir_to_tree,  $output_path, $old_tree_name, $fa, $file_list, $output_prefix);
 
 
 =pod
@@ -71,6 +78,9 @@ Standard options other than db paramters
  -dir_to_tree     directory to create current.tree file.
 
  -output_path    name for tree file to be generated. If not given, goes to stdout.
+
+ -output_prefix  All files in the output_file will start with this prefix.
+                 Default is the name of dir_to_tree e.g. 'ftp' (not the full path)
 
  -file_list      Provide list of file in directory to dump tree for.
                  Side steps successive "find $input_dir" searches on large directories
