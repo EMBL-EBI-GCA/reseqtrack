@@ -35,6 +35,8 @@ my $delete_input;
 my $realign;
 my $recalibrate;
 my $directory_layout;
+my $run_id_regex = '[ESD]RR\d{6}';
+my $sample_id_regex = '[ESD]RS\d{6}';
 my $intervals_file;
 
 &GetOptions( 
@@ -61,6 +63,8 @@ my $intervals_file;
   'realign!' => \$realign,
   'recalibrate!' => \$recalibrate,
   'directory_layout=s' => \$directory_layout,
+  'run_id_regex=s' => \$run_id_regex,
+  'sample_id_regex=s' => \$sample_id_regex,
   'intervals_file=s' => \$intervals_file,
     );
 
@@ -100,10 +104,10 @@ my $input_file = $others->[0];
 if ($directory_layout) {
   my $rmia = $db->get_RunMetaInfoAdaptor;
   my $run_meta_info;
-  if ($name =~ /[ESD]RR\d{6}/) {
+  if ($name =~ /$run_id_regex/) {
     $run_meta_info = $rmia->fetch_by_run_id($&);
   }
-  elsif ($name =~ /[ESD]RS\d{6}/) {
+  elsif ($name =~ /$sample_id_regex/) {
     my $rmi_list = $rmia->fetch_by_sample_id($&);
     $run_meta_info = $rmi_list->[0] if (@$rmi_list);
   }
@@ -255,6 +259,9 @@ The input bam file can be deleted, along with its index file, and this will be r
   -directory_layout, specifies where the files will be located under output_dir.
       Tokens matching method names in RunMetaInfo will be substituted with that method's
       return value.
+
+  -run_id_regex, used to get run meta info.  Default is '[ESD]RR\d{6}'
+  -study_id_regex, used to get run meta info.  Default is '[ESD]RS\d{6}'
 
 =head1 Examples
 

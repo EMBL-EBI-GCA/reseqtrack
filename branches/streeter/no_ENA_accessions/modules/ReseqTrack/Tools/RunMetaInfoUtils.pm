@@ -476,13 +476,6 @@ sub convert_population{
 }
 
 
-sub get_run_id_from_filename{
-  my ($name) = @_;
-  my $filename = basename($name);
-  $filename =~ /([E|S]RR\d+)/;
-  return $1;
-}
-
 =head2 create_directory_path
 
   Arg [1]   : ReseqTrack::RunMetaInfo

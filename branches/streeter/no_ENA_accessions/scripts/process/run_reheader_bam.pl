@@ -41,6 +41,8 @@ my $reuse_old_header;
 my $root_trim;
 my $ftp_root;
 my $trim_paths;
+my $run_id_regex = '[ESD]RR\d{6}';
+my $sample_id_regex = '[ESD]RS\d{6}';
 
 &GetOptions( 
   'dbhost=s'      => \$dbhost,
@@ -70,6 +72,8 @@ my $trim_paths;
   'root_trim=s' => \$root_trim,
   'ftp_root=s' => \$ftp_root,
   'trim_paths!' => \$trim_paths,
+  'run_id_regex=s' => \$run_id_regex,
+  'sample_id_regex=s' => \$sample_id_regex,
     );
 
 throw("Must specify an output directory") if (!$output_dir);
@@ -103,11 +107,11 @@ my @extra_header_lines;
 if ($directory_layout || $get_fastq_files) {
   my $rmia = $db->get_RunMetaInfoAdaptor;
   my @run_meta_infos;
-  if ($name =~ /[ESD]RR\d{6}/) {
+  if ($name =~ /$run_id_regex/) {
     my $run_meta_info = $rmia->fetch_by_run_id($&);
     push(@run_meta_infos, $run_meta_info) if $run_meta_info;
   }
-  elsif ($name =~ /[ESD]RS\d{6}/) {
+  elsif ($name =~ /$sample_id_regex/) {
     my $sample_id = $&;
     my $sample_rmis = $rmia->fetch_by_sample_id($sample_id);
     if ($name =~ /${sample_id}_(\S+)/) {
@@ -125,11 +129,14 @@ if ($directory_layout || $get_fastq_files) {
   }
 
   if ($get_fastq_files) {
+    my @regexs = (qr/$run_id_regex\S*_1\.(\w+\.)*fastq(\.gz)?$/i,
+                  qr/$run_id_regex\S*_2\.(\w+\.)*fastq(\.gz)?$/i,
+                  qr/$run_id_regex\S*\.fastq(\.gz)?$/i);
     foreach my $rmi (@run_meta_infos) {
       my $run_id = $rmi->run_id;
       my $fastq_collection = $ca->fetch_by_name_and_type($run_id, $type_fastq);
 
-      my ($mate1, $mate2, $frag) = assign_files($fastq_collection->others);
+      my ($mate1, $mate2, $frag) = assign_files($fastq_collection->others, \@regexs);
       my $header_fastq_type = '$' . lc($type_fastq) . '_file';
       foreach my $fastq (grep {$_} ($mate1, $mate2, $frag)) {
         my $fastq_path = $fastq->name;
@@ -277,6 +284,9 @@ The input bam file can be deleted, along with its index file, and this will be r
   -root_trim, string e.g. '/nfs/1000g-archive'.  When trim_paths is true, this string will be removed from fastq paths
 
   -ftp_root, string e.g. 'ftp://ftp.1000genomes.ebi.ac.uk'.  When trim_paths is true, this string will be added to fastq paths
+
+  -run_id_regex, used to get run meta info and to assign fastq files as mate or frag.  Default is '[ESD]RR\d{6}'
+  -study_id_regex, used to get run meta info.  Default is '[ESD]RS\d{6}'
 
 =head1 Examples
 

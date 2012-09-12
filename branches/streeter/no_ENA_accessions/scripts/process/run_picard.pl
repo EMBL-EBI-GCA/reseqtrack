@@ -32,6 +32,8 @@ my $store;
 my $disable_md5;
 my $delete_inputs;
 my $directory_layout;
+my $run_id_regex = '[ESD]RR\d{6}';
+my $sample_id_regex = '[ESD]RS\d{6}';
 my $command;
 my %options;
 my $create_index;
@@ -58,6 +60,8 @@ my $store_stats;
   'directory_layout=s' => \$directory_layout,
   'command=s' => \$command,
   'options=s' => \%options,
+  'run_id_regex=s' => \$run_id_regex,
+  'sample_id_regex=s' => \$sample_id_regex,
   'create_index!' => \$create_index,
   'store_stats!' => \$store_stats,
 );
@@ -98,10 +102,10 @@ my @input_filepaths = map {$_->{'name'}} @$input_files;
 if ($directory_layout) {
   my $rmia = $db->get_RunMetaInfoAdaptor;
   my $run_meta_info;
-  if ($name =~ /[ESD]RR\d{6}/) {
+  if ($name =~ /$run_id_regex/) {
     $run_meta_info = $rmia->fetch_by_run_id($&);
   }
-  elsif ($name =~ /[ESD]RS\d{6}/) {
+  elsif ($name =~ /$sample_id_regex/) {
     my $rmi_list = $rmia->fetch_by_sample_id($&);
     $run_meta_info = $rmi_list->[0] if (@$rmi_list);
   }
@@ -261,6 +265,9 @@ The input files can be deleted, along with any index files, and this will be rec
   -directory_layout, specifies where the files will be located under output_dir.
       Tokens matching method names in RunMetaInfo will be substituted with that method's
       return value.
+
+  -run_id_regex, used to get run meta info.  Default is '[ESD]RR\d{6}'
+  -study_id_regex, used to get run meta info.  Default is '[ESD]RS\d{6}'
 
   -command, must be one of the following: 'merge', 'sort', 'mark_duplicates', 'alignment_metrics'
   Tells the RunPicard object how to process the input files

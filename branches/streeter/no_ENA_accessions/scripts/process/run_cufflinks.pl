@@ -24,6 +24,8 @@ my ($library_type, $transcript_annotation);
 my ($store,$verbose,$program,$disable_md5);
 my $host_name = '1000genomes.ebi.ac.uk';
 my %options;
+my $run_id_regex = '[ESD]RR\d{6}';
+my $sample_id_regex = '[ESD]RS\d{6}';
 
 &GetOptions( 
 	'dbhost=s'      => \$dbhost,
@@ -44,6 +46,8 @@ my %options;
 	'program=s' => \$program,
 	'disable_md5!' => \$disable_md5,
 	'options=s' => \%options,	
+	'run_id_regex=s' => \$run_id_regex,
+	'sample_id_regex=s' => \$sample_id_regex,
 );
 
 throw("Must specify an output directory") if (!$output_dir);
@@ -82,10 +86,10 @@ print 'Found input files '.join( ', ', @input_filepaths).$/ if $verbose;
 
 if ($directory_layout) {
   my $run_meta_info;
-  if ($name =~ /[ESD]RR\d{6}/) {
+  if ($name =~ /$run_id_regex/) {
     $run_meta_info = $rmia->fetch_by_run_id($&);
   }
-  elsif ($name =~ /[ESD]RS\d{6}/) {
+  elsif ($name =~ /$sample_id_regex/) {
     my $rmi_list = $rmia->fetch_by_sample_id($&);
     $run_meta_info = $rmi_list->[0] if (@$rmi_list);
   }
