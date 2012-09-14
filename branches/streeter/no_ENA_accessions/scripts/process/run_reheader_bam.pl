@@ -135,6 +135,7 @@ if ($directory_layout || $get_fastq_files) {
     foreach my $rmi (@run_meta_infos) {
       my $run_id = $rmi->run_id;
       my $fastq_collection = $ca->fetch_by_name_and_type($run_id, $type_fastq);
+      throw("Did not find a collection with name $run_id and type $type_fastq") if (!$fastq_collection);
 
       my ($mate1, $mate2, $frag) = assign_files($fastq_collection->others, \@regexs);
       my $header_fastq_type = '$' . lc($type_fastq) . '_file';
