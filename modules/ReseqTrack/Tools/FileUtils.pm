@@ -46,7 +46,6 @@ use vars qw (@ISA  @EXPORT);
              assign_type
 	     move_file_in_db_and_dir
              get_count_stats
-	     get_run_id_to_file_hash
 	     write_log
              assign_type_by_filename);
 
@@ -530,17 +529,6 @@ sub get_count_stats{
  
   return ($read_count, $base_count);
 
-}
-
-sub get_run_id_to_file_hash{
-  my ($files) = @_;
-  my %hash;
-  foreach my $file(@$files){
-    my ($run_id) = $file->filename =~ /^([E|S]RR\d+)/;
-    throw("Failed to parse a run id from ".$file->name) unless($run_id);
-    push(@{$hash{$run_id}}, $file);
-  }
-  return \%hash;
 }
 
 sub write_log {

@@ -709,7 +709,7 @@ sub run_hash_from_fastq{
   my %hash;
   my ($p, $f, $l) = caller;
   foreach my $file(@$files){
-    $file->filename =~ /([E|S]RR\d+)/;
+    $file->filename =~ /([ES]RR\d+)/;
     push(@{$hash{$1}}, $file);
   }
   return \%hash;
