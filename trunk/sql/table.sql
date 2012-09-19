@@ -13,7 +13,7 @@ CREATE TABLE file(
        KEY file_path_idx (name),
        UNIQUE (name, md5)
   
-);
+) ENGINE=MYISAM;
 
 CREATE TABLE host(
        host_id int(10) unsigned NOT NULL AUTO_INCREMENT,
@@ -22,7 +22,7 @@ CREATE TABLE host(
        dropbox_dir VARCHAR(200),
        PRIMARY KEY(host_id),
        UNIQUE(name)
-);
+) ENGINE=MYISAM;
 
 create table history(
    history_id int(10) unsigned NOT NULL AUTO_INCREMENT,
@@ -32,7 +32,7 @@ create table history(
    time   datetime NOT NULL, 
    PRIMARY KEY(history_id), 
    key(other_id, table_name)
-);
+) ENGINE=MYISAM;
 
 
 
@@ -54,7 +54,7 @@ CREATE TABLE event(
        
        PRIMARY KEY(event_id),
        UNIQUE(name)   
-);
+) ENGINE=MYISAM;
 
 
 CREATE TABLE event_complete(
@@ -69,7 +69,7 @@ CREATE TABLE event_complete(
    exec_host varchar(20),
 
    unique(event_id, other_id, table_name)
-);
+) ENGINE=MYISAM;
 
 CREATE TABLE input_string(
    input_string_id  int(10) unsigned NOT NULL AUTO_INCREMENT,
@@ -78,14 +78,14 @@ CREATE TABLE input_string(
    
    primary key(input_string_id),
    unique(name, type)
-);
+) ENGINE=MYISAM;
 CREATE TABLE workflow_goal(
     workflow_id int(10) unsigned NOT NULL AUTO_INCREMENT,
     goal_event_id int(10) unsigned NOT NULL,
     PRIMARY KEY(workflow_id),
     KEY(goal_event_id),
     UNIQUE(goal_event_id)
-);
+) ENGINE=MYISAM;
 
 CREATE TABLE workflow_conditions(
     workflow_id int(10) unsigned NOT  NULL,
@@ -93,7 +93,7 @@ CREATE TABLE workflow_conditions(
     PRIMARY KEY(workflow_id),
     KEY(conditional_event_id),
     KEY workflow_condition(workflow_id, conditional_event_id)
-);
+) ENGINE=MYISAM;
 
 CREATE TABLE collection(
    collection_id int(10) unsigned NOT  NULL AUTO_INCREMENT,
@@ -103,13 +103,13 @@ CREATE TABLE collection(
    PRIMARY KEY (collection_id),
    key(name),
    unique(name, table_name, type)
-);
+) ENGINE=MYISAM;
 
 CREATE TABLE collection_group(
   collection_id int(10) unsigned NOT  NULL,
   other_id int(10) unsigned NOT  NULL,
   unique(collection_id, other_id)
-);
+) ENGINE=MYISAM;
 
 
 CREATE TABLE  run_meta_info(
@@ -139,7 +139,7 @@ CREATE TABLE  run_meta_info(
        KEY (run_id),
        KEY sample_run_idx(run_id, sample_name),
        UNIQUE(run_id)           
-);
+) ENGINE=MYISAM;
 
 
 create table alignment_meta_info(
@@ -155,7 +155,7 @@ create table alignment_meta_info(
       PRIMARY KEY(alignment_meta_info_id),
       KEY(file_id),
       KEY sample_file_idx(sample_name, file_id)
-);
+) ENGINE=MYISAM;
 
 
 CREATE TABLE job(
@@ -173,7 +173,7 @@ CREATE TABLE job(
    KEY(input_string),
    KEY(event_id)
 
-);
+) ENGINE=MYISAM;
 
 CREATE TABLE job_status (
   job_id            int(10) unsigned NOT NULL,
@@ -184,7 +184,7 @@ CREATE TABLE job_status (
   KEY (job_id),
   KEY (status),
   KEY (is_current)
-);
+) ENGINE=MYISAM;
 
 CREATE TABLE statistics(
    statistics_id int(10) unsigned NOT  NULL AUTO_INCREMENT,
@@ -196,7 +196,7 @@ CREATE TABLE statistics(
    key(attribute_name),
    key(other_id, table_name),
    unique(other_id, table_name, attribute_name, attribute_value)
-); 
+) ENGINE=MYISAM; 
 
 CREATE TABLE archive(
        archive_id int(10) unsigned NOT NULL AUTO_INCREMENT,
@@ -219,24 +219,24 @@ CREATE TABLE archive(
        PRIMARY KEY (archive_id),
        KEY file_name_idx (name),
        UNIQUE (name, relative_path)
-);
+) ENGINE=MYISAM;
 
 CREATE TABLE archive_action(
       archive_action_id int(10) unsigned NOT NULL,
       action VARCHAR(50)
-);
+) ENGINE=MYISAM;
 
 CREATE TABLE archive_location(
       archive_location_id int(10) unsigned NOT NULL,
       location VARCHAR(50),
       location_name VARCHAR(10)
-);
+) ENGINE=MYISAM;
 
 
 CREATE TABLE era_meta_info( 
        id_string VARCHAR(50),  
        column_name VARCHAR(50)
-       );
+       ) ENGINE=MYISAM;
 
 CREATE TABLE meta (
 
@@ -247,7 +247,7 @@ CREATE TABLE meta (
   PRIMARY  KEY (meta_id),    
   unique (meta_key)
 
-) ;
+)  ENGINE=MYISAM;
 
 CREATE TABLE reject_log (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -255,7 +255,7 @@ CREATE TABLE reject_log (
     is_reject enum("y", "n") NOT NULL DEFAULT "n",
     reject_reason VARCHAR(500),
     created TIMESTAMP(8)
-    );
+    ) ENGINE=MYISAM;
 
 
 CREATE TABLE `genotype_results` (
@@ -279,7 +279,7 @@ CREATE TABLE `genotype_results` (
   `performed` datetime NOT NULL,
   PRIMARY KEY (`genotype_results_id`),
   UNIQUE KEY `name` (`name`)
-) ;
+)  ENGINE=MYISAM;
 
 CREATE TABLE file_type_rule (
        rule_block_order int(10) unsigned NOT NULL,
@@ -288,19 +288,19 @@ CREATE TABLE file_type_rule (
        match_regex  VARCHAR(1000),
 
        PRIMARY KEY (rule_block_order, rule_order)
-);
+) ENGINE=MYISAM;
 
 CREATE TABLE population_rule (
        rule_order int(10) unsigned NOT NULL,
        population  VARCHAR(50),
        match_regex  VARCHAR(1000),
        PRIMARY KEY (rule_order)
-);
+) ENGINE=MYISAM;
 
 CREATE TABLE study_id (
        study_id  VARCHAR(50),
        PRIMARY KEY (study_id)
-);
+) ENGINE=MYISAM;
 
 
 CREATE TABLE `verifybamid_readgroup` (
@@ -315,7 +315,7 @@ CREATE TABLE `verifybamid_readgroup` (
   `status` tinyint(1) DEFAULT '0',
   PRIMARY KEY (`verifybamid_readgroup_id`),
   UNIQUE KEY `other_id` (`other_id`,`run_id`)
-);
+) ENGINE=MYISAM;
 
 
 CREATE TABLE `verifybamid_sample` (
@@ -343,7 +343,7 @@ CREATE TABLE `verifybamid_sample` (
   `performed` datetime NOT NULL,
   PRIMARY KEY (`verifybamid_sample_id`),
   UNIQUE KEY `other_id` (`other_id`)
-);
+) ENGINE=MYISAM;
 
 
 CREATE TABLE  verifybamid(
@@ -377,7 +377,7 @@ CREATE TABLE  verifybamid(
 
      PRIMARY KEY (verifybamid_id),
      UNIQUE(file_id, read_group)
-);
+) ENGINE=MYISAM;
 
 
 
