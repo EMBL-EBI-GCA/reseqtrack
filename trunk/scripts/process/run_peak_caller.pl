@@ -35,6 +35,8 @@ my $samtools_path = 'samtools';
 my $intersect_bed_path = 'intersectBed';
 my $control_experiment_type = 'ChIP-Seq Input';
 my $save_temp_files = 0;
+my $run_id_regex = '[ESD]RR\d{6}';
+my $sample_id_regex = '[ESD]RS\d{6}';
 my %options;
 
 &GetOptions( 
@@ -64,6 +66,8 @@ my %options;
 	'control_type=s' => \$control_type,
 	'control_experiment_type=s' => \$control_experiment_type,
 	'save_temp_files=s' => \$save_temp_files,	
+	'run_id_regex=s' => \$run_id_regex,
+	'sample_id_regex=s' => \$sample_id_regex,
 );
 
 throw("Must specify an output directory") if (!$output_dir);
@@ -99,7 +103,7 @@ throw("Failed to find a collection for ".$name." ".$type_input." from ".$dbname)
 my $input_files = $collection->others;
 my @input_filepaths = map {$_->{'name'}} @$input_files;
 
-my $run_meta_info = get_run_meta_info($name,$rmia);
+my $run_meta_info = get_run_meta_info($name,$rmia, $run_id_regex, $sample_id_regex);
 $output_dir = create_directory_path($run_meta_info, $directory_layout, $output_dir) if ($directory_layout);
 my $control_filepaths = get_control_file_paths($run_meta_info,$control_experiment_type,$control_type) if ($control_type);
  
@@ -242,13 +246,13 @@ sub get_reads_in_peaks {
 }
 
 sub get_run_meta_info{
-	my ($name,$rmia) = @_;
+	my ($name,$rmia, $run_id_regex, $sample_id_regex) = @_;
 	
 	my $run_meta_info;
-	if ($name =~ /[ESD]RR\d{6}/) {
+	if ($name =~ /$run_id_regex/) {
 		$run_meta_info = $rmia->fetch_by_run_id($&);
 	}
-	elsif ($name =~ /[ESD]RS\d{6}/) {
+	elsif ($name =~ /$sample_id_regex/) {
 		my $rmi_list = $rmia->fetch_by_sample_id($&);
 		$run_meta_info = $rmi_list->[0] if (@$rmi_list);
 	}

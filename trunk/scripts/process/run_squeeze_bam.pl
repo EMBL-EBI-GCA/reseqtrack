@@ -7,7 +7,6 @@ use ReseqTrack::Tools::FileUtils qw(create_object_from_path);
 use ReseqTrack::Tools::FileSystemUtils qw(run_md5 delete_file);
 use ReseqTrack::Tools::HostUtils qw(get_host_object);
 use ReseqTrack::Tools::RunMetaInfoUtils qw(create_directory_path);
-use ReseqTrack::Tools::SequenceIndexUtils qw(assign_files);
 use File::Basename qw(fileparse);
 use ReseqTrack::Tools::RunBamSqueeze;
 use Getopt::Long;
@@ -32,6 +31,8 @@ my $directory_layout;
 my $rm_OQ_fields;
 my $rm_dups;
 my @rm_tag_types;
+my $run_id_regex = '[ESD]RR\d{6}';
+my $sample_id_regex = '[ESD]RS\d{6}';
 
 &GetOptions( 
   'dbhost=s'      => \$dbhost,
@@ -52,6 +53,7 @@ my @rm_tag_types;
   'rm_OQ_fields!' => \$rm_OQ_fields,
   'rm_dups!' => \$rm_dups,
   'rm_tag_type=s' => \@rm_tag_types,
+  'run_id_regex=s' => \$run_id_regex,
     );
 
 throw("Must specify an output directory") if (!$output_dir);
@@ -83,10 +85,10 @@ my $input_file = $others->[0];
 if ($directory_layout) {
   my $rmia = $db->get_RunMetaInfoAdaptor;
   my $run_meta_info;
-  if ($name =~ /[ESD]RR\d{6}/) {
+  if ($name =~ /$run_id_regex/) {
     $run_meta_info = $rmia->fetch_by_run_id($&);
   }
-  elsif ($name =~ /[ESD]RS\d{6}/) {
+  elsif ($name =~ /$sample_id_regex/) {
     my $rmi_list = $rmia->fetch_by_sample_id($&);
     $run_meta_info = $rmi_list->[0] if (@$rmi_list);
   }
@@ -209,6 +211,9 @@ The input bam file can be deleted, along with its index file, and this will be r
   -directory_layout, specifies where the files will be located under output_dir.
       Tokens matching method names in RunMetaInfo will be substituted with that method's
       return value.
+
+  -run_id_regex, used to get run meta info.  Default is '[ESD]RR\d{6}'
+  -study_id_regex, used to get run meta info.  Default is '[ESD]RS\d{6}'
 
 =head1 Examples
 

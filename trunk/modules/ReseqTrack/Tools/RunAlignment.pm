@@ -53,6 +53,8 @@ use base qw(ReseqTrack::Tools::RunProgram);
       integer, end alignment at this read in the fastq file
   Arg [-read_group_fields]   :
       hashref, values to go in the RG tag e.g. {'ID' => 1, 'LB' => 'my_library'}
+  Arg [-run_id_regex]   :
+      string, used for assigning fastq files as frag or mate. Default is used if undefined.
   + Arguments for ReseqTrack::Tools::RunProgram parent class
 
   Function  : Creates a new ReseqTrack::Tools::RunAlignment object.
@@ -78,12 +80,12 @@ sub new {
 
   my ( $reference, $samtools, $output_format,
         $mate1_file, $mate2_file, $fragment_file, $paired_length,
-        $read_group_fields, $first_read, $last_read,
+        $read_group_fields, $first_read, $last_read, $run_id_regex,
         )
         = rearrange( [
              qw( REFERENCE SAMTOOLS OUTPUT_FORMAT
              MATE1_FILE MATE2_FILE FRAGMENT_FILE PAIRED_LENGTH
-             READ_GROUP_FIELDS FIRST_READ LAST_READ
+             READ_GROUP_FIELDS FIRST_READ LAST_READ RUN_ID_REGEX
              )
                     ], @args);
 
@@ -95,6 +97,7 @@ sub new {
   $self->read_group_fields($read_group_fields);
   $self->first_read($first_read);
   $self->last_read($last_read);
+  $self->run_id_regex($run_id_regex);
   $self->output_format($output_format || 'SAM');
 
   if (!$samtools) {
@@ -209,8 +212,17 @@ sub assign_fastq_files {
     $frag = $files[0];
   }
   else {
-    ($mate1, $mate2, $frag) =
-        ReseqTrack::Tools::SequenceIndexUtils::assign_files(\@files);
+    my $run_id_regex = $self->run_id_regex;
+    if ($run_id_regex) {
+      my @regexs = (qr/$run_id_regex\S*_1\.(\w+\.)*fastq(\.gz)?$/i,
+                    qr/$run_id_regex\S*_2\.(\w+\.)*fastq(\.gz)?$/i,
+                    qr/$run_id_regex\S*\.fastq(\.gz)?$/i);
+      ($mate1, $mate2, $frag) =
+          ReseqTrack::Tools::SequenceIndexUtils::assign_files(\@files, \@regexs);
+    } else {
+      ($mate1, $mate2, $frag) =
+          ReseqTrack::Tools::SequenceIndexUtils::assign_files(\@files);
+    }
   }
   $self->fragment_file($frag);
   $self->mate1_file($mate1);
@@ -396,6 +408,14 @@ sub picard {
         $self->{picard} = shift;
     }
     return $self->{picard};
+}
+
+sub run_id_regex {
+    my $self = shift;
+    if (@_) {
+        $self->{run_id_regex} = shift;
+    }
+    return $self->{run_id_regex};
 }
 
 sub output_format {

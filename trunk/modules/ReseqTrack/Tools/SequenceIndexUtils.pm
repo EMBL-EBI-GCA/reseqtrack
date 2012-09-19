@@ -258,9 +258,9 @@ sub standard_index_methods{
 sub assign_files{
   my ($files, $regexs) = @_;
   if (! $regexs) {
-      my @regexs = (qr/[E|S]RR\d+_1\.(\w+\.)*fastq\.gz/i,
-                    qr/[E|S]RR\d+_2\.(\w+\.)*fastq\.gz/i,
-                    qr/[E|S]RR\d+\.(\w+\.)*fastq\.gz/i);
+      my @regexs = (qr/[ES]RR\d+_1\.(\w+\.)*fastq\.gz/i,
+                    qr/[ES]RR\d+_2\.(\w+\.)*fastq\.gz/i,
+                    qr/[ES]RR\d+\.(\w+\.)*fastq\.gz/i);
 #     my @regexs = (qr/(_1\.fastq\.gz)/i,
 #		   qr/(_2\.fastq\.gz)/i,
 #		   qr/(\.fastq\.gz)/i);
