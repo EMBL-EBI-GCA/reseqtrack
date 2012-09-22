@@ -81,7 +81,7 @@ $db->dbc->disconnect_when_inactive(1);
 if ($collection_type && $collection_name)  {
 	
 	throw("Collection type has to be  %VCF") if ($collection_type !~ /VCF/i);
-	throw("Only VCFs based on merged, ALL populations are to be concatenated") if ($collection_name !~ /all/i); # won't concatenate vcfs that are not at all-population level
+	#throw("Only VCFs based on merged, ALL populations are to be concatenated") if ($collection_name !~ /all/i); # won't concatenate vcfs that are not at all-population level
 		
 		### FIXME: more work:
 		### When the call is made on one super pop a time, a merge is needed between VCFs of different super pop, 
