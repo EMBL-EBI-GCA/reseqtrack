@@ -241,7 +241,7 @@ foreach my $outfile ( @$flt_vcf ) {
 		
 			$loader = ReseqTrack::Tools::Loader::File->new
 		 		 (
-				   -file => [$outfile, $tabix_file],
+				   -file => [$outfile],
 				   -do_md5 => 1,
 				   -hostname => $input{host},
 				   -db => $db,
