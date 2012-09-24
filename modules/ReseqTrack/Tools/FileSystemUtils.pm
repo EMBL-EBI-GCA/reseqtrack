@@ -543,6 +543,7 @@ sub check_file_does_not_exist {
 
 sub check_executable {
   my $executable = shift;
+  throw "executable not given" if !$executable;
 
   if ($executable =~ m{/}) {
     throw "executable does not exist: $executable" if (! -e $executable);

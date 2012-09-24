@@ -36,6 +36,7 @@ my $sample_id_regex = '[ESD]RS\d{6}';
 my $command;
 my %options;
 my $index_outputs;
+my $table = 'collection';
 
 &GetOptions( 
   'dbhost=s'      => \$dbhost,
@@ -59,6 +60,7 @@ my $index_outputs;
   'run_id_regex=s' => \$run_id_regex,
   'sample_id_regex=s' => \$sample_id_regex,
   'command=s' => \$command,
+  'table=s' => \$table,
   'options=s' => \%options,
   'index_outputs!' => \$index_outputs,
     );
@@ -95,11 +97,19 @@ $db->dbc->disconnect_when_inactive(1);
 my $ca = $db->get_CollectionAdaptor;
 my $fa = $db->get_FileAdaptor;
 
-my $collection = $ca->fetch_by_name_and_type($name, $type_input);
-throw("Failed to find a collection for ".$name." ".$type_input." from ".$dbname) 
-    unless($collection);
+my $input_files;
+if ($table eq 'collection') {
+  my $collection = $ca->fetch_by_name_and_type($name, $type_input);
+  throw("Failed to find a collection for ".$name." ".$type_input." from ".$dbname) if(!$collection);
+  $input_files = $collection->others;
+} elsif ($table eq 'file') {
+  my $input_file = $fa->fetch_by_name($name);
+  throw("Failed to find a file for $name from $dbname") if(!$input_file);
+  $input_files = [$input_file];
+} else {
+  throw("table must be either file or collection");
+}
 
-my $input_files = $collection->others;
 my @input_filepaths = map {$_->{'name'}} @$input_files;
 
 if ($directory_layout) {
@@ -235,7 +245,10 @@ The input files can be deleted, along with any index files, and this will be rec
   -name, name of the collection of input files
   If name is a run_id / sample_id (or contains a run_id / sample_id), the run_meta_info table will be used to get some info
 
-  -type_input, type of the collection of input files
+  -table, should be 'file' or 'collection', default is 'collection'
+  Specifies where to look for the input files
+
+  -type_input, type of the collection of input files. Only needed if -table is 'collection'
 
   -type_output, collection type and file type when storing output files in the database
 

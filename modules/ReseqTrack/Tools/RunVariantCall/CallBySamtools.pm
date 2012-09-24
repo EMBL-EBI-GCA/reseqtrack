@@ -236,7 +236,7 @@ sub run_program {
     
     my $raw_out = $flt_out;
     $raw_out =~ s/flt/raw/;
-    $raw_out =~ s/vcf/bcf/;
+    $raw_out =~ s/\.vcf$/\.bcf/;
     
     $self->run_variant_calling($input_bams, $raw_out);
     $self->run_variant_filtering($raw_out, $flt_out);
