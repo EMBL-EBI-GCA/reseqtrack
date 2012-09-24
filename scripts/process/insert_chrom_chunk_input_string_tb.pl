@@ -55,10 +55,10 @@ while (<IN>) {
 		my $chunk_name;
 		
 		if ( ($i+1)*$chunk_size < $length) {
-			$chunk_name = $chrom . ":" . $i*$chunk_size . "-" . ($i+1)*$chunk_size;
+			$chunk_name = $chrom . ":" . ($i*$chunk_size +1) . "-" . ($i+1)*$chunk_size;
 		}
 		else {
-			$chunk_name = $chrom . ":" . $i*$chunk_size . "-" . $length;
+			$chunk_name = $chrom . ":" . ($i*$chunk_size +1) . "-" . $length;
 		}
 					
 		my $is_obj = ReseqTrack::InputString->new(
