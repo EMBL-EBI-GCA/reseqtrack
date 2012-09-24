@@ -4,6 +4,7 @@
 #include <string.h>
 #include <sam.h>
 #include <sam_header.h>
+#include <ksort.h>
 
 
 void usage();
@@ -59,48 +60,64 @@ void merge_bam_headers(int num_infiles, samfile_t **in_bams, bamFile out_bam) {
   return;
 }
 
+typedef struct {
+  int i;
+  bam1_t *b;
+} heap1_t;
 
-int merge_region(int num_infiles, samfile_t **in_bams, bam_index_t **bam_indices, bamFile out_bam, char *region) {
+static inline int pos_cmp(const heap1_t a, const heap1_t b) {
+  if (a.i < 0) {
+    if (b.i < 0) return 0;
+    return 1;
+  }
+  return (a.b->core.pos > b.b->core.pos || (a.b->core.pos == b.b->core.pos && bam1_strand(a.b) > bam1_strand(b.b)));
+}
+
+KSORT_INIT(heap, heap1_t, pos_cmp);
+
+int merge_region(int num_infiles, samfile_t **in_bams, char **in_fnames, bamFile out_bam, char *region) {
   int i;
   bam_iter_t *bam_iters = (bam_iter_t*) malloc(sizeof(bam_iter_t) * num_infiles);
-  bam1_t **b = (bam1_t**) malloc(sizeof(bam1_t*) * num_infiles);
-  int *rets = (int*) malloc(sizeof(int) * num_infiles);
+  heap1_t *heap = (heap1_t*) malloc(sizeof(heap1_t) * num_infiles);
+
   for (i=0; i<num_infiles; i++) {
     int tid, beg, end;
+    bam_index_t *idx;
+    heap1_t *h = heap + i;
     bam_parse_region(in_bams[0]->header, region, &tid, &beg, &end);
     if (tid < 0) {
       fprintf(stderr, "could not recognise region %s\n", region);
       return -1;
     }
-    bam_iters[i] = bam_iter_query(bam_indices[i], tid, beg, end);
-    b[i] = bam_init1();
-    rets[i] = bam_iter_read(in_bams[i]->x.bam, bam_iters[i], b[i]);
-  }
-
-  while (1) {
-    int i_write = -1;
-    for (i=0; i<num_infiles; i++) {
-      if (rets[i] <= 0) continue;
-      if (i_write < 0) {
-        i_write = i;
-        continue;
-      }
-      if (b[i]->core.pos < b[i_write]->core.pos)
-        i_write = i;
+    if ((idx = bam_index_load(in_fnames[i])) == 0) {
+      printf("Failed to load index for file %s\n", in_fnames[i]);
+      return -1;
     }
-    if (i_write < 0) break;
-    bam_write1(out_bam, b[i_write]);
-    rets[i_write] = bam_iter_read(in_bams[i_write]->x.bam, bam_iters[i_write], b[i_write]);
-
+    bam_iters[i] = bam_iter_query(idx, tid, beg, end);
+    bam_index_destroy(idx);
+    h->b = bam_init1();
+    h->i = i;
+    if (bam_iter_read(in_bams[i]->x.bam, bam_iters[i], h->b) <= 0)
+      h->i = -1;
   }
-  
+
+  ks_heapmake(heap, num_infiles, heap);
+
+  while (heap->i >= 0) {
+    bam_write1(out_bam, heap->b);
+    if (bam_iter_read(in_bams[heap->i]->x.bam, bam_iters[heap->i], heap->b) <= 0) {
+      heap->i = -1;
+    }
+    ks_heapadjust(heap, 0, num_infiles, heap);
+  }
 
   for (i=0; i<num_infiles; i++) {
+    heap1_t *h = heap + i;
     bam_iter_destroy(bam_iters[i]);
-    bam_destroy1(b[i]);
+    bam_destroy1(h->b);
   }
   free(bam_iters);
-  free(b);
+  free(heap);
   return 0;
 }
 
@@ -108,13 +125,13 @@ int merge_region(int num_infiles, samfile_t **in_bams, bam_index_t **bam_indices
 int main(int argc, char *argv[])
 {
   char *out_fname = NULL;
+  char **in_fnames = NULL;
   char *region = NULL;
   int c, i;
   int num_infiles;
   int ret = 0;
   samfile_t **in_bams = NULL;
   bamFile out_bam = NULL;
-  bam_index_t **bam_indices = NULL;
 
   while((c = getopt(argc, argv, "o:r:")) != -1)
     switch (c) {
@@ -139,19 +156,13 @@ int main(int argc, char *argv[])
     usage();
 
   
+  in_fnames = argv + optind;
   in_bams = (samfile_t**) malloc(sizeof(samfile_t*) * num_infiles);
-  bam_indices = (bam_index_t**) malloc(sizeof(bam_index_t*) * num_infiles);
-  for (i=0; i<num_infiles; i++) {
-    if ((in_bams[i] = samopen(argv[optind], "rb", NULL)) == 0) {
-      printf("Failed to open file %s\n", argv[optind]);
+  for (i=0; i<num_infiles; i++)
+    if ((in_bams[i] = samopen(in_fnames[i], "rb", NULL)) == 0) {
+      printf("Failed to open file %s\n", in_fnames[i]);
       exit(-1);
     }
-    if ((bam_indices[i] = bam_index_load(argv[optind])) == 0) {
-      printf("Failed to load index for file %s\n", argv[optind]);
-      exit(-1);
-    }
-    optind++;
-  }
 
   if ((out_bam = bam_open(out_fname, "wb")) == 0) {
     printf("Failed to open file %s\n", out_fname);
@@ -160,17 +171,14 @@ int main(int argc, char *argv[])
 
   merge_bam_headers(num_infiles, in_bams, out_bam);
 
-  ret = merge_region(num_infiles, in_bams, bam_indices, out_bam, region);
+  ret = merge_region(num_infiles, in_bams, in_fnames, out_bam, region);
 
 
   bam_close(out_bam);
   for (i=0; i<num_infiles; i++) {
     samclose(in_bams[i]);
-    bam_index_destroy(bam_indices[i]);
   }
-
   free(in_bams);
-  free(bam_indices);
 
   return (ret == 0) ? EXIT_SUCCESS : EXIT_FAILURE;
 }
