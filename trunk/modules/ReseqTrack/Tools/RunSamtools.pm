@@ -22,7 +22,7 @@ use warnings;
 use ReseqTrack::Tools::Exception qw(throw);
 use ReseqTrack::Tools::Argument qw(rearrange);
 use File::Basename qw(fileparse);
-use ReseqTrack::Tools::FileSystemUtils qw(check_file_exists make_directory);
+use ReseqTrack::Tools::FileSystemUtils qw(check_file_exists);
 
 use base qw(ReseqTrack::Tools::RunProgram);
 
@@ -250,7 +250,7 @@ sub run_merge {
     my $output_sort_status = $self->options('output_sort_status');
     my $input_sort_status = $self->options('input_sort_status');
 
-    my @cmd_words = ("bash -c '");
+    my @cmd_words;
     push(@cmd_words, $self->program, 'merge');
     push(@cmd_words, '-f') if ($self->options('force_overwrite'));
     push(@cmd_words, '-r') if ($self->options('attach_RG_tag'));
@@ -270,7 +270,6 @@ sub run_merge {
           push(@cmd_words, $input);
       }
     }
-    push(@cmd_words, "'");
     my $cmd = join(' ', @cmd_words);
 
     $self->output_files($output_bam);

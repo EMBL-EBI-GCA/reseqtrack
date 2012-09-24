@@ -193,7 +193,7 @@ sub execute_command_line {
       throw "could not fork: $!";
     }
     elsif(!$pid) {
-      exec($command_line) or do{
+      exec(bash => (-o => 'pipefail', -c => $command_line)) or do{
         print STDERR "$command_line did not execute: $!\n";
         exit(255);
       }

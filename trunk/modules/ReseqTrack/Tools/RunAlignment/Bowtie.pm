@@ -137,8 +137,7 @@ sub run_sampe_alignment{
 	push @command, $alignment_file;
 	
 	my $cmd = join ' ',@command;
-	#execute in bash to get process substitution
-	$self->execute_command_line("bash -c \"$cmd\"");
+	$self->execute_command_line($cmd);
 	
     $self->run_samtools(1);
 

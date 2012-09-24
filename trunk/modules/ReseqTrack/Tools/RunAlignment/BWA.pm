@@ -90,7 +90,6 @@ sub run_sampe_alignment {
     $output_file .= ($self->output_format eq 'BAM' ? '.bam' : '.sam');
     $output_file =~ s{//}{/};
 
-    my @cmd_words = ("bash -c '");
     push(@cmd_words, $self->program, 'sampe');
     push(@cmd_words, '-P') if $self->options('load_fm_index');
     if ($self->paired_length) {
@@ -115,8 +114,7 @@ sub run_sampe_alignment {
     if ($self->output_format eq 'BAM') {
       push(@cmd_words, '|', $self->samtools, 'view -bS -');
     }
-      push(@cmd_words, '>', $output_file);
-    push(@cmd_words, "'");
+    push(@cmd_words, '>', $output_file);
 
     my $sampe_cmd = join(' ', @cmd_words);
 
@@ -137,7 +135,7 @@ sub run_samse_alignment {
     $output_file .= ($self->output_format eq 'BAM' ? '.bam' : '.sam');
     $output_file =~ s{//}{/};
 
-    my @cmd_words = ("bash -c '");
+    my @cmd_words;
     push(@cmd_words, $self->program, 'samse');
 
     if ($self->read_group_fields->{'ID'}) {
@@ -158,7 +156,6 @@ sub run_samse_alignment {
       push(@cmd_words, '|', $self->samtools, 'view -bS -');
     }
     push(@cmd_words, '>', $output_file);
-    push(@cmd_words, "'");
 
     my $samse_cmd = join(' ', @cmd_words);
       
@@ -174,7 +171,6 @@ sub run_aln_mode {
     my $output_file = $self->working_dir . "/" . $self->job_name;
     $output_file .= ".$fastq_type.sai";
 
-    my @cmd_words = ("bash -c '");
     push(@cmd_words, $self->program, 'aln');
 
     push(@cmd_words, '-q', $self->options('read_trimming'))
@@ -194,7 +190,6 @@ sub run_aln_mode {
     push(@cmd_words, $self->reference);
     push(@cmd_words, $self->get_fastq_cmd_string($fastq_type));
     push(@cmd_words, '>', $output_file);
-    push(@cmd_words, "'");
 
     my $aln_command = join(' ', @cmd_words);
 

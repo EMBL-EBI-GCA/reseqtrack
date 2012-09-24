@@ -104,8 +104,7 @@ sub _do_alignment {
 		$do_bam_conversion = 1;
 	}
 
-	my @cmd_words = ("bash -c '");
-
+	my @cmd_words;
 	push(@cmd_words, $self->program);
 	
 	#reference information
@@ -183,9 +182,6 @@ sub _do_alignment {
 		$self->output_files($output_file); 
 	}
 	
-	#closing quote for bash -c
-	push(@cmd_words, "'");
-
 	my $cmd = join(' ', @cmd_words);
 
     $self->execute_command_line($cmd);

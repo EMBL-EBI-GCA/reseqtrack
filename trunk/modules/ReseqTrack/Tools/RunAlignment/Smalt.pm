@@ -71,7 +71,6 @@ sub run_se_alignment {
           : ($fastq =~ /\.gz(?:ip)$/) ? "<(gunzip -c $fastq )"
           : $fastq;
 
-    my @cmd_words = ("bash -c '");
     push(@cmd_words, $self->program, 'map');
     push(@cmd_words, '-n', $self->options('threads') || 1);
     push(@cmd_words, '-f', 'sam');
@@ -82,7 +81,6 @@ sub run_se_alignment {
       push(@cmd_words, '-t', $self->ref_index_file);
     }
     push(@cmd_words, '>', $output_file);
-    push(@cmd_words, "'");
 
     my $cmd_line = join(' ', @cmd_words);
 
