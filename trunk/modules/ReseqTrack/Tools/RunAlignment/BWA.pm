@@ -90,6 +90,7 @@ sub run_sampe_alignment {
     $output_file .= ($self->output_format eq 'BAM' ? '.bam' : '.sam');
     $output_file =~ s{//}{/};
 
+    my @cmd_words;
     push(@cmd_words, $self->program, 'sampe');
     push(@cmd_words, '-P') if $self->options('load_fm_index');
     if ($self->paired_length) {
@@ -171,6 +172,7 @@ sub run_aln_mode {
     my $output_file = $self->working_dir . "/" . $self->job_name;
     $output_file .= ".$fastq_type.sai";
 
+    my @cmd_words;
     push(@cmd_words, $self->program, 'aln');
 
     push(@cmd_words, '-q', $self->options('read_trimming'))

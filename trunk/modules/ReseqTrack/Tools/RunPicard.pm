@@ -39,26 +39,27 @@ sub DEFAULT_OPTIONS { return {
         'sort_order' => 'coordinate', # can be 'coordinate' or 'queryname'
         'index_ext' => '.bam.bai', #can be '.bai' or '.bam.bai'
         'verbosity' => 'INFO',
-		'quiet' => 'false',
+        'quiet' => 'false',
         'max_records_in_ram' => 500000,
         'remove_duplicates' => 0, # used by run_mark_duplicates
         'use_threading' => 0, # used by merge
         'validation_stringency' => undef,
-		'ref_flat' => undef, # gene annotations file in ref flat format, used by CollectRnaSeqMetrics
-		'ribosomal_intervals' => undef, # Location of rRNA sequences in genome, in interval_list format, used by CollectRnaSeqMetrics
-		'reference_sequence' => undef, # Location of reference fasta file, used by CollectRnaSeqMetrics
-		'strand_specificity' => 'NONE', #For strand-specific library prep,  used by CollectRnaSeqMetrics
+        'ref_flat' => undef, # gene annotations file in ref flat format, used by CollectRnaSeqMetrics
+        'ribosomal_intervals' => undef, # Location of rRNA sequences in genome, in interval_list format, used by CollectRnaSeqMetrics
+        'reference_sequence' => undef, # Location of reference fasta file, used by CollectRnaSeqMetrics
+        'strand_specificity' => 'NONE', #For strand-specific library prep,  used by CollectRnaSeqMetrics
 
         };
 }
 
 sub CMD_MAPPINGS { return {
-	'mark_duplicates'	=> \&run_mark_duplicates,
-	'merge'             => \&run_merge,
-	'sort'              => \&run_sort,
-	'alignment_metrics' => \&run_alignment_metrics,
-	'rna_seq_metrics' 	=> \&run_rna_alignment_metrics,
-	};	
+    'mark_duplicates'   => \&run_mark_duplicates,
+    'fix_mate'          => \&run_fix_mate,
+    'merge'             => \&run_merge,
+    'sort'              => \&run_sort,
+    'alignment_metrics' => \&run_alignment_metrics,
+    'rna_seq_metrics'   => \&run_rna_alignment_metrics,
+    };    
 }
 
 =head2 new
@@ -71,8 +72,8 @@ sub CMD_MAPPINGS { return {
       string, options for java, default is '-Xmx4g'
   Arg [-create_index]   :
       boolean, flag to create index files for all outputs
-  Arg [-keep_metrics]	:
-	  boolean, flag to keep metrics files when they aren't the primary product (e.g. mark duplicates )
+  Arg [-keep_metrics]    :
+      boolean, flag to keep metrics files when they aren't the primary product (e.g. mark duplicates )
   + Arguments for ReseqTrack::Tools::RunProgram parent class
 
   Function  : Creates a new ReseqTrack::Tools::RunPicard object.
@@ -112,7 +113,7 @@ sub new {
 
   Arg [1]   : ReseqTrack::Tools::RunPicard
   Arg [2]   : string, command, must be one of the following:
-              'mark_duplicates', 'merge', 'sort' or 'alignment_metrics' 
+              'mark_duplicates', 'merge', 'sort', 'fix_mate' or 'alignment_metrics' 
   Function  : uses picard to process the files in $self->input_files.
               Output is files are stored in $self->output_files
               This method is called by the RunProgram run method
@@ -134,12 +135,12 @@ sub run_program{
     throw("Did not recognise command $command") if (!defined $subs->{$command});
 
     my @returned_values = &{$subs->{$command}}($self);
-	return @returned_values;
+    return @returned_values;
 }
 
 sub get_valid_commands{
-	my $subs = CMD_MAPPINGS();
-	return keys %$subs;
+    my $subs = CMD_MAPPINGS();
+    return keys %$subs;
 }
 
 =head2 run_mark_duplicates
@@ -156,7 +157,7 @@ sub run_mark_duplicates {
     my $self = shift;
 
     my $jar = $self->_jar_path('MarkDuplicates.jar');
-	my @metrics_data;
+    my @metrics_data;
     foreach my $input (@{$self->input_files}) {
         my $suffix = $self->options('remove_duplicates') ? '.rmdup' : '.mrkdup';
         my $name = fileparse($input, qr/\.[sb]am/);
@@ -183,17 +184,17 @@ sub run_mark_duplicates {
 
         $self->output_files($bam);
 
-		if ($self->keep_metrics){
-			$self->output_files($metrics);
-		}
-		else {
-			$self->created_files($metrics);
-		}
-	
+        if ($self->keep_metrics){
+            $self->output_files($metrics);
+        }
+        else {
+            $self->created_files($metrics);
+        }
+    
         $self->created_files("$prefix.bai") if $self->create_index;
         $self->execute_command_line($cmd);
 
-		push @metrics_data, $self->parse_metrics_file($metrics);
+        push @metrics_data, $self->parse_metrics_file($metrics);
 
         if ($self->create_index) {
             my $bai = "$prefix.bai";
@@ -223,7 +224,7 @@ sub run_mark_duplicates {
 sub run_alignment_metrics {
     my ($self) = @_;
 
-	my @metrics;
+    my @metrics;
 
     my $jar = $self->_jar_path('CollectAlignmentSummaryMetrics.jar');
     foreach my $input (@{$self->input_files}) {
@@ -236,7 +237,7 @@ sub run_alignment_metrics {
         my @cmd_words = ($self->java_exe);
         push(@cmd_words, $self->jvm_options) if ($self->jvm_options);
         push(@cmd_words, '-jar', $jar);
-		push(@cmd_words, $self->_get_standard_options);
+        push(@cmd_words, $self->_get_standard_options);
         push(@cmd_words, 'INPUT=' . $input);
         push(@cmd_words, 'OUTPUT=' . $output);
         push(@cmd_words, 'ASSUME_SORTED='
@@ -246,9 +247,9 @@ sub run_alignment_metrics {
         $self->output_files($output);
         $self->execute_command_line($cmd);
 
-		push @metrics, $self->parse_metrics_file($output)
+        push @metrics, $self->parse_metrics_file($output)
     }
-	return (\@metrics);
+    return (\@metrics);
 }
 
 =head2 run_alignment_metrics
@@ -262,10 +263,10 @@ sub run_alignment_metrics {
 sub run_rna_alignment_metrics {
     my ($self) = @_;
 
-	my @metrics;
-	
-	throw ('A REF_FLAT file must be specified for RNA alignment metrics') unless $self->options('ref_flat');
-#	throw ('A REFERENCE_SEQUENCE file must be specified for RNA alignment metrics') unless $self->options('reference_sequence');
+    my @metrics;
+    
+    throw ('A REF_FLAT file must be specified for RNA alignment metrics') unless $self->options('ref_flat');
+#    throw ('A REFERENCE_SEQUENCE file must be specified for RNA alignment metrics') unless $self->options('reference_sequence');
 
     my $jar = $self->_jar_path('CollectRnaSeqMetrics.jar');
     foreach my $input (@{$self->input_files}) {
@@ -278,27 +279,27 @@ sub run_rna_alignment_metrics {
         my @cmd_words = ($self->java_exe);
         push(@cmd_words, $self->jvm_options) if ($self->jvm_options);
         push(@cmd_words, '-jar', $jar);
-		push(@cmd_words, $self->_get_standard_options);
+        push(@cmd_words, $self->_get_standard_options);
         push(@cmd_words, 'INPUT=' . $input);
         push(@cmd_words, 'OUTPUT=' . $output);
         push(@cmd_words, 'ASSUME_SORTED='
                 . ($self->options('assume_sorted') ? 'true' : 'false')) if defined $self->options('assume_sorted');
 
-		push(@cmd_words, 'REF_FLAT='.$self->options('ref_flat'));
-		push(@cmd_words, 'RIBOSOMAL_INTERVALS='.$self->options('ribosomal_intervals')) if $self->options('ribosomal_intervals');
-		push(@cmd_words, 'REFERENCE_SEQUENCE='.$self->options('reference_sequence')) if $self->options('reference_sequence');
-		
-		push(@cmd_words, 'STRAND_SPECIFICITY='.$self->options('strand_specificity'));
-		
-		
+        push(@cmd_words, 'REF_FLAT='.$self->options('ref_flat'));
+        push(@cmd_words, 'RIBOSOMAL_INTERVALS='.$self->options('ribosomal_intervals')) if $self->options('ribosomal_intervals');
+        push(@cmd_words, 'REFERENCE_SEQUENCE='.$self->options('reference_sequence')) if $self->options('reference_sequence');
+        
+        push(@cmd_words, 'STRAND_SPECIFICITY='.$self->options('strand_specificity'));
+        
+        
         my $cmd = join(' ', @cmd_words);
 
         $self->output_files($output);
         $self->execute_command_line($cmd);
 
-		push @metrics, $self->parse_metrics_file($output)
+        push @metrics, $self->parse_metrics_file($output)
     }
-	return (\@metrics);
+    return (\@metrics);
 }
 
 =head2 run_merge
@@ -368,37 +369,37 @@ sub run_merge{
 }
 
 sub parse_metrics_file {
-	my ($self,$metrics_file) = @_;
-	
-	open (my $fh, '<', $metrics_file) or throw ("Could not open metrics file: $metrics_file");
-	
-	my @column_headers;
-	my @rows;
-	
-	while (<$fh>) {
-		chomp;
-		last if m/## HISTOGRAM/; # not a good fit for the statistics module 
-		next if m/^#/; # comment lines
-		next if (!$_); # blank lines
-		
-		my @vals = split /\t/;
-		
-		if (scalar(@column_headers) < 1) {  # no headers read yet
-			@column_headers = @vals;
-		}
-		else {
-			my %row_val;
-			
-			for (my $i = 0; $i < scalar(@column_headers); $i++){
-				undef($vals[$i]) if ($vals[$i] eq '');
-				$row_val{$column_headers[$i]} = $vals[$i];
-			}
-			
-			push @rows, \%row_val;
-		}
-	}
-	
-	return @rows;
+    my ($self,$metrics_file) = @_;
+    
+    open (my $fh, '<', $metrics_file) or throw ("Could not open metrics file: $metrics_file");
+    
+    my @column_headers;
+    my @rows;
+    
+    while (<$fh>) {
+        chomp;
+        last if m/## HISTOGRAM/; # not a good fit for the statistics module 
+        next if m/^#/; # comment lines
+        next if (!$_); # blank lines
+        
+        my @vals = split /\t/;
+        
+        if (scalar(@column_headers) < 1) {  # no headers read yet
+            @column_headers = @vals;
+        }
+        else {
+            my %row_val;
+            
+            for (my $i = 0; $i < scalar(@column_headers); $i++){
+                undef($vals[$i]) if ($vals[$i] eq '');
+                $row_val{$column_headers[$i]} = $vals[$i];
+            }
+            
+            push @rows, \%row_val;
+        }
+    }
+    
+    return @rows;
 }
 
 =head2 run_sort
@@ -462,6 +463,66 @@ sub run_sort{
     return;   
 }
 
+=head2 run_fix_mate
+
+  Arg [1]   : ReseqTrack::Tools::RunPicard
+  Function  : uses FixMateInformation.jar to ensure mate-pair info is in sync
+  Returntype: 
+  Exceptions: 
+  Example   : $self->run_fix_mate
+
+=cut
+
+sub run_fix_mate{
+  my ($self) = @_;
+    
+  my $sort_order = $self->options('sort_order');
+  if ($sort_order ne 'coordinate' && $sort_order ne 'queryname') {
+      $sort_order = 'null';
+  }
+          
+  my $jar = $self->_jar_path('FixMateInformation.jar');
+
+  foreach my $input (@{$self->input_files}) {
+    my $name = fileparse($input, qr/\.[sb]am/);
+    my $prefix = $self->working_dir . '/' . $name . '.fixed';
+    $prefix =~ s{//}{/}g;
+    my $output = $prefix . '.bam';
+
+    my @cmd_words = ($self->java_exe);
+    push(@cmd_words, $self->jvm_options) if ($self->jvm_options);
+    push(@cmd_words, '-jar', $jar);
+    push(@cmd_words, $self->_get_standard_options);
+    push(@cmd_words, 'SORT_ORDER=' . $sort_order);
+    push(@cmd_words, 'INPUT=' . $input);
+    push(@cmd_words, 'OUTPUT=' . $output);
+    push(@cmd_words, 'CREATE_INDEX='
+            . ($self->create_index ? 'true' : 'false'));
+
+    my $cmd = join(' ', @cmd_words);
+  
+    $self->output_files($output);
+    $self->created_files("$prefix.bai") if $self->create_index;
+
+    $self->execute_command_line($cmd);
+
+    if ($self->create_index) {
+        my $bai = "$prefix.bai";
+        my $index_ext = $self->options('index_ext');
+        if ($index_ext && $index_ext ne '.bai') {
+            my $corrected_bai = "$prefix" . $index_ext;
+            move($bai, $corrected_bai)
+              or throw "move failed: $!";
+            $bai = $corrected_bai;
+        }
+        $self->output_files($bai);
+    }
+  
+  }
+
+    return;   
+}
+
 sub _get_standard_options {
     my $self = shift;
 
@@ -473,9 +534,9 @@ sub _get_standard_options {
         if ($self->options('max_records_in_ram'));
     push(@option_strings, 'VALIDATION_STRINGENCY=' . $self->options('validation_stringency'))
         if ($self->options('validation_stringency'));
-	push(@option_strings, 'QUIET=' .$self->options('quiet')) 
-		if ($self->options('quiet'));
-			
+    push(@option_strings, 'QUIET=' .$self->options('quiet')) 
+        if ($self->options('quiet'));
+            
     return join(' ', @option_strings);
 }
 
