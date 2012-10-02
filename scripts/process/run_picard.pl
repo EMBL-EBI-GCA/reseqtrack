@@ -216,6 +216,7 @@ This script runs picard to process sam / bam files.  It will do one of the follo
   
       merge: all sam / bam files in the collection are merged into a single sorted bam file
       mark_duplicates: mark or delete duplicates for each sam / bam file in a collection
+      fix_mate: fix mate information for each sam / bam file in a collection
       sort: sorts each sam / bam file in a collection (does not merge)
       alignment_metrics: make a metrics file for each sam / bam file in a collection
 
@@ -269,7 +270,7 @@ The input files can be deleted, along with any index files, and this will be rec
   -run_id_regex, used to get run meta info.  Default is '[ESD]RR\d{6}'
   -study_id_regex, used to get run meta info.  Default is '[ESD]RS\d{6}'
 
-  -command, must be one of the following: 'merge', 'sort', 'mark_duplicates', 'alignment_metrics'
+  -command, must be one of the following: 'merge', 'sort', 'mark_duplicates', 'alignment_metrics', 'fix_mate'
   Tells the RunPicard object how to process the input files
 
   -options, for constructing the options hash passed to the RunPicard object
