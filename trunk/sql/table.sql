@@ -254,7 +254,7 @@ CREATE TABLE reject_log (
     file_id INT NOT NULL,
     is_reject enum("y", "n") NOT NULL DEFAULT "n",
     reject_reason VARCHAR(500),
-    created TIMESTAMP(8)
+    created TIMESTAMP
     ) ENGINE=MYISAM;
 
 
