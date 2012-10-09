@@ -204,7 +204,7 @@ sub execute_command_line {
         kill 15, $pid;
       }
     }
-    throw("received a signal so command line was killed $command_line") if ($term_sig);
+    throw("received a signal ($term_sig) so command line was killed $command_line") if ($term_sig);
     throw("command failed: $! $command_line") if ( $? == -1 );
 
     my $signal = $? & 127;

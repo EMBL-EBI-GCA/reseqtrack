@@ -92,7 +92,7 @@ sub new {
 }
 
 sub run_fix_and_calmd {
-    my $self = shift;
+    my ($self) = @_
 
     foreach my $input (@{$self->input_files}) {
       my $prefix = fileparse($input, qr/\.[sb]am/ );
@@ -113,7 +113,7 @@ sub run_fix_and_calmd {
 }
 
 sub run_calmd {
-    my $self = shift;
+    my ($self) = @_;
 
     foreach my $input (@{$self->input_files}) {
       my $prefix = fileparse($input, qr/\.[sb]am/ );
@@ -139,7 +139,7 @@ sub run_calmd {
 }
 
 sub run_fixmate {
-    my $self = shift;
+    my ($self) = @_;
 
     foreach my $input (@{$self->input_files}) {
       my $prefix = fileparse($input, qr/\.[sb]am/ );
@@ -158,6 +158,10 @@ sub run_fixmate {
       $self->output_files($output_bam);
       $self->execute_command_line($cmd);
     }
+}
+
+sub run_view {
+  my ($self) = @;
 }
 
 
@@ -207,7 +211,7 @@ sub run_sam_to_bam {
 }
 
 sub run_sort {
-    my $self = shift;
+    my ($self) = @_;
 
     foreach my $input (@{$self->input_files}) {
       my $prefix = fileparse($input, qr/\.[sb]am/ );
@@ -226,7 +230,7 @@ sub run_sort {
 
 
 sub run_index {
-    my $self = shift;
+    my ($self) = @_;
 
     foreach my $file (@{$self->input_files}) {
         my $output_bai = $file . ".bai";
@@ -238,7 +242,7 @@ sub run_index {
 }
 
 sub run_merge {
-    my $self = shift;
+    my ($self) = @_;
 
     throw("need more than two or more files to merge") if (@{$self->input_files} <2);
 

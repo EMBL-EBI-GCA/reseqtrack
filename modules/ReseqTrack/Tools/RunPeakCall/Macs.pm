@@ -59,7 +59,7 @@ sub DEFAULT_OPTIONS { return {
 	bedgraph => 0, #-B/--bdg # 	If this flag is on, MACS will store the fragment pileup in bedGraph format for every chromosome. The bedGraph file is in general much smaller than wiggle file. However, The process will take a little bit longer than -w option, since theoratically 1bp resolution data will be saved. The bedGraph files will be gzipped and stored in subdirectories named NAME+'_MACS_bedGraph/treat' for treatment and NAME+'_MACS_bedGraph/control' for control data. --single-profile option can be combined to generate a single bedGraph file for the whole genome.
 	space => undef, #--space=SPACE #	By default, the resoluation for saving wiggle files is 10 bps,i.e., MACS will save the raw tag count every 10 bps. You can change it along with '--wig' option.
 	call_subpeaks => 0, #--call-subpeaks #	If set, MACS will invoke Mali Salmon's PeakSplitter software through system call. If PeakSplitter can't be found, an instruction will be shown for downloading and installing the PeakSplitter package. The PeakSplitter can refine the MACS peaks and split the wide peaks into smaller subpeaks. For more information, please check the following URL:
-	verbose => 0,
+	verbose => undef,
 	};
 }
 
@@ -139,27 +139,36 @@ sub run_program {
 	print "Changing dir to $temp_dir$/" if ($self->echo_cmd_line);
 	chdir($temp_dir);
 	
-   	my $cmd = join(' ', @cmd_args);
-	execute_system_command("bash -c '$cmd'"); # this failed silently if run with $self->execute_command_line
+   	my $cmd = "bash -c '".join(' ', @cmd_args)."'";
+	#print "Executing: $cmd";
+	#execute_system_command($cmd); # this failed silently if run with $self->execute_command_line
+	$self->execute_command_line(join(' ', @cmd_args));
 	chdir($dir);
-	print "Returning dir to $dir$/" ($self->echo_cmd_line);# wrapping the cmd like this allows the <(..) file conversion to work
+	print "Returning dir to $dir$/" if ($self->echo_cmd_line);# wrapping the cmd like this allows the <(..) file conversion to work
 	
 	my $root_temp_output = $temp_dir.'/'.$job_name;
 	my $root_final_output = $self->working_dir. '/'.$job_name;
 	
 	my $bed_file_suffix  ='_peaks.bed';
-	my @output_suffixes = ($bed_file_suffix,'_summits.bed', '_model.r');
+	my @output_suffixes = ($bed_file_suffix,'_summits.bed', '_model.r', '_peaks.xls', '_negative_peaks.xls');
 
-		
 	for my $suffix (@output_suffixes){
-		my $dest = $root_final_output.$suffix;
 		my $src = $root_temp_output.$suffix;
+		my $dest = $root_final_output.$suffix;
+		
+		next unless (-e $src);
+		
+		# MACS uses the xls suffix for text output
+		if ($suffix =~ m/xls$/){
+			$dest =~ s/xls$/txt/;
+		}
 		
 		print "Moving $src to $dest$/" if ($self->echo_cmd_line);
 		
-		move($src , $dest) or throw( "Failed to move $src to $dest ");
+		move($src , $dest) or throw( "Failed to move $src to $dest: $!");
 		$self->output_files($dest);
 	}
+	
 	
 	$self->bed_file($root_final_output.$bed_file_suffix);
 	
