@@ -27,6 +27,7 @@ my $host_name = '1000genomes.ebi.ac.uk';
 my $fastqscreen_path = 'fastqscreen';
 my $conf_file;
 my $directory_layout;
+my $subset;
 
 &GetOptions(
 	'dbhost=s'     => \$dbhost,
@@ -41,6 +42,7 @@ my $directory_layout;
 	'fastqscreen_path=s' => \$fastqscreen_path, 
 	'conf_file=s' => \$conf_file,
 	'directory_layout=s' => \$directory_layout,
+	'subset=s' => \$subset,
 );
 	
 
@@ -105,6 +107,7 @@ my $fastqscreen = ReseqTrack::Tools::QC::FastQScreen->new(
 	-working_dir => $output_dir,
 	-input_files => \@input_files,
 	-conf_file => $conf_file,
+	-subset => $subset,
 );
 
 $fastqscreen->run;

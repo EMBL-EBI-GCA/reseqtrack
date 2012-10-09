@@ -106,6 +106,7 @@ my $cufflinks = ReseqTrack::Tools::RunQuantification::Cufflinks->new(
 	-options => \%options,
 	-echo_cmd_line => $verbose,
 	-job_name => $name,	
+	-transcript_annotation => $transcript_annotation,
 );
 
 $cufflinks->run();

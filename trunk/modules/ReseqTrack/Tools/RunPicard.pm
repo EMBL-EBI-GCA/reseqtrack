@@ -1,3 +1,4 @@
+
 =pod
 
 =head1 NAME
@@ -34,23 +35,32 @@ use base qw(ReseqTrack::Tools::RunProgram);
 
 =cut
 
-sub DEFAULT_OPTIONS { return {
-        'assume_sorted' => undef, # assume input files are sorted, even if header says otherwise
-        'sort_order' => 'coordinate', # can be 'coordinate' or 'queryname'
-        'index_ext' => '.bam.bai', #can be '.bai' or '.bam.bai'
-        'verbosity' => 'INFO',
-        'quiet' => 'false',
-        'max_records_in_ram' => 500000,
-        'remove_duplicates' => 0, # used by run_mark_duplicates
-        'use_threading' => 0, # used by merge
+sub DEFAULT_OPTIONS {
+    return {
+        'assume_sorted' =>
+          undef,  # assume input files are sorted, even if header says otherwise
+        'sort_order' => 'coordinate',    # can be 'coordinate' or 'queryname'
+        'index_ext'  => '.bam.bai',      #can be '.bai' or '.bam.bai'
+        'verbosity'  => 'INFO',
+        'quiet'      => 'false',
+        'max_records_in_ram'    => 500000,
+        'remove_duplicates'     => 0,        # used by run_mark_duplicates
+        'use_threading'         => 0,        # used by merge
         'validation_stringency' => undef,
-        'ref_flat' => undef, # gene annotations file in ref flat format, used by CollectRnaSeqMetrics
-        'ribosomal_intervals' => undef, # Location of rRNA sequences in genome, in interval_list format, used by CollectRnaSeqMetrics
-        'reference_sequence' => undef, # Location of reference fasta file, used by CollectRnaSeqMetrics
-        'strand_specificity' => 'NONE', #For strand-specific library prep,  used by CollectRnaSeqMetrics
-
-        };
+        'ref_flat' =>
+          undef
+        , # gene annotations file in ref flat format, used by CollectRnaSeqMetrics
+        'ribosomal_intervals' =>
+          undef
+        , # Location of rRNA sequences in genome, in interval_list format, used by CollectRnaSeqMetrics
+        'reference_sequence' =>
+          undef
+        ,    # Location of reference fasta file, used by CollectRnaSeqMetrics
+        'strand_specificity' => 'NONE'
+        ,    #For strand-specific library prep,  used by CollectRnaSeqMetrics
+    };
 }
+
 
 sub CMD_MAPPINGS { return {
     'mark_duplicates'   => \&run_mark_duplicates,
@@ -87,27 +97,28 @@ sub CMD_MAPPINGS { return {
 
 =cut
 
-
 sub new {
-  my ( $class, @args ) = @_;
-  my $self = $class->SUPER::new(@args);
+    my ( $class, @args ) = @_;
+    my $self = $class->SUPER::new(@args);
 
-  my ( $java_exe, $picard_dir, $jvm_options, $create_index, $keep_metrics,
-        )
-    = rearrange( [
-         qw( JAVA_EXE PICARD_DIR JVM_OPTIONS CREATE_INDEX KEEP_METRICS
-        )], @args);
+    my ( $java_exe, $picard_dir, $jvm_options, $create_index, $keep_metrics, )
+      = rearrange(
+        [
+            qw( JAVA_EXE PICARD_DIR JVM_OPTIONS CREATE_INDEX KEEP_METRICS
+              )
+        ],
+        @args
+      );
 
-  $self->java_exe($java_exe || 'java');
-  $self->picard_dir($picard_dir || $self->program || $ENV{PICARD});
-  $self->keep_metrics($keep_metrics || 0);
+    $self->java_exe( $java_exe         || 'java' );
+    $self->picard_dir( $picard_dir     || $self->program || $ENV{PICARD} );
+    $self->keep_metrics( $keep_metrics || 0 );
 
-  $self->jvm_options( defined $jvm_options ? $jvm_options : '-Xmx4g' );
-  $self->create_index( $create_index );
+    $self->jvm_options( defined $jvm_options ? $jvm_options : '-Xmx4g' );
+    $self->create_index($create_index);
 
-  return $self;
+    return $self;
 }
-
 
 =head2 run_program
 
@@ -123,22 +134,23 @@ sub new {
 
 =cut
 
-sub run_program{
-    my ($self, $command) = @_;
+sub run_program {
+    my ( $self, $command ) = @_;
 
-    throw("need a picard_dir") if ! $self->picard_dir;
-    throw("picard_dir is not a directory") if (! -d $self->picard_dir);
-    check_executable($self->java_exe);
+    throw("need a picard_dir") if !$self->picard_dir;
+    throw("picard_dir is not a directory") if ( !-d $self->picard_dir );
+    check_executable( $self->java_exe );
 
     my $subs = CMD_MAPPINGS();
 
-    throw("Did not recognise command $command") if (!defined $subs->{$command});
+    throw("Did not recognise command $command")
+      if ( !defined $subs->{$command} );
 
-    my @returned_values = &{$subs->{$command}}($self);
+    my @returned_values = &{ $subs->{$command} }($self);
     return @returned_values;
 }
 
-sub get_valid_commands{
+sub get_valid_commands {
     my $subs = CMD_MAPPINGS();
     return keys %$subs;
 }
@@ -158,50 +170,53 @@ sub run_mark_duplicates {
 
     my $jar = $self->_jar_path('MarkDuplicates.jar');
     my @metrics_data;
-    foreach my $input (@{$self->input_files}) {
+    foreach my $input ( @{ $self->input_files } ) {
         my $suffix = $self->options('remove_duplicates') ? '.rmdup' : '.mrkdup';
-        my $name = fileparse($input, qr/\.[sb]am/);
+        my $name = fileparse( $input, qr/\.[sb]am/ );
         my $prefix = $self->working_dir . '/' . $name . $suffix;
         $prefix =~ s{//}{/}g;
-        my $bam = $prefix . '.bam';
-        my $metrics = $prefix . '.metrics';
+        my $bam     = $prefix . '.bam';
+        my $metrics = $prefix . '.dup_metrics';
 
-        my @cmd_words = ($self->java_exe);
-        push(@cmd_words, $self->jvm_options) if ($self->jvm_options);
-        push(@cmd_words, '-jar', $jar);
-        push(@cmd_words, $self->_get_standard_options);
-        push(@cmd_words, 'INPUT=' . $input);
-        push(@cmd_words, 'OUTPUT=' . $bam);
-        push(@cmd_words, 'METRICS_FILE=' . $metrics);
-        push(@cmd_words, 'REMOVE_DUPLICATES='
-                . ($self->options('remove_duplicates') ? 'true' : 'false'));
-        push(@cmd_words, 'ASSUME_SORTED='
-                . ($self->options('assume_sorted') ? 'true' : 'false')) if defined $self->options('assume_sorted');
-        push(@cmd_words, 'CREATE_INDEX='
-                . ($self->create_index ? 'true' : 'false'));
+        my @cmd_words = ( $self->java_exe );
+        push( @cmd_words, $self->jvm_options ) if ( $self->jvm_options );
+        push( @cmd_words, '-jar', $jar );
+        push( @cmd_words, $self->_get_standard_options );
+        push( @cmd_words, 'INPUT=' . $input );
+        push( @cmd_words, 'OUTPUT=' . $bam );
+        push( @cmd_words, 'METRICS_FILE=' . $metrics );
+        push( @cmd_words,
+            'REMOVE_DUPLICATES='
+              . ( $self->options('remove_duplicates') ? 'true' : 'false' ) );
+        push( @cmd_words,
+            'ASSUME_SORTED='
+              . ( $self->options('assume_sorted') ? 'true' : 'false' ) )
+          if defined $self->options('assume_sorted');
+        push( @cmd_words,
+            'CREATE_INDEX=' . ( $self->create_index ? 'true' : 'false' ) );
 
-        my $cmd = join(' ', @cmd_words);
+        my $cmd = join( ' ', @cmd_words );
 
         $self->output_files($bam);
 
-        if ($self->keep_metrics){
+        if ( $self->keep_metrics ) {
             $self->output_files($metrics);
         }
         else {
             $self->created_files($metrics);
         }
-    
+
         $self->created_files("$prefix.bai") if $self->create_index;
         $self->execute_command_line($cmd);
 
         push @metrics_data, $self->parse_metrics_file($metrics);
 
-        if ($self->create_index) {
-            my $bai = "$prefix.bai";
+        if ( $self->create_index ) {
+            my $bai       = "$prefix.bai";
             my $index_ext = $self->options('index_ext');
-            if ($index_ext && $index_ext ne '.bai') {
+            if ( $index_ext && $index_ext ne '.bai' ) {
                 my $corrected_bai = "$prefix" . $index_ext;
-                move($bai, $corrected_bai)
+                move( $bai, $corrected_bai )
                   or throw "move failed: $!";
                 $bai = $corrected_bai;
             }
@@ -210,7 +225,7 @@ sub run_mark_duplicates {
 
     }
 
-    return (\@metrics_data);
+    return ( \@metrics_data );
 }
 
 =head2 run_alignment_metrics
@@ -221,35 +236,41 @@ sub run_mark_duplicates {
   Exceptions: 
   
 =cut
+
 sub run_alignment_metrics {
     my ($self) = @_;
 
     my @metrics;
 
     my $jar = $self->_jar_path('CollectAlignmentSummaryMetrics.jar');
-    foreach my $input (@{$self->input_files}) {
-        my ($input) = @{$self->input_files};
-        my ($name,$dir) = fileparse($input, qr/\.[sb]am/);
-        my $base_name = $dir.'/'. $name;
-        
-        my $output = $base_name.'.metrics';
+    foreach my $input ( @{ $self->input_files } ) {
+        my ($input) = @{ $self->input_files };
+        my ( $name, $dir ) = fileparse( $input, qr/\.[sb]am/ );
+        my $base_name = $dir . '/' . $name;
 
-        my @cmd_words = ($self->java_exe);
-        push(@cmd_words, $self->jvm_options) if ($self->jvm_options);
-        push(@cmd_words, '-jar', $jar);
-        push(@cmd_words, $self->_get_standard_options);
-        push(@cmd_words, 'INPUT=' . $input);
-        push(@cmd_words, 'OUTPUT=' . $output);
-        push(@cmd_words, 'ASSUME_SORTED='
-                . ($self->options('assume_sorted') ? 'true' : 'false')) if defined $self->options('assume_sorted');
-        my $cmd = join(' ', @cmd_words);
+        my $output = $base_name . '.metrics';
+
+        my @cmd_words = ( $self->java_exe );
+        push( @cmd_words, $self->jvm_options ) if ( $self->jvm_options );
+        push( @cmd_words, '-jar', $jar );
+        push( @cmd_words, $self->_get_standard_options );
+        push( @cmd_words, 'INPUT=' . $input );
+        push( @cmd_words, 'OUTPUT=' . $output );
+        push( @cmd_words,
+            'ASSUME_SORTED='
+              . ( $self->options('assume_sorted') ? 'true' : 'false' ) )
+          if defined $self->options('assume_sorted');
+        push( @cmd_words,
+            'REFERENCE_SEQUENCE=' . $self->options('reference_sequence') )
+          if $self->options('reference_sequence');
+        my $cmd = join( ' ', @cmd_words );
 
         $self->output_files($output);
         $self->execute_command_line($cmd);
 
-        push @metrics, $self->parse_metrics_file($output)
+        push @metrics, $self->parse_metrics_file($output);
     }
-    return (\@metrics);
+    return ( \@metrics );
 }
 
 =head2 run_alignment_metrics
@@ -260,46 +281,52 @@ sub run_alignment_metrics {
   Exceptions: 
   
 =cut
+
 sub run_rna_alignment_metrics {
     my ($self) = @_;
 
     my @metrics;
-    
-    throw ('A REF_FLAT file must be specified for RNA alignment metrics') unless $self->options('ref_flat');
-#    throw ('A REFERENCE_SEQUENCE file must be specified for RNA alignment metrics') unless $self->options('reference_sequence');
+
+    throw('A REF_FLAT file must be specified for RNA alignment metrics')
+      unless $self->options('ref_flat');
 
     my $jar = $self->_jar_path('CollectRnaSeqMetrics.jar');
-    foreach my $input (@{$self->input_files}) {
-        my ($input) = @{$self->input_files};
-        my ($name,$dir) = fileparse($input, qr/\.[sb]am/);
-        my $base_name = $dir.'/'. $name;
-        
-        my $output = $base_name.'.rnaseq_metrics';
+    foreach my $input ( @{ $self->input_files } ) {
+        my ($input) = @{ $self->input_files };
+        my ( $name, $dir ) = fileparse( $input, qr/\.[sb]am/ );
+        my $base_name = $dir . '/' . $name;
 
-        my @cmd_words = ($self->java_exe);
-        push(@cmd_words, $self->jvm_options) if ($self->jvm_options);
-        push(@cmd_words, '-jar', $jar);
-        push(@cmd_words, $self->_get_standard_options);
-        push(@cmd_words, 'INPUT=' . $input);
-        push(@cmd_words, 'OUTPUT=' . $output);
-        push(@cmd_words, 'ASSUME_SORTED='
-                . ($self->options('assume_sorted') ? 'true' : 'false')) if defined $self->options('assume_sorted');
+        my $output = $base_name . '.rnaseq_metrics';
+        my @cmd_words = ( $self->java_exe );
+        push( @cmd_words, $self->jvm_options ) if ( $self->jvm_options );
+        push( @cmd_words, '-jar', $jar );
+        push( @cmd_words, $self->_get_standard_options );
+        push( @cmd_words, 'INPUT=' . $input );
+        push( @cmd_words, 'OUTPUT=' . $output );
+        push( @cmd_words,
+            'ASSUME_SORTED='
+              . ( $self->options('assume_sorted') ? 'true' : 'false' ) )
+          if defined $self->options('assume_sorted');
 
-        push(@cmd_words, 'REF_FLAT='.$self->options('ref_flat'));
-        push(@cmd_words, 'RIBOSOMAL_INTERVALS='.$self->options('ribosomal_intervals')) if $self->options('ribosomal_intervals');
-        push(@cmd_words, 'REFERENCE_SEQUENCE='.$self->options('reference_sequence')) if $self->options('reference_sequence');
-        
-        push(@cmd_words, 'STRAND_SPECIFICITY='.$self->options('strand_specificity'));
-        
-        
-        my $cmd = join(' ', @cmd_words);
+        push( @cmd_words, 'REF_FLAT=' . $self->options('ref_flat') );
+        push( @cmd_words,
+            'RIBOSOMAL_INTERVALS=' . $self->options('ribosomal_intervals') )
+          if $self->options('ribosomal_intervals');
+        push( @cmd_words,
+            'REFERENCE_SEQUENCE=' . $self->options('reference_sequence') )
+          if $self->options('reference_sequence');
+
+        push( @cmd_words,
+            'STRAND_SPECIFICITY=' . $self->options('strand_specificity') );
+
+        my $cmd = join( ' ', @cmd_words );
 
         $self->output_files($output);
         $self->execute_command_line($cmd);
 
-        push @metrics, $self->parse_metrics_file($output)
+        push @metrics, $self->parse_metrics_file($output);
     }
-    return (\@metrics);
+    return ( \@metrics );
 }
 
 =head2 run_merge
@@ -312,12 +339,12 @@ sub run_rna_alignment_metrics {
 
 =cut
 
-
-sub run_merge{
+sub run_merge {
     my ($self) = @_;
 
     my $input_bam_list = $self->input_files;
-    throw("need more than two or more files to merge") if (@$input_bam_list <2);
+    throw("need more than two or more files to merge")
+      if ( @$input_bam_list < 2 );
 
     my $prefix = $self->working_dir . '/' . $self->job_name . ".merge";
     $prefix =~ s{//}{/}g;
@@ -326,79 +353,81 @@ sub run_merge{
     my $jar = $self->_jar_path('MergeSamFiles.jar');
 
     my $sort_order = $self->options('sort_order');
-    if ($sort_order ne 'coordinate' && $sort_order ne 'queryname') {
-      $sort_order = 'null';
+    if ( $sort_order ne 'coordinate' && $sort_order ne 'queryname' ) {
+        $sort_order = 'null';
     }
 
-    my @cmd_words = ($self->java_exe);
-    push(@cmd_words, $self->jvm_options) if ($self->jvm_options);
-    push(@cmd_words, '-jar', $jar);
-    push(@cmd_words, $self->_get_standard_options);
-    push(@cmd_words, map {"INPUT=$_"} @$input_bam_list);
-    push(@cmd_words, 'OUTPUT=' . $bam);
-    push(@cmd_words, 'CREATE_INDEX='
-            . ($self->create_index ? 'true' : 'false'));
-    push(@cmd_words, 'SORT_ORDER=' . $sort_order);
-    push(@cmd_words, 'ASSUME_SORTED='
-            . ($self->options('assume_sorted') ? 'true' : 'false')) if defined $self->options('assume_sorted');
-    push(@cmd_words, 'USE_THREADING='
-            . ($self->options('use_threading') ? 'true' : 'false'));
+    my @cmd_words = ( $self->java_exe );
+    push( @cmd_words, $self->jvm_options ) if ( $self->jvm_options );
+    push( @cmd_words, '-jar', $jar );
+    push( @cmd_words, $self->_get_standard_options );
+    push( @cmd_words, map { "INPUT=$_" } @$input_bam_list );
+    push( @cmd_words, 'OUTPUT=' . $bam );
+    push( @cmd_words,
+        'CREATE_INDEX=' . ( $self->create_index ? 'true' : 'false' ) );
+    push( @cmd_words, 'SORT_ORDER=' . $sort_order );
+    push( @cmd_words,
+        'ASSUME_SORTED='
+          . ( $self->options('assume_sorted') ? 'true' : 'false' ) )
+      if defined $self->options('assume_sorted');
+    push( @cmd_words,
+        'USE_THREADING='
+          . ( $self->options('use_threading') ? 'true' : 'false' ) );
 
-    my $cmd = join(' ', @cmd_words);
-
+    my $cmd = join( ' ', @cmd_words );
 
     $self->output_files($bam);
     $self->created_files("$prefix.bai") if $self->create_index;
 
     $self->execute_command_line($cmd);
 
-    if ($self->create_index) {
-      my $bai = "$prefix.bai";
-      my $index_ext = $self->options('index_ext');
-      if ($index_ext && $index_ext ne '.bai') {
-        my $corrected_bai = "$prefix" . $index_ext;
-        move($bai, $corrected_bai)
-          or throw "move failed: $!";
-        $bai = $corrected_bai;
-      }
-      $self->output_files($bai);
+    if ( $self->create_index ) {
+        my $bai       = "$prefix.bai";
+        my $index_ext = $self->options('index_ext');
+        if ( $index_ext && $index_ext ne '.bai' ) {
+            my $corrected_bai = "$prefix" . $index_ext;
+            move( $bai, $corrected_bai )
+              or throw "move failed: $!";
+            $bai = $corrected_bai;
+        }
+        $self->output_files($bai);
     }
-
 
     return;
 }
 
 sub parse_metrics_file {
-    my ($self,$metrics_file) = @_;
-    
-    open (my $fh, '<', $metrics_file) or throw ("Could not open metrics file: $metrics_file");
-    
+    my ( $self, $metrics_file ) = @_;
+
+    open( my $fh, '<', $metrics_file )
+      or throw("Could not open metrics file: $metrics_file");
+
     my @column_headers;
     my @rows;
-    
+
     while (<$fh>) {
         chomp;
-        last if m/## HISTOGRAM/; # not a good fit for the statistics module 
-        next if m/^#/; # comment lines
-        next if (!$_); # blank lines
-        
+        last if m/## HISTOGRAM/;    # not a good fit for the statistics module
+        next if m/^#/;              # comment lines
+        next if ( !$_ );            # blank lines
+
         my @vals = split /\t/;
-        
-        if (scalar(@column_headers) < 1) {  # no headers read yet
+
+        if ( scalar(@column_headers) < 1 ) {    # no headers read yet
             @column_headers = @vals;
         }
         else {
             my %row_val;
-            
-            for (my $i = 0; $i < scalar(@column_headers); $i++){
-                undef($vals[$i]) if ($vals[$i] eq '');
-                $row_val{$column_headers[$i]} = $vals[$i];
+
+            for ( my $i = 0 ; $i < scalar(@column_headers) ; $i++ ) {
+                undef( $vals[$i] ) if (defined $vals[$i] && $vals[$i] eq '' );
+                $row_val{ $column_headers[$i] } = $vals[$i];
             }
-            
+
             push @rows, \%row_val;
         }
     }
-    
+
     return @rows;
 }
 
@@ -413,54 +442,54 @@ sub parse_metrics_file {
 
 =cut
 
-sub run_sort{
-  my ($self) = @_;
-    
-  my $sort_order = $self->options('sort_order');
-  if ($sort_order ne 'coordinate' && $sort_order ne 'queryname') {
-      $sort_order = 'null';
-  }
-          
-  my $jar = $self->_jar_path('SortSam.jar');
+sub run_sort {
+    my ($self) = @_;
 
-  foreach my $input (@{$self->input_files}) {
-    my $name = fileparse($input, qr/\.[sb]am/);
-    my $prefix = $self->working_dir . '/' . $name . '.sorted';
-    $prefix =~ s{//}{/}g;
-    my $output = $prefix . '.bam';
-
-    my @cmd_words = ($self->java_exe);
-    push(@cmd_words, $self->jvm_options) if ($self->jvm_options);
-    push(@cmd_words, '-jar', $jar);
-    push(@cmd_words, $self->_get_standard_options);
-    push(@cmd_words, 'SORT_ORDER=' . $sort_order);
-    push(@cmd_words, 'INPUT=' . $input);
-    push(@cmd_words, 'OUTPUT=' . $output);
-    push(@cmd_words, 'CREATE_INDEX='
-            . ($self->create_index ? 'true' : 'false'));
-
-    my $cmd = join(' ', @cmd_words);
-  
-    $self->output_files($output);
-    $self->created_files("$prefix.bai") if $self->create_index;
-
-    $self->execute_command_line($cmd);
-
-    if ($self->create_index) {
-        my $bai = "$prefix.bai";
-        my $index_ext = $self->options('index_ext');
-        if ($index_ext && $index_ext ne '.bai') {
-            my $corrected_bai = "$prefix" . $index_ext;
-            move($bai, $corrected_bai)
-              or throw "move failed: $!";
-            $bai = $corrected_bai;
-        }
-        $self->output_files($bai);
+    my $sort_order = $self->options('sort_order');
+    if ( $sort_order ne 'coordinate' && $sort_order ne 'queryname' ) {
+        $sort_order = 'null';
     }
-  
-  }
 
-    return;   
+    my $jar = $self->_jar_path('SortSam.jar');
+
+    foreach my $input ( @{ $self->input_files } ) {
+        my $name = fileparse( $input, qr/\.[sb]am/ );
+        my $prefix = $self->working_dir . '/' . $name . '.sorted';
+        $prefix =~ s{//}{/}g;
+        my $output = $prefix . '.bam';
+
+        my @cmd_words = ( $self->java_exe );
+        push( @cmd_words, $self->jvm_options ) if ( $self->jvm_options );
+        push( @cmd_words, '-jar', $jar );
+        push( @cmd_words, $self->_get_standard_options );
+        push( @cmd_words, 'SORT_ORDER=' . $sort_order );
+        push( @cmd_words, 'INPUT=' . $input );
+        push( @cmd_words, 'OUTPUT=' . $output );
+        push( @cmd_words,
+            'CREATE_INDEX=' . ( $self->create_index ? 'true' : 'false' ) );
+
+        my $cmd = join( ' ', @cmd_words );
+
+        $self->output_files($output);
+        $self->created_files("$prefix.bai") if $self->create_index;
+
+        $self->execute_command_line($cmd);
+
+        if ( $self->create_index ) {
+            my $bai       = "$prefix.bai";
+            my $index_ext = $self->options('index_ext');
+            if ( $index_ext && $index_ext ne '.bai' ) {
+                my $corrected_bai = "$prefix" . $index_ext;
+                move( $bai, $corrected_bai )
+                  or throw "move failed: $!";
+                $bai = $corrected_bai;
+            }
+            $self->output_files($bai);
+        }
+
+    }
+
+    return;
 }
 
 =head2 run_fix_mate
@@ -527,30 +556,31 @@ sub _get_standard_options {
     my $self = shift;
 
     my @option_strings;
-    push(@option_strings, 'TMP_DIR=' . $self->get_temp_dir);
-    push(@option_strings, 'VERBOSITY=' . $self->options('verbosity'))
-        if ($self->options('verbosity'));
-    push(@option_strings, 'MAX_RECORDS_IN_RAM=' . $self->options('max_records_in_ram'))
-        if ($self->options('max_records_in_ram'));
-    push(@option_strings, 'VALIDATION_STRINGENCY=' . $self->options('validation_stringency'))
-        if ($self->options('validation_stringency'));
-    push(@option_strings, 'QUIET=' .$self->options('quiet')) 
-        if ($self->options('quiet'));
-            
-    return join(' ', @option_strings);
+    push( @option_strings, 'TMP_DIR=' . $self->get_temp_dir );
+    push( @option_strings, 'VERBOSITY=' . $self->options('verbosity') )
+      if ( $self->options('verbosity') );
+    push( @option_strings,
+        'MAX_RECORDS_IN_RAM=' . $self->options('max_records_in_ram') )
+      if ( $self->options('max_records_in_ram') );
+    push( @option_strings,
+        'VALIDATION_STRINGENCY=' . $self->options('validation_stringency') )
+      if ( $self->options('validation_stringency') );
+    push( @option_strings, 'QUIET=' . $self->options('quiet') )
+      if ( $self->options('quiet') );
+
+    return join( ' ', @option_strings );
 }
 
-sub _jar_path{
-    my ($self,$jar_file) = @_;
+sub _jar_path {
+    my ( $self, $jar_file ) = @_;
     my $jar = $self->picard_dir . '/' . $jar_file;
     $jar =~ s{//}{/}g;
 
     return $jar;
 }
 
-
 sub jvm_options {
-    my ($self, $arg) = @_;
+    my ( $self, $arg ) = @_;
     if ($arg) {
         $self->{'jvm_options'} = $arg;
     }
@@ -558,52 +588,50 @@ sub jvm_options {
 }
 
 sub picard_dir {
-  my $self = shift;
-  return $self->program(@_);
+    my $self = shift;
+    return $self->program(@_);
 }
 
 sub java_exe {
-    my ($self, $arg) = @_;
+    my ( $self, $arg ) = @_;
     if ($arg) {
         $self->{'java_exe'} = $arg;
     }
     return $self->{'java_exe'};
 }
 
-
 sub create_index {
-  my $self = shift;
-  if (@_) {
-    $self->{'create_index'} = (shift) ? 1 : 0;
-  }
-  return $self->{'create_index'};
+    my $self = shift;
+    if (@_) {
+        $self->{'create_index'} = (shift) ? 1 : 0;
+    }
+    return $self->{'create_index'};
 }
 
-
 sub output_bai_files {
-  my $self = shift;
-  my @files = grep {/\.bai$/} @{$self->output_files};
-  return \@files;
+    my $self = shift;
+    my @files = grep { /\.bai$/ } @{ $self->output_files };
+    return \@files;
 }
 
 sub output_bam_files {
-  my $self = shift;
-  my @files = grep {/\.bam$/} @{$self->output_files};
-  return \@files;
+    my $self = shift;
+    my @files = grep { /\.bam$/ } @{ $self->output_files };
+    return \@files;
 }
 
 sub output_metrics_files {
-  my $self = shift;
-  my @files = grep {/metrics$/} @{$self->output_files};
-  return \@files;
+    my $self = shift;
+    my @files = grep { /metrics$/ } @{ $self->output_files };
+    return \@files;
 }
 
 sub keep_metrics {
-  my $self = shift;
-  if (@_) {
-    $self->{'keep_metrics'} = (shift) ? 1 : 0;
-  }
-  return $self->{'keep_metrics'};
+    my $self = shift;
+    if (@_) {
+        $self->{'keep_metrics'} = (shift) ? 1 : 0;
+    }
+    return $self->{'keep_metrics'};
 }
 
 1;

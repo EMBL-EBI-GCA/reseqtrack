@@ -13,8 +13,8 @@ sub new {
 	my ( $class, @args ) = @_;
 	my $self = $class->SUPER::new(@args);
 
-	my ($keep_text, $keep_graph, $conf_file, $subset, $bowtie_parameters,)	= rearrange( [
-	    qw( KEEP_TEXT KEEP_GRAPH CONF_FILE SUBSET BOWTIE_PARAMETERS )
+	my ($keep_text, $keep_graph, $conf_file, $subset, $bowtie_parameters, )	= rearrange( [
+	    qw( KEEP_TEXT KEEP_GRAPH CONF_FILE SUBSET BOWTIE_PARAMETERS)
 		], @args);
 
 	throw ('FastQScreen configuration file must be specified') unless ($conf_file);
@@ -25,6 +25,7 @@ sub new {
 	$self->configuration_file($conf_file);
 	$self->subset($subset);
 	$self->bowtie_parameters($bowtie_parameters);
+	$self->subset($subset);
 
 	return $self;	
 }

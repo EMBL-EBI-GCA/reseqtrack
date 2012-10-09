@@ -40,96 +40,117 @@ my $output_file_list = $fseq->output_files;
 =cut
 
 sub new {
-	my ( $class, @args ) = @_;
-	
-	my $self = $class->SUPER::new(@args);
+  my ( $class, @args ) = @_;
 
-	my ( $bam_to_bed_path, $strip_duplicates, $samtools_path, $control_files )
-	    = rearrange( [
-	         qw( BAM_TO_BED_PATH STRIP_DUPLICATES
-				SAMTOOLS_PATH CONTROL_FILES)
-			], @args);
-	
-	$self->bam_to_bed_path($bam_to_bed_path || 'bamToBed');	
-	$self->samtools_path($samtools_path || 'samtools');	
-	$self->strip_duplicates($strip_duplicates);
-	$self->control_files($control_files);
-	
-	if ($self->control_required && ! scalar(@{$self->control_files})){
-		throw("Control files required but not specified");
-	}
-	if (scalar(@{$self->control_files}) && ! $self->can_use_control){
-		thow("Control files specified but cannot be used");
-	}
+  my $self = $class->SUPER::new(@args);
 
-	return $self;
+  my (
+    $bam_to_bed_path,  $samtools_path,   $control_files,
+    $strip_duplicates, $strip_multimaps, $strip_low_mapq,
+    $chrs_to_keep_file
+    )
+    = rearrange(
+    [
+      qw( BAM_TO_BED_PATH SAMTOOLS_PATH CONTROL_FILES
+        STRIP_DUPLICATES STRIP_MULTIMAPS
+        CHRS_TO_KEEP_FILE)
+    ],
+    @args
+    );
+
+  $self->bam_to_bed_path( $bam_to_bed_path || 'bamToBed' );
+  $self->samtools_path( $samtools_path     || 'samtools' );
+  $self->control_files($control_files);
+  $self->strip_duplicates($strip_duplicates);
+  $self->strip_multimaps($strip_multimaps);
+  $self->strip_low_mapq($strip_low_mapq);
+
+  if ( $self->control_required && !scalar( @{ $self->control_files } ) ) {
+    throw("Control files required but not specified");
+  }
+  if ( scalar( @{ $self->control_files } ) && !$self->can_use_control ) {
+    thow("Control files specified but cannot be used");
+  }
+
+  return $self;
 }
 
 sub can_read_bam {
-	throw("can_read_bam should be implemented in the child class");
+  throw("can_read_bam should be implemented in the child class");
 }
 
 sub can_use_control {
-	throw("can_use_control should be implemented in the child class");
-}
-sub control_required {
-	throw("control_required should be implemented in the child class");
+  throw("can_use_control should be implemented in the child class");
 }
 
+sub control_required {
+  throw("control_required should be implemented in the child class");
+}
+
+sub filter_bam_cmd_line {
+  my ( $self, $file_name ) = @_;
+  my @cmd;
+
+  push @cmd, $self->samtools_path;
+  push @cmd, 'view';
+  push @cmd, '-F 4';                                    # discard unmapped reads
+  push @cmd, '-F 1024 ' if ( $self->strip_duplicates );
+  push @cmd, '-F 256' if ( $self->strip_multimaps );
+  push @cmd, '-q '.$self->strip_low_mapq if (defined $self->strip_low_mapq);
+  if ( $self->can_read_bam ) {
+    push @cmd, '-bh';                                   # output bam with header
+  }
+  else {
+    push @cmd, '-buh';    #further conversion will pe performed, output uncompressed bam
+  }
+  push @cmd, $file_name;
+
+  return join( ' ', @cmd );
+}
 
 sub convert_file {
-	my ($self, $file_name) = @_;
-	
-	my $bam_to_bed_path = $self->bam_to_bed_path;
-	my $samtools_path = $self->samtools_path;
-	
-	my $temp_dir = $self->get_bkilltemp_dir;
-	my ($name,$path,$suffix) = fileparse($file_name);
-	
-	my $target_name = $temp_dir.'/'.$name;
-	
-	my $cmd;
-	
-	if ($file_name =~ m/\.bam$/ ){
-		if ($self->can_read_bam){
-			if ($self->strip_duplicates){
-				$cmd = "$samtools_path view -F 1024 -F 4 -bh $file_name > $target_name";
-			}
-			else {
-				$cmd = undef;
-			}
-		}
-		else{
-			if ($self->strip_duplicates){
-				$cmd = "$samtools_path view -F 1024 -F 4 -buh $file_name | $bam_to_bed_path -i - > $target_name";
-			}
-			else {
-				$cmd = "$bam_to_bed_path -i $file_name > $target_name";
-			}			
-		}
-	}
-	
-	if ($cmd) {
-		$self->execute_command_line($cmd);
-		return $target_name;
-	}
-	else {
-		return $file_name;
-	}
+  my ( $self, $file_name ) = @_;
+
+  my $bam_to_bed_path = $self->bam_to_bed_path;
+
+  my $temp_dir = $self->get_temp_dir;
+  my ( $name, $path, $suffix ) = fileparse($file_name);
+
+  my $target_name = $temp_dir . '/' . $name;
+
+  my $cmd;
+
+  if ( $file_name =~ m/\.bam$/ ) {
+    if ( $self->can_read_bam ) {
+      $cmd = $self->filter_bam_cmd_line($file_name) . " > $target_name";
+    }
+    else {
+      $cmd = $self->filter_bam_cmd_line($file_name)
+        . " | $bam_to_bed_path -i - > $target_name";
+    }
+  }
+
+  if ($cmd) {
+    $self->execute_command_line($cmd);
+    return $target_name;
+  }
+  else {
+    return $file_name;
+  }
 }
 
-sub get_input_files_cmd{
-	my ($self) = @_;
-	my @converted_files = map {$self->convert_file($_)} @{$self->input_files};
-	return \@converted_files; 
+sub get_input_files_cmd {
+  my ($self) = @_;
+  my @converted_files = map { $self->convert_file($_) } @{ $self->input_files };
+  return \@converted_files;
 }
 
-sub get_control_files_cmd{
-	my ($self) = @_;
-	my @converted_files = map {$self->convert_file($_)} @{$self->control_files};
-	return \@converted_files; 
+sub get_control_files_cmd {
+  my ($self) = @_;
+  my @converted_files =
+    map { $self->convert_file($_) } @{ $self->control_files };
+  return \@converted_files;
 }
-
 
 =head2 control_files
 
@@ -146,46 +167,62 @@ sub control_files {
 
   $self->{'control_files'} ||= {};
   if ($arg) {
-    foreach my $file (@{ref($arg) eq 'ARRAY' ? $arg : [$arg]}) {
+    foreach my $file ( @{ ref($arg) eq 'ARRAY' ? $arg : [$arg] } ) {
       $file =~ s{//}{/}g;
       $self->{'control_files'}->{$file} = 1;
     }
   }
 
-  my @files = keys %{$self->{'control_files'}};
+  my @files = keys %{ $self->{'control_files'} };
   return \@files;
 }
 
 sub bam_to_bed_path {
-    my ($self, $arg) = @_;
-    if ($arg) {
-        $self->{'bam_to_bed_path'} = $arg;
-    }
-    return $self->{'bam_to_bed_path'};
+  my ( $self, $arg ) = @_;
+  if ($arg) {
+    $self->{'bam_to_bed_path'} = $arg;
+  }
+  return $self->{'bam_to_bed_path'};
 }
 
 sub samtools_path {
-    my ($self, $arg) = @_;
-    if ($arg) {
-        $self->{'samtools_path'} = $arg;
-    }
-    return $self->{'samtools_path'};
+  my ( $self, $arg ) = @_;
+  if ($arg) {
+    $self->{'samtools_path'} = $arg;
+  }
+  return $self->{'samtools_path'};
 }
 
 sub strip_duplicates {
-    my ($self, $arg) = @_;
-    if (defined $arg) {
-        $self->{'strip_duplicates'} = $arg;
-    }
-    return $self->{'strip_duplicates'};
+  my ( $self, $arg ) = @_;
+  if ( defined $arg ) {
+    $self->{'strip_duplicates'} = $arg;
+  }
+  return $self->{'strip_duplicates'};
+}
+
+sub strip_multimaps {
+  my ( $self, $arg ) = @_;
+  if ( defined $arg ) {
+    $self->{'strip_multimaps'} = $arg;
+  }
+  return $self->{'strip_multimaps'};
+}
+
+sub strip_low_mapq {
+  my ( $self, $arg ) = @_;
+  if ( defined $arg ) {
+    $self->{'strip_low_mapq'} = $arg;
+  }
+  return $self->{'strip_low_mapq'};
 }
 
 sub bed_file {
-    my ($self, $arg) = @_;
-    if (defined $arg) {
-        $self->{'bed_file'} = $arg;
-    }
-    return $self->{'bed_file'};
+  my ( $self, $arg ) = @_;
+  if ( defined $arg ) {
+    $self->{'bed_file'} = $arg;
+  }
+  return $self->{'bed_file'};
 }
 
 1;
