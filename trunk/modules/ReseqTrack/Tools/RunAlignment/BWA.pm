@@ -45,6 +45,7 @@ sub DEFAULT_OPTIONS { return {
         'max_gap_extensions' => undef,
         'threads' => 1,
         'load_fm_index' => 1,
+        'disable_smith_waterman' => 0,
         };
 }
 
@@ -93,6 +94,7 @@ sub run_sampe_alignment {
     my @cmd_words;
     push(@cmd_words, $self->program, 'sampe');
     push(@cmd_words, '-P') if $self->options('load_fm_index');
+    push(@cmd_words, '-s') if $self->options('disable_smith_waterman');
     if ($self->paired_length) {
       my $max_insert_size = 3 * $self->paired_length;
       push(@cmd_words, '-a', $max_insert_size);
