@@ -45,6 +45,7 @@ sub CONVERSION {
     'bw' => \&convert_big_wig,
     'bg' => \&convert_bed_graph,
     'bed' => \&convert_bed,
+    'bb'  => \&convert_big_bed,
 
     #to extend: add format and subroutine.
     #each sub routine should take an input and output file name, 
@@ -103,13 +104,29 @@ sub convert_bed {
   
   push @bam_to_bed_cmd, '-split' if ( $self->options('split_reads') );
   push @bam_to_bed_cmd, '-i', $input_file;
-
-
+  push @bam_to_bed_cmd, '|',  'sort -k1,1 -k2,2n';
   push @bam_to_bed_cmd, '>', $output_file;
 
   my $bam_to_bed_cmd = join ' ', @bam_to_bed_cmd;
 
   $self->do_conversion( $bam_to_bed_cmd, $output_file, $is_intermediate );
+}
+
+sub convert_big_bed {
+  my ( $self, $input_file, $output_file, $is_intermediate ) = @_;
+
+  my $temp_file = $self->get_temp_dir() . '/temp.bed';
+
+  $self->convert_bed( $input_file, $temp_file, 1 );
+
+  my $chromosome_file = $self->chromosome_file;
+
+  my @big_wig_cmd =
+    ( 'bedToBigBed', $temp_file, $chromosome_file, $output_file );
+
+  my $bw_cmd = join ' ', @big_wig_cmd;
+
+  $self->do_conversion( $bw_cmd, $output_file, $is_intermediate );
 }
 
 sub do_conversion {

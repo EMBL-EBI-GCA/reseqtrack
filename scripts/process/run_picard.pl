@@ -159,12 +159,15 @@ if ($store) {
       }
     }
 
+
     my $collection = ReseqTrack::Collection->new(
       -name   => $name,
       -type   => $type_output,
       -others => $files
     );
-
+    
+    $ca->store($collection);
+    
     if ( $store_stats && $metrics ) {
       for my $metrics_row (@$metrics) {
         while ( my ( $key, $value ) = each %$metrics_row ) {
@@ -180,8 +183,6 @@ if ($store) {
       create_metrics_records( $name, $metrics_file_type,
         $picard_object->output_metrics_files );
     }
-
-    $ca->store($collection);
   }
 
   my $fa        = $db->get_FileAdaptor;
