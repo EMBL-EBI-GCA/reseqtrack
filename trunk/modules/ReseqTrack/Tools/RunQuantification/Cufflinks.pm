@@ -14,7 +14,7 @@ use ReseqTrack::Tools::RunAlignment;
 
 =head1 NAME
 
-ReseqTrack::Tools::RunAlignment::BWA
+ReseqTrack::Tools::RunQuantification::Cufflinks;
 
 =head1 SYNOPSIS
 
@@ -31,7 +31,7 @@ my $cuff = ReseqTrack::Tools::RunQuantification::Cufflinks(
                       -first_read => 1000,
                       -last_read => 2000,
                       );
-$bwa->run;
+$cuff->run;
 my $output_file_list = $cuff->output_files;
 
 =cut
