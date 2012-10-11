@@ -92,7 +92,7 @@ sub new {
 }
 
 sub run_fix_and_calmd {
-    my ($self) = @_
+    my ($self) = @_;
 
     foreach my $input (@{$self->input_files}) {
       my $prefix = fileparse($input, qr/\.[sb]am/ );
