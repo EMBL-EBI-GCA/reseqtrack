@@ -40,6 +40,7 @@ sub DEFAULT_OPTIONS { return {
         'gap_extension_penalty' => undef,
         'fast' => 0,
         'allow_overwriting' => 1,
+        'threads' => 1,
         };
 }
 
@@ -106,6 +107,7 @@ sub run_se_alignment {
     my @cmd_words = ($self->program);
     push(@cmd_words, '-g', $self->genome_prefix);
     push(@cmd_words, '-h', $self->hash_prefix);
+    push(@cmd_words, '-t', $self->options('threads') || 1);
     push(@cmd_words, '--gapopen='.$self->options('gap_open_penalty'))
             if $self->options('gap_open_penalty');
     push(@cmd_words, '--gapextend='.$self->options('gap_extension_penalty'))
