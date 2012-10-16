@@ -450,6 +450,7 @@ int main(int argc, char *argv[])
   bam1_t *bam_line = bam_init1();
 
   strcpy(in_mode, "rb");
+  md5[0]='\0';
 
   while((c = getopt(argc, argv, "so:m:")) != -1)
     switch (c) {

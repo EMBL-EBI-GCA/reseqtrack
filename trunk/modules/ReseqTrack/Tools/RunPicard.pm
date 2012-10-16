@@ -47,6 +47,7 @@ sub DEFAULT_OPTIONS {
         'remove_duplicates'     => 0,        # used by run_mark_duplicates
         'use_threading'         => 0,        # used by merge
         'validation_stringency' => undef,
+        'max_file_handles' => 1000, # should be slightly less than 'ulimit -n'
         'ref_flat' =>
           undef
         , # gene annotations file in ref flat format, used by CollectRnaSeqMetrics
@@ -194,6 +195,8 @@ sub run_mark_duplicates {
           if defined $self->options('assume_sorted');
         push( @cmd_words,
             'CREATE_INDEX=' . ( $self->create_index ? 'true' : 'false' ) );
+        push( @cmd_words, 'MAX_FILE_HANDLES_FOR_READ_ENDS_MAP=' . $self->options('max_file_handles'))
+          if $self->options('max_file_handles');
 
         my $cmd = join( ' ', @cmd_words );
 
