@@ -265,7 +265,7 @@ my $archiver = ReseqTrack::Tools::Loader::Archive->new
   (
    -file      => $files,
    -action    => 'archive',
-   -priority  => 90,
+   -priority  => 50,
    -no_lock   => 1,
    -db => $db,
   );
