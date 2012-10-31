@@ -90,9 +90,7 @@ CREATE TABLE workflow_goal(
 CREATE TABLE workflow_conditions(
     workflow_id int(10) unsigned NOT  NULL,
     conditional_event_id int( 10) unsigned NOT NULL,
-    PRIMARY KEY(workflow_id),
-    KEY(conditional_event_id),
-    KEY workflow_condition(workflow_id, conditional_event_id)
+    PRIMARY KEY(workflow_id,conditional_event_id)
 ) ENGINE=MYISAM;
 
 CREATE TABLE collection(
