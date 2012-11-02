@@ -244,7 +244,9 @@ sub run_alignment_metrics {
     my ($self) = @_;
 
     my @metrics;
-
+    
+    throw("Reference sequence is required for meaningful metrics") unless $self->options('reference_sequence');
+    
     my $jar = $self->_jar_path('CollectAlignmentSummaryMetrics.jar');
     foreach my $input ( @{ $self->input_files } ) {
         my ($input) = @{ $self->input_files };
@@ -276,10 +278,10 @@ sub run_alignment_metrics {
     return ( \@metrics );
 }
 
-=head2 run_alignment_metrics
+=head2 run_rna_alignment_metrics
 
   Arg [1]   : ReseqTrack::Tools::RunPicard
-  Function  : uses CollectAlignmentSummaryMetrics.jar to generate alignment metrics file. Reads metrics. 
+  Function  : uses CollectRnaSeqMetrics.jar to generate alignment metrics file. Reads metrics. 
   Returntype: Collection of hashrefs. Keys described at http://picard.sourceforge.net/picard-metric-definitions.shtml#AlignmentSummaryMetrics
   Exceptions: 
   
@@ -401,13 +403,13 @@ sub run_merge {
 
 sub parse_metrics_file {
     my ( $self, $metrics_file ) = @_;
-
+    
     open( my $fh, '<', $metrics_file )
       or throw("Could not open metrics file: $metrics_file");
 
     my @column_headers;
-    my @rows;
-
+    my @rows; 
+    
     while (<$fh>) {
         chomp;
         last if m/## HISTOGRAM/;    # not a good fit for the statistics module
@@ -415,7 +417,7 @@ sub parse_metrics_file {
         next if ( !$_ );            # blank lines
 
         my @vals = split /\t/;
-
+        
         if ( scalar(@column_headers) < 1 ) {    # no headers read yet
             @column_headers = @vals;
         }
@@ -430,7 +432,7 @@ sub parse_metrics_file {
             push @rows, \%row_val;
         }
     }
-
+    
     return @rows;
 }
 
