@@ -167,7 +167,7 @@ if ($store) {
     );
     
     $ca->store($collection);
-    
+ 
     if ( $store_stats && $metrics ) {
       for my $metrics_row (@$metrics) {
         while ( my ( $key, $value ) = each %$metrics_row ) {
@@ -177,6 +177,7 @@ if ($store) {
           }
         }
       }
+      $ca->store_statistics($collection);
     }
 
     if ( $metrics_file_type && @{ $picard_object->output_metrics_files } ) {
