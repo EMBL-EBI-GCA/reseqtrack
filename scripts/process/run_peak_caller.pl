@@ -114,8 +114,9 @@ my @input_filepaths = map { $_->{'name'} } @$input_files;
 
 my $run_meta_info = get_run_meta_info( $name, $rmia );
 $output_dir =
-  create_directory_path( $run_meta_info, $directory_layout, $output_dir )
-  if ($directory_layout);
+    create_directory_path( $run_meta_info, $directory_layout, $output_dir )
+    if ($directory_layout);
+
 my $control_filepaths =
   get_control_file_paths( $run_meta_info, $control_experiment_type,
   $control_type )
@@ -286,12 +287,16 @@ sub get_run_meta_info{
 	
 	my $run_meta_info;
 	if ($name =~ /$run_id_regex/) {
-		$run_meta_info = $rmia->fetch_by_run_id($&);
+		$run_meta_info = $rmia->fetch_by_run_id($name);
 	}
 	elsif ($name =~ /$sample_id_regex/) {
-		my $rmi_list = $rmia->fetch_by_sample_id($&);
+		my $rmi_list = $rmia->fetch_by_sample_id($name);
 		$run_meta_info = $rmi_list->[0] if (@$rmi_list);
 	}
+	else {
+	  throw("$name did not match the run or sample ID regexs");
+	}
+	print $run_meta_info.$/;
 	
 	return $run_meta_info;
 }
