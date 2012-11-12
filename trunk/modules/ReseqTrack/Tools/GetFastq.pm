@@ -74,9 +74,9 @@ sub run {
   throw("do not have a source root directory") if !$self->source_root_dir;
 
   if ($self->check_fastq_available == 0) {
-    print "no fastq files available for ".$self->run_meta_info->run_id."\n";
-    return 0;
+    throw("no fastq files available for ".$self->run_meta_info->run_id."\n");
   }
+
   if ($self->check_status == 0) {
     return 0;
   }

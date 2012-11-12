@@ -53,7 +53,7 @@ my %module_options;
     );
 
 if($help){
-  useage();
+  usage();
 }
 
 eval "require $module" or throw "cannot load module $module $@";
@@ -94,12 +94,10 @@ $constructor_hash{-db} = $era_db;
 my $fastq_getter = $module->new (%constructor_hash);
 my $num_files = $fastq_getter->run;
 
-throw("Have failed to fetch any fastq files for $run_id") if (!$num_files);
-
 my $host = get_host_object($host_name, $db);
 my $fastq_paths = $fastq_getter->output_files;
 my @file_objects;
-if($load){
+if($load && $num_files){
   $db->dbc->disconnect_when_inactive(0);
   my $fa = $db->get_FileAdaptor;
   foreach my $path (@$fastq_paths) {
@@ -138,7 +136,7 @@ if($load){
 
 
 
-sub useage{
+sub usage{
   exec('perldoc', $0);
   exit(0);
 }
