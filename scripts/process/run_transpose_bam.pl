@@ -81,7 +81,7 @@ my $bam_transposer = ReseqTrack::Tools::RunTransposeBam->new(
                   -working_dir             => $output_dir,
                   -program                 => $program,
                   -job_name                => $job_name,
-                  -region                  => $region,
+                  -regions                 => [$region],
                   );
 
 $bam_transposer->run;
