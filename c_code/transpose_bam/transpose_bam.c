@@ -126,12 +126,15 @@ int main(int argc, char *argv[])
 {
   char *out_fname = NULL;
   char **in_fnames = NULL;
-  char *region = NULL;
+  char **regions = NULL;
+  int num_regions = 0;
   int c, i;
   int num_infiles;
   int ret = 0;
   samfile_t **in_bams = NULL;
   bamFile out_bam = NULL;
+
+  regions = (char**) malloc(sizeof(char*) * argc);
 
   while((c = getopt(argc, argv, "o:r:")) != -1)
     switch (c) {
@@ -139,14 +142,15 @@ int main(int argc, char *argv[])
         out_fname = optarg;
         break;
       case 'r':
-        region = optarg;
+        regions[num_regions] = optarg;
+        num_regions ++;
         break;
       case '?':
         usage();
         break;
     }
 
-  if ( !out_fname || !region ) {
+  if ( !out_fname || num_regions == 0 ) {
     usage();
   }
 
@@ -171,7 +175,8 @@ int main(int argc, char *argv[])
 
   merge_bam_headers(num_infiles, in_bams, out_bam);
 
-  ret = merge_region(num_infiles, in_bams, in_fnames, out_bam, region);
+  for (i=0; i<num_regions && ret==0; i++)
+    ret = merge_region(num_infiles, in_bams, in_fnames, out_bam, regions[i]);
 
 
   bam_close(out_bam);
@@ -179,6 +184,7 @@ int main(int argc, char *argv[])
     samclose(in_bams[i]);
   }
   free(in_bams);
+  free(regions);
 
   return (ret == 0) ? EXIT_SUCCESS : EXIT_FAILURE;
 }
