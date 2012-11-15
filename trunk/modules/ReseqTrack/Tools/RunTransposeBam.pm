@@ -14,7 +14,7 @@ It is a sub class of a ReseqTrack::Tools::RunProgram.
 my $run_transpose_bam = $Reseqtrack::Tools::RunTransposeBam->new(
      -input_files     => ['/path/to/bam1', '/path/to/bam2'],
      -working_dir     => '/path/to/dir/',
-     -region          => 'chr4:10000-20000',
+     -regions          => ['chr4:10000-20000', 'chr3'],
      -program         => '/path/to/executable',
 );
 
@@ -36,13 +36,13 @@ sub new {
   my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
 
-  my ( $region,
+  my ( $regions,
     )
     = rearrange( [
-         qw( REGION )
+         qw( REGIONS )
           ], @args);
 
-  $self->region($region);
+  $self->regions($regions);
 
   return $self;
 }
@@ -51,12 +51,14 @@ sub new {
 sub run_program{
     my ($self) = @_;
 
-    my $region = $self->region;
-    throw("do not have a region") if !$region;
+    my $regions = $self->regions;
+    throw("do not have regions") if !$regions || !@$regions;
 
     my $output_bam = $self->working_dir . '/' . $self->job_name . '.transposed.bam';
     my @cmd_words = ($self->program);
-    push(@cmd_words, '-r', $region);
+    foreach my $region (@$regions) {
+      push(@cmd_words, '-r', $region);
+    }
     push(@cmd_words, '-o', $output_bam);
     push(@cmd_words, @{$self->input_files});
 
@@ -67,12 +69,12 @@ sub run_program{
     return;
 }
 
-sub region {
+sub regions {
     my ($self, $arg) = @_;
     if ($arg) {
-        $self->{'region'} = $arg;
+        $self->{'regions'} = $arg;
     }
-    return $self->{'region'};
+    return $self->{'regions'};
 }
 
 
