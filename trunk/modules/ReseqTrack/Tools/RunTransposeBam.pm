@@ -31,6 +31,10 @@ use ReseqTrack::Tools::Argument qw(rearrange);
 
 use base qw(ReseqTrack::Tools::RunProgram);
 
+sub DEFAULT_OPTIONS { return {
+        'build_index' => 0,
+        };
+}
 
 sub new {
   my ( $class, @args ) = @_;
@@ -59,6 +63,7 @@ sub run_program{
     foreach my $region (@$regions) {
       push(@cmd_words, '-r', $region);
     }
+    push(@cmd_words, '-i') if $self->options('build_index');
     push(@cmd_words, '-o', $output_bam);
     push(@cmd_words, @{$self->input_files});
 
