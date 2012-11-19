@@ -145,7 +145,7 @@ sub connect {
   if ( $self->driver() eq "Oracle" ) {
     my $driver = "dbi:Oracle";
     my ($port,$host,$sid) = ($self->port,$self->host,$self->dbname);
-    my $dsn = my $dsn = "$driver:host=$host;sid=$sid";
+    my $dsn = "$driver:host=$host;sid=$sid";
     #print STDERR join(' ',$dsn, $self->username, $self->password,$/ );
     
     eval { $dbh = DBI->connect($dsn, $self->username, $self->password,
