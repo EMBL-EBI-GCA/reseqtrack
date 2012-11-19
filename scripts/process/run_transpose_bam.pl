@@ -8,6 +8,7 @@ use ReseqTrack::Tools::FileSystemUtils qw(run_md5 );
 use ReseqTrack::Tools::HostUtils qw(get_host_object);
 use ReseqTrack::Tools::RunTransposeBam;
 use Getopt::Long;
+use List::Util qw(first);
 
 $| = 1;
 
@@ -97,7 +98,9 @@ if($store){
   my $host = get_host_object($host_name, $db);
   my $fa = $db->get_FileAdaptor;
 
-  my $bam = create_object_from_path($bam_transposer->output_files->[0], $type_output, $host);
+  my $bam_path = first {/\.bam$/} @{$bam_transposer->output_files};
+
+  my $bam = create_object_from_path($bam_path, $type_output, $host);
   if (! $disable_md5) {
     $bam->md5( run_md5($bam->name) );
   }
