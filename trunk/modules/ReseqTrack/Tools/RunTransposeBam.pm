@@ -66,9 +66,13 @@ sub run_program{
     push(@cmd_words, '-i') if $self->options('build_index');
     push(@cmd_words, '-o', $output_bam);
     push(@cmd_words, @{$self->input_files});
-
     my $cmd = join(' ', @cmd_words);
+
     $self->output_files($output_bam);
+    if ($self->option('build_index')) {
+      $self->output_files("$output_bam.bai");
+    }
+
     $self->execute_command_line($cmd);
 
     return;
