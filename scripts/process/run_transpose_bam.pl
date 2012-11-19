@@ -25,6 +25,7 @@ my $program;
 my $host_name = '1000genomes.ebi.ac.uk';
 my $store;
 my $disable_md5;
+my $build_index;
 
 &GetOptions( 
   'dbhost=s'      => \$dbhost,
@@ -41,6 +42,7 @@ my $disable_md5;
   'host_name=s' => \$host_name,
   'store!' => \$store,
   'disable_md5!' => \$disable_md5,
+  'build_index!' => \$build_index,
     );
 
 throw("Must specify an output directory") if (!$output_dir);
@@ -75,6 +77,10 @@ $output_dir =~ s{//+}{/}g;
 my $job_name = $col_name . '.' . $region;
 $job_name =~ s/:/./;
 
+my %options;
+if ($build_index) {
+  $options{build_index} = 1;
+}
 
 my $bam_transposer = ReseqTrack::Tools::RunTransposeBam->new(
                   -input_files             => \@filenames,
@@ -82,6 +88,7 @@ my $bam_transposer = ReseqTrack::Tools::RunTransposeBam->new(
                   -program                 => $program,
                   -job_name                => $job_name,
                   -regions                 => [$region],
+                  -options                 => \%options,
                   );
 
 $bam_transposer->run;

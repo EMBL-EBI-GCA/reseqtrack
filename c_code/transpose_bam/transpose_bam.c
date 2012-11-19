@@ -8,6 +8,7 @@
 
 
 void usage();
+int bam_index_build(const char *fn);
 
 void append_line(bam_header_t *out_header, char *line, size_t l_length) {
   out_header->text = (char*) realloc(out_header->text, sizeof(char*) * (out_header->l_text + l_length));
@@ -128,6 +129,7 @@ int main(int argc, char *argv[])
   char **in_fnames = NULL;
   char **regions = NULL;
   int num_regions = 0;
+  int build_index = 0;
   int c, i;
   int num_infiles;
   int ret = 0;
@@ -136,7 +138,7 @@ int main(int argc, char *argv[])
 
   regions = (char**) malloc(sizeof(char*) * argc);
 
-  while((c = getopt(argc, argv, "o:r:")) != -1)
+  while((c = getopt(argc, argv, "o:r:i")) != -1)
     switch (c) {
       case 'o':
         out_fname = optarg;
@@ -144,6 +146,9 @@ int main(int argc, char *argv[])
       case 'r':
         regions[num_regions] = optarg;
         num_regions ++;
+        break;
+      case 'i':
+        build_index = 1;
         break;
       case '?':
         usage();
@@ -186,14 +191,18 @@ int main(int argc, char *argv[])
   free(in_bams);
   free(regions);
 
+  if (build_index && ret == 0)
+    ret = bam_index_build(out_fname);
+
   return (ret == 0) ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
 
 void usage()
 {
-  printf("usage: transpose_bam -o output_file -r region input_file1 [input_file2 ...]\n");
-  printf("bam files must be indexed\n");
-  printf("all bam files must be mapped to the same reference sequences\n");
+  printf("usage: transpose_bam -o output_file -r region [-i] input_file1 [input_file2 ...]\n");
+  printf("input bam files must be indexed\n");
+  printf("all input bam files must be mapped to the same reference sequences\n");
+  printf("flag -i is to index the output");
   exit(-1);
 }
