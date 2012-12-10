@@ -246,7 +246,8 @@ sub create_filename{
 
 sub trim_spaces{
   my $string = shift;
-  #print "Triming *".$string."*\n";
+  my ($p, $f, $l) = caller;
+  #print "Triming *".$string."* at ".$f." ".$l."\n";
   $string =~ s/^\s+//;
   $string =~ s/\s+$//;
   return $string;

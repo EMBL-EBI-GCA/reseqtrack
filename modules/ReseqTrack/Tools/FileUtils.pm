@@ -536,6 +536,7 @@ sub write_log {
 	my $new_log_obj;
 	
 	if ($message) {
+	  print $f_obj->name." ".$message."\n";
 		$new_log_obj = ReseqTrack::RejectLog->new(
 			-file_id 		=> $f_obj->dbID,
 			-is_reject 		=> 'y',

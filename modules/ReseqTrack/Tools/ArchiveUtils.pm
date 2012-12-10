@@ -89,6 +89,9 @@ sub cleanup_archive{
   my $aa = $db->get_ArchiveAdaptor;
  ARCHIVE:foreach my $archive(@$archives){
     my $old_file = $fa->fetch_by_dbID($archive->file_id);
+    if(!$old_file->created){
+      throw("Don't have a created value for ".$old_file->filename);
+    }
     if(!$old_file){
       throw("Can't run ".$archive->name." ".$archive->dbID." doesn't have an ".
             "associated file");
