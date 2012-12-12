@@ -42,6 +42,7 @@ my $output_dir;
 my $help;
 my $max_maf = 1;
 my $min_maf = 0;
+my $base_format = 'number';
 
 GetOptions('population=s' => \@populations,
             'vcf=s' => \$vcf,
@@ -54,6 +55,7 @@ GetOptions('population=s' => \@populations,
             'help!' => \$help,
             'max_maf=s' => \$max_maf,
             'min_maf=s' => \$min_maf,
+            'base_format=s' => \$base_format,
             );
 
 if ($help) {
@@ -62,6 +64,10 @@ if ($help) {
 
 die("required arguments: vcf, sample_panel_file, region, population") if (! $vcf || ! $sample_panel || ! $region || ! @populations);
 die("$output_dir is not a directory") if ($output_dir && ! -d $output_dir);
+
+die("base_format must be 'number' or 'letter'") if ($base_format !~ /num/i && $base_format !~ /let/i);
+my %base_codes = $base_format =~ /num/i ? ('A' => 1,   'C' => 2,   'G' => 3,   'T' => 4)
+                                        : ('A' => 'A', 'C' => 'C', 'G' => 'G', 'T' => 'T');
 
 my $is_compressed = $vcf =~ /\.b?gz(ip)?$/;
 if ($is_compressed) {
@@ -109,7 +115,6 @@ print "Created ".$output_info." and ".$output_ped."\n";
 
 
 sub get_markers_genotypes {
-    my %base_codes = ('A' => 1, 'C' => 2, 'G' => 3, 'T' => 4);
 
     my $vcf_opener = $is_compressed ? "$tabix -h $vcf $region |" : "<$vcf";
     open my $VCF, $vcf_opener
@@ -141,6 +146,7 @@ sub get_markers_genotypes {
         last LINE if (defined $region_end && $position > $region_end);
 
         my @allele_codes = map {$base_codes{$_} || 0} $ref_allele, (split(/,/, $alt_alleles));
+        #my @allele_codes = map {($number_format ? $base_codes{$_} : $_) || 0} $ref_allele, (split(/,/, $alt_alleles));
         next LINE if ((scalar grep {$_} @allele_codes) < 2);
 
         my %marker_genotypes;
@@ -311,6 +317,8 @@ sub get_individuals {
         -output_dir         Name of a directory to place the output_ped and output_info files
         -min_maf            Only include variations with a minor allele_frequency greater than or equal to this value
         -max_maf            Only include variations with a minor allele_frequency less than or equal to this value
+        -base_format        Either 'letter' or 'number'. Genotypes in the ped file can be coded either ACGT or 1-4
+                            where 1=A, 2=C, 3=G, T=4.  Default is 'number'.
 	-help		    Print out help menu
 			
 =head1	OUTPUT FILES
