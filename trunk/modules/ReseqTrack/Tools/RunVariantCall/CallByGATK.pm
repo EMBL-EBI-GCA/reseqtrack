@@ -67,10 +67,10 @@ sub new {
   print "option hash keys are:\n";
   print join("\n", keys %{$self->options}) . "\n";
   
-  if (! defined $self->options->{'dbSNP'}) {
-      throw("Please provide dbSNP VCF file path for gatk run in parameters\n");
-  }
-  print "dbSNP is " . $self->options->{'dbSNP'} . "\n";
+  #if (! defined $self->options->{'dbSNP'}) {
+  #    throw("Please provide dbSNP VCF file path for gatk run in parameters\n");
+  #}
+  #print "dbSNP is " . $self->options->{'dbSNP'} . "\n";
   
   $self->super_pop_name($super_pop_name);
   print "super pop is $super_pop_name\n";
