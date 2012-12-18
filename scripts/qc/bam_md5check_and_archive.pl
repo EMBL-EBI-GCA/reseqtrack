@@ -115,6 +115,12 @@ elsif ( $file_type eq "TEST_BAM" ) {
 elsif ($file_type eq "TEST_EXOME_BAM" ) {
 	$bas_type = "TEST_EXOME_BAS";
 }
+elsif ( $file_type eq "P3L_EXOME_BAM" ) {
+	$bas_type = "P3L_EXOME_BAS";
+}	
+elsif ( $file_type eq "P3L_BAM" ) {
+	$bas_type = "P3L_BAS";
+}	
 
 unless ($bam =~ /\/nfs\/1000g-work\/G1K\/archive_staging\// ) {
 	throw("BAM file $bam has to be in archive staging area in order for it to be archived\n");
@@ -130,6 +136,10 @@ if(!$host){
       );
 }
 
+if ( $file_type !~ /BAM/i ) { ## These is to handle the non-BAM Complete Genomics files
+	goto SKIP;
+}
+	
 my $bas_name = $bam . ".bas";
 my $bas = $fa->fetch_by_name($bas_name);
 my $bas_basename = $bam_basename . ".bas";
@@ -138,7 +148,7 @@ my $bas_basename = $bam_basename . ".bas";
 ### Create BAS file if there isn't one in the db and in the dropbox and load it into the database. ###
 ######################################################################################################
 #if (!$bas  ) {  
-if (!$bas && $file_type !~ /NCBI/i ) {  
+if (!$bas && $file_type !~ /NCBI/i && $file_type !~ /CG/i ) {  
 	my $bas_base = $fa->fetch_by_filename($bas_basename);
 	my $found_bas_path;
 	
@@ -289,12 +299,14 @@ if(!$bai) {
 my $archive_list = '/nfs/1000g-work/G1K/scratch/zheng/tmp/' . $bam_basename . ".tmp_archive_list." . $time_stamp;
 
 open (LIST, ">", $archive_list) || throw("Cannot open temparary archive list $archive_list\n");
+
+SKIP:
 	
 if ( check_this_md5($fo) == 1 ) {
 	move_bam_to_trash($db, $fo, $fo->name, $run);
 	throw("md5 check failed for $bam, file moved to reject bin\n");
 }
-elsif ( check_this_md5($bai) == 1 ) {
+elsif ( $bai && check_this_md5($bai) == 1 ) {
 	move_bam_to_trash($db, $bai, $bai->name, $run);
 	throw("md5 check failed for $bai_name, file moved to reject bin\n");
 }	
@@ -304,12 +316,15 @@ elsif ( $bas && check_this_md5($bas) == 1  ) { ## No need to do md5check for bas
 }
 else {
 	#print "The BAM file $bam and associated bas and bai files passed md5 check\n" if ($verbose);
-	if ($bas) {
+	if ($bas && $bai) {
 		print LIST "$bam\n$bas_name\n$bai_name\n";
 	}
-	else {
+	elsif ( $bai ) {
 		print LIST "$bam\n$bai_name\n";
 	}
+	else {
+		print LIST "$bam\n";
+	}	
 	close(LIST);
 
 	my $action_string = "archive";

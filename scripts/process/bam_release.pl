@@ -152,13 +152,17 @@ foreach my $host ( @$remote_hosts ) {
 		if ( $file->type =~ /EXOME/ ) {
 			$analysis_group{'exome'} = 1;
 		}
+		elsif ( $file->type =~ /CG/ ) {
+			$analysis_group{'high_coverage'} = 1;
+		}	
 		else {
 			$analysis_group{'low_coverage'} = 1;
 		}
 				
 		my $aspx = $file_name . ".aspx" if ($file_name);
 		
-		if ($file->type =~ /BAM/ || $file->type =~ /BAI/ || $file->type =~ /BAS/) {
+#		if ($file->type =~ /BAM/ || $file->type =~ /BAI/ || $file->type =~ /BAS/ ) {
+		if ($file->type =~ /BAM/ || $file->type =~ /BAI/ || $file->type =~ /BAS/ || $file->type =~ /CG_/ ) {
 			if ( $file_name && -e $file_name) {
 				my $size = -s $file_name;
 				if ( $size != $size_in_db && ( ( -M $file_name ) > 99) ) {	# if the file size is different from what is the db 
@@ -566,6 +570,9 @@ sub check_name_and_move_file {
 #		}
 
 	}	
+	elsif ( $filen =~ /COMPLETE_GENOMICS/ ) {
+		$new_dir = $move_to_dir . "/" . $ind . "/cg_data/";
+	}		
 	else {
 		$new_dir = $move_to_dir . "/" . $ind . "/alignment/";
 	}		
@@ -580,7 +587,7 @@ sub check_name_and_move_file {
 	my $exit = $?>>8;
 	throw("mv failed\n") if ($exit >=1);
 		
-	#print "old file path is $full_name and new file path is $new_file_path\n" if ($verbose);		
+	print "old file path is $full_name and new file path is $new_file_path\n" if ($verbose);		
 	
 	my $new_host = $ha->fetch_by_name("1000genomes.ebi.ac.uk");
 					

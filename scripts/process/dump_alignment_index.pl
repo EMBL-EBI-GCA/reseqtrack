@@ -84,7 +84,12 @@ if($output_file){
          print "Don't process phase1 files " . $file->name . " type " . $file->type . "\n";
          next;
      }  
-     
+    
+     if ($file->name =~ /cram/) {
+	print "File " . $file->name . " is cram, don't process\n";
+	next;
+     }
+ 
      if ($file->type =~ /WITHDRAWN/i) {
          print "Don't process withdrawn file " . $file->name . "\n";
          next;
