@@ -53,8 +53,9 @@ GetOptions(
   	'parameters=s',
 
   	'chrom_chunk:s', #in the format of chrom:start-end, this will come from input_string table when the script is run as an event
+  					## Can also be a string of chromosomes "1 2 3 4 5" to feed in umamke
   	'only_chrom:s', # only work on a specified chromosome, even though the input_string table contains all chromosomes; other chrs jobs would be failed
-  	  	  	  	
+  	'chrom_regions_by_file:s', # chrom regions can be provided by file such as BED, VCF. this is implemented in teh gatk module only so far.  	  	  	
   	'output_dir=s',
   	'output_file_type:s',
   	'output_name_prefix=s',
@@ -126,6 +127,10 @@ if ($input{chrom_chunk}) {
 	throw("chrom $chrom of chrom_chunk $input{chrom_chunk} does not belong to chromosome specified by -only_chrom $input{only_chrom}") if ($input{only_chrom} && ($chrom ne $input{only_chrom})); ## "ne" works for both strings and numbers
 }	
 
+if (defined $input{chrom_chunk} && defined $input{chrom_regions_by_file}) {
+	throw("Cannot handle chrom_chunk and chrom_regions_by_file at the same time");
+}	
+
 my $db = ReseqTrack::DBSQL::DBAdaptor->new(
   -host   => $input{dbhost},
   -user   => $input{dbuser},
@@ -159,6 +164,7 @@ if($input{file_name_pattern}){
   my $files = $fa->fetch_all_like_name($input{file_name_pattern});
   throw("No files found containing pattern $input{file_name_pattern}") if (!$files || @$files ==0);
   foreach my $file(@$files){
+    next if ($file->type !~ /BAM/i);
     next if ( check_file_sanity($file->name, $chrom) eq 'skip' );
     push(@bams, $file->name);
   }
@@ -219,6 +225,7 @@ $constructor_hash->{-working_dir} = $input{output_dir};
 $constructor_hash->{-reference} = $input{reference};
 $constructor_hash->{-chrom} = $chrom if ($chrom);
 $constructor_hash->{-region} = $region if ($region);
+$constructor_hash->{-chrom_regions_by_file} = $input{chrom_regions_by_file} if ($input{chrom_regions_by_file});
 $constructor_hash->{-save_files_from_deletion} = $input{keep_intermediate_file};
 $constructor_hash->{-output_name_prefix} = $input{output_name_prefix};
 $constructor_hash->{-super_pop_name} = $super_pop_name; 
@@ -265,6 +272,7 @@ foreach my $outfile ( @$flt_vcf ) {
 		### save the VCF file in collection_by_chrom, 
 		### after many jobs of the event are run, each collection would contain vcf files of different chrom chunks
 		my $collection_by_chrom_name = $input{output_name_prefix} . "_" . $input{algorithm} . "_$super_pop_name" . "_chr$chrom";
+		$collection_by_chrom_name =~ s/\s+/_/g;
 		if ($input{save_collection} && $outfile !~ /tbi$/i ) {
 			#my $collection_by_chrom_name = $input{output_name_prefix} . "_" . $input{algorithm} . "_$super_pop_name" . "_chr$chrom";
 			if ($outfile =~ /vcf/) {
@@ -515,7 +523,7 @@ Below lists the options we have implemented for each caller to take now. Please 
 		gatk:
 		
 		Commonly used parameter keys can be one or more of the followings. Please see GATK website for detailed descriptions and additional parameters - 
-		http://www.broadinstitute.org/gsa/gatkdocs/release/org_broadinstitute_sting_gatk_walkers_genotyper_UnifiedGenotyper.html
+		http://www.broadinstitute.org/gatk/gatkdocs/org_broadinstitute_sting_gatk_walkers_genotyper_UnifiedGenotyper.html
 		dbSNP: 
   		dcov: 				integer, command line options to use with "samtools mpileup"
   		computeSLOD:		If provided, we will calculate the SLOD. This argument is not enabled by default because it increases the runtime by an appreciable amount.
