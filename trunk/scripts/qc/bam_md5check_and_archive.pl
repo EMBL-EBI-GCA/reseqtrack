@@ -295,12 +295,12 @@ if(!$bai) {
 		throw("No bai file found for mapped BAM file $bam, it is not even in the dropbox\n");
 	}	
 }	
+
+SKIP:
 			
 my $archive_list = '/nfs/1000g-work/G1K/scratch/zheng/tmp/' . $bam_basename . ".tmp_archive_list." . $time_stamp;
 
 open (LIST, ">", $archive_list) || throw("Cannot open temparary archive list $archive_list\n");
-
-SKIP:
 	
 if ( check_this_md5($fo) == 1 ) {
 	move_bam_to_trash($db, $fo, $fo->name, $run);

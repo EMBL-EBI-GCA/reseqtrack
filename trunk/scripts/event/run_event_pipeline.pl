@@ -10,6 +10,7 @@ use ReseqTrack::Tools::GeneralUtils;
 use ReseqTrack::Job;
 use Getopt::Long;
 use List::Util qw (shuffle);
+use File::Basename;
 
 $| = 1;
 
