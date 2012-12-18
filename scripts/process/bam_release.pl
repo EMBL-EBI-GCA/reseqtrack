@@ -530,7 +530,9 @@ sub check_name_and_move_file {
 		
 	my $filen = basename($full_name);
 	my @tmp = split(/\./, $filen);
-	my $ind = $tmp[0];	
+	my @tmp2 = split(/\_/, $tmp[0]);
+	my @tmp3 = split(/-/, $tmp2[0]);
+	my $ind = $tmp3[0];	
 	
 	$move_to_dir =~ s/\/$//;
 	
