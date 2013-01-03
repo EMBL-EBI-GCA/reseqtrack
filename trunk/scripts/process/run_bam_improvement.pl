@@ -134,6 +134,7 @@ if ($realign) {
 }
 $gatk_object->run;
 
+$db->dbc->disconnect_when_inactive(0);
 if($store){
   my $host = get_host_object($host_name, $db);
 

@@ -124,6 +124,7 @@ for (my $i = 0; $i < scalar(@files); $i++) {
 	$files[$i] = $new_name;
 }
 
+$db->dbc->disconnect_when_inactive(0);
 my $host = get_host_object($host_name, $db);
 
 foreach my $path (@files) {

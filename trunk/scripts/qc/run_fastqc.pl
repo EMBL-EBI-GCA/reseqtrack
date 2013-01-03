@@ -90,6 +90,7 @@ my @summary_files;
 my @report_files;
 
 for my $fastq_file (@{$collection->others}) {
+	$db->dbc->disconnect_when_inactive(1);
 	my $fastqc = ReseqTrack::Tools::QC::FastQC->new(
 		-program => $fastqc_path,
 		-keep_text => 1,
@@ -99,6 +100,7 @@ for my $fastq_file (@{$collection->others}) {
 	);
 	
 	$fastqc->run;
+	$db->dbc->disconnect_when_inactive(0);
 	
 	my ($base_name) = $fastqc->output_base_name($fastq_file->name);	
 	my $summary_path = $fastqc->summary_text_path($fastq_file->name);

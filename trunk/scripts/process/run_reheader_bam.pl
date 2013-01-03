@@ -171,6 +171,7 @@ $reheader_object->options('replace_CO', $replace_CO ? 1 : 0);
 
 $reheader_object->run;
 
+$db->dbc->disconnect_when_inactive(0);
 if($store){
   my $host = get_host_object($host_name, $db);
 

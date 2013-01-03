@@ -150,6 +150,7 @@ if ($index_outputs) {
     $index_file_paths = $indexer->output_files;
 }
 
+$db->dbc->disconnect_when_inactive(0);
 if($store){
   my $host = get_host_object($host_name, $db);
 
