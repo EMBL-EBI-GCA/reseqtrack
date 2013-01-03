@@ -112,6 +112,7 @@ $bam_squeezer->options('keepDups', $rm_dups ? 0 : 1);
 
 $bam_squeezer->run;
 
+$db->dbc->disconnect_when_inactive(0);
 if($store){
   my $host = get_host_object($host_name, $db);
 

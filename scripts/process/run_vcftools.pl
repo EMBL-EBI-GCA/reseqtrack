@@ -97,6 +97,7 @@ my $vcftools_object = ReseqTrack::Tools::RunVcfTools->new(
                     );
 $vcftools_object->run($command);
 
+$db->dbc->disconnect_when_inactive(0);
 if($store){
   my $host = get_host_object($host_name, $db);
 

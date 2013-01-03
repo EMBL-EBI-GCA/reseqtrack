@@ -159,6 +159,7 @@ if ($gzip_output) {
     $files[$i] .= '.gz';
   }
 }
+$db->dbc->disconnect_when_inactive(0);
 my $host = get_host_object( $host_name, $db );
 
 foreach my $path (@files) {

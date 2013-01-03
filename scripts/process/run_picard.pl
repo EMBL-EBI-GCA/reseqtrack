@@ -141,6 +141,7 @@ my ($metrics) = $picard_object->run($command);
 
 throw("store_stats is set, but the command has not produced any")  if ( $store_stats && !$metrics );
 
+$db->dbc->disconnect_when_inactive(0);
 if ($store) {
   my $host = get_host_object( $host_name, $db );
 

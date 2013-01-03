@@ -154,6 +154,7 @@ my $run_alignment = $alignment_module->new(%$constructor_hash);
 
 $run_alignment->run;
 
+$db->dbc->disconnect_when_inactive(0);
 if($store){
   my $host = get_host_object($host_name, $db);
   my $fa = $db->get_FileAdaptor;
