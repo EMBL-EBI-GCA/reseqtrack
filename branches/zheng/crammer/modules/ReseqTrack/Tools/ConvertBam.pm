@@ -6,7 +6,8 @@ use vars qw(@ISA);
 
 use ReseqTrack::Tools::Exception qw(throw warning);
 use ReseqTrack::Tools::Argument qw(rearrange);
-
+use File::Basename;
+use File::Path;
 use base qw(ReseqTrack::Tools::RunProgram);
 
 =pod
@@ -18,26 +19,56 @@ ReseqTrack::Tools::ConvertBam;
 =head1 SYNOPSIS
 
 class for converting bam into an alternate format.
-will currently produce BigWig (.bw) or BedGraph (.bg)
+will currently produce BigWig (.bw) or BedGraph (.bg) or compressed bam (cram and crai)
 
 You need to have the conversion programs in your path:
 genomeCoverageBed
 bedGraphToBigWig
 
-=head1 Example
+Or you need to define the convertion program using the -program option.
+
+=head1 Example 1
 
 my $conv = ReseqTrack::Tools::ConvertBam(
                       -input => '/path/to/bam_file'
                       -chromosomes => '/path/to/chromosomes',
-                      -format => 'bw'
+                      -output_format => 'bw'
 );
 $conv->run;
 my ($output_file) = @{$conv->output_files};
+
+=head1 Example 2
+
+my $cram = ReseqTrack::Tools::ConvertBam->new (
+	-input_files => $bam,
+	-output_format => 'cram',
+	-options => $parameter_hash,
+	-program => $input{program},
+	-reference_fasta => $input{reference_fasta},
+	-output_file => $output_cram_name,
+);
 
 =cut
 
 sub DEFAULT_OPTIONS {
   return { 'split_reads' => 0, };
+}
+
+sub new {
+  my ( $class, @args ) = @_;
+  my $self = $class->SUPER::new(@args);
+
+  my ( $chromosome_file, $format, $output_file, $reference_fasta ) =
+    rearrange( [qw( CHROMOSOME_FILE OUTPUT_FORMAT OUTPUT_FILE REFERENCE_FASTA )], @args );
+
+  $self->chromosome_file($chromosome_file) if $chromosome_file;
+  $self->output_format($format);
+  $self->output_file($output_file) if $output_file;
+  $self->reference_fasta($reference_fasta) if $reference_fasta;
+
+  $self->program('genomeCoverageBed') unless $self->program();
+
+  return $self;
 }
 
 sub CONVERSION {
@@ -46,6 +77,7 @@ sub CONVERSION {
     'bg' => \&convert_bed_graph,
     'bed' => \&convert_bed,
     'bb'  => \&convert_big_bed,
+    'cram'	=> \&convert_cram,
 
     #to extend: add format and subroutine.
     #each sub routine should take an input and output file name, 
@@ -80,6 +112,27 @@ sub convert_bed_graph {
   $self->do_conversion( $bg_cmd, $output_file, $is_intermediate );
 }
 
+sub convert_cram {
+	my ( $self, $input_file, $output_file, $is_intermediate ) = @_;
+	
+	my $heap_size = '-Xmx' . $self->options('heap_size');
+	my $executable = $self->program . "/cramtools-1.0.jar" ;
+	my @cram_cmd = ('java', $heap_size, '-jar', $executable, 'cram');
+	push @cram_cmd, '--input-bam-file', $input_file;
+	push @cram_cmd, '--output-cram-file', $output_file;
+	push @cram_cmd, '--reference-fasta-file', $self->reference_fasta;
+	push @cram_cmd, '--capture-all-tags' if $self->options('capture-all-tags');
+	push @cram_cmd, '--preserve-read-names' if $self->options('preserve-read-names');
+	push @cram_cmd, '--create-index' if $self->options('create-index');
+	push @cram_cmd, '--lossy-quality-score-spec', $self->options('lossy-quality-score-spec') if $self->options('lossy-quality-score-spec');
+	
+	### FIXME, other options
+	
+	my $run_cram_cmd = join ' ', @cram_cmd;
+    $self->do_conversion( $run_cram_cmd, $output_file, $is_intermediate );		
+}
+
+		
 sub convert_big_wig {
   my ( $self, $input_file, $output_file, $is_intermediate ) = @_;
 
@@ -142,21 +195,6 @@ sub do_conversion {
   $self->execute_command_line($cmd);
 }
 
-sub new {
-  my ( $class, @args ) = @_;
-  my $self = $class->SUPER::new(@args);
-
-  my ( $chromosome_file, $format ) =
-    rearrange( [qw( CHROMOSOME_FILE OUTPUT_FORMAT )], @args );
-
-  $self->chromosome_file($chromosome_file);
-  $self->output_format($format);
-
-  $self->program('genomeCoverageBed') unless $self->program();
-
-  return $self;
-}
-
 sub run_program {
   my ($self) = @_;
 
@@ -172,12 +210,17 @@ sub run_program {
     unless ( scalar(@input_files) == 1 );
 
   my ($input) = ( @{ $self->input_files } );
-  my $output = $self->working_dir . '/';
-  $output .= $self->output_name_prefix() if ( $self->output_name_prefix );
-  $output .= $self->job_name;
-  $output .= '.';
-  $output .= $self->output_format;
-
+  my $output = $self->working_dir;
+  
+  if (  $self->output_file ) {
+  	$output = $self->output_file;
+  }    
+  else {	  
+  	  $output .= $self->output_name_prefix() if ( $self->output_name_prefix );
+	  $output .= $self->job_name;
+	  $output .= '.';
+	  $output .= $self->output_format;
+  }
   &{ $subs->{$format} }( $self, $input, $output );
 
 }
@@ -197,6 +240,22 @@ sub output_format {
     $self->{'output_format'} = $arg;
   }
   return $self->{'output_format'};
+}
+
+sub output_file {
+  my ( $self, $arg ) = @_;
+  if ($arg) {
+    $self->{'output_file'} = $arg;
+  }
+  return $self->{'output_file'};
+}
+
+sub reference_fasta {
+  my ( $self, $arg ) = @_;
+  if ($arg) {
+    $self->{'reference_fasta'} = $arg;
+  }
+  return $self->{'reference_fasta'};
 }
 
 1;
