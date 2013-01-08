@@ -1,0 +1,35 @@
+Variant Pattern Finder README
+=============================
+
+Copyright (c) 1999-2011 The European Bioinformatics Institute and
+Genome Research Limited.  All rights reserved.
+
+This software is distributed under a modified Apache license.
+For license details, please see
+
+http://www.ensembl.org/info/about/code_licence.html
+
+Please email comments or questions to the 1000 genomes project information 
+list at <info@1000genomes.org>
+
+Requirements
+============
+
+1.  At least version 65 of the Ensembl Core and Variation APIs and their relevant dependencies to be installed to use the script. 
+See http://www.ensembl.org/info/docs/api/index.html for installation details.
+
+2.  The perl API of VCFtools - Vcf.pm.  Please refer to VCFtools' page for downloading details.  http://vcftools.sourceforge.net/perl_module.html
+Once installed, please specify the module paths in the PERL5LIB.
+
+3.  If the script is run using the -cache option, Ensembl variation archvie file needs to be downloaded before hand; see http://www.ensembl.org/info/docs/variation/vep/vep_script.html#cacheopt for details
+
+4.  Software tabix needs to be downloaded from http://sourceforge.net/projects/samtools/files/tabix/; the path should be put in your $PATH
+
+Documentation
+=============
+
+For a summary of command line flags, run:
+
+perl variant_pattern_finder.pl -help
+or 
+perldoc variant_pattern_finder.pl
