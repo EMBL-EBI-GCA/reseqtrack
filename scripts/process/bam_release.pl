@@ -152,7 +152,7 @@ foreach my $host ( @$remote_hosts ) {
 		if ( $file->type =~ /EXOME/ ) {
 			$analysis_group{'exome'} = 1;
 		}
-		elsif ( $file->type =~ /CG/ ) {
+		elsif ( $file->type =~ /CG/ || $file->type =~ /HIGH_COV/ ) {
 			$analysis_group{'high_coverage'} = 1;
 		}	
 		else {
@@ -302,6 +302,9 @@ foreach my $host ( @$remote_hosts ) {
 		}	
 		elsif ( $host_name eq "sanger" && defined $analysis_grp && $analysis_grp eq "exome" ) {
 			$command .= "-name exome_bam_release & ";
+		}	
+		elsif ( $host_name eq "sanger" && defined $analysis_grp && $analysis_grp eq "high_coverage" ) { ## This is a hack to release the high cov CEU trio BAMs Sanger re-mapped
+			$command .= "-name ncbi_bam_release & ";
 		}	
 		elsif ( $host_name eq "tgen" && defined $analysis_grp && $analysis_grp eq "exome" ) {
 			$command .= "-name exome_bam_release & ";
@@ -574,7 +577,7 @@ sub check_name_and_move_file {
 	}	
 	elsif ( $filen =~ /COMPLETE_GENOMICS/ ) {
 		$new_dir = $move_to_dir . "/" . $ind . "/cg_data/";
-	}		
+	}	
 	else {
 		$new_dir = $move_to_dir . "/" . $ind . "/alignment/";
 	}		

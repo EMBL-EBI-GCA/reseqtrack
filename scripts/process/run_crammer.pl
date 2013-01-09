@@ -145,7 +145,7 @@ sub archive_files {
 	print LIST "$f1\n$f2\n";
 	close LIST;
 	
-	my $action_string = "archive";
+#	my $action_string = "archive";
 
 	my $max_number = 1000;
 	my $priority = 50;
@@ -158,7 +158,6 @@ sub archive_files {
                                                        -dbuser  => $input{dbuser},
                                                        -dbpass  => $input{dbpass},
                                                        -dbport  => $input{dbport},
-                                                       -action => $action_string,
                                                        -verbose => $verbose,
                                                        -priority=> $priority,
                                                        -max_number=>$max_number,
@@ -264,12 +263,15 @@ sub save_file {
 
 
 =pod
+
+Reference fasta has to be fasta, not fasta.gz!!!
+
 perl /nfs/1000g-work/G1K/work/zheng/reseqtrack_branch_zheng/crammer/scripts/process/run_crammer.pl -dbhost mysql-g1kdcc-public -dbuser g1krw -dbpass thousandgenomes -dbport 4197 -dbname g1k_archive_staging_track \
 -program /nfs/1000g-work/G1K/work/bin/crammer \
 -collection HG01377.ILLUMINA.bwa.low_coverage \
 -collection_type BAM \
 -output_dir /tmp \
--reference_fasta /nfs/1000g-archive/vol1/ftp/technical/reference/phase2_reference_assembly_sequence/hs37d5.fa.gz \
+-reference_fasta /nfs/1000g-work/G1K/work/zheng/reference/hs37d5.fa \
 -parameters "capture-all-tags=>1,preserve-read-names=>1,heap_size=>4g,lossy-quality-score-spec=>m999,create-index=>1" \
 -store \
 -output_file_type CRAM
