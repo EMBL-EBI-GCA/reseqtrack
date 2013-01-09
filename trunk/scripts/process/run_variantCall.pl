@@ -325,9 +325,9 @@ sub parameters_hash{
     }          
     else {
           throw("Please provide running parameters as name and value separated by ':'  Multiple name and value pairs can be used and should be separated by ',' ");
-	}
+    }
 	
-	foreach my $pair(@pairs){
+    foreach my $pair(@pairs){
 		my ($key, $value) = split (/:/, $pair);
 			$key   =~ s/^\s+|\s+$//g;
           	$value =~ s/^\s+|\s+$//g; 
