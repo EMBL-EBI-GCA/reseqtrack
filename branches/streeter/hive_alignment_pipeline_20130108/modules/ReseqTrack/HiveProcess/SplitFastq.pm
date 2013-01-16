@@ -5,7 +5,7 @@ use strict;
 
 use base ('ReseqTrack::HiveProcess::BranchableProcess');
 use ReseqTrack::DBSQL::DBAdaptor;
-use ReseqTrack::Tools::FileSystemUtils qw(check_directory_exists);
+use ReseqTrack::Tools::FileSystemUtils qw(check_directory_exists check_file_exists);
 use ReseqTrack::Tools::Exception qw(throw);
 
 
@@ -35,6 +35,10 @@ sub run {
     my $rmi_a = $db->get_RunMetaInfoAdaptor;
     my $run_meta_info = $rmi_a->fetch_by_run_id($run_id);
     throw("Failed to find run_meta_info for $run_id") if (!$run_meta_info);
+
+    foreach my $fastq (@input_fastq) {
+      check_file_exists($fastq);
+    }
 
     check_directory_exists($output_dir);
 

@@ -5,7 +5,7 @@ use strict;
 
 use base ('ReseqTrack::HiveProcess::BranchableProcess');
 use ReseqTrack::DBSQL::DBAdaptor;
-use ReseqTrack::Tools::FileSystemUtils qw(check_directory_exists);
+use ReseqTrack::Tools::FileSystemUtils qw(check_directory_exists check_file_exists);
 use ReseqTrack::Tools::Exception qw(throw);
 
 
@@ -18,7 +18,7 @@ use ReseqTrack::Tools::Exception qw(throw);
 sub run {
     my $self = shift @_;
 
-    my $fastq = $self->param('fastq') || die "'fastq' is an obligatory parameter";
+    my $fastqs = $self->param('fastq') || die "'fastq' is an obligatory parameter";
     my $run_id = $self->param('run_id') || die "'run_id' is an obligatory parameter";
     my $output_dir = $self->param('output_dir') || die "'output_dir' is an obligatory parameter";
     my $branch_label = $self->param('branch_label') || die "'branch_label' is an obligatory parameter";
@@ -26,6 +26,12 @@ sub run {
     my $program_file = $self->param('program_file');
 
     my $process_label = $self->param('process_label') || 'bwa';
+
+    $fastqs = ref($fastqs) eq 'ARRAY' ? $fastqs : [$fastqs];
+
+    foreach my $fastq (@$fastqs) {
+      check_file_exists($fastq);
+    }
 
     check_directory_exists($output_dir);
 

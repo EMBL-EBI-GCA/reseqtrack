@@ -5,6 +5,7 @@ use strict;
 use ReseqTrack::Tools::Exception qw(throw);
 
 use base ('Bio::EnsEMBL::Hive::Process');
+use ReseqTrack::Tools::FileSystemUtils qw(delete_file);
 
 =head2 fetch_input
 
@@ -16,26 +17,36 @@ use base ('Bio::EnsEMBL::Hive::Process');
 sub fetch_input {
   my ($self) = @_;
   throw("do not have a branch id") if !defined $self->param('branch_id');
-  my %branch_params = %{$self->param('universal_branch_parameters')};
-  map {$branch_params{$_} = $self->param('branch_parameters')->{$_}} keys %{$self->param('branch_parameters')};
-  while (my ($param_key, $arg) = each %branch_params) {
-    my $hashref = ref($arg) eq 'HASH' ? $arg : {key => $arg};
+  my $root_output_dir = $self->param('root_output_dir');
+
+  my $branch_params = $self->param('branch_parameters');
+  my $universal_branch_params = $self->param('universal_branch_parameters');
+  while (my ($param_key, $arg) = each %$universal_branch_params) {
+    next if exists $branch_params->{$param_key};
+    $branch_params->{$param_key} = $arg;
+  }
+
+  while (my ($param_key, $arg) = each %$branch_params) {
     my @param_vals;
-    my $db_keys = ref($hashref->{'key'}) eq 'ARRAY' ? $hashref->{'key'} : [$hashref->{'key'}];
-    foreach my $db_key (@$db_keys) {
-      push(@param_vals, @{$self->_branch_meta_data(key => $db_key, descend => $hashref->{'descend'}, ascend => $hashref->{'ascend'})});
+    my $arrayref = ref($arg) eq 'ARRAY' ? $arg : [$arg];
+    foreach my $array_arg (@$arrayref) {
+      my $hashref = ref($array_arg) eq 'HASH' ? $array_arg : {key => $array_arg};
+      my $new_param_vals = $self->_branch_meta_data(key => $hashref->{'key'}, descend => $hashref->{'descend'}, ascend => $hashref->{'ascend'});
+      push(@param_vals, @$new_param_vals);
+      if ($hashref->{'delete_on_complete'}) {
+        foreach my $file (@$new_param_vals) {
+          throw("will not delete file outside of the root_output_dir $file $root_output_dir") if $file !~ /^$root_output_dir/;
+        }
+        $self->_files_to_delete($new_param_vals);
+      }
     }
-    if ($hashref->{'arrayref'}) {
-      $self->param($param_key, \@param_vals);
-    }
-    else {
-      throw("Found more than one value for $param_key in branch ".$self->param('branch_id')) if @param_vals > 1;
-      $self->param($param_key, $param_vals[0]);
+    if (scalar @param_vals) {
+      $self->param($param_key, scalar @param_vals == 1 ? $param_vals[0] : \@param_vals);
     }
   }
 
   if (!$self->param('output_dir')) {
-    $self->param('output_dir', $self->param('root_output_dir'));
+    $self->param('output_dir', $root_output_dir);
   }
 }
 
@@ -58,8 +69,11 @@ sub run {
 sub write_output {
     my ($self) = @_;
 
-    my $output_child_branches = $self->output_child_branches;
+    while (my ($key, $value) = each %{$self->output_this_branch}) {
+      $self->_branch_meta_data('key' => $key, 'value' => $value);
+    }
 
+    my $output_child_branches = $self->output_child_branches;
     my $num_child_branches = scalar @$output_child_branches;
     my $child_branch_ids = $self->_make_child_branches($num_child_branches);
     foreach my $i (0..$num_child_branches-1) {
@@ -70,27 +84,28 @@ sub write_output {
       $self->dataflow_output_id( {'branch_id' => $child_branch_ids->[$i]}, 2);
     }
 
-    while (my ($key, $value) = each %{$self->output_this_branch}) {
-      $self->_branch_meta_data('key' => $key, 'value' => $value);
-    }
     $self->dataflow_output_id( {'branch_id' => $self->param('branch_id')}, 1);
+
+    foreach my $file (@{$self->_files_to_delete}) {
+      delete_file($file);
+    }
 }
 
 sub output_child_branches {
   my ($self, %args) = @_;
   if (scalar keys %args) {
-    $self->param('output_child_branches', $self->output_child_branches);
-    push(@{$self->param('output_child_branches')}, \%args);
+    $self->param('_output_child_branches', $self->output_child_branches);
+    push(@{$self->param('_output_child_branches')}, \%args);
   }
-  return $self->param('output_child_branches') || [];
+  return $self->param('_output_child_branches') || [];
 }
 
 sub output_this_branch {
   my ($self, %args) = @_;
   if (scalar keys %args) {
-    $self->param('output_this_branch', \%args);
+    $self->param('_output_this_branch', \%args);
   }
-  return $self->param('output_this_branch') || {};
+  return $self->param('_output_this_branch') || {};
 }
 
 sub _make_child_branches {
@@ -156,7 +171,7 @@ sub _get_all_child_branch_ids {
   throw("no branch_id") if ! defined $parent_branch_id;
   my @child_branch_ids;
   my $hive_dbc = $self->data_dbc();
-  my $sql = "SELECT child_branch_id FROM branch WHERE parent_branch_id=?";
+  my $sql = "SELECT child_branch_id FROM branch WHERE parent_branch_id=? ORDER BY child_branch_index";
   my $sth = $hive_dbc->prepare($sql) or die "could not prepare $sql: ".$hive_dbc->errstr;
   my @unprocessed_branch_ids = ($parent_branch_id);
   while (@unprocessed_branch_ids) {
@@ -165,7 +180,7 @@ sub _get_all_child_branch_ids {
     $sth->execute() or die "could not execute $sql: ".$sth->errstr;
     my $rows = $sth->fetchall_arrayref;
     push(@child_branch_ids, map {$_->[0]} @$rows);
-    push(@unprocessed_branch_ids, map {$_->[0]} @$rows);
+    unshift(@unprocessed_branch_ids, map {$_->[0]} @$rows);
   }
   return \@child_branch_ids;
 }
@@ -189,6 +204,16 @@ sub _get_all_parent_branch_ids {
     push(@parent_branch_ids, $current_branch_id)
   }
   return \@parent_branch_ids;
+}
+
+sub _files_to_delete {
+  my ($self, $arg) = @_;
+  if ($arg) {
+    $self->param('_files_to_delete', $self->_files_to_delete);
+    my $files = ref($arg) eq 'ARRAY' ? $arg : [$arg];
+    push(@{$self->param('_files_to_delete')}, @$files);
+  }
+  return $self->param('_files_to_delete') || [];
 }
 
 
