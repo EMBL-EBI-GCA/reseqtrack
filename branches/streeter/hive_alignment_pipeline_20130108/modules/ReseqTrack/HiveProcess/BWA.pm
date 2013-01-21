@@ -21,11 +21,8 @@ sub run {
     my $fastqs = $self->param('fastq') || die "'fastq' is an obligatory parameter";
     my $run_id = $self->param('run_id') || die "'run_id' is an obligatory parameter";
     my $output_dir = $self->param('output_dir') || die "'output_dir' is an obligatory parameter";
-    my $branch_label = $self->param('branch_label') || die "'branch_label' is an obligatory parameter";
-    my $type_bam = $self->param('type_bam') || die "'type_bam' is an obligatory parameter";
+    my $job_name = $self->param('job_name') or die "'job_name' is an obligatory parameter";
     my $program_file = $self->param('program_file');
-
-    my $process_label = $self->param('process_label') || 'bwa';
 
     $fastqs = ref($fastqs) eq 'ARRAY' ? $fastqs : [$fastqs];
 
@@ -35,11 +32,11 @@ sub run {
 
     check_directory_exists($output_dir);
 
-    my $bam = "$output_dir/$branch_label.$process_label.bam";
+    my $bam = "$output_dir/$job_name.bam";
 
     system("touch $bam");
 
-    $self->output_this_branch($type_bam => $bam);
+    $self->output_this_branch('bam' => $bam);
 
 }
 

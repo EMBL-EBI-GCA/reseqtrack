@@ -20,7 +20,6 @@ sub run {
 
     my $run_id = $self->param('run_id') || die "'run_id' is an obligatory parameter";
     my $type_fastq = $self->param('type_fastq') || die "'type_fastq' is an obligatory parameter";
-    my $type_split_fastq = $self->param('type_split_fastq') || die "'type_split_fastq' is an obligatory parameter";
     my $max_bases = $self->param('max_bases') || die "'max_bases' is an obligatory parameter";
     my $output_dir = $self->param('output_dir') || die "'output_dir' is an obligatory parameter";
     my $program_file = $self->param('program_file');
@@ -47,7 +46,7 @@ sub run {
       my $mate2 = "$output_dir/${run_id}_2.$_.fastq";
       system("touch $mate1");
       system("touch $mate2");
-      $self->output_child_branches($type_split_fastq => [$mate1, $mate2], 'label' => "$run_id.$_", 'output_dir' => "$output_dir/$_");
+      $self->output_child_branches('split_fastq' => [$mate1, $mate2], 'label' => "$run_id.$_", 'output_dir' => "$output_dir/$_");
     }
 
 }
