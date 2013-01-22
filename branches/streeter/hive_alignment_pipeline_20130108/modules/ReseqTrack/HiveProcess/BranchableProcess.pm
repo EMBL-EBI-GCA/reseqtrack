@@ -179,7 +179,7 @@ sub _branch_meta_data {
   my $hive_dbc = $self->data_dbc();
 
   if (defined $args{'value'}) {
-    my $sql = "insert into branch_meta_data (branch_id, meta_key, meta_value, is_active, never_delete values (?, ?, ?, 1, ?)";
+    my $sql = "insert into branch_meta_data (branch_id, meta_key, meta_value, is_active, never_delete) values (?, ?, ?, 1, ?)";
     my $sth = $hive_dbc->prepare($sql) or die "could not prepare $sql: ".$hive_dbc->errstr;
     foreach my $value (ref($args{'value'}) eq 'ARRAY' ? @{$args{'value'}} : ($args{'value'})) {
       foreach my $branch_id (@branch_ids) {

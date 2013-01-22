@@ -5,6 +5,7 @@ use strict;
 
 use base ('ReseqTrack::HiveProcess::BranchableProcess');
 use ReseqTrack::Tools::Exception qw(throw);
+use ReseqTrack::Tools::RunPicard;
 use ReseqTrack::Tools::FileSystemUtils qw(check_directory_exists check_file_exists);
 
 
@@ -24,17 +25,24 @@ sub run {
     my $jvm_args = $self->param('jvm_args');
     my $picard_dir = $self->param('picard_dir');
 
-    $bams = ref($bams) eq 'ARRAY' ? $bams : [$bams];
+    my @allowed_cmds = ReseqTrack::Tools::RunPicard->get_valid_commands;
+    throw( "Don't recognise command $command. Acceptable commands are: @allowed_cmds")
+      if ( !grep { $command eq $_ } @allowed_cmds );
 
-    foreach my $bam (@$bams) {
-      check_file_exists($bam);
+    my $picard_object = ReseqTrack::Tools::RunPicard->new(
+      -input_files  => $bams,
+      -working_dir  => $output_dir,
+      -job_name     => $job_name,
+      -java_exe     => $java_exe,
+      -jvm_options  => $jvm_args,
+      -picard_dir   => $picard_dir,
+      -options      => {validation_stringency => 'SILENT'},
+      -create_index => 0,
+      -keep_metrics => 0,
+    );
 
-      check_directory_exists($output_dir);
-      my $output_bam = "$output_dir/$job_name.bam";
-
-      system("touch $output_bam");
-      $self->output_this_branch('bam' => $output_bam);
-    }
+    $picard_object->run($command);
+    $self->output_this_branch('bam' => $picard_object->output_bam_files);
 
 }
 

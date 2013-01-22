@@ -50,7 +50,7 @@ init_pipeline.pl Bio::EnsEMBL::Hive::PipeConfig::LongMult_conf -job_topup -passw
 =cut
 
 
-package AlignmentPipeline_conf;
+package ReseqTrack::HiveConfig::AlignmentPipeline_conf;
 
 use strict;
 use warnings;
@@ -84,11 +84,11 @@ sub default_options {
         'chunk_max_bases'    => 500000000,
         'type_fastq'    => 'FILTERED_FASTQ',
         'split_exe' => $self->o('ENV', 'RESEQTRACK').'/c_code/split/split',
-        'bwa_exe' => '',
-        'samtools_exe' => '',
+        'bwa_exe' => '/nfs/1000g-work/G1K/work/bin/bwa/bwa',
+        'samtools_exe' => '/nfs/1000g-work/G1K/work/bin/samtools/samtools',
         'squeeze_exe' => '',
-        'gatk_dir' => '',
-        'picard_dir' => '',
+        'gatk_dir' => '/nfs/1000g-work/G1K/work/bin/gatk/dist/',
+        'picard_dir' => '/nfs/1000g-work/G1K/work/bin/picard',
 
         'universal_branch_parameters_in' => {
           'branch_label' => 'label',
@@ -138,6 +138,18 @@ sub pipeline_wide_parameters {
     };
 }
 
+sub resource_classes {
+    my ($self) = @_;
+    return {
+            %{$self->SUPER::resource_classes},  # inherit 'default' from the parent class
+            '200Mb' => { 'LSF' => '-C0 -M200 -q production -R"select[mem>200] rusage[mem=200]"' },
+            '1Gb'   => { 'LSF' => '-C0 -M1000 -q production -R"select[mem>1000] rusage[mem=1000]"' },
+            '2Gb' => { 'LSF' => '-C0 -M2000 -q production -R"select[mem>2000] rusage[mem=2000]"' },
+            '4Gb' => { 'LSF' => '-C0 -M4000 -q production -R"select[mem>4000] rusage[mem=4000]"' },
+            '5Gb' => { 'LSF' => '-C0 -M5000 -q production -R"select[mem>5000] rusage[mem=5000]"' },
+    };
+}
+
 
 =head2 pipeline_analyses
 
@@ -180,7 +192,6 @@ sub pipeline_analyses {
 
         {   -logic_name    => 'split_fastq',
             -module        => 'ReseqTrack::HiveProcess::SplitFastq',
-            -meadow_type=> 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
             -parameters    => {
                 program_file => $self->o('split_exe'),
                 type_fastq => $self->o('type_fastq'),
@@ -192,7 +203,7 @@ sub pipeline_analyses {
                   split_fastq => 'FASTQ',
                 },
             },
-            -hive_capacity      => -1,  # turn off the reciprocal limiter
+            -rc_name => '200Mb',
             -analysis_capacity  =>  4,  # use per-analysis limiter
             -flow_into => {
                 '2->A' => [ 'bwa' ],   # will create a semaphored fan of jobs
@@ -202,9 +213,10 @@ sub pipeline_analyses {
         
         {   -logic_name => 'bwa',
             -module        => 'ReseqTrack::HiveProcess::BWA',
-            -meadow_type=> 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
             -parameters    => {
                 program_file => $self->o('bwa_exe'),
+                samtools => $self->o('samtools_exe'),
+                reference => $self->o('reference'),
                 branch_parameters_in => {
                     fastq => {key => 'FASTQ', becomes_inactive => 1},
                     run_id => {key => 'RUN_ID', ascend => 1},
@@ -213,17 +225,19 @@ sub pipeline_analyses {
                   bam => 'BAM',
                 },
             },
+            -rc_name => '5Gb',
+            -analysis_capacity  =>  50,  # use per-analysis limiter
             -flow_into => {
                 1 => [ 'sort_chunks'],
             },
         },
 
         {   -logic_name => 'sort_chunks',
-            -module        => 'ReseqTrack::HiveProcess::RunSamtools',
-            -meadow_type=> 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
+            -module        => 'ReseqTrack::HiveProcess::RunPicard',
             -parameters => {
-                program_file => $self->o('samtools_exe'),
+                picard_dir => $self->o('picard_dir'),
                 command => 'sort',
+                jvm_args => '-Xmx2g',
                 branch_parameters_in => {
                     bam => {key => 'BAM', becomes_inactive => 1},
                 },
@@ -231,6 +245,8 @@ sub pipeline_analyses {
                   bam => 'BAM',
                 },
             },
+            -rc_name => '2Gb',
+            -analysis_capacity  =>  50,  # use per-analysis limiter
         },
 
         {   -logic_name => 'decide_merge_chunks',
@@ -250,10 +266,10 @@ sub pipeline_analyses {
             }
         },
         {   -logic_name => 'merge_chunks',
-            -module        => 'ReseqTrack::HiveProcess::RunSamtools',
-            -meadow_type=> 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
+            -module        => 'ReseqTrack::HiveProcess::RunPicard',
             -parameters => {
-                program_file => $self->o('samtools_exe'),
+                picard_dir => $self->o('picard_dir'),
+                jvm_args => '-Xmx2g',
                 command => 'merge',
                 branch_parameters_in => {
                     bam => {key => 'BAM', descend => 1, becomes_inactive => 1},
@@ -262,12 +278,14 @@ sub pipeline_analyses {
                   bam => 'BAM',
                 },
             },
+            -rc_name => '2Gb',
+            -analysis_capacity  =>  50,  # use per-analysis limiter
         },
         {   -logic_name => 'mark_duplicates',
             -module        => 'ReseqTrack::HiveProcess::RunPicard',
-            -meadow_type=> 'LOCAL',
             -parameters => {
                 picard_dir => $self->o('picard_dir'),
+                jvm_args => '-Xmx4g',
                 command => 'mark_duplicates',
                 branch_parameters_in => {
                     bam => {key => 'BAM', becomes_inactive => 1},
@@ -279,6 +297,8 @@ sub pipeline_analyses {
             -flow_into => {
                 1 => [ 'index_mrkdup_bam'],
             }
+            -rc_name => '5Gb',
+            -analysis_capacity  =>  50,  # use per-analysis limiter
         },
         {   -logic_name => 'index_mrkdup_bam',
             -module        => 'ReseqTrack::HiveProcess::RunSamtools',
