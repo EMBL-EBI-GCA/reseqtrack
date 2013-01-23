@@ -67,6 +67,10 @@ my ($platform,$claimed_sample, $paired_length, $collection) =
   get_run_meta_info ( $rmi_a,$ca, $input{name}, $input{type});
 
 
+if($platform eq 'COMPLETE_GENOMICS'){
+  exit(0);
+)
+
 #for event_complete entries. 'skip_platform' listed in cfg file
 if (defined $input{skip_platform}){
   $_= $input{skip_platform};
