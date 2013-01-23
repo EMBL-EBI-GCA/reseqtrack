@@ -75,6 +75,10 @@ my $meta_info = $db->get_RunMetaInfoAdaptor->fetch_by_run_id($run_id);
 throw("Failed to find a run meta info object for ".$run_id." from ".$dbname)
     unless($meta_info);
 
+if($meta_info->instrument_platform eq 'COMPLETE_GENOMICS'){
+  exit(0);
+}
+
 if ($directory_layout) {
   $output_dir = create_directory_path($meta_info, $directory_layout, $output_dir);
 }

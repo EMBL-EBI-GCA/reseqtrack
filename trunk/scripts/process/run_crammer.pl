@@ -62,7 +62,6 @@ $input{output_dir} =~ s/\/$//;
 	
 $input{host} = '1000genomes.ebi.ac.uk' if (!$input{host});
 $input{program} = '/nfs/1000g-work/G1K/work/bin/crammer' if (!$input{program});
-$input{output_file_type} = "CRAM" if ( !$input{output_file_type});
 
 if (!$input{output_file_type} && $input{store} ) {
 	throw("Please provide a file type if you want to store the output file in the database");
@@ -121,10 +120,18 @@ my ($output_cram) = @{$cram->output_files};
 
 print "output file is $output_cram\n";
 my $crai = $output_cram . ".crai";
-save_file($output_cram, "CRAM") if $input{store};
+save_file($output_cram, $input{output_file_type}) if $input{store};
+
+my $otype;
+if ( $input{output_file_type} eq "CRAM" ) {
+	$otype = "CRAI";
+}
+elsif ( $input{output_file_type} eq "EXOME_CRAM" ) {
+	$otype = "EXOME_CRAI";
+}		
 
 if ( -e $crai) {
-	save_file($crai, "CRAI") if $input{store};
+	save_file($crai, $otype) if $input{store};
 }
 else {
 	throw("Crai file $crai does not exist");
@@ -145,8 +152,14 @@ sub archive_files {
 	print LIST "$f1\n$f2\n";
 	close LIST;
 	
-#	my $action_string = "archive";
-
+	my $action_string;
+	if ($f1 =~ /exome/  ) {
+		$action_string = "archive";
+	}
+	else {
+		$action_string = "replace";
+	}		
+	#### FIXME, LC BAMs are being redone so they are "replaced", not the exome ones
 	my $max_number = 1000;
 	my $priority = 50;
 	my $verbose = 0;
@@ -158,6 +171,7 @@ sub archive_files {
                                                        -dbuser  => $input{dbuser},
                                                        -dbpass  => $input{dbpass},
                                                        -dbport  => $input{dbport},
+                                                       -action	=> $action_string,
                                                        -verbose => $verbose,
                                                        -priority=> $priority,
                                                        -max_number=>$max_number,
