@@ -50,7 +50,7 @@ init_pipeline.pl Bio::EnsEMBL::Hive::PipeConfig::LongMult_conf -job_topup -passw
 =cut
 
 
-package ReseqTrack::HiveConfig::AlignmentPipeline_adaptable_conf;
+package ReseqTrack::HiveConfig::AlignmentPipeline_conf;
 
 use strict;
 use warnings;
