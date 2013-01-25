@@ -326,6 +326,7 @@ sub _get_fixmate_cmd {
 
 sub _get_calmd_cmd {
     my ($self, $uncompressed, $input) = @_;
+    throw("do not have a reference") if !($self->reference);
     my @cmd_words = ($self->program, 'calmd');
     push(@cmd_words, $uncompressed ? '-u' : '-b');
     push(@cmd_words, '-r') if ($self->options('compute_BQ_tag'));

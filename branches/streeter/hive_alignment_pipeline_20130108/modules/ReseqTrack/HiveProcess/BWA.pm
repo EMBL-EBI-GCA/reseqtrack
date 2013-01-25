@@ -27,8 +27,9 @@ sub run {
     my $db = ReseqTrack::DBSQL::DBAdaptor->new(%{$self->param('reseqtrack_db')});
     my $rmia = $db->get_RunMetaInfoAdaptor;
     my $rmi = $rmia->fetch_by_run_id($run_id);
+    throw("did not get run_meta_info for $run_id") if !$rmi;
 
-    my %read_group_fields = {
+    my %read_group_fields = (
       ID => $rmi->run_id,
       CN => $rmi->center_name,
       LB => $rmi->library_name,
@@ -37,7 +38,7 @@ sub run {
       DS => $rmi->study_id,
       PU => $rmi->run_name,
       PL => $rmi->instrument_platform,
-    };
+    );
 
     $fastqs = ref($fastqs) eq 'ARRAY' ? $fastqs : [$fastqs];
 

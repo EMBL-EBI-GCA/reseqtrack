@@ -6,6 +6,7 @@ use strict;
 use base ('ReseqTrack::HiveProcess::BranchableProcess');
 use ReseqTrack::Tools::Exception qw(throw);
 use ReseqTrack::Tools::FileSystemUtils qw(check_directory_exists check_file_exists);
+use ReseqTrack::Tools::RunSamtools;
 
 
 =head2 run
@@ -22,24 +23,20 @@ sub run {
     my $job_name = $self->param('job_name') or die "'job_name' is an obligatory parameter";
     my $program_file = $self->param('program_file');
 
-    $bams = ref($bams) eq 'ARRAY' ? $bams : [$bams];
+    my @allowed_cmds = qw(merge sort index fix_and_calmd calmd fixmate sam_to_bam);
+    throw("Don't recognise command $command. Acceptable commands are: @allowed_cmds")
+      if (! grep {$command eq $_ } @allowed_cmds);
 
-    foreach my $bam (@$bams) {
-      check_file_exists($bam);
+    my $samtools_object = ReseqTrack::Tools::RunSamtools->new(
+      -input_files  => $bams,
+      -program      => $program_file,
+      -working_dir  => $output_dir,
+      -job_name     => $job_name,
+      -reference    => $self->param('reference'),
+    );
 
-      if ($command eq 'index') {
-        my $bai = "$bam.bai";
-        system("touch $bai");
-        $self->output_this_branch('bai' => $bai);
-      }
-      else {
-        check_directory_exists($output_dir);
-        my $output_bam = "$output_dir/$job_name.bam";
-
-        system("touch $output_bam");
-        $self->output_this_branch('bam' => $output_bam);
-      }
-    }
+    $samtools_object->run($command);
+    $self->output_this_branch($command eq 'index' ? 'bai' : 'bam'  => $samtools_object->output_files);
 
 }
 

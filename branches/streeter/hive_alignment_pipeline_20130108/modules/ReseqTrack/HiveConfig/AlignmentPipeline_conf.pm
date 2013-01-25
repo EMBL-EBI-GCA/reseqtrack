@@ -50,7 +50,7 @@ init_pipeline.pl Bio::EnsEMBL::Hive::PipeConfig::LongMult_conf -job_topup -passw
 =cut
 
 
-package ReseqTrack::HiveConfig::AlignmentPipeline_conf;
+package ReseqTrack::HiveConfig::AlignmentPipeline_adaptable_conf;
 
 use strict;
 use warnings;
@@ -84,16 +84,19 @@ sub default_options {
         'chunk_max_bases'    => 500000000,
         'type_fastq'    => 'FILTERED_FASTQ',
         'split_exe' => $self->o('ENV', 'RESEQTRACK').'/c_code/split/split',
+        'validate_bam_exe' => $self->o('ENV', 'RESEQTRACK').'/c_code/validate_bam/validate_bam',
         'bwa_exe' => '/nfs/1000g-work/G1K/work/bin/bwa/bwa',
         'samtools_exe' => '/nfs/1000g-work/G1K/work/bin/samtools/samtools',
-        'squeeze_exe' => '',
+        'squeeze_exe' => '/nfs/1000g-work/G1K/work/bin/bamUtil/bin/bam',
         'gatk_dir' => '/nfs/1000g-work/G1K/work/bin/gatk/dist/',
         'picard_dir' => '/nfs/1000g-work/G1K/work/bin/picard',
+        'known_indels_vcf' => '',
+        'known_snps_vcf' => '',
 
-        'universal_branch_parameters_in' => {
-          'branch_label' => 'label',
-          'output_dir' => 'output_dir',
-        },
+        'reference_uri' => $self->o('reference'),
+
+        'final_label' => $self->o('pipeline_name'),
+
 
     };
 }
@@ -112,7 +115,7 @@ sub pipeline_create_commands {
         @{$self->SUPER::pipeline_create_commands},  # inheriting database and hive tables' creation
 
         $self->db_execute_command('pipeline_db', 'CREATE TABLE branch (child_branch_id int(10) unsigned NOT NULL AUTO_INCREMENT, parent_branch_id int(10) unsigned, child_branch_index int(10) unsigned, PRIMARY KEY (child_branch_id))'),
-        $self->db_execute_command('pipeline_db', 'CREATE TABLE branch_meta_data (branch_meta_data_id int(10) unsigned NOT NULL AUTO_INCREMENT, branch_id int(10) unsigned NOT NULL, meta_key VARCHAR(50) NOT NULL, meta_value VARCHAR(1000) NOT NULL, is_active TINYINT(1), never_delete TINYINT(1), PRIMARY KEY (branch_meta_data_id))'),
+        $self->db_execute_command('pipeline_db', 'CREATE TABLE branch_meta_data (branch_meta_data_id int(10) unsigned NOT NULL AUTO_INCREMENT, branch_id int(10) unsigned NOT NULL, meta_key VARCHAR(50) NOT NULL, meta_value VARCHAR(1000) NOT NULL, is_active TINYINT(1), PRIMARY KEY (branch_meta_data_id))'),
 
     ];
 }
@@ -133,7 +136,11 @@ sub pipeline_wide_parameters {
 
         'root_output_dir' => $self->o('root_output_dir'),
         'reseqtrack_db' => $self->o('reseqtrack_db'),
-        'universal_branch_parameters_in' => $self->o('universal_branch_parameters_in'),
+
+        'universal_branch_parameters_in' => {
+          'branch_label' => 'label',
+          'output_dir' => 'output_dir',
+        },
 
     };
 }
@@ -172,25 +179,105 @@ sub resource_classes {
 
 sub pipeline_analyses {
     my ($self) = @_;
-    return [
 
-        {   -logic_name    => 'get_runs',
+    my $recalibrate_level = 0;
+    my $realign_knowns_only = 0;
+
+    die("recalibrate level must not be >2") if $recalibrate_level >2;
+
+    # These are defaults for realign_knowns_only==0 && recalibrate_level==2
+    my $process_run_level = 0; #
+    my $do_index_for_recalibrate = 1; #
+    my $flow_split_fastq = { 2 => ['bwa']}; #
+    my $flow_decide_merge_chunks = undef; #
+    my $flow_decide_merge_libraries = {'2->A' => ['merge_libraries'], 'A->1' => ['realign']}; #
+    my $flow_realign = { 1 => ['index_for_recalibrate']}; #
+    my $flow_recalibrate = { 1 => ['calmd']}; #
+    my $flow_tag_strip = { 1 => ['reheader']}; #
+
+    if (! $realign_knowns_only && $recalibrate_level == 0) {
+      $do_index_for_recalibrate = 0;
+      $flow_realign = { 1 => ['calmd']};
+    }
+    elsif (! $realign_knowns_only && $recalibrate_level == 1) {
+      $process_run_level = 1;
+      $do_index_for_recalibrate = 0;
+      $flow_split_fastq = {'2->A' => ['bwa'], 'A->1' => ['decide_merge_chunks']};
+      $flow_decide_merge_chunks = {'2->A' => ['merge_chunks'], 'A->1' => ['recalibrate']};
+      $flow_realign = { 1 => ['calmd']};
+      $flow_recalibrate = {};
+    }
+    elsif ($realign_knowns_only && $recalibrate_level == 1) {
+      $process_run_level = 1;
+      $do_index_for_recalibrate = 1;
+      $flow_split_fastq = {'2->A' => [ 'bwa' ], 'A->1' => ['decide_merge_chunks'], };
+      $flow_decide_merge_chunks = {'2->A' => ['merge_chunks'], 'A->1' => ['realign']};
+      $flow_decide_merge_libraries = {2 => ['merge_libraries']};
+      $flow_decide_merge_libraries = {'2->A' => ['merge_libraries'], 'A->1' => ['reheader']};
+      $flow_tag_strip = {};
+    }
+    elsif ($realign_knowns_only && $recalibrate_level == 0) {
+      $process_run_level = 1;
+      $do_index_for_recalibrate = 0;
+      $flow_split_fastq = {'2->A' => [ 'bwa' ], 'A->1' => ['decide_merge_chunks'], };
+      $flow_decide_merge_chunks = {'2->A' => ['merge_chunks'], 'A->1' => ['realign']};
+      $flow_decide_merge_libraries = {'2->A' => ['merge_libraries'], 'A->1' => ['reheader']};
+      $flow_realign = { 1 => ['calmd']};
+      $flow_tag_strip = {};
+    }
+    elsif ($realign_knowns_only && $recalibrate_level == 2) {
+      die("pipeline not supported: realign_knowns_only==1 && recalibrate_level==2");
+    }
+
+
+
+    my @analyses;
+    push(@analyses, {
+            -logic_name    => 'samples_factory',
+            -module        => 'ReseqTrack::HiveProcess::RunMetaInfoFactory',
+            -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
+            -parameters    => {
+                type_branch => 'sample',
+            },
+            -input_ids => [{'branch_id' => 0}],
+            -flow_into => {
+                '2->A' => [ 'libraries_factory' ],   # will create a semaphored fan of jobs
+                'A->1' => [ 'pipeline_done'  ],   # will create a semaphored funnel job to wait for the fan to complete
+            },
+      });
+    push(@analyses, {
+            -logic_name    => 'libraries_factory',
+            -module        => 'ReseqTrack::HiveProcess::RunMetaInfoFactory',
+            -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
+            -parameters    => {
+                type_branch => 'library',
+                branch_parameters_in => {
+                    branch_sample_id => 'SAMPLE_ID',
+                },
+            },
+            -flow_into => {
+                '2->A' => [ 'runs_factory' ],   # will create a semaphored fan of jobs
+                'A->1' => [ 'decide_merge_libraries'  ],   # will create a semaphored funnel job to wait for the fan to complete
+            },
+      });
+    push(@analyses, {
+            -logic_name    => 'runs_factory',
             -module        => 'ReseqTrack::HiveProcess::RunMetaInfoFactory',
             -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
             -parameters    => {
                 type_branch => 'run',
-                branch_parameters_out => {
-                  split_fastq => 'FASTQ',
+                branch_parameters_in => {
+                    branch_sample_id => {key => 'SAMPLE_ID', ascend => 1},
+                    branch_library_name => 'LIBRARY_NAME',
                 },
             },
-            -input_ids => [{'branch_id' => 0}],
             -flow_into => {
                 '2->A' => [ 'split_fastq' ],   # will create a semaphored fan of jobs
-                'A->1' => [ 'pipeline_done'  ],   # will create a semaphored funnel job to wait for the fan to complete
+                'A->1' => [ 'decide_merge_runs'  ],   # will create a semaphored funnel job to wait for the fan to complete
             },
-        },
-
-        {   -logic_name    => 'split_fastq',
+      });
+    push(@analyses, {
+            -logic_name    => 'split_fastq',
             -module        => 'ReseqTrack::HiveProcess::SplitFastq',
             -parameters    => {
                 program_file => $self->o('split_exe'),
@@ -201,17 +288,16 @@ sub pipeline_analyses {
                 },
                 branch_parameters_out => {
                   split_fastq => 'FASTQ',
+                  source_fastq => 'SOURCE_FASTQ',
                 },
             },
             -rc_name => '200Mb',
             -analysis_capacity  =>  4,  # use per-analysis limiter
-            -flow_into => {
-                '2->A' => [ 'bwa' ],   # will create a semaphored fan of jobs
-                'A->1' => [ 'decide_merge_chunks'  ],   # will create a semaphored funnel job to wait for the fan to complete
-            },
-        },
-        
-        {   -logic_name => 'bwa',
+            -hive_capacity  =>  -1,
+            -flow_into => $flow_split_fastq,
+      });
+    push(@analyses, {
+           -logic_name => 'bwa',
             -module        => 'ReseqTrack::HiveProcess::BWA',
             -parameters    => {
                 program_file => $self->o('bwa_exe'),
@@ -227,29 +313,70 @@ sub pipeline_analyses {
             },
             -rc_name => '5Gb',
             -analysis_capacity  =>  50,  # use per-analysis limiter
+            -hive_capacity  =>  -1,
             -flow_into => {
                 1 => [ 'sort_chunks'],
             },
-        },
-
-        {   -logic_name => 'sort_chunks',
+      });
+    push(@analyses, {
+            -logic_name => 'sort_chunks',
             -module        => 'ReseqTrack::HiveProcess::RunPicard',
             -parameters => {
                 picard_dir => $self->o('picard_dir'),
                 command => 'sort',
+                create_index => 1,
                 jvm_args => '-Xmx2g',
                 branch_parameters_in => {
                     bam => {key => 'BAM', becomes_inactive => 1},
                 },
                 branch_parameters_out => {
                   bam => 'BAM',
+                  bai => 'BAI',
                 },
             },
             -rc_name => '2Gb',
             -analysis_capacity  =>  50,  # use per-analysis limiter
-        },
-
-        {   -logic_name => 'decide_merge_chunks',
+            -hive_capacity  =>  -1,
+      });
+    if ($process_run_level) {
+      push(@analyses, {
+            -logic_name => 'decide_merge_chunks',
+            -module        => 'ReseqTrack::HiveProcess::FlowDecider',
+            -meadow_type=> 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
+            -parameters => {
+                branch_parameters_in => {
+                    file => {key => 'BAM', descend => 1},
+                },
+                flows_if_no_files => undef,
+                flows_if_one_file => 1,
+                flows_if_multiple_files => [2,1],
+            },
+            -flow_into => $flow_decide_merge_chunks,
+        });
+      push(@analyses, {
+            -logic_name => 'merge_chunks',
+            -module        => 'ReseqTrack::HiveProcess::RunPicard',
+            -parameters => {
+                picard_dir => $self->o('picard_dir'),
+                jvm_args => '-Xmx2g',
+                command => 'merge',
+                create_index => 1,
+                branch_parameters_in => {
+                    bam => {key => 'BAM', descend => 1, becomes_inactive => 1},
+                    bai => {key => 'BAI', descend => 1, becomes_inactive => 1},
+                },
+                branch_parameters_out => {
+                  bam => 'BAM',
+                  bai => 'BAI',
+                },
+            },
+            -rc_name => '2Gb',
+            -analysis_capacity  =>  50,  # use per-analysis limiter
+            -hive_capacity  =>  -1,
+      });
+    }
+    push(@analyses, {
+            -logic_name => 'decide_merge_runs',
             -module        => 'ReseqTrack::HiveProcess::FlowDecider',
             -meadow_type=> 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
             -parameters => {
@@ -261,11 +388,12 @@ sub pipeline_analyses {
                 flows_if_multiple_files => [2,1],
             },
             -flow_into => {
-                '2->A' => [ 'merge_chunks'],
-                'A->1' => [ 'mark_duplicates'],
-            }
-        },
-        {   -logic_name => 'merge_chunks',
+                '2->A' => [ 'merge_runs'],
+                'A->1' => [ 'mark_duplicates' ],
+            },
+      });
+    push(@analyses, {
+            -logic_name => 'merge_runs',
             -module        => 'ReseqTrack::HiveProcess::RunPicard',
             -parameters => {
                 picard_dir => $self->o('picard_dir'),
@@ -273,6 +401,7 @@ sub pipeline_analyses {
                 command => 'merge',
                 branch_parameters_in => {
                     bam => {key => 'BAM', descend => 1, becomes_inactive => 1},
+                    bai => {key => 'BAI', descend => 1, becomes_inactive => 1},
                 },
                 branch_parameters_out => {
                   bam => 'BAM',
@@ -280,82 +409,110 @@ sub pipeline_analyses {
             },
             -rc_name => '2Gb',
             -analysis_capacity  =>  50,  # use per-analysis limiter
-        },
-        {   -logic_name => 'mark_duplicates',
+            -hive_capacity  =>  -1,
+      });
+    push(@analyses, {
+            -logic_name => 'decide_merge_libraries',
+            -module        => 'ReseqTrack::HiveProcess::FlowDecider',
+            -meadow_type=> 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
+            -parameters => {
+                branch_parameters_in => {
+                    file => {key => 'BAM', descend => 1},
+                },
+                flows_if_no_files => undef,
+                flows_if_one_file => 1,
+                flows_if_multiple_files => [2,1],
+            },
+            -flow_into => $flow_decide_merge_libraries,
+      });
+    push(@analyses, {
+            -logic_name => 'merge_libraries',
+            -module        => 'ReseqTrack::HiveProcess::RunPicard',
+            -parameters => {
+                picard_dir => $self->o('picard_dir'),
+                jvm_args => '-Xmx2g',
+                command => 'merge',
+                create_index => 1,
+                branch_parameters_in => {
+                    bam => {key => 'BAM', descend => 1, becomes_inactive => 1},
+                    bai => {key => 'BAI', descend => 1, becomes_inactive => 1},
+                },
+                branch_parameters_out => {
+                  bam => 'BAM',
+                  bai => 'BAI',
+                },
+            },
+            -rc_name => '2Gb',
+            -analysis_capacity  =>  50,  # use per-analysis limiter
+            -hive_capacity  =>  -1,
+      });
+    push(@analyses, {
+            -logic_name => 'mark_duplicates',
             -module        => 'ReseqTrack::HiveProcess::RunPicard',
             -parameters => {
                 picard_dir => $self->o('picard_dir'),
                 jvm_args => '-Xmx4g',
                 command => 'mark_duplicates',
+                create_index => 1,
                 branch_parameters_in => {
-                    bam => {key => 'BAM', becomes_inactive => 1},
+                    bam => {key => 'BAM', becomes_inactive => 1, descend => 1},
+                    bai => {key => 'BAI', becomes_inactive => 1, descend => 1},
                 },
                 branch_parameters_out => {
                   bam => 'BAM',
-                },
-            },
-            -flow_into => {
-                1 => [ 'index_mrkdup_bam'],
-            }
-            -rc_name => '5Gb',
-            -analysis_capacity  =>  50,  # use per-analysis limiter
-        },
-        {   -logic_name => 'index_mrkdup_bam',
-            -module        => 'ReseqTrack::HiveProcess::RunSamtools',
-            -meadow_type=> 'LOCAL',
-            -parameters => {
-                program_file => $self->o('samtools_exe'),
-                command => 'index',
-                branch_parameters_in => {
-                    bam => 'BAM',
-                },
-                branch_parameters_out => {
                   bai => 'BAI',
                 },
             },
-            -flow_into => {
-                1 => [ 'realign_indels'],
-            }
-        },
-        {   -logic_name => 'realign_indels',
+            -rc_name => '5Gb',
+            -analysis_capacity  =>  50,  # use per-analysis limiter
+            -hive_capacity  =>  -1,
+      });
+    push(@analyses, {
+            -logic_name => 'realign',
             -module        => 'ReseqTrack::HiveProcess::RunBamImprovement',
-            -meadow_type=> 'LOCAL',
             -parameters => {
                 program_file => $self->o('samtools_exe'),
                 command => 'realign',
                 reference => $self->o('reference'),
                 gatk_dir => $self->o('gatk_dir'),
-                jvm_args => '-Xmx2g',
+                known_sites_vcf => $self->o('known_indels_vcf'),
+                gatk_module_options => {knowns_only => $realign_knowns_only},
                 branch_parameters_in => {
-                    bam => {key => 'BAM', becomes_inactive => 1},
-                    bai => {key => 'BAI', becomes_inactive => 1},
+                    bam => {key => 'BAM', becomes_inactive => 1, descend => 1},
+                    bai => {key => 'BAI', becomes_inactive => 1, descend => 1},
                 },
                 branch_parameters_out => {
                   bam => 'BAM',
                 },
             },
-            -flow_into => {
-                1 => [ 'index_realigned_bam'],
-            }
-        },
-        {   -logic_name => 'index_realigned_bam',
+            -rc_name => '5Gb',
+            -analysis_capacity  =>  50,  # use per-analysis limiter
+            -hive_capacity  =>  -1,
+            -flow_into => $flow_realign,
+      });
+    if ($do_index_for_recalibrate) {
+      push(@analyses, {
+            -logic_name => 'index_for_recalibrate',
             -module        => 'ReseqTrack::HiveProcess::RunSamtools',
-            -meadow_type=> 'LOCAL',
             -parameters => {
                 program_file => $self->o('samtools_exe'),
                 command => 'index',
                 branch_parameters_in => {
-                    bam => 'BAM',
+                    bam => {key => 'BAM', descend => 1},
                 },
                 branch_parameters_out => {
                   bai => 'BAI',
                 },
             },
-            -flow_into => {
-                1 => [ 'recalibrate_bam'],
-            }
-        },
-        {   -logic_name => 'recalibrate_bam',
+            -flow_into => {1 => ['recalibrate']},
+            -rc_name => '200Mb',
+            -analysis_capacity  =>  50,  # use per-analysis limiter
+            -hive_capacity  =>  -1,
+      });
+    }
+    if ($recalibrate_level) {
+      push(@analyses, {
+            -logic_name => 'recalibrate',
             -module        => 'ReseqTrack::HiveProcess::RunBamImprovement',
             -meadow_type=> 'LOCAL',
             -parameters => {
@@ -364,24 +521,28 @@ sub pipeline_analyses {
                 reference => $self->o('reference'),
                 gatk_dir => $self->o('gatk_dir'),
                 jvm_args => '-Xmx2g',
+                known_sites_vcf => $self->o('known_snps_vcf'),
                 branch_parameters_in => {
-                    bam => {key => 'BAM', becomes_inactive => 1},
-                    bai => {key => 'BAI', becomes_inactive => 1},
+                    bam => {key => 'BAM', becomes_inactive => 1, descend => 1},
+                    bai => {key => 'BAI', becomes_inactive => 1, descend => 1},
                 },
                 branch_parameters_out => {
                   bam => 'BAM',
                 },
             },
-            -flow_into => {
-                1 => [ 'calmd'],
-            }
-        },
-        {   -logic_name => 'calmd',
+            -rc_name => '2Gb',
+            -analysis_capacity  =>  50,  # use per-analysis limiter
+            -hive_capacity  =>  -1,
+            -flow_into => $flow_recalibrate,
+      });
+    }
+    push(@analyses, {
+            -logic_name => 'calmd',
             -module        => 'ReseqTrack::HiveProcess::RunSamtools',
-            -meadow_type=> 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
             -parameters => {
                 program_file => $self->o('samtools_exe'),
                 command => 'calmd',
+                reference => $self->o('reference'),
                 branch_parameters_in => {
                     bam => {key => 'BAM', becomes_inactive => 1},
                 },
@@ -389,13 +550,16 @@ sub pipeline_analyses {
                   bam => 'BAM',
                 },
             },
+            -rc_name => '2Gb',
+            -analysis_capacity  =>  50,  # use per-analysis limiter
+            -hive_capacity  =>  -1,
             -flow_into => {
                 1 => [ 'tag_strip'],
-            }
-        },
-        {   -logic_name => 'tag_strip',
+            },
+      });
+    push(@analyses, {
+            -logic_name => 'tag_strip',
             -module        => 'ReseqTrack::HiveProcess::RunSqueezeBam',
-            -meadow_type=> 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
             -parameters => {
                 'program_file' => $self->o('squeeze_exe'),
                 'rm_OQ_fields' => 1,
@@ -407,13 +571,95 @@ sub pipeline_analyses {
                   bam => 'BAM',
                 },
             },
-        },
+            -rc_name => '1Gb',
+            -analysis_capacity  =>  50,  # use per-analysis limiter
+            -hive_capacity  =>  -1,
+            -flow_into => $flow_tag_strip,
+      });
 
-        {   -logic_name => 'pipeline_done',
+    push(@analyses, {
+            -logic_name => 'reheader',
+            -module        => 'ReseqTrack::HiveProcess::ReheaderBam',
+            -parameters => {
+                'samtools' => $self->o('samtools_exe'),
+                'header_lines_file' => $self->o('header_lines_file'),
+                'SQ_assembly' => $self->o('ref_assembly'),
+                'SQ_species' => $self->o('ref_species'),
+                'SQ_uri' => $self->o('reference_uri'),
+                'branch_parameters_in' => {
+                    bam => {key => 'BAM', becomes_inactive => 1},
+                    fastq => {key => 'SOURCE_FASTQ', descend => 1},
+                },
+                branch_parameters_out => {
+                  bam => 'BAM',
+                },
+            },
+            -rc_name => '1Gb',
+            -analysis_capacity  =>  50,  # use per-analysis limiter
+            -hive_capacity  =>  -1,
+            -flow_into => {
+                1 => [ 'rename'],
+            },
+      });
+    push(@analyses, {
+            -logic_name => 'rename',
+            -module        => 'ReseqTrack::HiveProcess::RenameFile',
+            -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
+            -parameters => {
+                analysis_label => $self->o('final_label'),
+                suffix => 'bam',
+                branch_parameters_in => {
+                    old_filename => {key => 'BAM', becomes_inactive => 1},
+                },
+                branch_parameters_out => {
+                  new_filename => 'BAM',
+                },
+            },
+            -flow_into => {
+                1 => [ 'final_index'],
+            },
+      });
+    push(@analyses, {
+            -logic_name => 'final_index',
+            -module        => 'ReseqTrack::HiveProcess::RunSamtools',
+            -parameters => {
+                program_file => $self->o('samtools_exe'),
+                command => 'index',
+                branch_parameters_in => {
+                    bam => 'BAM'
+                },
+                branch_parameters_out => {
+                  bai => 'BAI',
+                },
+            },
+            -flow_into => {1 => ['validate']},
+            -rc_name => '200Mb',
+            -analysis_capacity  =>  50,  # use per-analysis limiter
+            -hive_capacity  =>  -1,
+      });
+    push(@analyses, {
+            -logic_name => 'validate',
+            -module        => 'ReseqTrack::HiveProcess::RunValidateBam',
+            -parameters => {
+                'program_file' => $self->o('validate_bam_exe'),
+                'branch_parameters_in' => {
+                    bam => 'BAM',
+                },
+                branch_parameters_out => {
+                  bas => 'BAS',
+                },
+            },
+            -rc_name => '200Mb',
+            -analysis_capacity  =>  50,  # use per-analysis limiter
+            -hive_capacity  =>  -1,
+      });
+    push(@analyses, {
+            -logic_name => 'pipeline_done',
             -meadow_type=> 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
             -module        => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
-        },
-    ];
+      });
+
+    return \@analyses;
 }
 
 1;

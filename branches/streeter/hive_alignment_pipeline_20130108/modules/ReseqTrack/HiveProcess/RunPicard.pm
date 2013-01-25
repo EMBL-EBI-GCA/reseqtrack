@@ -37,12 +37,13 @@ sub run {
       -jvm_options  => $jvm_args,
       -picard_dir   => $picard_dir,
       -options      => {validation_stringency => 'SILENT'},
-      -create_index => 0,
+      -create_index => $self->param('create_index'),
       -keep_metrics => 0,
     );
 
     $picard_object->run($command);
-    $self->output_this_branch('bam' => $picard_object->output_bam_files);
+    $self->output_this_branch('bam' => $picard_object->output_bam_files,
+                              'bai' => $picard_object->output_bai_files);
 
 }
 

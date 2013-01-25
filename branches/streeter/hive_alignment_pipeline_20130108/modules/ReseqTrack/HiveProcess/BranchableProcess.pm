@@ -35,7 +35,7 @@ sub fetch_input {
       push(@param_vals, map {$_->{'meta_value'}} @$branch_data);
       if ($hashref->{'becomes_inactive'}) {
         $self->_data_to_make_inactive([map {$_->{'branch_meta_data_id'}} @$branch_data]);
-        foreach my $file ( map {$_->{'meta_value'}} grep {! $_->{'never_delete'}} @$branch_data) {
+        foreach my $file ( map {$_->{'meta_value'}} @$branch_data) {
           next if $file !~ /^$root_output_dir/;
           $self->_files_to_delete($file);
         }
@@ -50,9 +50,9 @@ sub fetch_input {
     $self->param('output_dir', $root_output_dir);
   }
 
-  my $analysis_name = $self->analysis->logic_name;
+  my $analysis_label = $self->param('analysis_label') || $self->analysis->logic_name;
   my $branch_label = $self->param('branch_label');
-  my $job_name = $branch_label ? "$branch_label.$analysis_name" : $analysis_name;
+  my $job_name = $branch_label ? "$branch_label.$analysis_label" : $analysis_label;
   $self->param('job_name', $job_name);
 }
 
@@ -85,12 +85,8 @@ sub write_output {
     DATA_TYPE:
     while (my ($param_key, $value) = each %{$self->output_this_branch}) {
       my $db_hash = $branch_params_out->{$param_key};
-      if ($db_hash) {
-        $self->_branch_meta_data(key => $db_hash->{'key'}, value => $value, never_delete => $db_hash->{'never_delete'});
-      }
-      else {
-        $self->_branch_meta_data(key => $param_key, value => $value);
-      }
+      my $db_key = $db_hash ? $db_hash->{'key'} : $param_key;
+      $self->_branch_meta_data(key => $db_key, value => $value);
     }
 
     my $output_child_branches = $self->output_child_branches;
@@ -100,13 +96,8 @@ sub write_output {
       DATA_TYPE:
       while (my ($param_key, $value) = each %{$self->output_child_branches->[$i]}) {
         my $db_hash = $branch_params_out->{$param_key};
-        if ($db_hash) {
-          $self->_branch_meta_data('branch_id' => $child_branch_ids->[$i],
-                                'key' => $db_hash->{'key'}, 'value' => $value, never_delete => $db_hash->{'never_delete'});
-        }
-        else {
-          $self->_branch_meta_data('branch_id' => $child_branch_ids->[$i], 'key' => $param_key, 'value' => $value);
-        }
+        my $db_key = $db_hash ? $db_hash->{'key'} : $param_key;
+        $self->_branch_meta_data('branch_id' => $child_branch_ids->[$i], 'key' => $db_key, 'value' => $value);
       }
       $self->dataflow_output_id( {'branch_id' => $child_branch_ids->[$i]}, 2);
     }
@@ -143,7 +134,7 @@ sub flows_this_branch {
     my $flows = ref($arg) eq 'ARRAY' ? $arg
               : defined $arg ? [$arg]
               : [];
-    $self->param('_flows_this_branch', $arg);
+    $self->param('_flows_this_branch', $flows);
   }
   return $self->param('_flows_this_branch') || [1];
 }
@@ -179,20 +170,21 @@ sub _branch_meta_data {
   my $hive_dbc = $self->data_dbc();
 
   if (defined $args{'value'}) {
-    my $sql = "insert into branch_meta_data (branch_id, meta_key, meta_value, is_active, never_delete) values (?, ?, ?, 1, ?)";
+    my $sql = "insert into branch_meta_data (branch_id, meta_key, meta_value, is_active) values (?, ?, ?, 1)";
     my $sth = $hive_dbc->prepare($sql) or die "could not prepare $sql: ".$hive_dbc->errstr;
+    VALUE:
     foreach my $value (ref($args{'value'}) eq 'ARRAY' ? @{$args{'value'}} : ($args{'value'})) {
+      next VALUE if ! defined $value;
       foreach my $branch_id (@branch_ids) {
         $sth->bind_param(1, $branch_id);
         $sth->bind_param(2, $args{'key'});
         $sth->bind_param(3, $value);
-        $sth->bind_param(4, $args{'never_delete'} || 0);
         $sth->execute() or die "could not execute $sql: ".$sth->errstr;
       }
     }
   }
   else {
-    my $sql = "SELECT branch_meta_data_id, meta_value, never_delete FROM branch_meta_data WHERE branch_id=? AND meta_key=? AND is_active=1";
+    my $sql = "SELECT branch_meta_data_id, meta_value FROM branch_meta_data WHERE branch_id=? AND meta_key=? AND is_active=1";
     my $sth = $hive_dbc->prepare($sql) or die "could not prepare $sql: ".$hive_dbc->errstr;
     my @return_data;
     foreach my $branch_id (@branch_ids) {

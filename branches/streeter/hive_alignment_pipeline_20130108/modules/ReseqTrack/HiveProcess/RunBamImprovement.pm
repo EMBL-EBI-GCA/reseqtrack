@@ -27,18 +27,27 @@ sub run {
     my $command = $self->param('command') || die "'command' is an obligatory parameter";
     my $job_name = $self->param('job_name') or die "'job_name' is an obligatory parameter";
 
-    throw ("Expecting one bam file") if ref($bams) eq 'ARRAY' && scalar @$bams != 1;
+    throw("Expecting one bam file") if ref($bams) eq 'ARRAY' && scalar @$bams != 1;
+    throw("Expecting either 'realign' or 'recalibrate' for command")
+        if ($command ne 'realign' && $command ne 'recalibrate');
+    my $module_name = $command eq 'realign' ? 'IndelRealigner' : 'QualityScoreRecalibrator';
+    eval{require "ReseqTrack/Tools/GATKTools/$module_name.pm";};
+    throw("cannot load $module_name: $@") if $@;
+    my $gatk_module = "ReseqTrack::Tools::GATKTools::$module_name";
 
-    my $bam = ref($bams) eq 'ARRAY' ? $bams->[0] : $bams;
-    check_file_exists($bam);
-    check_file_exists("$bam.bai");
-
-    check_directory_exists($output_dir);
-    my $output_bam = "$output_dir/$job_name.bam";
-
-    system("touch $output_bam");
-
-    $self->output_this_branch('bam' => $output_bam);
+    my $gatk_object = $gatk_module->new(
+      -input_files  => $bams,
+      -working_dir  => $output_dir,
+      -reference    => $reference,
+      -job_name     => $job_name,
+      -java_exe     => $java_exe,
+      -jvm_args     => $jvm_args,
+      -gatk_path    => $gatk_dir,
+      -options      => $options,
+      -known_sites_files => $self->param('known_sites_vcf'),
+    );
+    $gatk_object->run($command);
+    $self->output_this_branch('bam' => $gatk_object->output_bam);
 }
 
 
