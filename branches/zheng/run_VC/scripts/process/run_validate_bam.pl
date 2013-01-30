@@ -75,6 +75,7 @@ if ($use_db_md5) {
 
 $bam_validator->run;
 
+$db->dbc->disconnect_when_inactive(0);
 if($store){
   my $host = get_host_object($host_name, $db);
   my $fa = $db->get_FileAdaptor;

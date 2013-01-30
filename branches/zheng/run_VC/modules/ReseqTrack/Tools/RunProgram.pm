@@ -99,14 +99,8 @@ sub new {
   $self->save_files_from_deletion($save_files_from_deletion);
   $self->output_name_prefix($output_name_prefix);
 
-  my $default_options = $self->DEFAULT_OPTIONS;
-  while (my ($option_name, $option_value) = each %$default_options) {
-      $options->{$option_name} = $option_value if (! defined $options->{$option_name});
-  }
-  while (my ($option_name, $option_value) = each %$options) {
-      $self->options($option_name, $option_value);
-  }
-  $self->parameters($options);
+  $self->options($self->DEFAULT_OPTIONS);
+  $self->options($options) if ($options);
   
   return $self;
 }
@@ -153,10 +147,12 @@ sub run {
   }
 
   $self->change_dir;
-  $self->run_program(@args);
+  my @returned_values = $self->run_program(@args);
 
   $self->_running(0);
   $self->delete_files;
+
+  return @returned_values;
 }
 
 =head2 DESTROY
@@ -189,15 +185,15 @@ sub execute_command_line {
     if ($self->echo_cmd_line) {
         $command_line = "echo \'" . $command_line . "\'";
     }
-    print "Executing command:\n";
-    print $command_line . "\n";
+    print "Executing command:$/";
+    print $command_line . $/;
 
     my $pid = fork;
     if (!defined $pid) {
       throw "could not fork: $!";
     }
     elsif(!$pid) {
-      exec($command_line) or do{
+      exec(bash => (-o => 'pipefail', -c => $command_line)) or do{
         print STDERR "$command_line did not execute: $!\n";
         exit(255);
       }
@@ -208,7 +204,7 @@ sub execute_command_line {
         kill 15, $pid;
       }
     }
-    throw("received a signal so command line was killed $command_line") if ($term_sig);
+    throw("received a signal ($term_sig) so command line was killed $command_line") if ($term_sig);
     throw("command failed: $! $command_line") if ( $? == -1 );
 
     my $signal = $? & 127;
@@ -586,28 +582,59 @@ sub get_temp_dir {
 =head2 options
 
   Arg [1]   : ReseqTrack::Tools::RunProgram
-  Arg [2]   : string, option_name
-  Arg [3]   : any, option_value
+  Arg [2]   : string, option_name, or a hash ref of options
+  Arg [3]   : any, option_value (optional)
   Function  : Accessor method for options required by the child class
-  Returntype: option_value
+  Returntype: option_value, or hash ref of all options
   Exceptions: Throws if option_name is not specified.
   Example   : my $option_value = $self->options('option_name');
-
+  Example   : my $option_value = $self->options('option_name','option_value');
+  Example	: my $options_hashref = $self->options();
+  Example   : my $options_hashref = $self->options(\%options); # will merge these options with any already set
+  
 =cut
 
 
 sub options {
-    my ($self, $option_name, $option_value) = @_;
+	my ($self, @args) = @_;
 
-    throw( "option_name not specified")
-        if (! $option_name);
+	$self->{'options'} ||= {};	
+	my $num_of_args = scalar(@args);
 
-    $self->{'options'} ||= {};
-    if (defined $option_value) {
-        $self->{'options'}->{$option_name} = $option_value;
-    }
+	# no arguments, return all the options
+	if ($num_of_args == 0){
+		return $self->{'options'};
+	}
+	elsif ($num_of_args == 1){
+		my $ref_type = ref($args[0]);
 
-    return $self->{'options'}->{$option_name};
+		if (! $ref_type){
+			# arg is a scalar
+			return $self->{'options'}->{$args[0]};
+		}
+		elsif ($ref_type eq 'HASH'){
+			# merge these options with any existing
+
+			while (my ($name, $value) = each %{$args[0]}) {
+				$self->{'options'}->{$name} = $value;
+			}
+
+			return $self->{'options'};
+		}
+		else {
+			throw("Cannot set options with a $ref_type reference");
+		}
+
+	}
+	else{
+		my ($option_name,$option_value) = @args;
+
+		throw( "option_name not specified") if (! $option_name);
+
+		$self->{'options'}->{$option_name} = $option_value;
+		return $self->{'options'}->{$option_name};
+	}
+
 }
 
 1;

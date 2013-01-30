@@ -26,7 +26,6 @@ my $output_dir;
 my $header_lines_file;
 my $get_fastq_files;
 my $type_fastq;
-my $append_platform;
 my $samtools;
 my $host_name = '1000genomes.ebi.ac.uk';
 my $store;
@@ -39,6 +38,11 @@ my $SQ_uri;
 my $replace_PG;
 my $replace_CO;
 my $reuse_old_header;
+my $root_trim;
+my $ftp_root;
+my $trim_paths;
+my $run_id_regex = '[ESD]RR\d{6}';
+my $sample_id_regex = '[ESD]RS\d{6}';
 
 &GetOptions( 
   'dbhost=s'      => \$dbhost,
@@ -53,7 +57,6 @@ my $reuse_old_header;
   'header_lines_file=s' => \$header_lines_file,
   'get_fastq_files!' => \$get_fastq_files,
   'type_fastq=s' => \$type_fastq,
-  'append_platform!' => \$append_platform,
   'samtools=s' => \$samtools,
   'host_name=s' => \$host_name,
   'store!' => \$store,
@@ -66,6 +69,11 @@ my $reuse_old_header;
   'replace_PG!' => \$replace_PG,
   'replace_CO!' => \$replace_CO,
   'reuse_old_header!' => \$reuse_old_header,
+  'root_trim=s' => \$root_trim,
+  'ftp_root=s' => \$ftp_root,
+  'trim_paths!' => \$trim_paths,
+  'run_id_regex=s' => \$run_id_regex,
+  'sample_id_regex=s' => \$sample_id_regex,
     );
 
 throw("Must specify an output directory") if (!$output_dir);
@@ -99,11 +107,11 @@ my @extra_header_lines;
 if ($directory_layout || $get_fastq_files) {
   my $rmia = $db->get_RunMetaInfoAdaptor;
   my @run_meta_infos;
-  if ($name =~ /[ESD]RR\d{6}/) {
+  if ($name =~ /$run_id_regex/) {
     my $run_meta_info = $rmia->fetch_by_run_id($&);
     push(@run_meta_infos, $run_meta_info) if $run_meta_info;
   }
-  elsif ($name =~ /[ESD]RS\d{6}/) {
+  elsif ($name =~ /$sample_id_regex/) {
     my $sample_id = $&;
     my $sample_rmis = $rmia->fetch_by_sample_id($sample_id);
     if ($name =~ /${sample_id}_(\S+)/) {
@@ -121,18 +129,24 @@ if ($directory_layout || $get_fastq_files) {
   }
 
   if ($get_fastq_files) {
+    my @regexs = (qr/$run_id_regex\S*_1\.(\w+\.)*fastq(\.gz)?$/i,
+                  qr/$run_id_regex\S*_2\.(\w+\.)*fastq(\.gz)?$/i,
+                  qr/$run_id_regex\S*\.fastq(\.gz)?$/i);
     foreach my $rmi (@run_meta_infos) {
       my $run_id = $rmi->run_id;
-      my $full_fastq_type = $type_fastq;
-      if ($append_platform) {
-        $full_fastq_type .= '_' . $rmi->instrument_platform;
-      }
-      my $fastq_collection = $ca->fetch_by_name_and_type($run_id, $full_fastq_type);
+      my $fastq_collection = $ca->fetch_by_name_and_type($run_id, $type_fastq);
+      throw("Did not find a collection with name $run_id and type $type_fastq") if (!$fastq_collection);
 
-      my ($mate1, $mate2, $frag) = assign_files($fastq_collection->others);
-      my $header_fastq_type = lc($full_fastq_type) . '_file';
+      my ($mate1, $mate2, $frag) = assign_files($fastq_collection->others, \@regexs);
+      my $header_fastq_type = '$' . lc($type_fastq) . '_file';
       foreach my $fastq (grep {$_} ($mate1, $mate2, $frag)) {
-        push(@extra_header_lines, "\@CO\t$header_fastq_type = " . $fastq->name);
+        my $fastq_path = $fastq->name;
+        if ($trim_paths) {
+          $fastq_path =~ s/$root_trim// if $root_trim;
+          $fastq_path = $ftp_root .'/'. $fastq_path if $ftp_root;
+          $fastq_path =~ s{//+}{/}g;
+        }
+        push(@extra_header_lines, "\@CO\t$header_fastq_type = " . $fastq_path);
       }
     }
   }
@@ -157,6 +171,7 @@ $reheader_object->options('replace_CO', $replace_CO ? 1 : 0);
 
 $reheader_object->run;
 
+$db->dbc->disconnect_when_inactive(0);
 if($store){
   my $host = get_host_object($host_name, $db);
 
@@ -240,8 +255,6 @@ The input bam file can be deleted, along with its index file, and this will be r
 
   -type_fastq, type of fastq files when searching the collection table when the -get_fastq_files flag is used
 
-  -append_platform, boolean.  When true, type_fastq will be modified before searching the collection table, e.g. 'FILTERED_FASTQ' becomes 'FILTERED_FASTQ_ILLUMINA'
-
   -samtools, path to the samtools executable.  The ReheaderBam class can guess at its location if it is not specified.
 
   -host_name, default is '1000genomes.ebi.ac.uk', needed for storing output bam file
@@ -267,6 +280,16 @@ The input bam file can be deleted, along with its index file, and this will be r
 
   -replace_CO, boolean.  When true, @CO lines in the input bam will not appear in the output bam
 
+  -trim_paths, boolean.  Only applies when get_fastq_files is true.  File paths will be modified
+      as described by -root_trim and -ftp_root
+
+  -root_trim, string e.g. '/nfs/1000g-archive'.  When trim_paths is true, this string will be removed from fastq paths
+
+  -ftp_root, string e.g. 'ftp://ftp.1000genomes.ebi.ac.uk'.  When trim_paths is true, this string will be added to fastq paths
+
+  -run_id_regex, used to get run meta info and to assign fastq files as mate or frag.  Default is '[ESD]RR\d{6}'
+  -study_id_regex, used to get run meta info.  Default is '[ESD]RS\d{6}'
+
 =head1 Examples
 
     $DB_OPTS="-dbhost mysql-host -dbuser rw_user -dbpass **** -dbport 4197 -dbname my_database"
@@ -276,6 +299,7 @@ The input bam file can be deleted, along with its index file, and this will be r
     -header_lines_file /path/to/header -get_fastq_files -type_fastq FILTERED_FASTQ
     -store -delete_input -directory_layout population/sample_id
     -SQ_assembly GRC37 -SQ_species human -replace_CO -replace_PG -reuse_old_header
+    -trim_paths -root_trim /nfs/1000g-archive -ftp_root ftp://ftp.1000genomes.ebi.ac.uk
 
 =cut
 

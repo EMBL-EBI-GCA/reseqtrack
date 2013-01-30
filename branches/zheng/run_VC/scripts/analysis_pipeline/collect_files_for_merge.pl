@@ -25,23 +25,29 @@ my $level;
 my $output_dir;
 my $directory_layout;
 my $help;
+my $verbose;
+my $run_id_regex = '[ESD]RR\d{6}';
+my $sample_id_regex = '[ESD]RS\d{6}';
 
 &GetOptions( 
-	    'dbhost=s'      => \$dbhost,
-	    'dbname=s'      => \$dbname,
-	    'dbuser=s'      => \$dbuser,
-	    'dbpass=s'      => \$dbpass,
-	    'dbport=s'      => \$dbport,
-            'host_name=s' => \$host_name,
-	    'level=s'      => \$level,
-	    'type_key=s'       => \$type_key,
-	    'type_input=s'       => \@type_input,
-	    'type_collection=s'       => \$type_collection,
-	    'type_merged=s'       => \$type_merged,
-            'output_dir=s' => \$output_dir,
-            'directory_layout=s' => \$directory_layout,
-	    'help!'         => \$help,
-	   );
+    'dbhost=s'      => \$dbhost,
+    'dbname=s'      => \$dbname,
+    'dbuser=s'      => \$dbuser,
+    'dbpass=s'      => \$dbpass,
+    'dbport=s'      => \$dbport,
+    'host_name=s' => \$host_name,
+    'level=s'      => \$level,
+    'type_key=s'       => \$type_key,
+    'type_input=s'       => \@type_input,
+    'type_collection=s'       => \$type_collection,
+    'type_merged=s'       => \$type_merged,
+    'output_dir=s' => \$output_dir,
+    'directory_layout=s' => \$directory_layout,
+    'help!'         => \$help,
+    'verbose' => \$verbose,
+    'run_id_regex=s' => \$run_id_regex,
+    'sample_id_regex=s' => \$sample_id_regex,
+   );
 
 
 if ($help) {
@@ -52,12 +58,12 @@ if ($help) {
 throw("Must specify an output directory") if (!$output_dir);
 
 my $db = ReseqTrack::DBSQL::DBAdaptor->new(
-					   -host => $dbhost,
-					   -user => $dbuser,
-					   -port => $dbport,
-					   -dbname => $dbname,
-					   -pass => $dbpass,
-					  );
+                         -host => $dbhost,
+                         -user => $dbuser,
+                         -port => $dbport,
+                         -dbname => $dbname,
+                         -pass => $dbpass,
+                        );
 
 my $ca = $db->get_CollectionAdaptor;
 my $rmia = $db->get_RunMetaInfoAdaptor;
@@ -66,16 +72,19 @@ my %inputs;
 foreach my $type_input (@type_input) {
   foreach my $collection (@{$ca->fetch_by_type($type_input)}) {
     $inputs{$collection->name} = $collection->others;
+    print "Found input collection: ".$collection->name.$/ if $verbose;
   }
 }
 
 my %existing_output_collections;
 foreach my $collection (@{$ca->fetch_by_type($type_collection)}) {
   $existing_output_collections{$collection->name} = 1;
+  print "Found output collection: ".$collection->name.$/ if $verbose;
 }
 my %existing_merged;
 foreach my $collection (@{$ca->fetch_by_type($type_merged)}) {
   $existing_merged{$collection->name} = 1;
+  print "Found merged collection: ".$collection->name.$/ if $verbose;
 }
 
 my %files_to_move;
@@ -94,12 +103,14 @@ if ($level eq 'RUN') {
     }
     if (@others == 1) {
       $files_to_move{$key_collection->name} = $others[0];
+      print "Found file to move for colleciton: ".$key_collection->name.$/ if $verbose;
     }
     else {
       my $output_collection = ReseqTrack::Collection->new(
               -name => $key_collection->name, -type => $type_collection,
               -others => \@others);
       $ca->store($output_collection);
+      print "Created merge collection: ".$key_collection->name.$/ if $verbose;
     }
   }
 }
@@ -123,12 +134,14 @@ if ($level eq 'LIBRARY') {
       }
       if (@others == 1) {
         $files_to_move{$output_name} = $others[0];
+        print "Found file to move for library: $library_name $/" if $verbose;
       }
       else {
         my $output_collection = ReseqTrack::Collection->new(
                 -name => $output_name, -type => $type_collection,
                 -others => \@others);
         $ca->store($output_collection);
+        print "Created merge library: $library_name $/" if $verbose;
       }
     }
   }
@@ -151,12 +164,14 @@ if ($level eq 'SAMPLE') {
     }
     if (@others == 1) {
       $files_to_move{$sample_id} = $others[0];
+      print "Found file to move for sample: $sample_id $/" if $verbose;
     }
     else {
       my $output_collection = ReseqTrack::Collection->new(
               -name => $sample_id, -type => $type_collection,
               -others => \@others);
       $ca->store($output_collection);
+      print "Created merge sample: $sample_id $/" if $verbose;
     }
   }
 }
@@ -170,10 +185,10 @@ while (my ($name, $file) = each %files_to_move) {
   my $file_output_dir = $output_dir;
   if ($directory_layout) {
     my $run_meta_info;
-    if ($name =~ /[ESD]RR\d{6}/) {
+    if ($name =~ /$run_id_regex/) {
       $run_meta_info = $rmia->fetch_by_run_id($&);
     }
-    elsif ($name =~ /[ESD]RS\d{6}/) {
+    elsif ($name =~ /$sample_id_regex/) {
       my $rmi_list = $rmia->fetch_by_sample_id($&);
       $run_meta_info = $rmi_list->[0] if (@$rmi_list);
     }
@@ -190,12 +205,13 @@ while (my ($name, $file) = each %files_to_move) {
   my $history = ReseqTrack::History->new(
       -other_id => $file->dbID, -table_name => 'file',
       -comment => "moved by $0 to $new_file_path");
-  $ha->store($history);
   move ($old_file_path, $new_file_path)
     or throw ("could not move $old_file_path to $new_file_path $!");
+  $ha->store($history);
 
   my $old_index_path = $old_file_path . '.bai';
   if (-f $old_index_path) {
+    delete_file($old_index_path);
     my $old_index = $fa->fetch_by_name($old_index_path);
     if ($old_index) {
       my $index_history = ReseqTrack::History->new(
@@ -203,7 +219,6 @@ while (my ($name, $file) = each %files_to_move) {
         -comment => "deleted by $0");
       $ha->store($history);
     }
-    delete_file($old_index_path);
   }
 
   my $merged_file = create_object_from_path($new_file_path, $type_merged, $host);
@@ -273,6 +288,9 @@ The output collection will be named by the run_id
   -directory_layout, specifies where the files will be located under output_dir.
       Tokens matching method names in RunMetaInfo will be substituted with that method's
       return value.
+
+  -run_id_regex, used to get run meta info.  Default is '[ESD]RR\d{6}'
+  -study_id_regex, used to get run meta info.  Default is '[ESD]RS\d{6}'
 
   -help, flag to print this help and exit
 

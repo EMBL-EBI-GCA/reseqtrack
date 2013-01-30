@@ -185,7 +185,7 @@ sub reheader_bam {
   check_file_exists($header);
 
   my $output_bam = $self->working_dir . '/' . $self->job_name. '.rehead.bam';
-  $output_bam =~ s{//}{/}g;
+  $output_bam =~ s{//+}{/}g;
   check_file_does_not_exist($output_bam);
 
   my @cmd_words = ($self->program, 'reheader', $header, $input_bam);

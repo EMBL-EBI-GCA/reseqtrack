@@ -126,6 +126,7 @@ sub archive_objects {
   my ( $self ) = @_;
   
   my @files_to_archive  = keys(%{$self->which_action_hash});
+  #print "Have ".@files_to_archive." files to archive\n";
   my %file_objects;
   if(@files_to_archive == 0){
     print STDERR "There are no files to archive exiting\n";
@@ -143,6 +144,7 @@ sub archive_objects {
   $self->archive_adaptor($aa);
 
   foreach my $file_path (@files_to_archive) {
+    #print "Looking at ".$file_path."\n";
     next unless ( -e $file_path );
     my $action = $self->{which_action_hash}{$file_path};
   
@@ -150,6 +152,7 @@ sub archive_objects {
     my $file;
 
     unless ( $file_objects{$file_path} ) {
+      #print "Creating archive objects\n";
       $file = $fa->fetch_by_name($file_path);
       if ( !$file ) {
 	warning( "Failed to fetch file from " . $file_path );

@@ -53,8 +53,9 @@ GetOptions(
   	'parameters=s',
 
   	'chrom_chunk:s', #in the format of chrom:start-end, this will come from input_string table when the script is run as an event
+  					## Can also be a string of chromosomes "1 2 3 4 5" to feed in umamke
   	'only_chrom:s', # only work on a specified chromosome, even though the input_string table contains all chromosomes; other chrs jobs would be failed
-  	  	  	  	
+  	'chrom_regions_by_file:s', # chrom regions can be provided by file such as BED, VCF. this is implemented in teh gatk module only so far.  	  	  	
   	'output_dir=s',
   	'output_file_type:s',
   	'output_name_prefix=s',
@@ -85,7 +86,7 @@ if (!$input{tabix_dir}) {
 }	
 
 $input{host} = '1000genomes.ebi.ac.uk' if (!$input{host});
-$input{output_file_type} = "DCC_VCF" if ( !$input{output_file_type} );
+$input{output_file_type} = "VCF" if ( !$input{output_file_type} );
 $input{output_name_prefix} = "RESULTS" if ( !$input{output_name_prefix} );
 $input{keep_intermediate_file} = 0 if (!$input{keep_intermediate_file});
 
@@ -123,7 +124,11 @@ if ($input{chrom_chunk}) {
 	else {
 		$chrom = $input{chrom_chunk};
 	}	
-	throw("chrom_chunk $input{chrom_chunk} does not belong to chromosome specified by -only_chrom $input{only_chrom}") if ($input{only_chrom} && ($input{chrom} ne $input{only_chrom})); ## "ne" works for both strings and numbers
+	throw("chrom $chrom of chrom_chunk $input{chrom_chunk} does not belong to chromosome specified by -only_chrom $input{only_chrom}") if ($input{only_chrom} && ($chrom ne $input{only_chrom})); ## "ne" works for both strings and numbers
+}	
+
+if (defined $input{chrom_chunk} && defined $input{chrom_regions_by_file}) {
+	throw("Cannot handle chrom_chunk and chrom_regions_by_file at the same time");
 }	
 
 my $db = ReseqTrack::DBSQL::DBAdaptor->new(
@@ -159,6 +164,7 @@ if($input{file_name_pattern}){
   my $files = $fa->fetch_all_like_name($input{file_name_pattern});
   throw("No files found containing pattern $input{file_name_pattern}") if (!$files || @$files ==0);
   foreach my $file(@$files){
+    next if ($file->type !~ /BAM/i);
     next if ( check_file_sanity($file->name, $chrom) eq 'skip' );
     push(@bams, $file->name);
   }
@@ -212,14 +218,15 @@ else {
 my $varCalling_module = $module_path . '::'. $module_name;
 
 my $constructor_hash;
-$constructor_hash->{-parameters} = parameters_hash($input{parameters});
+$constructor_hash->{-options} = parameters_hash($input{parameters});
 $constructor_hash->{-input_files} = \@bams;
 $constructor_hash->{-program} = $input{program};
 $constructor_hash->{-working_dir} = $input{output_dir};
 $constructor_hash->{-reference} = $input{reference};
 $constructor_hash->{-chrom} = $chrom if ($chrom);
 $constructor_hash->{-region} = $region if ($region);
-$constructor_hash->{-save_files_for_deletion} = $input{keep_intermediate_file};
+$constructor_hash->{-chrom_regions_by_file} = $input{chrom_regions_by_file} if ($input{chrom_regions_by_file});
+$constructor_hash->{-save_files_from_deletion} = $input{keep_intermediate_file};
 $constructor_hash->{-output_name_prefix} = $input{output_name_prefix};
 $constructor_hash->{-super_pop_name} = $super_pop_name; 
 
@@ -241,7 +248,7 @@ foreach my $outfile ( @$flt_vcf ) {
 		
 			$loader = ReseqTrack::Tools::Loader::File->new
 		 		 (
-				   -file => [$outfile, $tabix_file],
+				   -file => [$outfile],
 				   -do_md5 => 1,
 				   -hostname => $input{host},
 				   -db => $db,
@@ -264,8 +271,10 @@ foreach my $outfile ( @$flt_vcf ) {
 		
 		### save the VCF file in collection_by_chrom, 
 		### after many jobs of the event are run, each collection would contain vcf files of different chrom chunks
+		my $collection_by_chrom_name = $input{output_name_prefix} . "_" . $input{algorithm} . "_$super_pop_name" . "_chr$chrom";
+		$collection_by_chrom_name =~ s/\s+/_/g;
 		if ($input{save_collection} && $outfile !~ /tbi$/i ) {
-			my $collection_by_chrom_name = $input{output_name_prefix} . "_" . $input{algorithm} . "_$super_pop_name" . "_chr$chrom";
+			#my $collection_by_chrom_name = $input{output_name_prefix} . "_" . $input{algorithm} . "_$super_pop_name" . "_chr$chrom";
 			if ($outfile =~ /vcf/) {
 				my $collection_by_chrom =  ReseqTrack::Collection->new(
 				  -name => $collection_by_chrom_name,
@@ -278,9 +287,11 @@ foreach my $outfile ( @$flt_vcf ) {
 		}	
 		
 		print "*********************************************************************************************************************************\n";
-		print "**** Output filtered VCF file path is $outfile\n";
 		if ($input{store}) {
-			print "**** Output filtered VCF file $outfile has been stored in the database\n";
+			print "**** Output filtered VCF file $outfile has been saved in the file table\n";
+			if ($input{save_collection}) {
+				print "**** Output filtered VCF file $outfile has been saved in the collection table as $collection_by_chrom_name\n";
+			}
 		}
 		else {
 			print "**** Output filtered VCF file path is $outfile; it is NOT stored in the database as -store is not specified\n";
@@ -314,9 +325,9 @@ sub parameters_hash{
     }          
     else {
           throw("Please provide running parameters as name and value separated by ':'  Multiple name and value pairs can be used and should be separated by ',' ");
-	}
+    }
 	
-	foreach my $pair(@pairs){
+    foreach my $pair(@pairs){
 		my ($key, $value) = split (/:/, $pair);
 			$key   =~ s/^\s+|\s+$//g;
           	$value =~ s/^\s+|\s+$//g; 
@@ -349,22 +360,35 @@ sub check_file_sanity{
   my $flag = 'ok';
  
   throw($file." does not exist on the current filesystem") unless(-e $file);
-  $flag = 'skip' if ($file !~ /\.bam$/);
+  if ($file !~ /\.bam$/) {
+      $flag = 'skip';
+      return $flag;
+  }     
+  
+  my $bai = $file . ".bai";
+  throw("Cannot find an index file for BAM $file") unless (-e $bai);
  
   if ($chrom) {
-      
-      my @bits = split(/_|\./, $file);
-      my $file_chr = "NA";
-      foreach my $bit ( @bits) {
-          if ($bit =~ /chr/i) {
-              $file_chr = $bit;
-              $file_chr =~ s/chrom//i;
-              $file_chr =~ s/chr//i;
-          }
-      }        
-
-      $flag = 'skip' if ( $file_chr ne $chrom );
-  }     
+      my @bits = split(/_|\./, basename($file));
+ 	  my $file_chr = "NA";      
+      if ( $file =~ /chr/i ) {
+	      foreach my $bit ( @bits) {
+	          if ($bit =~ /chr/i) {
+	              $file_chr = $bit;
+	              $file_chr =~ s/chrom//i;
+	              $file_chr =~ s/chr//i;
+	          }
+	      } 
+	      $flag = 'skip' if ( $file_chr ne $chrom );       
+      } 
+      elsif ( $file =~/OAR/i ) { ## sheep chromosomes
+      	$file_chr = $bits[1]; ## this is Ian's way of naming the files
+      	$flag = 'skip' if ( $file_chr ne $chrom );
+      }
+      else { ## the case when the bam has no chromosome assignment
+      	$flag = 'ok';
+      }
+  }   
   return $flag;
 }
 
@@ -499,7 +523,7 @@ Below lists the options we have implemented for each caller to take now. Please 
 		gatk:
 		
 		Commonly used parameter keys can be one or more of the followings. Please see GATK website for detailed descriptions and additional parameters - 
-		http://www.broadinstitute.org/gsa/gatkdocs/release/org_broadinstitute_sting_gatk_walkers_genotyper_UnifiedGenotyper.html
+		http://www.broadinstitute.org/gatk/gatkdocs/org_broadinstitute_sting_gatk_walkers_genotyper_UnifiedGenotyper.html
 		dbSNP: 
   		dcov: 				integer, command line options to use with "samtools mpileup"
   		computeSLOD:		If provided, we will calculate the SLOD. This argument is not enabled by default because it increases the runtime by an appreciable amount.

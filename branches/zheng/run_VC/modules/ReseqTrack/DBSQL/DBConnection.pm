@@ -1,6 +1,5 @@
 package ReseqTrack::DBSQL::DBConnection;
 
-use vars qw(@ISA);
 use strict;
 use DBI;
 
@@ -144,11 +143,12 @@ sub connect {
   }
   my ($dsn, $dbh);
   if ( $self->driver() eq "Oracle" ) {
-    $dsn = "DBI:" . $self->driver . ":";
-    #print STDERR $dsn.", ".$self->username."\@".$self->dbname.", ".$self->password."\n";
-    eval { $dbh = DBI->connect($dsn,
-                               $self->username . "\@" . $self->dbname,
-                               $self->password,
+    my $dsn = "dbi:Oracle:".$self->dbname;
+    #my ($port,$host,$sid) = ($self->port,$self->host,$self->dbname);
+    #my $dsn = "$driver:host=$host;port=$port;sid=$sid";
+    print STDERR join(' ',$dsn, $self->username, $self->password,$/ );
+    
+    eval { $dbh = DBI->connect($dsn, $self->username, $self->password,
                                {'RaiseError' => 1, 'PrintError' => 0});
     };
     if($@){

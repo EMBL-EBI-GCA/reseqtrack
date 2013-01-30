@@ -66,7 +66,8 @@ my $check_unidentified;
 
 
 if($help){
-  useage();
+  exec('perldoc', $0);
+  exit(0);
 }
 my $original_run = $run;
 $summary = 1 if($verbose);
@@ -78,10 +79,6 @@ if($all_checks){
   $check_sample = 1;
   $check_status = 1;
   $check_unidentified = 1;
-}
-
-if($update_existing || $store_new){
-  $update_collections = 1;
 }
 
 if(($store_new + $update_existing + $update_collections + $check_sample + 
@@ -231,7 +228,7 @@ if there are associated public files, if there are they are withdrawn
 -collection_type, this is the type of collection object the runs should be grouped
                   into
 
--study_id_list, this is the study id list which defined what makes up a collection
+-study_id_file, this is the study id list which defined what makes up a collection
 
 -help, this is a binary flag to print out the help
 

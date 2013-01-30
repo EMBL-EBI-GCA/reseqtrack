@@ -127,67 +127,6 @@ sub run_program {
           . "does not provide one" );
 }
 
-
-=head2 options                            
-
-  Arg [1]   : ReseqTrack::Tools::CallBySamtools or CallByUmake or CallByGATK
-  Arg [2]   : string, name of key e.g. "mpileup" 
-  Arg [3]   : string, optional, options to be used on command line e.g. "-m 100000000"
-  Function  : accessor method for command line options
-  Returntype: string, command line options
-  Exceptions: n/a
-  Example   : my $mpileup_options = $self->options{'mpileup'};
-
-=cut
-
-=head
-sub options {
-    my ($self, $option_name, $option_value) = @_;
-
-    if (! $self->{'options'}) {
-        $self->{'options'} = {};
-    }
-
-    throw( "option_name not specified")
-        if (! $option_name);
-
-    if ($option_value) {
-        $self->{'options'}->{$option_name} = $option_value;
-    }
-
-    return $self->{'options'}->{$option_name};
-}
-=cut
-
-=head2 parameters
-
-  Arg [1]   : ReseqTrack::Tools::RunVariantCall
-  Arg [2]   : hashref of strings
-  Function  : accessor method for parameters passed on to a program. Very similar to method "options", this takes a hash ref as 
-  Returntype: arrayref of strings
-  Example   : $self->parameters('maxGaussians=6');
-
-=cut
-
-sub parameters {
-  my ( $self, $arg ) = @_;
-
-  $self->{'parameters'} ||= {};
-  if ($arg) {
-      if ( ref($arg) eq 'HASH' ) {    
-      	foreach my $parameter_name ( keys %$arg ) {
-      	    my $parameter_value = $arg->{$parameter_name};
-      	    $parameter_value =~ s/^\s+|\s+$//g;
-			$self->{'parameters'}->{$parameter_name} = $parameter_value;
-    	}
-      }
-  }
-
-  my %parameters = %{$self->{'parameters'}};
-  
-  return \%parameters;
-}
-
 =head2 intermediate_output_file
 
 PERHAPS can remove this function all together, the created_file function in RunProgram might do similar things

@@ -342,7 +342,7 @@ void output_rg_stats(void *_rg_stats_hash, char* out_fname, char* bam_basename, 
     if (kh_exist(rg_stats_hash, k)) {
       uint8_t i;
       rg_stats_t *rg_stats = kh_value(rg_stats_hash, k);
-      fprintf(fp, "%s\t", bam_basename);
+      fprintf(fp, "%s", bam_basename);
       fprintf(fp, "\t%s", md5);
       fprintf(fp, "\t%s", (rg_stats->description ? rg_stats->description : "unknown_study"));
       fprintf(fp, "\t%s", (rg_stats->sample ? rg_stats->sample : "-"));
@@ -450,6 +450,7 @@ int main(int argc, char *argv[])
   bam1_t *bam_line = bam_init1();
 
   strcpy(in_mode, "rb");
+  md5[0]='\0';
 
   while((c = getopt(argc, argv, "so:m:")) != -1)
     switch (c) {

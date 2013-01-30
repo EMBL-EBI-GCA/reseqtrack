@@ -15,7 +15,7 @@ use vars qw (@ISA  @EXPORT);
         index_to_name_hash get_meta_info_hash create_history_for_run_meta_info
         create_suppressed_index_line create_index_line
         get_files_associated_with_run get_file_collections_associated_with_run
-        copy_run_meta_info get_analysis_group get_sequence_index_stats
+        copy_run_meta_info get_sequence_index_stats
         get_withdrawn_summary get_study_descriptions get_index_group_stats
         get_run_id_from_filename convert_center_name convert_population
         create_directory_path);
@@ -292,9 +292,7 @@ sub create_index_line{
   if($withdrawn){
     $time = current_time() if(!$time);
   }
-  unless($analysis_group){
-    $analysis_group = get_analysis_group($rmi);
-  }
+  throw("no analysis group\n") if !($analysis_group);
   $withdrawn = 0 unless($withdrawn);
   $read_count = $rmi->archive_read_count if(!$read_count);
   $read_count = 'not available' if (!$read_count);
@@ -371,18 +369,6 @@ sub get_file_collections_associated_with_run{
   }
 }
 
-
-sub get_analysis_group{
-  my ($rmi) = @_;
-  my $analysis_group = 'low coverage';
-  if($rmi->study_id eq 'SRP000032'){
-    $analysis_group = 'high coverage';
-    }
-  if($rmi->study_id eq 'SRP000033'){
-    $analysis_group = 'exon targetted';
-  }
-  return $analysis_group;
-}
 
 sub get_sequence_index_stats{
   my ($index_file, $summary_column, $stats_column, $run_id_hash, $population_rules) = @_;
@@ -489,13 +475,6 @@ sub convert_population{
   throw("Failed to find pop for ".$string." ".$run_id." ".$study_id);
 }
 
-
-sub get_run_id_from_filename{
-  my ($name) = @_;
-  my $filename = basename($name);
-  $filename =~ /([E|S]RR\d+)/;
-  return $1;
-}
 
 =head2 create_directory_path
 

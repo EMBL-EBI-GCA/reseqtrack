@@ -28,28 +28,35 @@ my @skip_study_ids;
 my $test_id;
 my $study_collection_type = 'STUDY_TYPE';
 my $current_index ;
+my @print_status;
 
 &GetOptions(
-	    'dbhost=s'      => \$dbhost,
-	    'dbname=s'      => \$dbname,
-	    'dbuser=s'      => \$dbuser,
-	    'dbpass=s'      => \$dbpass,
-	    'dbport=s'      => \$dbport,
-	    'type=s' => \$type,
-	    'table_name=s' => \$table_name,
-	    'help!' => \$help,
-	    'output_file=s' => \$output_file,
-	    'trim_paths!' => \$trim_paths,
-	    'root_trim=s' => \$root_trim,
-	    'skip_study_id=s@' => \@skip_study_ids,
-	    'run_id=s' => \$single_run_id,
+	    'dbhost=s'      		=> \$dbhost,
+	    'dbname=s'      		=> \$dbname,
+	    'dbuser=s'      		=> \$dbuser,
+	    'dbpass=s'      		=> \$dbpass,
+	    'dbport=s'      		=> \$dbport,
+	    'type=s' 				=> \$type,
+	    'table_name=s' 			=> \$table_name,
+	    'help!' 				=> \$help,
+	    'output_file=s' 		=> \$output_file,
+	    'trim_paths!' 			=> \$trim_paths,
+	    'root_trim=s' 			=> \$root_trim,
+	    'skip_study_id=s@' 		=> \@skip_study_ids,
+	    'run_id=s' 				=> \$single_run_id,
 	    'study_collection_type:s' => \$study_collection_type,
-	    'current_index=s'     =>\$current_index,
+	    'current_index=s'     	=>\$current_index,
+        'print_status=s'  		=> \@print_status,
 	   );
 
 if($help){
   useage();
 }
+
+if (!@print_status) {
+  push(@print_status, 'public');
+}
+  
 my $db = ReseqTrack::DBSQL::DBAdaptor->new(
   -host   => $dbhost,
   -user   => $dbuser,
@@ -64,7 +71,6 @@ if ($current_index){
   open my $CURRENT_SI,'<', $current_index; 
     die "Cannot load current sequence index:$current_index\n" if (!$CURRENT_SI);
 
-#  my %current_hash;
   while (<$CURRENT_SI>){
     chomp;
     my @aa = split /\t/;
@@ -77,8 +83,6 @@ if ($current_index){
   }
   close ($CURRENT_SI);
 }
-
-
 
 my %skip_study_id;
 my %staging_area;
@@ -121,11 +125,12 @@ if($table_name eq 'file'){
 }
 my %index_lines;
 
-
-
  META_INFO:foreach my $meta_info(@sorted){
   #print "Have ".$meta_info->run_id."\n";
    my $analysis_group = $study_collection_hash{$meta_info->run_id};
+   if ( $analysis_group =~ /high coverage cgi/ ) {  # This is to skip Complete Genomics Runs
+   		next META_INFO;
+   }
    if($single_run_id){
      #print STDERR "Comparing ".$meta_info->run_id." to ".$single_run_id."\n";
      next META_INFO unless($meta_info->run_id eq $single_run_id);
@@ -135,12 +140,7 @@ my %index_lines;
      next META_INFO if($skip_study_id{$meta_info->study_id});
    }
    $index_lines{$meta_info->run_id} = [] unless($index_lines{$meta_info->run_id});
-   if($meta_info->status eq 'suppressed' || $meta_info->status eq 'cancelled'){
-     my $line;	
-     $line = create_suppressed_index_line($meta_info, undef, undef,$analysis_group);
-     #print $line."\n";
-     push(@{$index_lines{$meta_info->run_id}}, $line);
-   }elsif($meta_info->status eq 'public'){
+   if (grep {$_ eq $meta_info->status} @print_status) {
      my $files;
       if($table_name eq 'file'){
        $files = $file_hash{$meta_info->run_id};
@@ -224,7 +224,6 @@ my %index_lines;
      }
      else{
 
-     		
        #print STDERR "Have ".@$files." for ".$meta_info->run_id."\n";
        my ($mate1, $mate2, $frag) = assign_files($files);
        #print STDERR "Mate 1 ".$mate1->name."\n" if($mate1);
@@ -251,8 +250,14 @@ my %index_lines;
           push(@{$index_lines{$meta_info->run_id}}, ($mate1_line, $mate2_line));
 	}
      }
+   } elsif($meta_info->status eq 'suppressed' || $meta_info->status eq 'cancelled'){
+     my $line;	
+     $line = create_suppressed_index_line($meta_info, undef, undef,$analysis_group);
+     #print $line."\n";
+     push(@{$index_lines{$meta_info->run_id}}, $line);
    }
 }
+
 
 my $fh = \*STDOUT;
 
@@ -263,12 +268,11 @@ if($output_file){
 
 my $header = return_header_string();
 print $fh $header;
-my $bad_lines; 
+my $bad_lines = 0; 
 foreach my $meta_info(@sorted){
   my $lines = $index_lines{$meta_info->run_id};
   if($lines && @$lines > 0){
     foreach my $line(@$lines){
-    	
       if (!$line ){                                                                                   
 	print "Have bad line for ".$meta_info->run_id."\n";
        $bad_lines++;                                                                                      
@@ -285,7 +289,7 @@ foreach my $meta_info(@sorted){
       }
     }
   }else{
-    print STDERR "Have no lines for ".$meta_info->run_id."\n" unless($single_run_id);
+    print STDERR "Have no lines for ".$meta_info->run_id." " . $meta_info->center_name . "\n" unless($single_run_id);
   }
 }
 close($fh);
@@ -339,6 +343,9 @@ for debugging purposes
 
 -current_index, path to existing sequence.index file. Withdrawn date and reasons will
 be retained from the older index.
+
+-print_status, lines will be printed if the run_meta_info status is equal to this.
+  Default is 'public'.  Can be specified multiple times for multiple acceptable statuses.
 
 -help, binary flag to get the perldocs printed
 

@@ -1,17 +1,15 @@
-#!/sw/arch/bin/perl -w
+#!/usr/bin/env perl
 
 use strict;
+use warnings;
+
 use ReseqTrack::Tools::Exception;
 use ReseqTrack::DBSQL::DBAdaptor;
-use ReseqTrack::Tools::FileUtils qw(get_count_stats create_object_from_path);
-use ReseqTrack::Tools::FileSystemUtils qw(run_md5);
+use ReseqTrack::Tools::FileUtils qw(get_count_stats);
 use ReseqTrack::Tools::SequenceIndexUtils qw(assign_files);
-use ReseqTrack::Tools::HostUtils qw(get_host_object);
 use ReseqTrack::Tools::RunMetaInfoUtils qw( create_directory_path );
-use ReseqTrack::Tools::RunSplit;
 use POSIX qw(ceil);
 use Getopt::Long;
-
 $| = 1;
 
 my $dbhost;
@@ -20,11 +18,14 @@ my $dbpass;
 my $dbport = 4175;
 my $dbname;
 my $host_name = '1000genomes.ebi.ac.uk';
+my $name;
 my $type_input;
 my $type_output;
 my $type_collection;
 my $max_reads;
 my $max_bases;
+my $use_batch_numbering;
+my $run_id_regex = '[ESD]RR\d{6}';
 my $help;
 
 &GetOptions( 
@@ -33,6 +34,7 @@ my $help;
   'dbuser=s'      => \$dbuser,
   'dbpass=s'      => \$dbpass,
   'dbport=s'      => \$dbport,
+  'name=s' =>  \$name,                 
   'host_name=s' => \$host_name,
   'type_input=s' => \$type_input,
   'type_output=s' => \$type_output,
@@ -40,7 +42,9 @@ my $help;
   'max_reads=i' => \$max_reads,
   'max_bases=i' => \$max_bases,
   'help!'    => \$help,
-    );
+  'batch_numbering!' => \$use_batch_numbering,
+  'run_id_regex=s' => \$run_id_regex,
+);
 
 if ($help) {
     exec('perldoc', $0);
@@ -67,17 +71,31 @@ $db->dbc->disconnect_when_inactive(1);
 
 my $ca = $db->get_CollectionAdaptor;
 
-my %existing_names;
-foreach my $collection (@{$ca->fetch_by_type($type_collection)}) {
-    $existing_names{$collection->name} = 1;
-}
+my @regexs = (qr/$run_id_regex\S*_1\.(\w+\.)*fastq(\.gz)?$/i,
+              qr/$run_id_regex\S*_2\.(\w+\.)*fastq(\.gz)?$/i,
+              qr/$run_id_regex\S*\.fastq(\.gz)?$/i);
 
-my @input_collections = grep {! $existing_names{$_->name}} @{$ca->fetch_by_type($type_input)};
+
+
+my @input_collections;
+
+if ($name) {
+    my $c = $ca->fetch_by_name_and_type($name,$type_input);
+    throw("Could not find input collection $name of type $type_input") unless $c;
+    push @input_collections, $c;
+}
+else {
+    my %existing_names;
+    foreach my $collection (@{$ca->fetch_by_type($type_collection)}) {
+        $existing_names{$collection->name} = 1;
+    }
+    @input_collections = grep {! $existing_names{$_->name}} @{$ca->fetch_by_type($type_input)};
+}
 
 foreach my $input_collection (@input_collections) {
 
   my $input_files = $input_collection->others;
-  my ($mate1, $mate2, $frag) = assign_files($input_files);
+  my ($mate1, $mate2, $frag) = assign_files($input_files, \@regexs);
   my ($mate1_path, $mate2_path, $frag_path) = map {$_ ? $_->name : ''} ($mate1, $mate2, $frag);
 
 
@@ -105,11 +123,21 @@ foreach my $input_collection (@input_collections) {
                        : ceil($read_count1 / $num_output_files);
 
       foreach my $i (0..$num_output_files-1) {
-        my $read_first = $i * $reads_per_split + 1;
-        my $read_last = $i == $num_output_files -1 
-                      ? $read_count1
-                      : $read_first + $reads_per_split -1;
-        push(@collection_names, $input_collection->name . "_MATE$read_first-$read_last");
+        my $collection_name;
+        
+        if ($use_batch_numbering){
+            $collection_name = $input_collection->name . "_MATE$i-$num_output_files";
+        }
+        else{
+            my $read_first = $i * $reads_per_split + 1;
+            my $read_last = $i == $num_output_files -1 
+                          ? $read_count1
+                          : $read_first + $reads_per_split -1;
+           $collection_name = $input_collection->name . "_MATE$read_first-$read_last";
+        }
+        
+         push(@collection_names, $collection_name);
+        
       }
     }
     foreach my $collection_name (@collection_names) {
@@ -134,15 +162,24 @@ foreach my $input_collection (@input_collections) {
     else {
       my $reads_per_split = ($num_output_files == 1) ? 0
                        : ceil($read_count / $num_output_files);
-
-      foreach my $i (0..$num_output_files-1) {
-        my $read_first = $i * $reads_per_split + 1;
-        my $read_last = $i == $num_output_files -1 
-                      ? $read_count
-                      : $read_first + $reads_per_split -1;
-        push(@collection_names, $input_collection->name . "_FRAG$read_first-$read_last");
+     foreach my $i (0..$num_output_files-1) {
+        my $collection_name;
+        if ($use_batch_numbering){
+            $collection_name = $input_collection->name . "_FRAG$i-$num_output_files";
+        }
+        else {
+            my $read_first = $i * $reads_per_split + 1;
+            my $read_last = $i == $num_output_files -1 
+                          ? $read_count
+                          : $read_first + $reads_per_split -1;
+            $collection_name = $input_collection->name . "_FRAG$read_first-$read_last";
+         }
+        
+        push(@collection_names, $collection_name);
       }
+      
     }
+
     foreach my $collection_name (@collection_names) {
       my $collection = ReseqTrack::Collection->new(
                     -name => $collection_name, -type => $type_output,
@@ -155,7 +192,9 @@ foreach my $input_collection (@input_collections) {
   my $collection_of_collections = ReseqTrack::Collection->new(
                 -name => $input_collection->name, -type => $type_collection,
                 -table_name => 'collection', -others => \@split_collections);
+
   $ca->store($collection_of_collections);
+
 }
 
 
@@ -172,6 +211,9 @@ ReseqTrack/scripts/process/make_split_fastq_collections.pl
     This script fetches collections of fastq files. It calculates the best way to split
     the files for alignment. It writes new collections to the databases with names like
     NAME_MATE1-1000 and NAME_FRAG1-1000
+
+    The default action is to act on all collections of the type given in -type_input.
+    If -name is set, it will act on the named collection only.
 
 =head2 OPTIONS
 
@@ -192,10 +234,11 @@ ReseqTrack/scripts/process/make_split_fastq_collections.pl
             (many of these are created for each input collection)
         -type_collection, type of the collection of collections of files, e.g. FASTQ_CHUNK_SET
             (one of these is created for each input collection)
-
+        -name, name of an input collection to split. Allows this script to run as an event. Must be of the type specified by -type_input  
         -max_reads, integer, the number of reads will not exceed this value
         -max_bases, integer, the number of bases will not exceed this value
             Specify only one of -max_reads or -max_bases
+        -run_id_regex, used to assign files.  Default is '[ESD]RR\d{6}'
 
         -help, flag to print this help and exit
 

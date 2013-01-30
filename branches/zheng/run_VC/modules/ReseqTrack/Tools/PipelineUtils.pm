@@ -24,6 +24,7 @@ use warnings;
 use Exporter;
 use ReseqTrack::Job;
 use ReseqTrack::Tools::Exception qw(throw warning stack_trace_dump);
+use ReseqTrack::Tools::FileSystemUtils qw(check_directory_exists);
 use File::Path;
 use File::Basename;
 use Sys::Hostname;
@@ -224,6 +225,24 @@ sub get_incomplete_input_string_inputs{
     return \@inputs;
 }
 
+=head2 get_complete_inputs
+
+  Arg [1]  : database Adaptor
+  Arg [2]  : ReseqTrack::Event
+  Function : return the input strings for completed events
+  Returns  : ref to a list of strings
+
+=cut
+
+sub get_complete_inputs {
+	my ($db, $event) = @_;
+	my $csa = $db->get_EventCompleteAdaptor;
+	my $completed = $csa->fetch_by_event($event);
+	    
+	my @completed_inputs = map {$_->other->name} @$completed;
+	
+	return \@completed_inputs; 
+}
 
 =head2 create_event_commandline
 
@@ -436,7 +455,8 @@ sub check_workflow{
       $input_type_hash->{$condition->table_name}->{$condition->type} = $condition_inputs;
     }
 
-    my $completed_inputs = $csa->fetch_by_event($condition);
+    my $completed_inputs = get_complete_inputs($db,$condition);
+    
     my $total_inputs = $input_type_hash->{$condition->table_name}->{$condition->type};
     if(@$total_inputs != @$completed_inputs){
       print "Total inputs don't match the number of completed strings can't run\n" 
@@ -452,8 +472,10 @@ sub check_workflow{
         );
     my $only_input = $input_set->not($completed_set);
     if(@{$only_input->list}){
-      print "There are to many ids which are only on the input set can't run\n"
+      print "There are too many ids which are only on the input set can't run\n"
           if($verbose);
+      use Data::Dumper;
+      print Dumper({total => $total_inputs, completed => $completed_inputs});    
       return [];
     }
   }
@@ -578,14 +600,7 @@ sub create_job_output_stem{
   my $name = basename($input_string);
   my $num = int(rand($num_output_dirs));
   my $dir = $event->output_path . "/$num/";
-  if(! -e $dir){
-    eval{
-      mkpath($dir);
-    };
-    if($@){
-      throw("Failed to create ".$dir." $@");
-    }
-  }
+  check_directory_exists($dir);
   my $ident = int(rand(10000));
   my $stem = $dir."/".$name."_".$event->name."_".$ident;
   $stem =~ s/\/\//\//;

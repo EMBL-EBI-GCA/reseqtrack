@@ -35,6 +35,7 @@ my $debug;
 my $dir_to_tree = '/nfs/1000g-archive/vol1/ftp';
 my $CHANGELOG;
 my $STAGING_DIR="/nfs/1000g-work/G1K/archive_staging/ftp";
+my $output_prefix;
 
 my $check_old;
 my $check_new;
@@ -163,10 +164,14 @@ if ( ! ($check_old)  && ! ($check_new) ) {
 
   throw "Failed to get old_tree_md5\n" if (! $old_tree_md5 );
 
+  if (!defined $output_prefix) {
+    $dir_to_tree =~ /([^\/]+)\/*$/;
+    $output_prefix = $1;
+  }
 
   $dbA->dbc->disconnect_when_inactive(2);
  
-  dump_dirtree_summary($dir_to_tree,  $new_tree_file, undef, $fa, $file_list);
+  dump_dirtree_summary($dir_to_tree,  $new_tree_file, undef, $fa, $file_list, $output_prefix);
 
 
   throw "Failed to get new_tree_md5\n" if (! -e  $new_tree_file );
@@ -475,6 +480,9 @@ Standard options other than db paramters
                   default: /nfs/1000g-work/G1K/archive_staging/ftp
 
  -output_path    name for tree file to be generated.default 'current.tree'
+
+ -output_prefix  All files in the output_file will start with this prefix.
+                 Default is the name of dir_to_tree e.g. 'ftp' (not the full path)
 
  -skip           flag to skip archive table cleanup.
 

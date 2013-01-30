@@ -93,10 +93,9 @@ sub new {
       $self->vcfutils_path($vcfutils_path);
   }
 
-  $self->parameters($parameters);
-
-#  print "parameter hash keys are:\n";
-#  print join("\n", keys %{$self->parameters}) . "\n";
+  $self->options($parameters);
+  print "option hash keys are:\n";
+  print join("\n", keys %{$self->options}) . "\n";
   
   $self->super_pop_name($super_pop_name);
   
@@ -127,11 +126,11 @@ sub run_variant_calling {
     my ($self, $input_bams, $output_raw_bcf) = @_;  # $input_bams can be an array ref
 
     my $cmd = $self->program . " mpileup";
-
-	if ($self->parameters->{'mpileup'} ) {
-		$cmd .= " " . $self->parameters->{'mpileup'};
-		print "mpileup option is " . $self->parameters->{'mpileup'} . "\n";	
-	}	
+	
+	if ($self->options->{'mpileup'} ) {
+		$cmd .= " " . $self->options->{'mpileup'};
+		print "mpileup option is " . $self->options->{'mpileup'} . "\n";	
+	}			
 	else {
 		throw("Please provide parameters for running mpileup using tag -parameters");
 	}	           
@@ -150,11 +149,11 @@ sub run_variant_calling {
     }    
     
     $cmd .= " | " . $self->bcftools_path . " view";
-
-	if ($self->parameters->{'bcfview'} ) {
-		$cmd .= " " . $self->parameters->{'bcfview'};
-		print "bcfview option is " . $self->parameters->{'bcfview'} . "\n";	
-	}	
+	
+	if ($self->options->{'bcfview'} ) {
+		$cmd .= " " . $self->options->{'bcfview'};
+		print "bcfview option is " . $self->options->{'bcfview'} . "\n";	
+	}			
 	else {
 		throw("Please provide parameters for running bcfview using tag -parameters");
 	}   
@@ -188,11 +187,11 @@ sub run_variant_filtering {
 
     my $cmd = $self->bcftools_path . " view $input_raw_bcf | ";
     $cmd .= $self->vcfutils_path . " varFilter";
-
-	if ($self->parameters->{'vcfutils'} ) {
-		$cmd .= " " . $self->parameters->{'vcfutils'};
-		print "vcfutils option is " . $self->parameters->{'vcfutils'} . "\n";	
-	}	
+		
+	if ($self->options->{'vcfutils'} ) {
+		$cmd .= " " . $self->options->{'vcfutils'};
+		print "vcfutils option is " . $self->options->{'vcfutils'} . "\n";	
+	}		
 	else {
 		throw("Please provide parameters for running vcfutils using tag -parameters");
 	}
@@ -237,7 +236,7 @@ sub run_program {
     
     my $raw_out = $flt_out;
     $raw_out =~ s/flt/raw/;
-    $raw_out =~ s/vcf/bcf/;
+    $raw_out =~ s/\.vcf$/\.bcf/;
     
     $self->run_variant_calling($input_bams, $raw_out);
     $self->run_variant_filtering($raw_out, $flt_out);

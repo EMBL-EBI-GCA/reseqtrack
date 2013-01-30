@@ -1,29 +1,22 @@
-#!/sw/arch/bin/perl -w
+#!usr/bin/env perl
 
 use strict;
+use warnings;
 use Getopt::Long;
-use ReseqTrack::Tools::Exception;
-use ReseqTrack::Tools::FileUtils;
-use ReseqTrack::Tools::SequenceIndexUtils;
-use ReseqTrack::Collection;
-use ReseqTrack::Host;
 use ReseqTrack::DBSQL::DBAdaptor;
-use ReseqTrack::Tools::ERAUtils;
+use ReseqTrack::Tools::Exception qw(throw warning);
+use ReseqTrack::Tools::FileUtils qw(create_object_from_path create_history);
+use ReseqTrack::Tools::HostUtils qw(get_host_object);
+use ReseqTrack::Tools::ERAUtils qw(get_erapro_conn);
 use ReseqTrack::Tools::RunMetaInfoUtils qw( create_directory_path );
-use File::Basename;
-use File::Path;
 
 $| = 1;
 
 my $run_id;
-my $era_root_location = '/nfs/era-pub';
-my $copy_program = 'cp';
-my $copy_options = '';
-my $root_dir;
-my $host_name;
+my $source_root_location;
+my $host_name = '1000genomes.ebi.ac.uk';
 my $file_type;
 my $clobber;
-my $remote;
 my $dbhost;
 my $dbname;
 my $dbuser;
@@ -35,11 +28,11 @@ my $era_dbuser;
 my $era_dbpass;
 my $help = 0;
 my $directory_layout = 'sample_name/archive_sequence';
+my $module = 'ReseqTrack::Tools::GetFastq';
+my %module_options;
 
 &GetOptions( 
   'run_id=s' => \$run_id,
-  'program=s' => \$copy_program,
-  'options=s' => \$copy_options,
   'output_dir=s' => \$output_dir,
   'host_name=s' => \$host_name,
   'type|file_type=s' => \$file_type,
@@ -49,17 +42,24 @@ my $directory_layout = 'sample_name/archive_sequence';
   'dbuser=s'       => \$dbuser,
   'dbpass=s'       => \$dbpass,
   'dbport=s'       => \$dbport,
-  'remote!' => \$remote,
   'load!' => \$load,
   'era_dbuser=s' =>\$era_dbuser,
   'era_dbpass=s' => \$era_dbpass,
   'help!' => \$help,
   'directory_layout=s' => \$directory_layout,
+  'module=s' => \$module,
+  'root_location=s' => \$source_root_location,
+  'module_option=s' => \%module_options,
     );
 
 if($help){
-  useage();
+  usage();
 }
+
+eval "require $module" or throw "cannot load module $module $@";
+
+throw("need a run_id") if !$run_id;
+throw("need a file type to load files") if ($load && !$file_type);
 
 my $db = ReseqTrack::DBSQL::DBAdaptor->new(
   -host   => $dbhost,
@@ -71,102 +71,76 @@ my $db = ReseqTrack::DBSQL::DBAdaptor->new(
 
 my $era_db = get_erapro_conn($era_dbuser, $era_dbpass);
 
-my $rmi_a = $db->get_RunMetaInfoAdaptor;
-
-my $meta_info = $rmi_a->fetch_by_run_id($run_id);
-$db->dbc->disconnect_when_inactive(1);
+my $meta_info = $db->get_RunMetaInfoAdaptor->fetch_by_run_id($run_id);
 throw("Failed to find a run meta info object for ".$run_id." from ".$dbname)
     unless($meta_info);
 
-if($meta_info->status ne 'public'){
+if($meta_info->instrument_platform eq 'COMPLETE_GENOMICS'){
   exit(0);
 }
 
-my $full_output_dir = create_directory_path($meta_info, $directory_layout, $output_dir);
-
-unless(-d $full_output_dir){
-  mkpath($full_output_dir);
+if ($directory_layout) {
+  $output_dir = create_directory_path($meta_info, $directory_layout, $output_dir);
 }
-my $era_rmia = $era_db->get_ERARunMetaInfoAdaptor;
 
-unless($era_rmia->is_fastq_available($run_id)){
-  print STDERR "There are no fastq files available for ".$run_id."\n";
-  exit(20);
-}
 $db->dbc->disconnect_when_inactive(1);
-my $hash = get_era_fastq($run_id, $full_output_dir, $era_root_location, $clobber, $copy_program, $copy_options, $era_db);
 
-my $ha = $db->get_HostAdaptor;
-my $host = $ha->fetch_by_name($host_name);
-if(!$host){
-  $host = ReseqTrack::Host->new
-      (
-       -name => $host_name,
-       -remote => $remote
-      );
+my %constructor_hash;
+while (my ($key, $value) = each %module_options) {
+  $constructor_hash{'-'.$key} = $value;
 }
+$constructor_hash{-output_dir} = $output_dir;
+$constructor_hash{-run_meta_info} = $meta_info;
+$constructor_hash{-source_root_dir} = $source_root_location;
+$constructor_hash{-clobber} = $clobber;
+$constructor_hash{-db} = $era_db;
 
-my @objects;
+my $fastq_getter = $module->new (%constructor_hash);
+my $num_files = $fastq_getter->run;
 
-throw("Have failed to fetch any fastq files for ".$run_id." in ".$full_output_dir)
-  unless(keys(%$hash));
-
-
-foreach my $path(keys(%$hash)){
-  my $size = -s $path;
-  if($size <= 20){
-    throw($path." appears to be empty");
-  }
-  my $files = create_objects_from_path_list([$path], $file_type, $host);
-  my $file = $files->[0];
-  my $md5 = $hash->{$file->name};
-  if(!$md5){
-    warning("Don't have an md5 for ".$file->filename);
-  }
-  $file->md5($md5);
-  push(@objects, $file);
-}
-$db->dbc->disconnect_when_inactive(0);
-if($load){
+my $host = get_host_object($host_name, $db);
+my $fastq_paths = $fastq_getter->output_files;
+my @file_objects;
+if($load && $num_files){
+  $db->dbc->disconnect_when_inactive(0);
   my $fa = $db->get_FileAdaptor;
-  foreach my $object(@objects){
-    my $objects = $fa->fetch_by_filename($object->filename);
-    if($objects && @$objects >= 1){
-      my $stored_object;
-      if(@$objects == 1){
-        $stored_object = $objects->[0];
-      }else{
-        throw("Not sure what to do, seem to have ".@$objects." associated with ".
-              $object->filename);
+  foreach my $path (@$fastq_paths) {
+    my $file = create_object_from_path($path, $file_type, $host);
+    my $md5 = $fastq_getter->md5_hash->{$path};
+    warning("Don't have md5 for $path") if !$md5;
+    $file->md5($md5);
+
+    my $stored_files = $fa->fetch_by_filename($file->filename);
+    if (@$stored_files) {
+      if (@$stored_files > 1) {
+        throw("Not sure what to do, seem to have ".@$stored_files." associated with ".  $file->filename)
       }
-      my $history = create_history($object, $stored_object);
-      $object->dbID($stored_object->dbID);
-      $object->history($history);
+      my $history = create_history($file, $stored_files->[0]);
+      $file->dbID($stored_files->[0]->dbID);
+      $file->history($history);
     }
-    $fa->store($object, 1);
+    push(@file_objects, $file);
+  }
+
+  my $collection =  ReseqTrack::Collection->new(
+    -name => $run_id,
+    -others => \@file_objects,
+    -type => $file_type,
+      );
+
+  my $ca = $db->get_CollectionAdaptor;
+  $ca->store($collection);
+
+  my $stored_collection = $ca->fetch_by_name_and_type($run_id, $file_type);
+  foreach my $stored_file(@{$stored_collection->others}){
+    throw($stored_file->name." doesn't exist") unless(-e $stored_file->name);
   }
 }
 
-my $collection =  ReseqTrack::Collection->new(
-  -name => $run_id,
-  -others => \@objects,
-  -type => $file_type,
-  -table_name => 'file',
-    );
-
-my $ca = $db->get_CollectionAdaptor;
-$ca->store($collection) if($load);
 
 
-my $new_collection = $ca->fetch_by_name_and_type($run_id, $file_type);
-my $others = $new_collection->others;
-my @paths;
-foreach my $other(@$others){
-  push(@paths, $other->name);
-  throw($other->name." doesn't exist") unless(-e $other->name);
-}
 
-sub useage{
+sub usage{
   exec('perldoc', $0);
   exit(0);
 }
@@ -199,19 +173,22 @@ These are for the ERA database
 -era_dbuser, the name of the era database user
 -era_dbpass, the password for the era database
 
+Controls method of getting fastq:
+
+-module, default is ReseqTrack::Tools::GetFastq.  Can use any module that inherits from this class.
+-module_option, used only for child classes of GetFastq, e.g. -option password=mypassword
+
 Input options
 
 -run_id, this is the run id for the run you wish to fetch the fastq files for
--program, this is the program to use to run the fetch, by default this is wget
--options, this is any commandline options for the above program
 -output_dir, this is the root path where the files should be written. Meta information associated with the run id will be used to complete the path in the style root_path/sample_id/archive_fastq
 -type/file_type, this is the file/collection type to use when loading the data
--host_name, this is the name of the host object to associated with the files
+-host_name, this is the name of the host object to associated with the files (default 1000genomes.ebi.ac.uk)
 -clobber, this specifies whether existing files should be copied over or not
--remote, this specifies if the give host is remote
 -load, this species if the created file/collection objects should be loaded into
 the database
 -directory_layout, this specifies where the files will be located under output_dir. Tokens matching method names in RunMetaInfo will be substituted with that methods return value. Default value is sample_name/archive_sequence
+-root_location, the root directory for era files, default is /nfs/era-pub
 
 =head1 Examples
 
