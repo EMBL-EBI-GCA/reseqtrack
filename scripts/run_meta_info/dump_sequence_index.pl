@@ -31,22 +31,22 @@ my $current_index ;
 my @print_status;
 
 &GetOptions(
-	    'dbhost=s'      => \$dbhost,
-	    'dbname=s'      => \$dbname,
-	    'dbuser=s'      => \$dbuser,
-	    'dbpass=s'      => \$dbpass,
-	    'dbport=s'      => \$dbport,
-	    'type=s' => \$type,
-	    'table_name=s' => \$table_name,
-	    'help!' => \$help,
-	    'output_file=s' => \$output_file,
-	    'trim_paths!' => \$trim_paths,
-	    'root_trim=s' => \$root_trim,
-	    'skip_study_id=s@' => \@skip_study_ids,
-	    'run_id=s' => \$single_run_id,
+	    'dbhost=s'      		=> \$dbhost,
+	    'dbname=s'      		=> \$dbname,
+	    'dbuser=s'      		=> \$dbuser,
+	    'dbpass=s'      		=> \$dbpass,
+	    'dbport=s'      		=> \$dbport,
+	    'type=s' 				=> \$type,
+	    'table_name=s' 			=> \$table_name,
+	    'help!' 				=> \$help,
+	    'output_file=s' 		=> \$output_file,
+	    'trim_paths!' 			=> \$trim_paths,
+	    'root_trim=s' 			=> \$root_trim,
+	    'skip_study_id=s@' 		=> \@skip_study_ids,
+	    'run_id=s' 				=> \$single_run_id,
 	    'study_collection_type:s' => \$study_collection_type,
-	    'current_index=s'     =>\$current_index,
-            'print_status=s'  => \@print_status,
+	    'current_index=s'     	=>\$current_index,
+        'print_status=s'  		=> \@print_status,
 	   );
 
 if($help){
@@ -71,7 +71,6 @@ if ($current_index){
   open my $CURRENT_SI,'<', $current_index; 
     die "Cannot load current sequence index:$current_index\n" if (!$CURRENT_SI);
 
-#  my %current_hash;
   while (<$CURRENT_SI>){
     chomp;
     my @aa = split /\t/;
@@ -84,8 +83,6 @@ if ($current_index){
   }
   close ($CURRENT_SI);
 }
-
-
 
 my %skip_study_id;
 my %staging_area;
@@ -128,11 +125,12 @@ if($table_name eq 'file'){
 }
 my %index_lines;
 
-
-
  META_INFO:foreach my $meta_info(@sorted){
   #print "Have ".$meta_info->run_id."\n";
    my $analysis_group = $study_collection_hash{$meta_info->run_id};
+   if ( $analysis_group =~ /high coverage cgi/ ) {  # This is to skip Complete Genomics Runs
+   		next META_INFO;
+   }
    if($single_run_id){
      #print STDERR "Comparing ".$meta_info->run_id." to ".$single_run_id."\n";
      next META_INFO unless($meta_info->run_id eq $single_run_id);
@@ -275,7 +273,6 @@ foreach my $meta_info(@sorted){
   my $lines = $index_lines{$meta_info->run_id};
   if($lines && @$lines > 0){
     foreach my $line(@$lines){
-    	
       if (!$line ){                                                                                   
 	print "Have bad line for ".$meta_info->run_id."\n";
        $bad_lines++;                                                                                      
@@ -292,7 +289,7 @@ foreach my $meta_info(@sorted){
       }
     }
   }else{
-    print STDERR "Have no lines for ".$meta_info->run_id."\n" unless($single_run_id);
+    print STDERR "Have no lines for ".$meta_info->run_id." " . $meta_info->center_name . "\n" unless($single_run_id);
   }
 }
 close($fh);
