@@ -14,8 +14,6 @@ use File::Path;
 use Getopt::Long;
 use Time::Local;
 
-#use lib '/nfs/1000g-work/G1K/work/zheng/reseq-personal/zheng/lib';
-#use myTIME;
 use ReseqTrack::Tools::myTIME;
 
 $| = 1; 
@@ -41,6 +39,7 @@ my (
 my $move_to_dir = "/nfs/1000g-work/G1K/archive_staging/ftp/data";
 my $output_dir = ".";
 my $run_farm_job_flag = 0; #when all files have been moved to archive_staging area; just need to kick off farm job 
+my $skip_save_collection = 0;
 
 &GetOptions(
   'dbhost=s'     		=> \$dbhost,
@@ -51,6 +50,7 @@ my $run_farm_job_flag = 0; #when all files have been moved to archive_staging ar
   'help!'		 		=> \$help,
   'move_to_dir=s'		=> \$move_to_dir,
   'run!'				=> \$run,
+  'skip_save_collection!'	=> \$skip_save_collection,
   'verbose!'			=> \$verbose,
   'out=s'				=> \$output_dir,
   'kick_off_farm_job:s'	=> \$run_farm_job_flag, #value is ncbi, sanger, tgen, broad, baylor, boston_college
@@ -122,7 +122,7 @@ foreach my $host ( @$remote_hosts ) {
 	
 	#### To make sure all bam/bai/bas files in the database make a corresponding entry in the dropbox 
 	#### To make sure that file size in dropbox is the same as the one in the db  
-	#### To move a qualified file to a specified dir and later insert it into a collection
+	#### To move a qualified file to a specified dir and later insert it into a collection ( if skip_save_collection is not set)
 	  
 	my $files = $fa->fetch_by_host($host_id);
 	#warning ("No file object is found; please check the host $host_name\n") if (!$files || @$files == 0 );
@@ -155,14 +155,17 @@ foreach my $host ( @$remote_hosts ) {
 		elsif ( $file->type =~ /CG/ || $file->type =~ /HIGH_COV/ ) {
 			$analysis_group{'high_coverage'} = 1;
 		}	
-		else {
+		elsif ( $file->name =~ /low_coverage/ ) {
 			$analysis_group{'low_coverage'} = 1;
+		}
+		else {
+			$analysis_group{'NA'} = 1;
 		}
 				
 		my $aspx = $file_name . ".aspx" if ($file_name);
 		
 #		if ($file->type =~ /BAM/ || $file->type =~ /BAI/ || $file->type =~ /BAS/ ) {
-		if ($file->type =~ /BAM/ || $file->type =~ /BAI/ || $file->type =~ /BAS/ || $file->type =~ /CG_/ ) {
+		if ($file->type =~ /BAM/ || $file->type =~ /BAI/ || $file->type =~ /BAS/ || $file->type =~ /CG_/ || $file->type =~ /NCBI_CORTEX/) {
 			if ( $file_name && -e $file_name) {
 				my $size = -s $file_name;
 				if ( $size != $size_in_db && ( ( -M $file_name ) > 99) ) {	# if the file size is different from what is the db 
@@ -229,7 +232,7 @@ foreach my $host ( @$remote_hosts ) {
 				
 				my $days_elapsed = ( time() - timelocal($sec, $min, $hr, $day, $mon-1, $yr-1900 ) )  / 86400; 
 				
-				if ( $days_elapsed < 15) {  ##### FIXME, 8 is a magic number, need reality check
+				if ( $days_elapsed < 15) {  ##### FIXME, 15 is a magic number, need reality check
 					$in_process_flag = 1;
 					write_log($file, $loga, "WARNING: File does not exist in dropbox, it might not have been loaded yet!");
 				}
@@ -240,8 +243,8 @@ foreach my $host ( @$remote_hosts ) {
 			}
 		} # end of checking type	
 		else {
-			print STDERR "File $original_file_name is not a BAM/BAS/BAI, ignore!\n";
-			write_log($file, $loga, "File is not of type BAM/BAS/BAI, ignore!");
+			print STDERR "File $original_file_name is not a BAM/BAS/BAI or CG or NCBI_CORTEX, ignore!\n";
+			write_log($file, $loga, "File is not of type BAM/BAS/BAI or CG or NCBI_CORTEX, ignore!");
 		}			
 	} # end of foreach file	
 	
@@ -280,7 +283,7 @@ foreach my $host ( @$remote_hosts ) {
 		}	
 	}
 	
-	if ($move_flag == 1) {			
+	if ($move_flag == 1 && !$skip_save_collection) {			
 		foreach my $alignment_dir (keys %dir_hash) {
 			create_and_load_collection($run, $db, $alignment_dir, $log, $withdrawn_list_fh, $withdraw_file);
 		}
@@ -293,9 +296,9 @@ foreach my $host ( @$remote_hosts ) {
 		my $command = "perl /nfs/1000g-work/G1K/work/zheng/reseqtrack/scripts/event/run_event_pipeline.pl ";
 		$command .= "-dbhost mysql-g1kdcc-public -dbname g1k_archive_staging_track -dbuser g1krw -dbpass thousandgenomes -dbport 4197 ";
 #		$command .= "-dbhost mysql-g1kdcc-public -dbname zheng_var_call -dbuser g1krw -dbpass thousandgenomes -dbport 4197 "; #### FIXME, change to the above line after testing
-		$command .= "-once -runner /nfs/1000g-work/G1K/work/zheng/reseqtrack/scripts/event/runner.pl "; 	
+		$command .= "-once -submit_all_jobs -runner /nfs/1000g-work/G1K/work/zheng/reseqtrack/scripts/event/runner.pl "; 	
 		
-		## FIXME, tgen will provide exome bams
+		## FIXME, check if correct event is being called
 		
 		if ( ($host_name eq "sanger" || $host_name eq "tgen") && defined $analysis_grp && $analysis_grp eq "low_coverage" ) {
 			$command .= "-name bam_release & ";
@@ -309,18 +312,12 @@ foreach my $host ( @$remote_hosts ) {
 		elsif ( $host_name eq "tgen" && defined $analysis_grp && $analysis_grp eq "exome" ) {
 			$command .= "-name exome_bam_release & ";
 		}
-		#elsif ($host_name eq "baylor" && defined $analysis_grp && $analysis_grp eq "exome" ) {
-		#	$command .= "-name exome_bam_release & ";
-		#}	
 		elsif ($host_name eq "ncbi") {
 			$command .= "-name ncbi_bam_release & ";
 		}	
 		elsif ($host_name eq "boston_college" && defined $analysis_grp && $analysis_grp eq "exome" ) {
 			$command .= "-name exome_bam_release_boston_college & ";
 		}	
-		#elsif ( $host_name eq "broad") { 
-		#	$command .= "-name exome_bam_release_broad & ";
-		#}	
 		elsif ( ! $analysis_grp  && $run_farm_job_flag ) {
 			warning("For host $host_name no analysis group has been parsed out, please provide -analysis_grp to -kick_off_farm_job\n");
 		}	
@@ -341,22 +338,6 @@ foreach my $host ( @$remote_hosts ) {
 			
 			print "Submitting farm jobs.........\n";												
 			`$command`;
-
-=head										
-	
-			foreach my $directory ( keys %dir_file_hash) {
-				foreach my $f ( @{$dir_file_hash{$directory}} ) {
-					my $file_to_archive = $f->name;
-					next if ($file_to_archive =~ /bai/ || $file_to_archive =~ /bas/);
-					#print "Input file name for the qa program is: $file_to_archive\n" if ($verbose);
-					`/usr/bin/perl /homes/zheng/reseq-personal/zheng/bin/bam_md5check_and_archive.auto.pl $db_parameters -bam $file_to_archive -out $output_dir -verbose`;
-					# FIXME: for test, did not use the -run option since zheng-automation_test is not capable of archiving.  
-					# use the -run option after test!!  
-				}
-			}			
-	
-=cut
-	###FIXME: comment out above lines after testing
 		}
 		else {
 			print "No file is moved and processed this time for host $host_name, did you set the -run tag?\n";
@@ -578,6 +559,11 @@ sub check_name_and_move_file {
 	elsif ( $filen =~ /COMPLETE_GENOMICS/ ) {
 		$new_dir = $move_to_dir . "/" . $ind . "/cg_data/";
 	}	
+	elsif ( $file->type =~ /NCBI_CORTEX/ ) { # this is to handle the cortex files from NCBI
+		my @tmp = split (/\//, $file->name);
+		my $pop = $tmp[6];
+		$new_dir =  $move_to_dir . "/" . $pop . "/";
+	}	
 	else {
 		$new_dir = $move_to_dir . "/" . $ind . "/alignment/";
 	}		
@@ -585,7 +571,8 @@ sub check_name_and_move_file {
 	unless (-e $new_dir) {
 		mkpath($new_dir);
 	}
-			
+	
+	$filen =~ s/20120522/20120522_p2b/;  ##### FIXME, remove this after the last TGEN run!!!		
 	my $new_file_path = $new_dir . $filen;
 				
 	`mv $full_name $new_file_path` if ($run);	 	
@@ -605,7 +592,7 @@ sub check_name_and_move_file {
 	      -host => $new_host,
 	      -type => $file->type,
 	      -size => $file->size,
-	      -created => $file ->created
+	      -created => $file->created
 	   );
 			     
 	my $history_ref = $file->history;
