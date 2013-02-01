@@ -193,18 +193,30 @@ sub execute_command_line {
       throw "could not fork: $!";
     }
     elsif(!$pid) {
+      setpgrp(0,0);
+      $self->save_files_from_deletion(1);
       exec(bash => (-o => 'pipefail', -c => $command_line)) or do{
         print STDERR "$command_line did not execute: $!\n";
         exit(255);
       }
     }
+    my $pgid = getpgrp($pid);
     while (! waitpid($pid, WNOHANG)) {
-      sleep(5);
+      sleep(3);
       if ($term_sig) {
-        kill 15, $pid;
+        my $deleting_pid = fork;
+        if ($deleting_pid == 0) {
+          #kill -15, getpgrp($pid);
+          `kill -s 15 $pgid`;
+          $self->delete_files;
+        }
+        #kill -15, getpgrp($pid);
+        #`kill -s 15 $pgid`;
+        $self->save_files_from_deletion(1);
+        throw("received a signal ($term_sig) so command line was killed $command_line");
       }
     }
-    throw("received a signal ($term_sig) so command line was killed $command_line") if ($term_sig);
+    #throw("received a signal ($term_sig) so command line was killed $command_line") if ($term_sig);
     throw("command failed: $! $command_line") if ( $? == -1 );
 
     my $signal = $? & 127;
