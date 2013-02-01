@@ -46,6 +46,8 @@ sub run {
       check_file_exists($fastq);
     }
 
+    $self->data_dbc->disconnect_when_inactive(1);
+
     my $run_alignment = ReseqTrack::Tools::RunAlignment::BWA->new(
           -input_files => $fastqs,
           -program => $self->param('program_file'),
@@ -60,6 +62,7 @@ sub run {
     $run_alignment->run;
 
     $self->output_this_branch('bam' => $run_alignment->output_files);
+    $self->data_dbc->disconnect_when_inactive(0);
 
 }
 

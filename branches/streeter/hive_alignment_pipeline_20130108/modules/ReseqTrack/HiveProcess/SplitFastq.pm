@@ -58,6 +58,8 @@ sub run {
       $line_count_hash{$frag_path} = $line_count;
     }
 
+    $self->data_dbc->disconnect_when_inactive(1);
+
     my $run_split = ReseqTrack::Tools::RunSplit->new(
         -program => $program_file,
         -working_dir => $output_dir,
@@ -81,6 +83,7 @@ sub run {
     }
 
     $self->output_this_branch('source_fastq' => [$mate1_path, $mate2_path, $frag_path]);
+    $self->data_dbc->disconnect_when_inactive(0);
 
 }
 

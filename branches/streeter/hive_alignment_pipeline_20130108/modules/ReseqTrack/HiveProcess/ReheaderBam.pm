@@ -31,6 +31,8 @@ sub run {
       push(@extra_header_lines, "\@CO\tFASTQ=$basename");
     }
 
+    $self->data_dbc->disconnect_when_inactive(1);
+
     my $reheader_object = ReseqTrack::Tools::ReheaderBam->new(
       -input_files  => $bams,
       -working_dir  => $output_dir,
@@ -47,6 +49,7 @@ sub run {
     );
     $reheader_object->run;
     $self->output_this_branch('bam' => $reheader_object->output_files);
+    $self->data_dbc->disconnect_when_inactive(0);
 }
 
 

@@ -22,6 +22,8 @@ sub run {
     my $job_name = $self->param('job_name') or die "'job_name' is an obligatory parameter";
     my $program_file = $self->param('program_file');
 
+    $self->data_dbc->disconnect_when_inactive(1);
+
     my $bam_squeezer = ReseqTrack::Tools::RunBamSqueeze->new(
       -input_files  => $bams,
       -working_dir  => $output_dir,
@@ -33,6 +35,7 @@ sub run {
     );
     $bam_squeezer->run;
     $self->output_this_branch('bam' => $bam_squeezer->output_files);
+    $self->data_dbc->disconnect_when_inactive(0);
 }
 
 

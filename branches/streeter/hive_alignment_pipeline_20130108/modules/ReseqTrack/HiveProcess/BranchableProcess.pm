@@ -111,6 +111,21 @@ sub write_output {
     }
 }
 
+# Just in case the child class sets disconnect_when_inactive(1) and then throws an error before changing it back
+sub DESTROY {
+  my $self = shift;
+  return if !$self->{'_data_dbc'};
+  $self->data_dbc->disconnect_when_inactive(0);
+}
+
+sub get_param_array {
+  my ($self, $key) = @_;
+  my $param = $self->param($key);
+  return $param if ref($param) eq 'ARRAY';
+  return [] if !defined $param;
+  return [$param];
+}
+
 sub output_child_branches {
   my ($self, %args) = @_;
   if (scalar keys %args) {

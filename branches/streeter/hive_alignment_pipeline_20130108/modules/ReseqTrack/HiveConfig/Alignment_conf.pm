@@ -50,7 +50,7 @@ init_pipeline.pl Bio::EnsEMBL::Hive::PipeConfig::LongMult_conf -job_topup -passw
 =cut
 
 
-package ReseqTrack::HiveConfig::AlignmentPipeline_conf;
+package ReseqTrack::HiveConfig::Alignment_conf;
 
 use strict;
 use warnings;
@@ -233,16 +233,31 @@ sub pipeline_analyses {
 
     my @analyses;
     push(@analyses, {
+            -logic_name    => 'studies_factory',
+            -module        => 'ReseqTrack::HiveProcess::JobFactory',
+            -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
+            -parameters    => {
+                branch_parameters_out => {
+                  value => 'STUDY_ID',
+                }
+            },
+            -input_ids => [{branch_id => 0, values => [split(',', $self->o('study_id'))]}],
+            -flow_into => {
+                2 => [ 'samples_factory' ],   # will create a semaphored fan of jobs
+            },
+      });
+    push(@analyses, {
             -logic_name    => 'samples_factory',
             -module        => 'ReseqTrack::HiveProcess::RunMetaInfoFactory',
             -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
             -parameters    => {
                 type_branch => 'sample',
+                branch_parameters_in => {
+                    branch_study_id => 'STUDY_ID',
+                }
             },
-            -input_ids => [{'branch_id' => 0}],
             -flow_into => {
-                '2->A' => [ 'libraries_factory' ],   # will create a semaphored fan of jobs
-                'A->1' => [ 'pipeline_done'  ],   # will create a semaphored funnel job to wait for the fan to complete
+                2 => [ 'libraries_factory' ],   # will create a semaphored fan of jobs
             },
       });
     push(@analyses, {
@@ -543,6 +558,7 @@ sub pipeline_analyses {
                 program_file => $self->o('samtools_exe'),
                 command => 'calmd',
                 reference => $self->o('reference'),
+                samtools_options => {input_sort_status => 'c'},
                 branch_parameters_in => {
                     bam => {key => 'BAM', becomes_inactive => 1},
                 },
@@ -652,11 +668,6 @@ sub pipeline_analyses {
             -rc_name => '200Mb',
             -analysis_capacity  =>  50,  # use per-analysis limiter
             -hive_capacity  =>  -1,
-      });
-    push(@analyses, {
-            -logic_name => 'pipeline_done',
-            -meadow_type=> 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
-            -module        => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
       });
 
     return \@analyses;

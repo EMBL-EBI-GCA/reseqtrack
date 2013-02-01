@@ -35,6 +35,8 @@ sub run {
     throw("cannot load $module_name: $@") if $@;
     my $gatk_module = "ReseqTrack::Tools::GATKTools::$module_name";
 
+    $self->data_dbc->disconnect_when_inactive(1);
+
     my $gatk_object = $gatk_module->new(
       -input_files  => $bams,
       -working_dir  => $output_dir,
@@ -48,6 +50,7 @@ sub run {
     );
     $gatk_object->run($command);
     $self->output_this_branch('bam' => $gatk_object->output_bam);
+    $self->data_dbc->disconnect_when_inactive(0);
 }
 
 

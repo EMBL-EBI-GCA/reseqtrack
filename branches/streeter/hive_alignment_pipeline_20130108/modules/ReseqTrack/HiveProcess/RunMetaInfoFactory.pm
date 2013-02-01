@@ -19,15 +19,20 @@ sub run {
 
     my $type_branch = $self->param('type_branch') || die "'type_branch' is an obligatory parameter";
     my $output_dir = $self->param('output_dir') || die "'output_dir' is an obligatory parameter";
-    my $sub_dir = $self->param('sub_dir');
 
     my $db = ReseqTrack::DBSQL::DBAdaptor->new(%{$self->param('reseqtrack_db')});
 
     if (lc($type_branch) eq 'sample') {
       #my $sql = "SELECT DISTINCT sample_id FROM run_meta_info";
-      my $sql = "SELECT sample_id, sample_name FROM run_meta_info GROUP BY sample_id";
+      my $sql = "SELECT sample_id, sample_name FROM run_meta_info";
+      my @bind_values;
+      if (my $study_id = $self->param('branch_study_id')) {
+        $sql .= ' WHERE study_id = ?';
+        push(@bind_values, $study_id);
+      }
+      $sql .= " GROUP BY sample_id";
       my $sth = $db->dbc->prepare($sql) or die "could not prepare $sql: ".$db->dbc->errstr;;
-      $sth->execute() or die "could not execute $sql: ".$sth->errstr;
+      $sth->execute(@bind_values) or die "could not execute $sql: ".$sth->errstr;
 
       while (my $row = $sth->fetchrow_arrayref) {
         my ($sample_id, $sample_name) = @$row;
@@ -38,11 +43,15 @@ sub run {
       #}
     }
     elsif(lc($type_branch) eq 'library') {
-      my $sql = 'SELECT DISTINCT library_name FROM run_meta_info';
+      my $sql = 'SELECT DISTINCT library_name FROM run_meta_info WHERE 1';
       my @bind_values;
       if (my $branch_sample_id = $self->param('branch_sample_id')) {
-        $sql .= ' WHERE sample_id = ?';
+        $sql .= ' AND sample_id = ?';
         push(@bind_values, $branch_sample_id);
+      }
+      if (my $study_id = $self->param('branch_study_id')) {
+        $sql .= ' AND study_id = ?';
+        push(@bind_values, $study_id);
       }
       my $sth = $db->dbc->prepare($sql) or die "could not prepare $sql: ".$db->dbc->errstr;;
       $sth->execute(@bind_values) or die "could not execute $sql: ".$sth->errstr;
@@ -60,6 +69,10 @@ sub run {
       if (my $library_name = $self->param('branch_library_name')) {
         $sql .= ' AND library_name = ?';
         push(@bind_values, $library_name);
+      }
+      if (my $study_id = $self->param('branch_study_id')) {
+        $sql .= ' AND study_id = ?';
+        push(@bind_values, $study_id);
       }
       my $sth = $db->dbc->prepare($sql) or die "could not prepare $sql: ".$db->dbc->errstr;;
       $sth->execute(@bind_values) or die "could not execute $sql: ".$sth->errstr;

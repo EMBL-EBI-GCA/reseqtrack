@@ -29,6 +29,8 @@ sub run {
     throw( "Don't recognise command $command. Acceptable commands are: @allowed_cmds")
       if ( !grep { $command eq $_ } @allowed_cmds );
 
+    $self->data_dbc->disconnect_when_inactive(1);
+
     my $picard_object = ReseqTrack::Tools::RunPicard->new(
       -input_files  => $bams,
       -working_dir  => $output_dir,
@@ -44,6 +46,7 @@ sub run {
     $picard_object->run($command);
     $self->output_this_branch('bam' => $picard_object->output_bam_files,
                               'bai' => $picard_object->output_bai_files);
+    $self->data_dbc->disconnect_when_inactive(0);
 
 }
 
