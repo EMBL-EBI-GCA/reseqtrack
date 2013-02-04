@@ -16,7 +16,10 @@ use ReseqTrack::Tools::FileSystemUtils qw(delete_file);
 
 sub fetch_input {
   my ($self) = @_;
-  throw("do not have a branch id") if !defined $self->param('branch_id');
+  $self->_process_branch_ids;
+  $self->_process_parent_branch_ids;
+  $self->_process_child_branch_ids;
+
   my $root_output_dir = $self->param('root_output_dir');
 
   my $branch_params_in = $self->param('branch_parameters_in');
@@ -46,14 +49,8 @@ sub fetch_input {
     }
   }
 
-  if (!$self->param('output_dir')) {
-    $self->param('output_dir', $root_output_dir);
-  }
-
-  my $analysis_label = $self->param('analysis_label') || $self->analysis->logic_name;
-  my $branch_label = $self->param('branch_label');
-  my $job_name = $branch_label ? "$branch_label.$analysis_label" : $analysis_label;
-  $self->param('job_name', $job_name);
+  $self->_process_output_dir;
+  $self->_process_labels;
 }
 
 =head2 run
@@ -82,28 +79,34 @@ sub write_output {
       $arg = {key => $arg};
     }
 
-    DATA_TYPE:
+    my $branch_id_hash = $self->{'_branch_id_hash'};
+    my @branch_ids = values %$branch_id_hash;
+
+    my %output_data;
     while (my ($param_key, $value) = each %{$self->output_this_branch}) {
       my $db_hash = $branch_params_out->{$param_key};
       my $db_key = $db_hash ? $db_hash->{'key'} : $param_key;
-      $self->_branch_meta_data(key => $db_key, value => $value);
+      $output_data{$db_key} = $value;
     }
+    $self->_add_branch_data(\@branch_ids, \%output_data);
 
     my $output_child_branches = $self->output_child_branches;
     my $num_child_branches = scalar @$output_child_branches;
-    my $child_branch_ids = $self->_make_child_branches($num_child_branches);
+    my $child_branch_ids = $self->_add_branches($num_child_branches, ??SYSTEM??);
     foreach my $i (0..$num_child_branches-1) {
+      my %db_data;
       DATA_TYPE:
       while (my ($param_key, $value) = each %{$self->output_child_branches->[$i]}) {
         my $db_hash = $branch_params_out->{$param_key};
         my $db_key = $db_hash ? $db_hash->{'key'} : $param_key;
-        $self->_branch_meta_data('branch_id' => $child_branch_ids->[$i], 'key' => $db_key, 'value' => $value);
+        $db_data{$db_key} = $value;
       }
-      $self->dataflow_output_id( {'branch_id' => $child_branch_ids->[$i]}, 2);
+      $self->_add_branch_data(??BRANCH_IDs??, \%db_data);
+      $self->dataflow_output_id( {'branch_id' => [$child_branch_ids->[$i], ??OTHERS??]}, 2);
     }
 
     foreach my $i (@{$self->flows_this_branch}) {
-      $self->dataflow_output_id( {'branch_id' => $self->param('branch_id')}, $i);
+      $self->dataflow_output_id( {'branch_id' => \@branch_ids}, $i);
     }
 
     foreach my $file (@{$self->_files_to_delete}) {
@@ -118,6 +121,120 @@ sub DESTROY {
   $self->data_dbc->disconnect_when_inactive(0);
 }
 
+sub _process_branch_ids {
+  my ($self) = @_;
+  my $param_branch_ids = $self->get_param_array('branch_id');
+  throw("no branch id") if !@param_branch_ids;
+  my $sql = "SELECT branch_system_id FROM branch WHERE branch_id=?";
+  my $hive_dbc = $self->data_dbc();
+  my $sth = $hive_dbc->prepare($sql) or die "could not prepare $sql: ".$hive_dbc->errstr;
+  my %branch_ids;
+  foreach my $branch_id (@$param_branch_ids) {
+    $sth->bind_param(1, $branch_id);
+    $sth->execute() or die "could not execute $sql: ".$sth->errstr;
+    my $row = $sth->fetchrow_arrayref();
+    throw("did not recognise $branch_id") if !defined $row;
+    $branch_ids{$row->[0]} = $branch_id;
+  }
+  $self->{'_branch_id_hash'} = \%branch_ids;
+}
+
+sub _process_output_dir {
+  my ($self) = @_;
+  my $root_output_dir = $self->param('root_output_dir');
+  my $sub_dirs = $self->get_param_array('output_subdir');
+  my $output_dir = join('/', $root_output_dir, @$sub_dirs);
+  $self->output_dir($output_dir);
+}
+sub _process_label {
+  my ($self) = @_;
+  my $analysis_label = $self->param('analysis_label') || $self->analysis->logic_name;
+  my $branch_labels = $self->get_param_array('branch_label');
+  my $job_name = join('.', @$branch_labels, $analysis_label);
+  $self->job_name($job_name);
+}
+
+sub _process_parent_branch_ids {
+  my ($self) = @_;
+  my %parent_branch_ids;
+  my $sql = "SELECT parent_branch_id FROM branch WHERE branch_id=?";
+  my $hive_dbc = $self->data_dbc();
+  my $sth = $hive_dbc->prepare($sql) or die "could not prepare $sql: ".$hive_dbc->errstr;
+  while (my ($system_id, $branch_id) = each %{$self->{'_branch_id_hash'}}) {
+    my @branch_parents;
+    my $query_branch_id = $branch_id;
+    BRANCH:
+    while (1) {
+      $sth->bind_param(1, $query_branch_id);
+      $sth->execute() or die "could not execute $sql: ".$sth->errstr;
+      my $row = $sth->fetchrow_arrayref;
+      last BRANCH if !defined $row || !defined $row->[0];
+      $query_branch_id = $row->[0];
+      push(@branch_parents, $query_branch_id)
+    }
+    $parent_branch_ids{$system_id} = \@branch_parents;
+  }
+  $self->{'_parent_branch_id_hash'} = \%parent_branch_ids;
+}
+
+sub _process_child_branch_ids {
+  my ($self) = @_;
+  my $branch_id_hash = $self->{'_branch_id_hash'};
+  my %child_branch_ids;
+  my $sql = "SELECT branch_id FROM branch WHERE parent_branch_id=? ORDER BY sibling_index";
+  my $hive_dbc = $self->data_dbc();
+  my $sth = $hive_dbc->prepare($sql) or die "could not prepare $sql: ".$hive_dbc->errstr;
+  while (my ($system_id, $branch_id) = each %$branch_id_hash) {
+    my @ordered_branch_ids = __recursively_query_child_branch($branch_id, $sth);
+    foreach my $i (0..$#ordered_branch_ids) {
+      $child_branch_ids{$system_id}->{$ordered_branch_ids[$i]} = $i;
+    }
+  $self->{'_child_branch_id_hash'} = \%parent_branch_ids;
+}
+
+sub __recursively_query_child_branch {
+  my ($branch_id, $sth) = @_;
+  my @child_branch_ids;
+  $sth->bind_param(1, $branch_id);
+  $sth->execute() or die "could not execute: ".$sth->errstr;
+  while (my $row = $sth->fetchrow_arrayref) {
+    my $child_branch_id = $row->[0];
+    push(@child_branch_ids, $child_branch_id, @{__recursively_query_child_branch($child_branch_id, $sth)});
+  }
+  return \@child_branch_ids;
+}
+
+sub _process_branch_params_in {
+  my ($self, $branch_params_in) = @_;
+  my $branch_id_hash = $self->{'_branch_id_hash'};
+  my $sql1 = "
+    SELECT p.process_data_id, p.data_value, count(b2.branch_id) 
+    FROM process_data p, branch_data b1, branch_data b2
+    WHERE p.process_data_id=b1.process_data_id
+    AND p.process_data_id=b2.process_data_id
+    AND b1.branch_id=?
+    AND p.data_key = ?
+    AND p.is_active=1
+    GROUP BY p.process_data_id";
+  my $sql2 = "
+    SELECT b.branch_id, b.branch_system_id
+    FROM branch b, branch_data bd
+    WHERE b.branch_id=bd.branch_id
+    AND bd.process_data_id=?  ";
+  my $hive_dbc = $self->data_dbc();
+  my $sth1 = $hive_dbc->prepare($sql1) or die "could not prepare $sql1: ".$hive_dbc->errstr;
+  my $sth2 = $hive_dbc->prepare($sql2) or die "could not prepare $sql1: ".$hive_dbc->errstr;
+  while (my ($param_key, $arg) = each %$branch_params_in) {
+    my ($db_key, $ascend, $descend) = ref($arg) eq 'HASH'
+                  ? @{$arg}{qw(key ascend descend)}
+                  : ($arg, 0, 0);
+    my @param_vals;
+    while (my ($system_id, $branch_id) = each %$branch_id_hash) {
+      $sth1->bind_param(1, $branch_id);
+    }
+  }
+}
+
 sub get_param_array {
   my ($self, $key) = @_;
   my $param = $self->param($key);
@@ -127,7 +244,7 @@ sub get_param_array {
 }
 
 sub output_child_branches {
-  my ($self, %args) = @_;
+  my ($self, $data_hash, $branch_system) = @_;
   if (scalar keys %args) {
     $self->param('_output_child_branches', $self->output_child_branches);
     push(@{$self->param('_output_child_branches')}, \%args);
@@ -149,28 +266,68 @@ sub flows_this_branch {
     my $flows = ref($arg) eq 'ARRAY' ? $arg
               : defined $arg ? [$arg]
               : [];
-    $self->param('_flows_this_branch', $flows);
+    $self->{'_flows_this_branch'};
   }
-  return $self->param('_flows_this_branch') || [1];
+  return $self->{'_flows_this_branch'} || [1];
 }
 
-sub _make_child_branches {
-  my ($self, $num_branches) = @_;
-
-  my $sql = "insert into branch (parent_branch_id, child_branch_index) values (?, ?)";
+sub _add_process_data {
+  my ($self, $key_val_pairs) = @_;
+  my $sql = "INSERT INTO process_data (data_key, data_value, is_active) values (?, ?, 1)";
   my $hive_dbc = $self->data_dbc();
   my $sth = $hive_dbc->prepare($sql) or die "could not prepare $sql: ".$hive_dbc->errstr;
-  my @child_branch_ids;
-  foreach my $child_branch_index (0..$num_branches-1) {
-    $sth->bind_param(1, $self->param('branch_id'));
-    $sth->bind_param(2, $child_branch_index);
+  my @process_data_ids;
+  foreach my $pair (@$key_val_pairs) {
+    $sth->bind_param(1, $pair->[0]);
+    $sth->bind_param(2, $pair->[1]);
     $sth->execute() or die "could not execute $sql: ".$sth->errstr;
-    push(@child_branch_ids, $sth->{'mysql_insertid'});
+    push(@process_data_ids, $sth->{'mysql_insertid'});
   }
-  return \@child_branch_ids;
+  return \@process_data_ids;
 }
 
-sub _branch_meta_data {
+sub _add_branch_data {
+  my ($self, $branch_ids, $key_val_pairs,) = @_;
+  my $process_data_ids = $self->_add_process_data($key_val_pairs);
+  my $sql = "INSERT INTO branch_data (branch_id, process_data_id) values (?, ?)";
+  my $hive_dbc = $self->data_dbc();
+  my $sth = $hive_dbc->prepare($sql) or die "could not prepare $sql: ".$hive_dbc->errstr;
+  foreach my $process_data_id (@$process_data_ids) {
+    foreach my $branch_id (@$branches) {
+      $sth->bind_param(1, $branch_id);
+      $sth->bind_param(2, $process_data_id);
+      $sth->execute() or die "could not execute $sql: ".$sth->errstr;
+    }
+  }
+}
+
+sub _add_branches {
+  my ($self, $num_branches, $branch_system_id) = @_;
+  my $parent_branch_id = $self->{'_branch_id_hash'}->{$branch_system_id};
+  my $sql = "INSERT INTO branch (parent_branch_id, creator_analysis_id, sibling_index, branch_system_id) VALUES (?, ?, ?, ?)";
+  my $hive_dbc = $self->data_dbc();
+  my $sth = $hive_dbc->prepare($sql) or die "could not prepare $sql: ".$hive_dbc->errstr;
+  my @new_branch_ids;
+  foreach my $sibling_index (0..$num_branches-1) {
+    $sth->bind_param(1, $parent_branch_id);
+    $sth->bind_param(2, $self->analysis->dbID);
+    $sth->bind_param(3, $sibling_index);
+    $sth->bind_param(4, $branch_system_id);
+    $sth->execute() or die "could not execute $sql: ".$sth->errstr;
+    push(@new_branch_ids, $sth->{'mysql_insertid'});
+  }
+  return @new_branch_ids;
+}
+
+
+
+
+
+
+
+
+
+sub _branch_data {
   my ($self, %args) = @_;
   throw "no key" if ! $args{'key'};
 
@@ -185,7 +342,7 @@ sub _branch_meta_data {
   my $hive_dbc = $self->data_dbc();
 
   if (defined $args{'value'}) {
-    my $sql = "insert into branch_meta_data (branch_id, meta_key, meta_value, is_active) values (?, ?, ?, 1)";
+    my $sql = "INSERT INTO process_data (data_key, data_value, is_active) values (?, ?, 1)";
     my $sth = $hive_dbc->prepare($sql) or die "could not prepare $sql: ".$hive_dbc->errstr;
     VALUE:
     foreach my $value (ref($args{'value'}) eq 'ARRAY' ? @{$args{'value'}} : ($args{'value'})) {

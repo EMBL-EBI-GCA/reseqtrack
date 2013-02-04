@@ -117,6 +117,38 @@ sub pipeline_create_commands {
         $self->db_execute_command('pipeline_db', 'CREATE TABLE branch (child_branch_id int(10) unsigned NOT NULL AUTO_INCREMENT, parent_branch_id int(10) unsigned, child_branch_index int(10) unsigned, PRIMARY KEY (child_branch_id))'),
         $self->db_execute_command('pipeline_db', 'CREATE TABLE branch_meta_data (branch_meta_data_id int(10) unsigned NOT NULL AUTO_INCREMENT, branch_id int(10) unsigned NOT NULL, meta_key VARCHAR(50) NOT NULL, meta_value VARCHAR(1000) NOT NULL, is_active TINYINT(1), PRIMARY KEY (branch_meta_data_id))'),
 
+        my $sql_1 = "
+        CREATE TABLE branch (
+          branch_id int(10) unsigned NOT NULL AUTO_INCREMENT,
+          parent_branch_id int(10) unsigned,
+          creator_analysis_id int(10) unsigned,
+          sibling_index int(10) unsigned,
+          branch_system_id int(10) unsigned,
+          PRIMARY KEY (branch_id))
+        )";
+
+        my $sql_2 = "
+        CREATE TABLE process_data (
+          process_data_id int(10) unsigned NOT NULL AUTO_INCREMENT,
+          data_key VARCHAR(50) NOT NULL,
+          data_value VARCHAR(1000) NOT NULL,
+          is_active TINYINT(1),
+          PRIMARY KEY (process_data_id))
+        )";
+
+        my $sql_3 = "
+        CREATE TABLE branch_data (
+          branch_id int(10) unsigned NOT NULL,
+          process_data_id int(10) unsigned NOT NULL
+          PRIMARY KEY (branch_id, process_data_id))
+        )"
+
+        $self->db_execute_command('pipeline_db', $sql_1);
+        $self->db_execute_command('pipeline_db', $sql_2);
+        $self->db_execute_command('pipeline_db', $sql_3);
+
+
+
     ];
 }
 
@@ -139,7 +171,7 @@ sub pipeline_wide_parameters {
 
         'universal_branch_parameters_in' => {
           'branch_label' => 'label',
-          'output_dir' => 'output_dir',
+          'output_subdir' => 'output_subdir',
         },
 
     };
