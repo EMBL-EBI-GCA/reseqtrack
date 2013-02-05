@@ -18,7 +18,7 @@ sub run {
     my $self = shift @_;
 
     my $type_branch = $self->param('type_branch') || die "'type_branch' is an obligatory parameter";
-    my $output_dir = $self->param('output_dir') || die "'output_dir' is an obligatory parameter";
+    my $output_dir = $self->output_dir;
 
     my $db = ReseqTrack::DBSQL::DBAdaptor->new(%{$self->param('reseqtrack_db')});
 
@@ -36,7 +36,7 @@ sub run {
 
       while (my $row = $sth->fetchrow_arrayref) {
         my ($sample_id, $sample_name) = @$row;
-        $self->output_child_branches('SAMPLE_ID' => $sample_id, 'SAMPLE_NAME' => $sample_name, 'label' => $sample_name, 'output_dir' => "$output_dir/$sample_id");
+        $self->output_child_branches('SAMPLE_ID' => $sample_id, 'SAMPLE_NAME' => $sample_name, 'label' => $sample_name);
       }
       #foreach my $sample_id (map {$_->[0]} @{$sth->fetchall_arrayref()}) {
         #$self->output_child_branches('SAMPLE_ID' => $sample_id, 'label' => $sample_id, 'output_dir' => "$output_dir/$sample_id");
@@ -56,7 +56,7 @@ sub run {
       my $sth = $db->dbc->prepare($sql) or die "could not prepare $sql: ".$db->dbc->errstr;;
       $sth->execute(@bind_values) or die "could not execute $sql: ".$sth->errstr;
       foreach my $library_name (map {$_->[0]} @{$sth->fetchall_arrayref()}) {
-        $self->output_child_branches('LIBRARY_NAME' => $library_name, 'label' => $library_name, 'output_dir' => "$output_dir/$library_name");
+        $self->output_child_branches('LIBRARY_NAME' => $library_name, 'label' => $library_name);
       }
     }
     elsif(lc($type_branch) eq 'run') {
@@ -77,7 +77,7 @@ sub run {
       my $sth = $db->dbc->prepare($sql) or die "could not prepare $sql: ".$db->dbc->errstr;;
       $sth->execute(@bind_values) or die "could not execute $sql: ".$sth->errstr;
       foreach my $run_id (map {$_->[0]} @{$sth->fetchall_arrayref()}) {
-        $self->output_child_branches('RUN_ID' => $run_id, 'label' => $run_id, 'output_dir' => "$output_dir/$run_id");
+        $self->output_child_branches('RUN_ID' => $run_id, 'label' => $run_id);
       }
     }
 

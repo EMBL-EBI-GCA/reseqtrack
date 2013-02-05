@@ -19,8 +19,6 @@ sub run {
     my $self = shift @_;
     my $bams = $self->param('bam') || die "'bam' is an obligatory parameter";
     my $command = $self->param('command') || die "'command' is an obligatory parameter";
-    my $output_dir = $self->param('output_dir') or die "'output_dir' is an obligatory parameter";
-    my $job_name = $self->param('job_name') or die "'job_name' is an obligatory parameter";
     my $java_exe = $self->param('java_exe');
     my $jvm_args = $self->param('jvm_args');
     my $picard_dir = $self->param('picard_dir');
@@ -33,8 +31,8 @@ sub run {
 
     my $picard_object = ReseqTrack::Tools::RunPicard->new(
       -input_files  => $bams,
-      -working_dir  => $output_dir,
-      -job_name     => $job_name,
+      -working_dir  => $self->output_dir,
+      -job_name     => $self->job_name,
       -java_exe     => $java_exe,
       -jvm_options  => $jvm_args,
       -picard_dir   => $picard_dir,

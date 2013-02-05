@@ -19,8 +19,6 @@ sub run {
     my $self = shift @_;
     my $bams = $self->param('bam') || die "'bam' is an obligatory parameter";
     my $command = $self->param('command') || die "'command' is an obligatory parameter";
-    my $output_dir = $self->param('output_dir') or $command eq 'index' or die "'output_dir' is an obligatory parameter";
-    my $job_name = $self->param('job_name') or die "'job_name' is an obligatory parameter";
     my $program_file = $self->param('program_file');
     my $options = $self->param('samtools_options') || {};
 
@@ -38,8 +36,8 @@ sub run {
     my $samtools_object = ReseqTrack::Tools::RunSamtools->new(
       -input_files  => $bams,
       -program      => $program_file,
-      -working_dir  => $output_dir,
-      -job_name     => $job_name,
+      -working_dir  => $self->output_dir,
+      -job_name     => $self->job_name,
       -reference    => $self->param('reference'),
       -options      => $options,
     );

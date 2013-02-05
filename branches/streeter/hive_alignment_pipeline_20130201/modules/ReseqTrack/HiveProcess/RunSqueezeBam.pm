@@ -18,17 +18,15 @@ sub run {
     my ($self) = @_;
 
     my $bams = $self->param('bam') || die "'bam' is an obligatory parameter";
-    my $output_dir = $self->param('output_dir') || die "'output_dir' is an obligatory parameter";
-    my $job_name = $self->param('job_name') or die "'job_name' is an obligatory parameter";
     my $program_file = $self->param('program_file');
 
     $self->data_dbc->disconnect_when_inactive(1);
 
     my $bam_squeezer = ReseqTrack::Tools::RunBamSqueeze->new(
       -input_files  => $bams,
-      -working_dir  => $output_dir,
+      -working_dir  => $self->output_dir,
       -program      => $program_file,
-      -job_name     => $job_name,
+      -job_name     => $self->job_name,
       -rm_tag_types => $self->param('rm_tag_types'),
       -options      => {keepOQ => $self->param('rm_OQ_fields') ? 0 : 1,
                         keepDups => $self->param('rm_dups') ? 0 : 1},

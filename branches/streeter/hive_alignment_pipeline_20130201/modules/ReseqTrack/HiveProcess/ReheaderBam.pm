@@ -20,8 +20,6 @@ sub run {
 
     my $bams = $self->param('bam') || die "'bam' is an obligatory parameter";
     my $fastqs = $self->param('fastq') || die "'fastqs' is an obligatory parameter";
-    my $output_dir = $self->param('output_dir') || die "'output_dir' is an obligatory parameter";
-    my $job_name = $self->param('job_name') or die "'job_name' is an obligatory parameter";
     my $samtools = $self->param('samtools');
 
     my @extra_header_lines;
@@ -35,8 +33,8 @@ sub run {
 
     my $reheader_object = ReseqTrack::Tools::ReheaderBam->new(
       -input_files  => $bams,
-      -working_dir  => $output_dir,
-      -job_name     => $job_name,
+      -working_dir  => $self->output_dir,
+      -job_name     => $self->job_name,
       -samtools     => $samtools,
       -header_lines_file => $self->param('header_lines_file'),
       -extra_header_lines => \@extra_header_lines,

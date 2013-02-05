@@ -24,9 +24,9 @@ sub run {
     my $run_id = $self->param('run_id') || die "'run_id' is an obligatory parameter";
     my $type_fastq = $self->param('type_fastq') || die "'type_fastq' is an obligatory parameter";
     my $max_bases = $self->param('max_bases') || die "'max_bases' is an obligatory parameter";
-    my $output_dir = $self->param('output_dir') || die "'output_dir' is an obligatory parameter";
     my $program_file = $self->param('program_file');
     my $directory_layout = $self->param('directory_layout');
+    my $output_dir = $self->output_dir;
 
     my $db = ReseqTrack::DBSQL::DBAdaptor->new(%{$self->param('reseqtrack_db')});
     my $ca = $db->get_CollectionAdaptor;
@@ -73,12 +73,12 @@ sub run {
       foreach my $label (@labels_mate1) {
         throw("no matching mate2 file with label $label") if (!$output_file_hash->{$mate2_path}->{$label});
         my @files = map {$output_file_hash->{$_}->{$label}} ($mate1_path, $mate2_path);
-        $self->output_child_branches('split_fastq' => \@files, 'label' => "$run_id.mate_chunk$label", 'output_dir' => "$output_dir/mate_chunk$label");
+        $self->output_child_branches('split_fastq' => \@files, 'label' => "$run_id.mate_chunk$label");
       }
     }
     if ($frag) {
       while (my ($label, $file_path) = each(%{$output_file_hash->{$frag_path}})) {
-        $self->output_child_branches('split_fastq' => $file_path, 'label' => "$run_id.frag_chunk$label", 'output_dir' => "$output_dir/frag_chunk$label");
+        $self->output_child_branches('split_fastq' => $file_path, 'label' => "$run_id.frag_chunk$label");
       }
     }
 

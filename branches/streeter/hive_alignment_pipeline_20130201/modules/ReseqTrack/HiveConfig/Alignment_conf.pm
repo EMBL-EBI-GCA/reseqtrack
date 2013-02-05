@@ -111,43 +111,38 @@ sub default_options {
 
 sub pipeline_create_commands {
     my ($self) = @_;
+
+    my $sql_1 = '
+    CREATE TABLE branch (
+      branch_id int(10) unsigned NOT NULL AUTO_INCREMENT,
+      parent_branch_id int(10) unsigned,
+      sibling_index int(10) unsigned,
+      branch_system_id int(10) unsigned,
+      PRIMARY KEY (branch_id)
+    )';
+
+    my $sql_2 = "
+    CREATE TABLE process_data (
+      process_data_id int(10) unsigned NOT NULL AUTO_INCREMENT,
+      data_key VARCHAR(50) NOT NULL,
+      data_value VARCHAR(1000) NOT NULL,
+      is_active TINYINT(1),
+      PRIMARY KEY (process_data_id)
+    )";
+
+    my $sql_3 = "
+    CREATE TABLE branch_data (
+      branch_id int(10) unsigned NOT NULL,
+      process_data_id int(10) unsigned NOT NULL,
+      PRIMARY KEY (branch_id, process_data_id)
+    )";
+
     return [
         @{$self->SUPER::pipeline_create_commands},  # inheriting database and hive tables' creation
 
-        $self->db_execute_command('pipeline_db', 'CREATE TABLE branch (child_branch_id int(10) unsigned NOT NULL AUTO_INCREMENT, parent_branch_id int(10) unsigned, child_branch_index int(10) unsigned, PRIMARY KEY (child_branch_id))'),
-        $self->db_execute_command('pipeline_db', 'CREATE TABLE branch_meta_data (branch_meta_data_id int(10) unsigned NOT NULL AUTO_INCREMENT, branch_id int(10) unsigned NOT NULL, meta_key VARCHAR(50) NOT NULL, meta_value VARCHAR(1000) NOT NULL, is_active TINYINT(1), PRIMARY KEY (branch_meta_data_id))'),
-
-        my $sql_1 = "
-        CREATE TABLE branch (
-          branch_id int(10) unsigned NOT NULL AUTO_INCREMENT,
-          parent_branch_id int(10) unsigned,
-          creator_analysis_id int(10) unsigned,
-          sibling_index int(10) unsigned,
-          branch_system_id int(10) unsigned,
-          PRIMARY KEY (branch_id))
-        )";
-
-        my $sql_2 = "
-        CREATE TABLE process_data (
-          process_data_id int(10) unsigned NOT NULL AUTO_INCREMENT,
-          data_key VARCHAR(50) NOT NULL,
-          data_value VARCHAR(1000) NOT NULL,
-          is_active TINYINT(1),
-          PRIMARY KEY (process_data_id))
-        )";
-
-        my $sql_3 = "
-        CREATE TABLE branch_data (
-          branch_id int(10) unsigned NOT NULL,
-          process_data_id int(10) unsigned NOT NULL
-          PRIMARY KEY (branch_id, process_data_id))
-        )"
-
-        $self->db_execute_command('pipeline_db', $sql_1);
-        $self->db_execute_command('pipeline_db', $sql_2);
-        $self->db_execute_command('pipeline_db', $sql_3);
-
-
+        $self->db_execute_command('pipeline_db', $sql_1),
+        $self->db_execute_command('pipeline_db', $sql_2),
+        $self->db_execute_command('pipeline_db', $sql_3),
 
     ];
 }
@@ -171,7 +166,7 @@ sub pipeline_wide_parameters {
 
         'universal_branch_parameters_in' => {
           'branch_label' => 'label',
-          'output_subdir' => 'output_subdir',
+          'branch_subdir' => {key => 'label', ascend => 1},
         },
 
     };
@@ -269,11 +264,12 @@ sub pipeline_analyses {
             -module        => 'ReseqTrack::HiveProcess::JobFactory',
             -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
             -parameters    => {
+                branching_system => 1,
                 branch_parameters_out => {
-                  value => 'STUDY_ID',
+                  data_value => 'STUDY_ID',
                 }
             },
-            -input_ids => [{branch_id => 0, values => [split(',', $self->o('study_id'))]}],
+            -input_ids => [{data_values => [split(',', $self->o('study_id'))]}],
             -flow_into => {
                 2 => [ 'samples_factory' ],   # will create a semaphored fan of jobs
             },
@@ -351,7 +347,7 @@ sub pipeline_analyses {
                 samtools => $self->o('samtools_exe'),
                 reference => $self->o('reference'),
                 branch_parameters_in => {
-                    fastq => {key => 'FASTQ', becomes_inactive => 1},
+                    fastq => {key => 'FASTQ', inactivate => 1},
                     run_id => {key => 'RUN_ID', ascend => 1},
                 },
                 branch_parameters_out => {
@@ -374,7 +370,7 @@ sub pipeline_analyses {
                 create_index => 1,
                 jvm_args => '-Xmx2g',
                 branch_parameters_in => {
-                    bam => {key => 'BAM', becomes_inactive => 1},
+                    bam => {key => 'BAM', inactivate => 1},
                 },
                 branch_parameters_out => {
                   bam => 'BAM',
@@ -409,8 +405,8 @@ sub pipeline_analyses {
                 command => 'merge',
                 create_index => 1,
                 branch_parameters_in => {
-                    bam => {key => 'BAM', descend => 1, becomes_inactive => 1},
-                    bai => {key => 'BAI', descend => 1, becomes_inactive => 1},
+                    bam => {key => 'BAM', descend => 1, inactivate => 1},
+                    bai => {key => 'BAI', descend => 1, inactivate => 1},
                 },
                 branch_parameters_out => {
                   bam => 'BAM',
@@ -447,8 +443,8 @@ sub pipeline_analyses {
                 jvm_args => '-Xmx2g',
                 command => 'merge',
                 branch_parameters_in => {
-                    bam => {key => 'BAM', descend => 1, becomes_inactive => 1},
-                    bai => {key => 'BAI', descend => 1, becomes_inactive => 1},
+                    bam => {key => 'BAM', descend => 1, inactivate => 1},
+                    bai => {key => 'BAI', descend => 1, inactivate => 1},
                 },
                 branch_parameters_out => {
                   bam => 'BAM',
@@ -481,8 +477,8 @@ sub pipeline_analyses {
                 command => 'merge',
                 create_index => 1,
                 branch_parameters_in => {
-                    bam => {key => 'BAM', descend => 1, becomes_inactive => 1},
-                    bai => {key => 'BAI', descend => 1, becomes_inactive => 1},
+                    bam => {key => 'BAM', descend => 1, inactivate => 1},
+                    bai => {key => 'BAI', descend => 1, inactivate => 1},
                 },
                 branch_parameters_out => {
                   bam => 'BAM',
@@ -502,8 +498,8 @@ sub pipeline_analyses {
                 command => 'mark_duplicates',
                 create_index => 1,
                 branch_parameters_in => {
-                    bam => {key => 'BAM', becomes_inactive => 1, descend => 1},
-                    bai => {key => 'BAI', becomes_inactive => 1, descend => 1},
+                    bam => {key => 'BAM', inactivate => 1, descend => 1},
+                    bai => {key => 'BAI', inactivate => 1, descend => 1},
                 },
                 branch_parameters_out => {
                   bam => 'BAM',
@@ -525,8 +521,8 @@ sub pipeline_analyses {
                 known_sites_vcf => $self->o('known_indels_vcf'),
                 gatk_module_options => {knowns_only => $realign_knowns_only},
                 branch_parameters_in => {
-                    bam => {key => 'BAM', becomes_inactive => 1, descend => 1},
-                    bai => {key => 'BAI', becomes_inactive => 1, descend => 1},
+                    bam => {key => 'BAM', inactivate => 1, descend => 1},
+                    bai => {key => 'BAI', inactivate => 1, descend => 1},
                 },
                 branch_parameters_out => {
                   bam => 'BAM',
@@ -570,8 +566,8 @@ sub pipeline_analyses {
                 jvm_args => '-Xmx2g',
                 known_sites_vcf => $self->o('known_snps_vcf'),
                 branch_parameters_in => {
-                    bam => {key => 'BAM', becomes_inactive => 1, descend => 1},
-                    bai => {key => 'BAI', becomes_inactive => 1, descend => 1},
+                    bam => {key => 'BAM', inactivate => 1, descend => 1},
+                    bai => {key => 'BAI', inactivate => 1, descend => 1},
                 },
                 branch_parameters_out => {
                   bam => 'BAM',
@@ -592,7 +588,7 @@ sub pipeline_analyses {
                 reference => $self->o('reference'),
                 samtools_options => {input_sort_status => 'c'},
                 branch_parameters_in => {
-                    bam => {key => 'BAM', becomes_inactive => 1},
+                    bam => {key => 'BAM', inactivate => 1},
                 },
                 branch_parameters_out => {
                   bam => 'BAM',
@@ -613,7 +609,7 @@ sub pipeline_analyses {
                 'rm_OQ_fields' => 1,
                 'rm_tag_types' => ['XM:i', 'XG:i', 'XO:i'],
                 'branch_parameters_in' => {
-                    bam => {key => 'BAM', becomes_inactive => 1},
+                    bam => {key => 'BAM', inactivate => 1},
                 },
                 branch_parameters_out => {
                   bam => 'BAM',
@@ -635,7 +631,7 @@ sub pipeline_analyses {
                 'SQ_species' => $self->o('ref_species'),
                 'SQ_uri' => $self->o('reference_uri'),
                 'branch_parameters_in' => {
-                    bam => {key => 'BAM', becomes_inactive => 1},
+                    bam => {key => 'BAM', inactivate => 1},
                     fastq => {key => 'SOURCE_FASTQ', descend => 1},
                 },
                 branch_parameters_out => {
@@ -657,7 +653,7 @@ sub pipeline_analyses {
                 analysis_label => $self->o('final_label'),
                 suffix => 'bam',
                 branch_parameters_in => {
-                    old_filename => {key => 'BAM', becomes_inactive => 1},
+                    old_filename => {key => 'BAM', inactivate => 1},
                 },
                 branch_parameters_out => {
                   new_filename => 'BAM',

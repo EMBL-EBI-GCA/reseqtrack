@@ -21,8 +21,6 @@ sub run {
 
     my $fastqs = $self->param('fastq') || die "'fastq' is an obligatory parameter";
     my $run_id = $self->param('run_id') || die "'run_id' is an obligatory parameter";
-    my $output_dir = $self->param('output_dir') || die "'output_dir' is an obligatory parameter";
-    my $job_name = $self->param('job_name') or die "'job_name' is an obligatory parameter";
 
     my $db = ReseqTrack::DBSQL::DBAdaptor->new(%{$self->param('reseqtrack_db')});
     my $rmia = $db->get_RunMetaInfoAdaptor;
@@ -53,9 +51,9 @@ sub run {
           -program => $self->param('program_file'),
           -samtools => $self->param('samtools'),
           -output_format => 'BAM',
-          -working_dir => $output_dir,
+          -working_dir => $self->output_dir,
           -reference => $self->param('reference'),
-          -job_name => $job_name,
+          -job_name => $self->job_name,
           -paired_length => $rmi->paired_length,
           -read_group_fields => \%read_group_fields,
           );

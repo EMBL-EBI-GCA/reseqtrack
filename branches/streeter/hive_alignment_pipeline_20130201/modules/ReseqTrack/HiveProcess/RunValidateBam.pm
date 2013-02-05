@@ -17,15 +17,14 @@ use ReseqTrack::Tools::RunValidateBam;
 sub run {
     my ($self) = @_;
 
-    my $bams = $self->param('bam') || die "'bam' is an obligatory parameter";
-    my $output_dir = $self->param('output_dir') || die "'output_dir' is an obligatory parameter";
+    my $bams = $self->param('bam') || throw "'bam' is an obligatory parameter";
     my $program_file = $self->param('program_file');
 
     $self->data_dbc->disconnect_when_inactive(1);
 
     my $bam_validator = ReseqTrack::Tools::RunValidateBam->new(
       -input_files  => $bams,
-      -working_dir  => $output_dir,
+      -working_dir  => $self->output_dir,
       -program      => $program_file,
     );
     $bam_validator->run;

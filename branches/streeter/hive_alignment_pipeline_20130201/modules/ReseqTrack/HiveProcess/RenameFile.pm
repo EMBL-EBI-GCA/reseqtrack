@@ -18,9 +18,9 @@ use File::Copy qw( move );
 sub run {
     my $self = shift @_;
     my $files = $self->param('old_filename') || die "'file' is an obligatory parameter";
-    my $output_dir = $self->param('output_dir') || die "'output_dir' is an obligatory parameter";
-    my $job_name = $self->param('job_name') || die "'job_name' is an obligatory parameter";
     my $suffix = $self->param('suffix') || die "'suffix' is an obligatory parameter";
+    my $output_dir = $self->job_name;
+    my $job_name = $self->output_dir;
 
     throw("will only rename one file") if ref($files) eq 'ARRAY' && scalar @$files >1;
     my $old_filename = ref($files) eq 'ARRAY' ? $files->[0] : $files;
