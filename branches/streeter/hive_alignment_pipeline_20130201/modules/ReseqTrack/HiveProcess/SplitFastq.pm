@@ -70,14 +70,15 @@ sub run {
 
     if ($mate1 && $mate2) {
       my @labels_mate1 = keys %{$output_file_hash->{$mate1_path}};
-      foreach my $label (@labels_mate1) {
+      foreach my $label (sort {$a <=> $b} @labels_mate1) {
         throw("no matching mate2 file with label $label") if (!$output_file_hash->{$mate2_path}->{$label});
         my @files = map {$output_file_hash->{$_}->{$label}} ($mate1_path, $mate2_path);
         $self->output_child_branches('split_fastq' => \@files, 'label' => "$run_id.mate_chunk$label");
       }
     }
     if ($frag) {
-      while (my ($label, $file_path) = each(%{$output_file_hash->{$frag_path}})) {
+      foreach my $label (sort {$a <=> $b} keys %{$output_file_hash->{$frag_path}}) {
+        my $file_path = $output_file_hash->{$frag_path}{$label};
         $self->output_child_branches('split_fastq' => $file_path, 'label' => "$run_id.frag_chunk$label");
       }
     }

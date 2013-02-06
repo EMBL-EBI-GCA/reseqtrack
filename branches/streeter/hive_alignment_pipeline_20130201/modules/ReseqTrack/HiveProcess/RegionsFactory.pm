@@ -19,8 +19,6 @@ sub run {
     my $self = shift @_;
 
     my $fai = $self->param('fai') || die "'fai' is an obligatory parameter";
-    my $output_dir = $self->param('output_dir') || die "'output_dir' is an obligatory parameter";
-    my $branch_label = $self->param('branch_label');
     my $child_num_bases = $self->param('child_num_bases');
     my $child_num_regions = $self->param('child_num_regions') || 1;
     my $num_bases_tolerance = $self->get_param_array('num_bases_tolerance');
@@ -86,7 +84,7 @@ sub run {
         while (1) {
           if ($current_end >= $SQ_length) {
             if (!$child_num_bases || $base_counter >= $child_num_bases || scalar @unprocessed_regions > $child_num_regions) {
-              process_regions(\@unprocessed_regions, $output_dir, $branch_label, \$num_groups);
+              process_regions(\@unprocessed_regions, \$num_groups);
             }
             last OUTPUT_REGION;
           }
@@ -121,15 +119,15 @@ sub run {
 }
 
 sub process_regions {
-  my ($self, $regions_group, $output_dir, $branch_label, $group_num_ref) = @_;
+  my ($self, $regions_group, $group_num_ref) = @_;
 
-  my $sub_label;
+  my $label;
   if (scalar @$regions_group > 1) {
     $$group_num_ref += 1;
-    $sub_label = "SQgroup$$group_num_ref";
+    $label = "SQgroup$$group_num_ref";
   }
   else {
-    $sub_label = join('_', map{defined $_} @{$regions_group->[0]}{qw(SQ start end)});
+    $label = join('_', map{defined $_} @{$regions_group->[0]}{qw(SQ start end)});
   }
   my @regions_strings;
   foreach my $region ($regions_group) {
@@ -140,7 +138,7 @@ sub process_regions {
     push(@regions_strings, $string);
   }
 
-  $self->output_child_branches('region' => \@regions_strings, 'label' => "$branch_label.$sub_label", 'output_dir' => "$output_dir/$sub_label");
+  $self->output_child_branches('region' => \@regions_strings, 'label' => $label);
 }
 
 1;

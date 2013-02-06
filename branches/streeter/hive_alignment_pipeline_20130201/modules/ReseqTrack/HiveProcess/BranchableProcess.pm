@@ -93,6 +93,16 @@ sub write_output {
       $self->_add_branch_data(\@all_branch_ids, \%db_data);
       $self->dataflow_output_id( {'branch_id' => \@all_branch_ids}, 2);
     }
+    
+    if (defined $self->param('fan_on_system')) {
+      my $fan_system = $self->param('fan_on_system');
+      my $fan_branch_ids = $self->_get_fan_branch_ids($fan_system);
+      @other_parents = map {$branch_id_hash->{$_}} grep {$_ != $fan_system} @system_ids;
+      foreach my $branch_id (@$fan_branch_ids) {
+        my @all_branch_ids = ($branch_id, @other_parents);
+        $self->dataflow_output_id( {'branch_id' => \@all_branch_ids}, 2);
+      }
+    }
 
     foreach my $i (@{$self->flows_this_branch}) {
       $self->dataflow_output_id( {'branch_id' => \@branch_ids}, $i);
@@ -188,8 +198,8 @@ sub __recursively_query_child_branch {
   my @child_branch_ids;
   $sth->bind_param(1, $branch_id);
   $sth->execute() or die "could not execute: ".$sth->errstr;
-  while (my $row = $sth->fetchrow_arrayref) {
-    my $child_branch_id = $row->[0];
+  my $rows = $sth->fetchall_arrayref();
+  foreach my $child_branch_id (map {$_->[0]} @$rows) {
     push(@child_branch_ids, $child_branch_id, @{__recursively_query_child_branch($child_branch_id, $sth)});
   }
   return \@child_branch_ids;
@@ -315,6 +325,21 @@ sub __compare_branch_ids {
   return 0;
 }
 
+sub _get_fan_branch_ids {
+  my ($self, $system_id) = @_;
+  my $parent_branch_id = $self->{'_branch_id_hash'}{$system_id};
+  my @child_branch_ids;
+  my $sql = defined $system_id
+          ? "SELECT branch_id FROM branch WHERE parent_branch_id=?"
+          : "SELECT branch_id FROM branch WHERE parent_branch_id IS NULL";
+  my $hive_dbc = $self->data_dbc();
+  my $sth = $hive_dbc->prepare($sql) or die "could not prepare $sql: ".$hive_dbc->errstr;
+  $sth->bind_param(1, $parent_branch_id) if defined $parent_branch_id;
+  $sth->execute() or die "could not execute $sql: ".$sth->errstr;
+  my @child_branch_ids = map {$_->[0]} @{$sth->fetchall_arrayref};
+  return \@child_branch_ids;
+}
+
 sub get_param_array {
   my ($self, $key) = @_;
   my $param = $self->param($key);
@@ -346,7 +371,7 @@ sub flows_this_branch {
     my $flows = ref($arg) eq 'ARRAY' ? $arg
               : defined $arg ? [$arg]
               : [];
-    $self->{'_flows_this_branch'};
+    $self->{'_flows_this_branch'} = $flows;
   }
   return $self->{'_flows_this_branch'} || [1];
 }

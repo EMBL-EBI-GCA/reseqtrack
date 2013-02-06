@@ -15,17 +15,14 @@ use ReseqTrack::Tools::Exception qw(throw);
 
 sub run {
     my $self = shift @_;
-    my $files = $self->param('file') || die "'file' is an obligatory parameter";
+    my $files = $self->get_param_array('file');
     my $flows_if_no_files = $self->param('flows_if_no_files');
     my $flows_if_one_file = $self->param('flows_if_one_file');
     my $flows_if_multiple_files = $self->param('flows_if_multiple_files');
 
-    my $flows = ref($files) eq 'ARRAY' ? 
-                    ( scalar @$files >1 ? $flows_if_multiple_files
+    my $flows = scalar @$files >1 ? $flows_if_multiple_files
                     : scalar @$files >0 ? $flows_if_one_file
-                    : $flows_if_no_files )
-                : $files ? $flows_if_one_file
-                : $flows_if_no_files;
+                    : $flows_if_no_files;
 
     $self->flows_this_branch($flows);
 

@@ -86,6 +86,8 @@ sub default_options {
         'samtools_exe' => '/nfs/1000g-work/G1K/work/bin/samtools/samtools',
         'gatk_dir' => '/nfs/1000g-work/G1K/work/bin/gatk/dist/',
 
+        'fai' => $self->o('reference') . '.fai',
+
         'final_label' => $self->o('pipeline_name'),
 
 
@@ -102,11 +104,38 @@ sub default_options {
 
 sub pipeline_create_commands {
     my ($self) = @_;
+
+    my $sql_1 = '
+    CREATE TABLE branch (
+      branch_id int(10) unsigned NOT NULL AUTO_INCREMENT,
+      parent_branch_id int(10) unsigned,
+      sibling_index int(10) unsigned,
+      branch_system_id int(10) unsigned,
+      PRIMARY KEY (branch_id)
+    )';
+
+    my $sql_2 = "
+    CREATE TABLE process_data (
+      process_data_id int(10) unsigned NOT NULL AUTO_INCREMENT,
+      data_key VARCHAR(50) NOT NULL,
+      data_value VARCHAR(1000) NOT NULL,
+      is_active TINYINT(1),
+      PRIMARY KEY (process_data_id)
+    )";
+
+    my $sql_3 = "
+    CREATE TABLE branch_data (
+      branch_id int(10) unsigned NOT NULL,
+      process_data_id int(10) unsigned NOT NULL,
+      PRIMARY KEY (branch_id, process_data_id)
+    )";
+
     return [
         @{$self->SUPER::pipeline_create_commands},  # inheriting database and hive tables' creation
 
-        $self->db_execute_command('pipeline_db', 'CREATE TABLE branch (child_branch_id int(10) unsigned NOT NULL AUTO_INCREMENT, parent_branch_id int(10) unsigned, child_branch_index int(10) unsigned, PRIMARY KEY (child_branch_id))'),
-        $self->db_execute_command('pipeline_db', 'CREATE TABLE branch_meta_data (branch_meta_data_id int(10) unsigned NOT NULL AUTO_INCREMENT, branch_id int(10) unsigned NOT NULL, meta_key VARCHAR(50) NOT NULL, meta_value VARCHAR(1000) NOT NULL, is_active TINYINT(1), PRIMARY KEY (branch_meta_data_id))'),
+        $self->db_execute_command('pipeline_db', $sql_1),
+        $self->db_execute_command('pipeline_db', $sql_2),
+        $self->db_execute_command('pipeline_db', $sql_3),
 
     ];
 }
@@ -130,7 +159,7 @@ sub pipeline_wide_parameters {
 
         'universal_branch_parameters_in' => {
           'branch_label' => 'label',
-          'output_dir' => 'output_dir',
+          'branch_subdir' => {key => 'label', ascend => 1},
         },
 
     };
@@ -171,49 +200,24 @@ sub resource_classes {
 sub pipeline_analyses {
     my ($self) = @_;
 
-    $call_by_samtools = 1;
-    $call_by_gatk = 1;
+    my $call_by_samtools = 1;
+    my $call_by_gatk = 1;
 
     my @call_processes;
     push(@call_processes, 'call_by_samtools') if $call_by_samtools;
     push(@call_processes, 'call_by_gatk') if $call_by_gatk;
 
+    my @merge_processes;
+    push(@merge_processes, 'merge_samtools') if $call_by_samtools;
+    push(@merge_processes, 'merge_gatk') if $call_by_gatk;
+
     my @analyses;
-    push(@analyses, {
-            -logic_name    => 'callgroups_factory',
-            -module        => 'ReseqTrack::HiveProcess::JobFactory',
-            -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
-            -parameters    => {
-                branch_parameters_out => {
-                  value => 'callgroup',
-                }
-            },
-            -input_ids => [{branch_id => 0, values => [split(',', $self->o('callgroup'))]}],
-            -flow_into => {
-                2 => [ 'find_source_bams' ],   # will create a semaphored fan of jobs
-            },
-      });
-    push(@analyses, {
-            -logic_name    => 'find_source_bams',
-            -module        => 'ReseqTrack::HiveProcess::ImportCollection',
-            -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
-            -parameters    => {
-                collection_type => $self->o('type_collection'),
-                branch_parameters_in => {
-                    collection_name => 'callgroup',
-                },
-                branch_parameters_out => {
-                  name => 'SOURCE_BAM',
-                },
-            },
-            -flow_into => {
-                1 => [ 'regions_factory_1' ],
-            },
-      });
     push(@analyses, {
             -logic_name    => 'regions_factory_1',
             -module        => 'ReseqTrack::HiveProcess::RegionsFactory',
+            -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
             -parameters    => {
+                branching_system => 1,
                 fai => $self->o('fai'),
                 whole_SQ => 1,
                 branch_parameters_out => {
@@ -221,38 +225,15 @@ sub pipeline_analyses {
                 },
                 min_bases => 50000000,
             },
-            -rc_name => '200Mb',
-            -analysis_capacity  =>  4,  # use per-analysis limiter
-            -hive_capacity  =>  -1,
+            -input_ids => [{}],
             -flow_into => {
-                '2->A' => [ 'transform_bam' ],
-                'A->1' => [ 'dummy_1' ],
-                'A->1' => [ 'dummy_2' ],
-            },
-      });
-    push(@analyses, {
-            -logic_name    => 'transform_bam',
-            -module        => 'ReseqTrack::HiveProcess::TransformBam',
-            -parameters    => {
-                program_file => $self->o('transform_exe'),
-                create_index => 1,
-                branch_parameters_in => {
-                    bams => {key => 'SOURCE_BAM', ascend => 1},
-                },
-                branch_parameters_out => {
-                  transformed_bam => 'BAM',
-                },
-            },
-            -rc_name => '200Mb',
-            -analysis_capacity  =>  4,  # use per-analysis limiter
-            -hive_capacity  =>  -1,
-            -flow_into => {
-                1 => [ 'regions_factory_2' ],
+                2 => [ 'regions_factory_2' ],
             },
       });
     push(@analyses, {
             -logic_name    => 'regions_factory_2',
             -module        => 'ReseqTrack::HiveProcess::RegionsFactory',
+            -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
             -parameters    => {
                 fai => $self->o('fai'),
                 whole_SQ => 0,
@@ -264,31 +245,102 @@ sub pipeline_analyses {
                 },
                 max_bases => 50000,
             },
+      });
+    push(@analyses, {
+            -logic_name    => 'callgroups_factory',
+            -module        => 'ReseqTrack::HiveProcess::JobFactory',
+            -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
+            -parameters    => {
+                branching_system => 2,
+                branch_parameters_out => {
+                  data_value => 'callgroup',
+                }
+            },
+            -input_ids => [{data_values => [split(',', $self->o('callgroup'))]}],
+            -flow_into => {
+                2 => [ 'find_source_bams' ],   # will create a semaphored fan of jobs
+            },
+            -wait_for => ['regions_factory_2'],
+      });
+    push(@analyses, {
+            -logic_name    => 'find_source_bams',
+            -module        => 'ReseqTrack::HiveProcess::ImportCollection',
+            -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
+            -parameters    => {
+                collection_type => $self->o('type_bam'),
+                branch_parameters_in => {
+                    collection_name => 'callgroup',
+                },
+                branch_parameters_out => {
+                  name => 'SOURCE_BAM',
+                },
+            },
+            -flow_into => {
+                1 => [ 'fan_on_regions1' ],
+            },
+      });
+    push(@analyses, {
+            -logic_name    => 'fan_on_regions1',
+            -module        => 'ReseqTrack::HiveProcess::BranchableProcess',
+            -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
+            -parameters    => {
+              fan_on_system => 1,
+            },
+            -flow_into => {
+                '2->A' => [ 'transform_bam' ],
+                'A->1' => [ 'dummy_process' ],
+            },
+      });
+    push(@analyses, {
+            -logic_name    => 'transform_bam',
+            -module        => 'ReseqTrack::HiveProcess::TransformBam',
+            -parameters    => {
+                program_file => $self->o('transform_exe'),
+                create_index => 1,
+                branch_parameters_in => {
+                    bams => 'SOURCE_BAM',
+                    regions => 'SQ',
+                },
+                branch_parameters_out => {
+                  transformed_bam => 'BAM',
+                },
+            },
             -rc_name => '200Mb',
             -analysis_capacity  =>  4,  # use per-analysis limiter
             -hive_capacity  =>  -1,
             -flow_into => {
-                '2->A' => [ 'dummy_process' ],
+                '1->A' => [ 'fan_on_regions2' ],
                 'A->1' => [ 'delete_bam' ],
             },
       });
     push(@analyses, {
-            -logic_name    => 'dummy_process',
-            -module        => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
-            -meadow_type => 'LOCAL',
+            -logic_name    => 'fan_on_regions2',
+            -module        => 'ReseqTrack::HiveProcess::BranchableProcess',
+            -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
+            -parameters    => {
+              fan_on_system => 1,
+            },
             -flow_into => {
-                1 => \@call_processes,
+                2 => [ @call_processes ],
             },
       });
     push(@analyses, {
             -logic_name    => 'delete_bam',
             -module        => 'ReseqTrack::HiveProcess::BranchableProcess',
-            -meadow_type => 'LOCAL',
+            -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
             -parameters    => {
                 branch_parameters_in => {
-                    bam => {key => 'BAM', becomes_inactive => 1},
+                    bams => {key => 'BAM', inactivate => 1},
                 },
             },
+      });
+    push(@analyses, {
+            -logic_name    => 'dummy_process',
+            -module        => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
+            -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
+            -flow_into => {
+                1 => [ @merge_processes ],
+            }
       });
     if ($call_by_samtools) {
       push(@analyses, {
@@ -299,6 +351,21 @@ sub pipeline_analyses {
                 branch_parameters_in => {
                     region => 'region',
                     bam => 'BAM',
+                },
+                branch_parameters_out => {
+                  vcf => 'samtools_vcf'
+                },
+            },
+            -rc_name => '200Mb',
+            -analysis_capacity  =>  4,  # use per-analysis limiter
+            -hive_capacity  =>  -1,
+        });
+      push(@analyses, {
+            -logic_name    => 'merge_samtools',
+            -module        => 'ReseqTrack::HiveProcess::MergeVcf',
+            -parameters    => {
+                branch_parameters_in => {
+                  vcf => {key => 'samtools_vcf', inactivate => 1},
                 },
                 branch_parameters_out => {
                   vcf => 'samtools_vcf'
@@ -326,27 +393,22 @@ sub pipeline_analyses {
             -analysis_capacity  =>  4,  # use per-analysis limiter
             -hive_capacity  =>  -1,
         });
+      push(@analyses, {
+            -logic_name    => 'merge_gatk',
+            -module        => 'ReseqTrack::HiveProcess::MergeVcf',
+            -parameters    => {
+                branch_parameters_in => {
+                  vcf => {key => 'gatk_vcf', inactivate => 1},
+                },
+                branch_parameters_out => {
+                  vcf => 'gatk_vcf'
+                },
+            },
+            -rc_name => '200Mb',
+            -analysis_capacity  =>  4,  # use per-analysis limiter
+            -hive_capacity  =>  -1,
+        });
     }
-    push(@analyses, {
-            -logic_name    => 'dummy_1',
-            -module        => 'Bio::Ensembl::Hive::RunnableDB::Dummy',
-            -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
-      });
-    push(@analyses, {
-            -logic_name    => 'dummy_2',
-            -module        => 'Bio::Ensembl::Hive::RunnableDB::Dummy',
-            -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
-      });
-    push(@analyses, {
-            -logic_name    => 'dummy_3',
-            -module        => 'Bio::Ensembl::Hive::RunnableDB::Dummy',
-            -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
-      });
-    push(@analyses, {
-            -logic_name    => 'dummy_4',
-            -module        => 'Bio::Ensembl::Hive::RunnableDB::Dummy',
-            -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
-      });
 
     return \@analyses;
 }
