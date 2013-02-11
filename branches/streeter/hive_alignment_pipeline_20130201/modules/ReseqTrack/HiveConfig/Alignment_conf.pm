@@ -677,7 +677,7 @@ sub pipeline_analyses {
                 },
             },
             -flow_into => {1 => ['validate']},
-            -rc_name => '200Mb',
+            -rc_name => '1Gb',
             -analysis_capacity  =>  50,  # use per-analysis limiter
             -hive_capacity  =>  -1,
       });

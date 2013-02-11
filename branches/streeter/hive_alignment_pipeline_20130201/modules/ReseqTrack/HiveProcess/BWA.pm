@@ -5,7 +5,7 @@ use strict;
 
 use base ('ReseqTrack::HiveProcess::BranchableProcess');
 use ReseqTrack::DBSQL::DBAdaptor;
-use ReseqTrack::Tools::FileSystemUtils qw(check_directory_exists check_file_exists);
+use ReseqTrack::Tools::FileSystemUtils qw(check_file_exists);
 use ReseqTrack::Tools::RunAlignment::BWA;
 use ReseqTrack::Tools::Exception qw(throw);
 
