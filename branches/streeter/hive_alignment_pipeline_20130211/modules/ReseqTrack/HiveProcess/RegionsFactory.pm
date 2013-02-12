@@ -18,127 +18,115 @@ use POSIX qw(floor);
 sub run {
     my $self = shift @_;
 
-    my $fai = $self->param('fai') || die "'fai' is an obligatory parameter";
-    my $child_num_bases = $self->param('child_num_bases');
-    my $child_num_regions = $self->param('child_num_regions') || 1;
-    my $num_bases_tolerance = $self->get_param_array('num_bases_tolerance');
-    my $whole_SQ = $self->param('whole_SQ');
-    my $parent_region_strings = $self->get_param_array('parent_regions');
+    my $command = $self->param('command') || throw("'command' is an obligatory parameter");
 
-    if (!defined $num_bases_tolerance) {
-      $num_bases_tolerance = floor(0.1 * $child_num_bases);
+    if ($command eq 'load_db') {
+      $self->load_db;
     }
-
-    my @fai_data;
-    my %SQ_fai_order;
-    open my $FAI, '<', $fai or throw("could not open $fai: $!");
-    LINE:
-    while (my $line = <$FAI>) {
-      my ($SQ, $length) = split(/\s+/, $line);
-      throw("did not recognise line in fai: $line") if (!defined $length);
-      push(@fai_data, [$SQ, $length]);
-      $SQ_fai_order{$SQ} = $#fai_data;
+    elsif ($command eq 'seq_region_factory') {
+      $self->seq_region_factory;
     }
-    close $FAI;
-
-    #my @parent_regions = map {[ /([^:]+)(?::(\d+)-(\d+))?/ ]} @$parent_region_strings;
-    my @sorted_parent_regions = sort {$SQ_fai_order{$a->[0]} <=> $SQ_fai_order{$b->[0]}
-                                  || $a->[1] <=> $b->[1]} map {[ /([^:]+)(?::(\d+)-(\d+))?/ ]} @$parent_region_strings;
-
-
-    my %parent_regions;
-    foreach my $region_string (@$parent_region_strings) {
-      my ($SQ, $start, $end) = $region_string =~ /([^:]+)(?::(\d+)-(\d+))?/;
-      if (!defined $start) {
-        $start = 1;
-        $end = $fai_data[$SQ_fai_order{$SQ}]->[1];
-      }
-      push(@{$parent_regions{$SQ}}, [$start, $end]);
+    elsif ($command eq 'window_factory') {
+      $self->window_factory;
     }
-
-    my $num_groups = 0;
-    my $base_counter = 0;
-    my @unprocessed_regions;
-    SQ:
-    foreach my $fai_SQ_data (@fai_data) {
-      my ($SQ, $SQ_length) = @$fai_SQ_data;
-      my ($current_start, $current_end) = (1,0);
-
-      ALLOWED_REGION:
-      while (1) {
-        my $whole_SQ_is_allowed = 0;
-        my $allowed_end;
-        if (scalar @$parent_region_strings) {
-          last SQ if !@sorted_parent_regions;
-          next SQ if $sorted_parent_regions[0]->[0] ne $SQ;
-          $current_start = $sorted_parent_regions[0]->[1];
-          $allowed_end = $sorted_parent_regions[0]->[2];
-          throw("have region end but not region start $SQ $current_start") if (defined $current_start && !defined $allowed_end);
-        }
-        if (!defined $allowed_end) {
-          $whole_SQ_is_allowed = 1;
-          $allowed_end = $SQ_length;
-        }
-
-        OUTPUT_REGION:
-        while (1) {
-          if ($current_end >= $SQ_length) {
-            if (!$child_num_bases || $base_counter >= $child_num_bases || scalar @unprocessed_regions > $child_num_regions) {
-              process_regions(\@unprocessed_regions, \$num_groups);
-            }
-            last OUTPUT_REGION;
-          }
-          if ($whole_SQ_is_allowed) {
-            if ($whole_SQ || !$child_num_bases || $child_num_bases + $num_bases_tolerance >= $base_counter + $SQ_length) {
-              push(@unprocessed_regions, [$SQ]);
-              $base_counter += $SQ_length;
-              $current_end = $SQ_length;
-              redo OUTPUT_REGION;
-            }
-            else {
-              $current_start = 1;
-            }
-          }
-
-          if ($child_num_bases) {
-            $current_end = $current_start + $child_num_bases - $base_counter - 1;
-            $current_end = $current_end >= $allowed_end - $num_bases_tolerance ? $allowed_end : $current_end;
-          }
-          else {
-            $current_end = $allowed_end;
-          }
-          push(@unprocessed_regions, [$SQ, $current_start, $current_end]);
-        }
-
-        last ALLOWED_REGION if !scalar @$parent_region_strings;
-        shift @sorted_parent_regions;
-      }
-
+    else {
+      throw("did not recognise command $command");
     }
+}
+
+sub seq_region_factory {
+  my ($self) = @_;
+  $min_bases = $self->param('min_bases') || 0;
+  my ($sequence_names, $sequence_lengths) = $self->_db_to_arrays;
+  my $num_sequences = scalar @$sequence_names;
+  throw("no sequences in database") if !$num_sequences;
+  my @regions;
+  my $start_index = 0;
+  my $base_counter = 0;
+  my $end_index = 0;
+  SEQ:
+  while (1) {
+    if ($end_index == $num_sequences-1) {
+      push(@regions, [$start_index, $end_index]);
+      last SEQ;
+    }
+    $base_counter += $sequence_lengths[$end_index];
+    if ($base_counter < $min_bases) {
+      $end_index += 1;
+      next SEQ;
+    }
+    push(@regions, [$start_index, $end_index]);
+    $start_index = $end_index + 1;
+    $end_index = $start_index;
+    $base_counter = 0;
+  }
+  foreach my $region (@regions) {
+    my $label = $sequence_names->[$region->[0]];
+    if ($region->[0] != $region->[1]) {
+      $label .= '-' . $sequence_names->[$region->[1]];
+    }
+    $self->output_child_branches('seq_index_start' => $region->[0], 'seq_index_end' => $region->[1], 'label' => $label);
+  }
+}
+
+sub window_factory {
+  my ($self) = @_;
+  $max_bases = $self->param('max_bases') || throw('max_bases is an obligatory parameter');
+  $seq_index_start = $self->param('seq_index_start') || 0;
+  $seq_index_end = $self->param('seq_index_end');
+  my ($sequence_names, $sequence_lengths) = $self->_db_to_arrays;
+  my $num_sequences = scalar @$sequence_names;
+  throw("no sequences in database") if !$num_sequences;
+  $seq_index_end = $num_sequences -1 if !defined $seq_index_end;
+  foreach my $seq_index ($seq_index_start..$seq_index_end) {
+    my $seq_length = $sequence_lengths->[$seq_index];
+    my $seq_name = $sequence_names->[$seq_index];
+    my $num_regions = ceil( $seq_length / $max_bases );
+    my $region_length = ceil( $seq_length / $num_regions);
+    foreach my $i (1..$num_regions) {
+      my %region = {'seq_index' => $seq_index, 'seq_name' => $seq_name};
+      my $seq_end = $i * $region_length;
+      my $seq_start = $region{'end'} - $region_length + 1;
+      my $label = "$seq_name.$seq_start-$seq_end";
+      $self->output_child_branches('seq_index' => $seq_index, 'seq_start' => $seq_start, 'seq_end' => $seq_end, 'label' => $label);
+    }
+  }
 
 }
 
-sub process_regions {
-  my ($self, $regions_group, $group_num_ref) = @_;
+sub load_db {
+  my ($self) = @_;
+  my $fai = $self->param('fai') || throw("need a fai to load db");
 
-  my $label;
-  if (scalar @$regions_group > 1) {
-    $$group_num_ref += 1;
-    $label = "SQgroup$$group_num_ref";
-  }
-  else {
-    $label = join('_', map{defined $_} @{$regions_group->[0]}{qw(SQ start end)});
-  }
-  my @regions_strings;
-  foreach my $region ($regions_group) {
-    my ($SQ, $start, $end) = @$region;
-    my $string = $SQ;
-    $string .= ":$start" if defined $start;
-    $string .= "-$end" if defined $end;
-    push(@regions_strings, $string);
-  }
+  my $hive_dbc = $self->data_dbc();
+  my $sql = "INSERT INTO sequence_region (sequence_region_index, name, length VALUES (?, ?, ?)";
+  my $sth = $hive_dbc->prepare($sql) or die "could not prepare $sql: ".$hive_dbc->errstr;
 
-  $self->output_child_branches('region' => \@regions_strings, 'label' => $label);
+  my $sequence_region_index = 0;
+  open my $FAI, '<', $fai or throw("could not open $fai: $!");
+  while (my $line = <$FAI>) {
+    my ($SQ, $length) = split(/\s+/, $line);
+    throw("did not recognise line in fai: $line") if (!defined $length);
+    $sth->bind_param(1, $sequence_region_index);
+    $sth->bind_param(2, $SQ);
+    $sth->bind_param(3, $length);
+    $sth->execute() or die "could not execute $sql: ".$sth->errstr;
+  }
+  close $FAI;
+}
+
+sub _db_to_arrays {
+  my ($self) = @_;
+  my $hive_dbc = $self->data_dbc();
+  my @sequence_names;
+  my @sequence_lengths;
+  my $sql = "SELECT sequence_region_index, name, length FROM sequence_region";
+  my $sth = $hive_dbc->prepare($sql) or die "could not prepare $sql: ".$hive_dbc->errstr;
+  foreach my $row (@{$sth->fetchall_arrayref}) {
+    $sequence_names[$row->[0]] = $row->[1];
+    $sequence_lengths[$row->[0]] = $row->[2];
+  }
+  return \@sequence_names, \@sequence_lengths;
 }
 
 1;

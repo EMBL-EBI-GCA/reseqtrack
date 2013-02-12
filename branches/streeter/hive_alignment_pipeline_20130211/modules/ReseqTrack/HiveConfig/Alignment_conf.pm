@@ -117,24 +117,17 @@ sub pipeline_create_commands {
       branch_id int(10) unsigned NOT NULL AUTO_INCREMENT,
       parent_branch_id int(10) unsigned,
       sibling_index int(10) unsigned,
-      branch_system_id int(10) unsigned,
       PRIMARY KEY (branch_id)
     )';
 
     my $sql_2 = "
-    CREATE TABLE process_data (
-      process_data_id int(10) unsigned NOT NULL AUTO_INCREMENT,
+    CREATE TABLE branch_data (
+      branch_data_id int(10) unsigned NOT NULL AUTO_INCREMENT,
+      branch_id int(10) unsigned NOT NULL,
       data_key VARCHAR(50) NOT NULL,
       data_value VARCHAR(1000) NOT NULL,
       is_active TINYINT(1),
-      PRIMARY KEY (process_data_id)
-    )";
-
-    my $sql_3 = "
-    CREATE TABLE branch_data (
-      branch_id int(10) unsigned NOT NULL,
-      process_data_id int(10) unsigned NOT NULL,
-      PRIMARY KEY (branch_id, process_data_id)
+      PRIMARY KEY (branch_data_id)
     )";
 
     return [
@@ -142,7 +135,6 @@ sub pipeline_create_commands {
 
         $self->db_execute_command('pipeline_db', $sql_1),
         $self->db_execute_command('pipeline_db', $sql_2),
-        $self->db_execute_command('pipeline_db', $sql_3),
 
     ];
 }

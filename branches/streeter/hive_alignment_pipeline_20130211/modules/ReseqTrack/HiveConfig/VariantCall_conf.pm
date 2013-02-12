@@ -110,24 +110,25 @@ sub pipeline_create_commands {
       branch_id int(10) unsigned NOT NULL AUTO_INCREMENT,
       parent_branch_id int(10) unsigned,
       sibling_index int(10) unsigned,
-      branch_system_id int(10) unsigned,
       PRIMARY KEY (branch_id)
     )';
 
     my $sql_2 = "
-    CREATE TABLE process_data (
-      process_data_id int(10) unsigned NOT NULL AUTO_INCREMENT,
+    CREATE TABLE branch_data (
+      branch_data_id int(10) unsigned NOT NULL AUTO_INCREMENT,
+      branch_id int(10) unsigned NOT NULL,
       data_key VARCHAR(50) NOT NULL,
       data_value VARCHAR(1000) NOT NULL,
       is_active TINYINT(1),
-      PRIMARY KEY (process_data_id)
+      PRIMARY KEY (branch_data_id)
     )";
 
     my $sql_3 = "
-    CREATE TABLE branch_data (
-      branch_id int(10) unsigned NOT NULL,
-      process_data_id int(10) unsigned NOT NULL,
-      PRIMARY KEY (branch_id, process_data_id)
+    CREATE TABLE sequence_region (
+      sequence_region_index int(10) unsigned NOT NULL,
+      name VARCHAR(50) NOT NULL,
+      length int(10) unsigned,
+      PRIMARY KEY (sequence_region_index)
     )";
 
     return [
@@ -213,45 +214,19 @@ sub pipeline_analyses {
 
     my @analyses;
     push(@analyses, {
-            -logic_name    => 'regions_factory_1',
-            -module        => 'ReseqTrack::HiveProcess::RegionsFactory',
+            -logic_name    => 'import_genome',
+            -module        => 'ReseqTrack::HiveProcess::ImportGenome',
             -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
             -parameters    => {
-                branching_system => 1,
                 fai => $self->o('fai'),
-                whole_SQ => 1,
-                branch_parameters_out => {
-                  region => 'SQ',
-                },
-                min_bases => 50000000,
             },
             -input_ids => [{}],
-            -flow_into => {
-                2 => [ 'regions_factory_2' ],
-            },
-      });
-    push(@analyses, {
-            -logic_name    => 'regions_factory_2',
-            -module        => 'ReseqTrack::HiveProcess::RegionsFactory',
-            -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
-            -parameters    => {
-                fai => $self->o('fai'),
-                whole_SQ => 0,
-                branch_parameters_in => {
-                    regions => 'SQ',
-                },
-                branch_parameters_out => {
-                  region => 'region'
-                },
-                max_bases => 50000,
-            },
       });
     push(@analyses, {
             -logic_name    => 'callgroups_factory',
             -module        => 'ReseqTrack::HiveProcess::JobFactory',
             -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
             -parameters    => {
-                branching_system => 2,
                 branch_parameters_out => {
                   data_value => 'callgroup',
                 }
@@ -260,7 +235,6 @@ sub pipeline_analyses {
             -flow_into => {
                 2 => [ 'find_source_bams' ],   # will create a semaphored fan of jobs
             },
-            -wait_for => ['regions_factory_2'],
       });
     push(@analyses, {
             -logic_name    => 'find_source_bams',
@@ -280,12 +254,18 @@ sub pipeline_analyses {
             },
       });
     push(@analyses, {
-            -logic_name    => 'fan_on_regions1',
-            -module        => 'ReseqTrack::HiveProcess::BranchableProcess',
+            -logic_name    => 'regions_factory_1',
+            -module        => 'ReseqTrack::HiveProcess::RegionsFactory',
             -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
             -parameters    => {
-              fan_on_system => 1,
+                whole_SQ => 1,
+                branch_parameters_out => {
+                  seq_index_start => 'seq_index_start'
+                  seq_index_end => 'seq_index_end'
+                },
+                min_bases => 50000000,
             },
+            -wait_for => ['import_genome'],
             -flow_into => {
                 '2->A' => [ 'transform_bam' ],
                 'A->1' => [ 'dummy_process' ],
@@ -309,16 +289,26 @@ sub pipeline_analyses {
             -analysis_capacity  =>  4,  # use per-analysis limiter
             -hive_capacity  =>  -1,
             -flow_into => {
-                '1->A' => [ 'fan_on_regions2' ],
+                '1->A' => [ 'regions_factory_2' ],
                 'A->1' => [ 'delete_bam' ],
             },
       });
     push(@analyses, {
-            -logic_name    => 'fan_on_regions2',
-            -module        => 'ReseqTrack::HiveProcess::BranchableProcess',
+            -logic_name    => 'regions_factory_2',
+            -module        => 'ReseqTrack::HiveProcess::RegionsFactory',
             -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
             -parameters    => {
-              fan_on_system => 1,
+                branch_parameters_in => {
+                    seq_index_start => 'seq_index_start',
+                    seq_index_end => 'seq_index_end',
+                },
+                branch_parameters_out => {
+                  seq_index_start => 'seq_index_start'
+                  seq_index_end => 'seq_index_end'
+                  position__start => 'position__start'
+                  position__end => 'position__end'
+                },
+                max_bases => 50000,
             },
             -flow_into => {
                 2 => [ @call_processes ],
