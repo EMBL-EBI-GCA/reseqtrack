@@ -1,6 +1,6 @@
 CC = gcc
 CFLAGS=-O3 -D_GNU_SOURCE
-SAMPATH=/nfs/1000g-work/G1K/work/bin/git_clone_samtools
+SAMPATH=/nfs/1000g-work/G1K/work/bin/samtools_dev/samtools
 LDFLAGS=-L$(SAMPATH) -Wl,-rpath,$(SAMPATH)
 
 all: validate_bam
