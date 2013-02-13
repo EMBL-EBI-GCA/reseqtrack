@@ -133,7 +133,8 @@ sub  move_bam_to_trash {
 
 	##### If a BAM file, remove it from collection
 	
-	if ($file->type eq "BAM" || $file->type eq "NCBI_BAM") {
+	#if ($file->type eq "BAM" || $file->type eq "NCBI_BAM") {
+	if ($file->type =~ /BAM/) {
 		my ($collection_name) = get_collection_name_from_file_name($full_name);
 		
 		if ($collection_name) {

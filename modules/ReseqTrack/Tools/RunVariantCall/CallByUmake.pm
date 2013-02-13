@@ -82,7 +82,7 @@ sub new {
     
     $self->options($parameters);
      
-    #throw("When run umake, please specify a chromosome and a region") if (!$self->chrom || !$self->region ); 
+    throw("When run umake, please specify a chromosome") if (!$self->chrom  ); 
      ### FIXME, revive above after test 
     
     return $self;
@@ -100,7 +100,7 @@ sub DEFAULT_OPTIONS { return {
         };
 }
 
-
+my $first_sample;
 sub print_bam_index_file {
     my ($self) = @_;    
     my $input_bams = $self->input_files;
@@ -114,7 +114,7 @@ sub print_bam_index_file {
         push @{$sample_bams{$sample}}, $bam;
     }    
     
-    my $first_sample = $samples[0];
+    $first_sample = $samples[0];
     my $bam_index = $self->umake_output_dir . "/$first_sample" . "_and_others.bam.index";
     open (INDEX, ">", $bam_index) || throw("Cannot open BAM index file $bam_index");
     
@@ -342,7 +342,7 @@ sub run_program {
     
     print "Running command.............................................................................................\n";
     
-    my $cmd2 = "make -f " . $self->bam_index . ".Makefile -j 10"; ## FIXME: 10 is a magic number; should take user input
+    my $cmd2 = "make -f " . $self->bam_index . ".Makefile -j 3"; ## FIXME: 3 is a magic number; should take user input
     
     print "Running command...............................................................................................\n";
     $self->execute_command_line($cmd2);
@@ -369,7 +369,15 @@ sub sieve_umake_output_dir {
 				
 				my $chunk = $self->region;
 				my $edited_out_file = $out_file;
-				$edited_out_file =~ s/filtered/$chunk.umake/;  
+				my $string;
+				if ($chunk) {
+					$string = $chunk . "_" . $first_sample . ".umake";
+				}
+				else {
+					$string = $first_sample . ".umake";
+				}	
+					
+				$edited_out_file =~ s/filtered/$string/;  
 				my $edited_out_file_path = $self->working_dir . "/" . $edited_out_file;
 				
 				move($out_file_path, $edited_out_file_path) 

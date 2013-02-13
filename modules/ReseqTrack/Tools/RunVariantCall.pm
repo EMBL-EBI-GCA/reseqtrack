@@ -47,7 +47,11 @@ sub new {
 
 sub generate_job_name {
     my $self = shift;
-    my $job_name = $self->chrom .'.'. $self->region;
+    my $chrom = $self->chrom;
+    if ($self->chrom =~ /\s+/) {   ## when multiple chroms are input, seperated by white space
+        $chrom =~ s/\s+/_/g;
+    }       
+    my $job_name = $chrom .'.'. $self->region;
     return $self->job_name($job_name);
 }
 
