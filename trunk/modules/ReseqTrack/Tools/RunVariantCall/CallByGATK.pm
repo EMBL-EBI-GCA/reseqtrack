@@ -54,9 +54,11 @@ sub new {
   bless $self, $class;
 
   my (     $parameters, 
-           $super_pop_name)
+           $super_pop_name,
+           $chrom_regions_by_file )
     = rearrange( [ qw(  PARAMETERS
-                        SUPER_POP_NAME) ], @args);
+                        SUPER_POP_NAME
+                        CHROM_REGIONS_BY_FILE ) ], @args);
   
   ## Set defaults     
 
@@ -73,6 +75,7 @@ sub new {
   #print "dbSNP is " . $self->options->{'dbSNP'} . "\n";
   
   $self->super_pop_name($super_pop_name);
+  $self->chrom_regions_by_file($chrom_regions_by_file);
   print "super pop is $super_pop_name\n";
   
   return $self;
@@ -151,7 +154,10 @@ sub run_program {
         if ($self->region) {
             $cmd .= ":" . $self->region;
         }
-    }            
+    } 
+    elsif ($self->chrom_regions_by_file) {
+        $cmd .= "-L " . $self->chrom_regions_by_file;
+    }               
 
     $self->execute_command_line($cmd);
     
@@ -176,6 +182,26 @@ sub super_pop_name {
   }
   return $self->{'super_pop_name'};
 }
+
+
+=head2 chrom_regions_by_file
+  Arg [1]   : ReseqTrack::Tools::RunVariantCall::CallByGATK
+  Arg [2]   : string, required, chrom_regions_by_file used for calling the variants, can be BED, VCF files
+  Function  : accessor method for chrom_regions_by_file
+  Returntype: string
+  Exceptions: n/a
+  Example   : my $chrom_regions_by_file = $self->chrom_regions_by_file;
+
+=cut
+
+sub chrom_regions_by_file {
+  my ($self, $chrom_regions_by_file) = @_;
+  if ($chrom_regions_by_file) {
+    $self->{'chrom_regions_by_file'} = $chrom_regions_by_file;
+  }
+  return $self->{'chrom_regions_by_file'};
+}
+
 
 =head2 derive_output_file_name 
 
