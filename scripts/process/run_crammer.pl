@@ -170,15 +170,8 @@ sub archive_files {
 	print LIST "$f1\n$f2\n";
 	close LIST;
 	
-	my $action_string = "archive";
+	my $action_string = "archive"; ## action "archive" will do replace as well
 
-#	if ($f1 =~ /exome/  ) {
-#		$action_string = "archive";
-#	}
-#	else {
-#		$action_string = "replace";
-#	}		
-	#### FIXME, LC BAMs are being redone so they are "replaced", not the exome ones
 	my $max_number = 1000;
 	my $priority = 50;
 	my $verbose = 0;
@@ -330,7 +323,7 @@ perl /nfs/1000g-work/G1K/work/zheng/reseqtrack/scripts/process/run_crammer.pl -d
 -output_dir /tmp \
 -mode lossy \
 -reference_fasta /nfs/1000g-work/G1K/work/zheng/reference/hs37d5.fa \
--parameters "capture-all-tags=>1,ignore-tags=>OQ:BQ,heap_size=>4g,lossy-quality-score-spec=>*8" \
+-parameters "capture-all-tags=>1,ignore-tags=>OQ:BQ,heap_size=>4g,lossy-quality-score-spec=>\*8" \
 -output_file_type LOSSY_CRAM \
 -store \
 -archive \
