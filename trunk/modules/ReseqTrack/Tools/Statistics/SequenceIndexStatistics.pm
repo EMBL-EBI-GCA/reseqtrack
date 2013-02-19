@@ -62,11 +62,11 @@ sub new {
   my ($class, @args) = @_;
   my $self = $class->SUPER::new(@args);
 
-  my ($population_rules) = rearrange([qw(POPULATION_RULES)]);
+  my ($population_rules, $analysis) = rearrange([qw(POPULATION_RULES ANALYSIS)], @args);
   $self->population_rules($population_rules) if $population_rules;
 
   unless($self->new_index && $self->old_index){
-    $self->fetch_index_files();
+    $self->fetch_index_files($analysis);
   }
   return $self;
 }
@@ -96,7 +96,7 @@ sub new_index{
     throw("SequenceIndexStatistics:new_index ".$new_index." should exist")
       unless(-e $new_index);
     throw("SequenceIndexStatistcs:new_index ".$new_index." must match pattern ".
-	  "YYYYMMDD.sequence.index") unless($new_index =~ /\d+\.sequence\.index/);
+	  "YYYYMMDD.sequence.index") unless($new_index =~ /\d+\.sequence\.index/ || $new_index =~ /\d+\.analysis\.sequence\.index/);
     $self->{new_index} = $new_index;
   }
   return $self->{new_index};
@@ -108,7 +108,7 @@ sub old_index{
     throw("SequenceIndexStatistics:old_index ".$old_index." should exist")
       unless(-e $old_index);
     throw("SequenceIndexStatistcs:new_index ".$old_index." must match pattern ".
-	  "YYYYMMDD.sequence.index") unless($old_index =~ /\d+\.sequence\.index/);
+	  "YYYYMMDD.sequence.index") unless($old_index =~ /\d+\.sequence\.index/ || $old_index =~ /\d+\.analysis\.sequence\.index/);
     $self->{old_index} = $old_index;
   }
   return $self->{old_index};
@@ -271,7 +271,7 @@ sub stats_hash{
 
 
 sub fetch_index_files{
-  my ($self) = @_;
+  my ($self, $analysis) = @_;
   my $fa = $self->db->get_FileAdaptor;
   #fetch all files of type INDEX
   my $files = $fa->fetch_by_type('INDEX');
@@ -281,12 +281,22 @@ sub fetch_index_files{
     next if($file->filename =~ /alignment/);
     #skip the root sequence index file
     next if($file->filename eq 'sequence.index');
-    $file->filename =~ /(\d+)\.sequence\.index/;
-    if(!$1){
+    next if(!($file->filename =~ /sequence/));
+    my $date;
+    if($analysis){
+      next unless($file->filename =~ /analysis/);
+      $file->filename =~ /(\d+)\.analysis.sequence\.index/;
+      $date = $1;
+    }else{
+      next if($file->filename =~ /analysis/);
+      $file->filename =~ /(\d+)\.sequence\.index/;
+      $date = $1;
+    }
+    if(!$date){
       throw("Don't know how to parse ".$file->name);
     }
     #associate the date with a particular file
-    $index_files{$1} = $file->name;
+    $index_files{$date} = $file->name;
   }
   #sort dates numerically, the newest date should always be the largest number
   #provided the YYYYMMDD format is followed
@@ -394,7 +404,6 @@ sub parse_index{
     $per_platform{$values[12]} += $values[24];
     $per_platform{'total'} += $values[24];
     $per_center_population{$values[5]} += $values[24];
-    #$per_center_population{$values[5]}{total} += $values[24];
     $per_center_population{total} += $values[24];
   }
   return (\%per_run, \%per_sample, \%per_population, \%per_platform, 
@@ -447,7 +456,7 @@ sub calculate_summary_stats{
   $stats_hash{new}{'# Samples'} = keys(%$new_sample);
   foreach my $sample(keys(%$new_sample)){
     #samples which are greater than 4x have more than 12Gb of sequence
-    print STDERR $sample." ".$new_sample->{$sample}."\n" if($sample eq 'HG00181');
+    #print STDERR $sample." ".$new_sample->{$sample}."\n" if($sample eq 'HG00181');
     $stats_hash{new}{'# Samples greater than 10Gb'}++ 
       if($new_sample->{$sample} > 10000000000);
   }
@@ -622,10 +631,14 @@ sub row_type{
 
 sub get_index_date{
   my ($self, $index) = @_;
- # print STDERR "Parsing ".$index."\n";
+  print STDERR "Parsing ".$index."\n";
   $index =~ /(\d+)\.sequence\.index/;
   my $date = $1;
-  # print STDERR "RETURNING ".$date."\n";
+  if(!$date){
+    $index =~ /(\d+)\.analysis\.sequence\.index/;
+    $date = $1;
+  }
+  print STDERR "RETURNING ".$date."\n";
   return $date;
 }
 
