@@ -283,6 +283,7 @@ sub fetch_index_files{
     next if($file->filename eq 'sequence.index');
     next if(!($file->filename =~ /sequence/));
     next if ($file->filename =~ /CompleteGenomics/);
+    next if ($file->filename =~ /^analysis.sequence.index/);
     my $date;
     if($analysis){
       next unless($file->filename =~ /analysis/);
