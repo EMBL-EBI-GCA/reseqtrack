@@ -209,7 +209,7 @@ sub resource_classes {
 sub pipeline_analyses {
     my ($self) = @_;
 
-    my $call_by_samtools = 0;
+    my $call_by_samtools = 1;
     my $call_by_gatk = 1;
 
     my @call_processes;
