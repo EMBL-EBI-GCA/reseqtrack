@@ -127,27 +127,6 @@ sub run_program {
           . "does not provide one" );
 }
 
-=head2 intermediate_output_file
-
-PERHAPS can remove this function all together, the created_file function in RunProgram might do similar things
-
-  Arg [1]   : ReseqTrack::Tools::RunVariantCall
-  Function  : stores/gets intermediate output file such as raw vcf
-  Returntype: filepaths
-  Exceptions: 
-  Example   : my $bcf = $self->intermediate_output_file;
-
-=cut
-
-sub intermediate_output_file { ### FIXME: should this be an array?
-    my ($self, $file) = @_;
-    if ($file) {
-        $self->{'intermediate_output_file'} = $file;
-    }
-    return     $self->{'intermediate_output_file'};
-}    
-
-
 1;
 
 

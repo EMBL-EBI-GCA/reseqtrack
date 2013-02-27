@@ -608,44 +608,42 @@ sub get_temp_dir {
 
 
 sub options {
-	my ($self, @args) = @_;
+  my ($self, @args) = @_;
 
-	$self->{'options'} ||= {};	
-	my $num_of_args = scalar(@args);
+  $self->{'options'} ||= {};  
+  my $num_of_args = scalar(@args);
 
-	# no arguments, return all the options
-	if ($num_of_args == 0){
-		return $self->{'options'};
-	}
-	elsif ($num_of_args == 1){
-		my $ref_type = ref($args[0]);
+  # no arguments, return all the options
+  if ($num_of_args == 0){
+    return $self->{'options'};
+  }
+  elsif ($num_of_args == 1){
+    my $ref_type = ref($args[0]);
 
-		if (! $ref_type){
-			# arg is a scalar
-			return $self->{'options'}->{$args[0]};
-		}
-		elsif ($ref_type eq 'HASH'){
-			# merge these options with any existing
+    if (! $ref_type){
+      # arg is a scalar
+      return $self->{'options'}->{$args[0]};
+    }
+    elsif ($ref_type eq 'HASH'){
+      # merge these options with any existing
 
-			while (my ($name, $value) = each %{$args[0]}) {
-				$self->{'options'}->{$name} = $value;
-			}
+      while (my ($name, $value) = each %{$args[0]}) {
+        $self->{'options'}->{$name} = $value;
+      }
 
-			return $self->{'options'};
-		}
-		else {
-			throw("Cannot set options with a $ref_type reference");
-		}
+      return $self->{'options'};
+    }
+    else {
+      throw("Cannot set options with a $ref_type reference");
+    }
 
-	}
-	else{
-		my ($option_name,$option_value) = @args;
-
-		throw( "option_name not specified") if (! $option_name);
-
-		$self->{'options'}->{$option_name} = $option_value;
-		return $self->{'options'}->{$option_name};
-	}
+  }
+  else{
+    my ($option_name,$option_value) = @args;
+    throw( "option_name not specified") if (! $option_name);
+    $self->{'options'}->{$option_name} = $option_value;
+    return $self->{'options'}->{$option_name};
+  }
 
 }
 

@@ -57,6 +57,8 @@ sub run_program{
 
     my $regions = $self->regions;
     throw("do not have regions") if !$regions || !@$regions;
+    my $input_files = $self->input_files;
+    throw("do not have any input files") if !@$input_files;
 
     my $output_bam = $self->working_dir . '/' . $self->job_name . '.transposed.bam';
     my @cmd_words = ($self->program);
@@ -65,11 +67,11 @@ sub run_program{
     }
     push(@cmd_words, '-i') if $self->options('build_index');
     push(@cmd_words, '-o', $output_bam);
-    push(@cmd_words, @{$self->input_files});
+    push(@cmd_words, sort @$input_files);
     my $cmd = join(' ', @cmd_words);
 
     $self->output_files($output_bam);
-    if ($self->option('build_index')) {
+    if ($self->options('build_index')) {
       $self->output_files("$output_bam.bai");
     }
 

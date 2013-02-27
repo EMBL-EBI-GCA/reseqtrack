@@ -506,7 +506,6 @@ sub pipeline_analyses {
             -logic_name => 'realign',
             -module        => 'ReseqTrack::HiveProcess::RunBamImprovement',
             -parameters => {
-                program_file => $self->o('samtools_exe'),
                 command => 'realign',
                 reference => $self->o('reference'),
                 gatk_dir => $self->o('gatk_dir'),
@@ -551,7 +550,6 @@ sub pipeline_analyses {
             -module        => 'ReseqTrack::HiveProcess::RunBamImprovement',
             -meadow_type=> 'LOCAL',
             -parameters => {
-                program_file => $self->o('samtools_exe'),
                 command => 'recalibrate',
                 reference => $self->o('reference'),
                 gatk_dir => $self->o('gatk_dir'),

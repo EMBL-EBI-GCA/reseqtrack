@@ -6,7 +6,6 @@ use vars qw(@ISA);
 
 use ReseqTrack::Tools::Exception qw(throw);
 use ReseqTrack::Tools::Argument qw(rearrange);
-use File::Basename qw(basename fileparse);
 use ReseqTrack::Tools::FileSystemUtils qw( check_file_exists check_executable);
 use ReseqTrack::Tools::RunVariantCall;
 use ReseqTrack::Tools::GATKTools;
@@ -53,41 +52,17 @@ sub new {
   my $self = {(%$gatk_obj, %$variant_call_obj)};
   bless $self, $class;
 
-  my (     $parameters, 
-           $super_pop_name)
-    = rearrange( [ qw(  PARAMETERS
-                        SUPER_POP_NAME) ], @args);
-  
-  ## Set defaults     
-
-  $self->reference("/nfs/1000g-work/G1K/scratch/zheng/reference_genomes/human_g1k_v37.fasta") if (! $self->reference);
-  $self->gatk_path("/nfs/1000g-work/G1K/work/bin/gatk/dist/") if (! $self->gatk_path);
-   
-  $self->options($parameters); ## This is a function in RunProgram module   
-  print "option hash keys are:\n";
-  print join("\n", keys %{$self->options}) . "\n";
-  
-  #if (! defined $self->options->{'dbSNP'}) {
-  #    throw("Please provide dbSNP VCF file path for gatk run in parameters\n");
-  #}
-  #print "dbSNP is " . $self->options->{'dbSNP'} . "\n";
-  
-  $self->super_pop_name($super_pop_name);
-  print "super pop is $super_pop_name\n";
-  
   return $self;
 }
 
-=head
 # This is to set default parameters
 sub DEFAULT_OPTIONS { return {
         'dcov' => 50,
-        'stand_emit_conf' => 10.0,
-        'stand_call_conf' => 50.0,
+        'stand_emit_conf' => 30.0,
+        'stand_call_conf' => 30.0,
         'glm' => 'SNP',
         };
 }
-=cut
 
 =head2 run_program
 
@@ -104,120 +79,50 @@ sub DEFAULT_OPTIONS { return {
 sub run_program {
     my ($self) = @_;  
     my $input_bams = $self->input_files; # $input_bams can be an array ref
-    my $dir = $self->working_dir;
-    check_file_exists($self->reference);
-    check_executable($self->java_exe);
     throw "no input bams" if (!@$input_bams);
+    $self->check_jar_file_exists;
+    check_file_exists($self->reference);
+    $self->check_bai_exists();
+    check_executable($self->java_exe);
 
-    my $cmd = $self->java_exe . ' ' . $self->jvm_args . ' -jar ';
-    $cmd .= $self->gatk_path . '/' . $self->jar_file;
-    $cmd .= " -R " . $self->reference . " ";
+    my $output_vcf = $self->working_dir .'/'. $self->job_name . '.vcf.gz';
+    $output_vcf =~ s{//}{/};
+
+    my @cmd_words = ($self->java_exe, $self->jvm_args, '-jar');
+    push(@cmd_words, $self->gatk_path . '/' . $self->jar_file);
+    push(@cmd_words, '-T', 'UnifiedGenotyper');
+    push(@cmd_words, '-R', $self->reference);
     
-    foreach my $bam ( @$input_bams ) {  ## FIXME: use a list of bam files?
-        $cmd .= "-I " . $bam . " ";
+    foreach my $bam ( @$input_bams ) {
+        push(@cmd_words, '-I', $bam);
     }        
     
-    $cmd .= "-T UnifiedGenotyper ";
-
-    my $region;
-    if ($self->region) {
-        $region = "chr" . $self->chrom . "_" . $self->region; 
-    }
-    elsif ($self->chrom) {
-        $region = "chr" . $self->chrom;
+    if (my $region = $self->chrom) {
+      $region .= ":".$self->region if ($self->region);
+      push(@cmd_words, '-L', $region);
     }    
 
-    my $outfile = $self->derive_output_file_name->[0];
+    push(@cmd_words, '-o', $output_vcf);
     
-    $cmd .= "-o $outfile "; 
-
-	if ( $self->options ) {
-		foreach my $tag ( keys ( %{$self->options} ) ) {
+    if ( $self->options ) {
+      OPTION:
+      while (my ($tag, $value) = each %{$self->options}) {
+        next OPTION if !defined $value;
+      }
+        foreach my $tag ( keys ( %{$self->options} ) ) {
             my $value = $self->options->{$tag};
-            if (defined $value) {
-                if ($tag =~ /dbSNP/i ) {
-                	 #$cmd .= "-B:dbsnp,VCF $value "; ## this is for earlier version of gatk prior to gatk-1.6
-                	 $cmd .= "--dbsnp $value ";
-                }    
-                else{
-	                $cmd .= "-" . $tag . " " . $value . " ";
-                }
-            }
+            $tag =~ s/^dbSNP/-dbSNP/;
+            push(@cmd_words, "-$tag", $value);
         }
     }        
-    
-    if ($self->chrom) {
-        $cmd .= "-L " . $self->chrom;
-        if ($self->region) {
-            $cmd .= ":" . $self->region;
-        }
-    }            
 
-    $self->execute_command_line($cmd);
+    my $cmd = join(' ', @cmd_words);
+    $self->output_files($output_vcf);
+    $self->execute_command_line ($cmd);
     
     return $self;
 }
 
-=head2 super_pop_name
-  Arg [1]   : ReseqTrack::Tools::RunVariantCall::CallByGATK
-  Arg [2]   : string, required, super_pop_name used for calling the variants, can be things like EUR, ALL (for all pop) and unknownPop, it will be 
-            used in output file names
-  Function  : accessor method for super_pop_name
-  Returntype: string
-  Exceptions: n/a
-  Example   : my $super_pop_name = $self->super_pop_name;
-
-=cut
-
-sub super_pop_name {
-  my ($self, $super_pop_name) = @_;
-  if ($super_pop_name) {
-    $self->{'super_pop_name'} = $super_pop_name;
-  }
-  return $self->{'super_pop_name'};
-}
-
-=head2 derive_output_file_name 
-
-  Arg [1]   : ReseqTrack::Tools::RunVariantCall::CallByGATK object
-  Arg [2]    : algorithm name
-  Function  : create an output VCF name based on input file information
-  Returntype: file path
-  Exceptions: 
-  Example   : my $output_file = $self->derive_output_file_name->[0];
-
-=cut
-
-sub derive_output_file_name {  
-    
-    my ( $self ) = @_;        
-
-    my $sample_cnt = @{$self->input_files};
-    my $output_file;
-    my $output_dir_by_chr;
-    my $out_dir = $self->working_dir;
-    $out_dir =~ s/\/$//;
-    
-    if ( $self->chrom ) {
-        $output_dir_by_chr = $out_dir . "/chr" . $self->chrom;
-    }
-    else{
-        $output_dir_by_chr = $out_dir;
-    }    
-    
-    mkpath($output_dir_by_chr) unless (-e $output_dir_by_chr);
-    
-    if ($self->region) {
-        $output_file = $output_dir_by_chr . "/" . $self->output_name_prefix . "_" . $self->super_pop_name . "_of_" . $sample_cnt . "bams.chr" . $self->chrom . "_" . $self->region . ".gatk.vcf";
-
-    }
-    else {
-        $output_file = $output_dir_by_chr . "/" . $self->output_name_prefix . "_" . $self->super_pop_name . "_of_" . $sample_cnt . "bams.gatk.vcf";
-    }
-
-    return $self->output_files($output_file);
-    
-}    
 
 1;
 

@@ -82,13 +82,20 @@ sub default_options {
         },
 
         'type_bam'    => 'BAM',
-        'transform_exe' => $self->o('ENV', 'RESEQTRACK').'/c_code/transpose_bam/transpose_bam',
+        'transpose_exe' => $self->o('ENV', 'RESEQTRACK').'/c_code/transpose_bam/transpose_bam',
         'samtools_exe' => '/nfs/1000g-work/G1K/work/bin/samtools/samtools',
+        'bcftools_exe' => '/nfs/1000g-work/G1K/work/bin/samtools/bcftools/bcftools',
+        'vcfutils_exe' => '/nfs/1000g-work/G1K/work/bin/samtools/bcftools/vcfutils.pl',
+        'bgzip_exe' => '/nfs/1000g-work/G1K/work/bin/tabix/bgzip',
         'gatk_dir' => '/nfs/1000g-work/G1K/work/bin/gatk/dist/',
+
+        call_by_gatk_options => {}, # use module defaults
+        call_by_samtools_options => {}, # use module defaults
 
         'fai' => $self->o('reference') . '.fai',
 
         'final_label' => $self->o('pipeline_name'),
+        'call_window_size' => 50000,
 
 
     };
@@ -171,6 +178,7 @@ sub resource_classes {
     return {
             %{$self->SUPER::resource_classes},  # inherit 'default' from the parent class
             '200Mb' => { 'LSF' => '-C0 -M200 -q production -R"select[mem>200] rusage[mem=200]"' },
+            '500Mb' => { 'LSF' => '-C0 -M500 -q production -R"select[mem>500] rusage[mem=500]"' },
             '1Gb'   => { 'LSF' => '-C0 -M1000 -q production -R"select[mem>1000] rusage[mem=1000]"' },
             '2Gb' => { 'LSF' => '-C0 -M2000 -q production -R"select[mem>2000] rusage[mem=2000]"' },
             '4Gb' => { 'LSF' => '-C0 -M4000 -q production -R"select[mem>4000] rusage[mem=4000]"' },
@@ -201,7 +209,7 @@ sub resource_classes {
 sub pipeline_analyses {
     my ($self) = @_;
 
-    my $call_by_samtools = 1;
+    my $call_by_samtools = 0;
     my $call_by_gatk = 1;
 
     my @call_processes;
@@ -215,9 +223,10 @@ sub pipeline_analyses {
     my @analyses;
     push(@analyses, {
             -logic_name    => 'import_genome',
-            -module        => 'ReseqTrack::HiveProcess::ImportGenome',
+            -module        => 'ReseqTrack::HiveProcess::RegionsFactory',
             -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
             -parameters    => {
+                command => 'load_db',
                 fai => $self->o('fai'),
             },
             -input_ids => [{}],
@@ -250,7 +259,7 @@ sub pipeline_analyses {
                 },
             },
             -flow_into => {
-                1 => [ 'fan_on_regions1' ],
+                1 => [ 'regions_factory_1' ],
             },
       });
     push(@analyses, {
@@ -258,31 +267,33 @@ sub pipeline_analyses {
             -module        => 'ReseqTrack::HiveProcess::RegionsFactory',
             -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
             -parameters    => {
-                whole_SQ => 1,
+                command => 'seq_region_factory',
                 branch_parameters_out => {
-                  seq_index_start => 'seq_index_start'
-                  seq_index_end => 'seq_index_end'
+                  seq_index_start => 'seq_index_start',
+                  seq_index_end => 'seq_index_end',
                 },
                 min_bases => 50000000,
             },
             -wait_for => ['import_genome'],
             -flow_into => {
-                '2->A' => [ 'transform_bam' ],
+                '2->A' => [ 'transpose_bam' ],
                 'A->1' => [ 'dummy_process' ],
             },
       });
     push(@analyses, {
-            -logic_name    => 'transform_bam',
-            -module        => 'ReseqTrack::HiveProcess::TransformBam',
+            -logic_name    => 'transpose_bam',
+            -module        => 'ReseqTrack::HiveProcess::TransposeBam',
             -parameters    => {
-                program_file => $self->o('transform_exe'),
+                program_file => $self->o('transpose_exe'),
                 create_index => 1,
                 branch_parameters_in => {
-                    bams => 'SOURCE_BAM',
-                    regions => 'SQ',
+                    bams => {key => 'SOURCE_BAM', ascend => 1},
+                    seq_index_start => 'seq_index_start',
+                    seq_index_end => 'seq_index_end',
                 },
                 branch_parameters_out => {
-                  transformed_bam => 'BAM',
+                  bam => 'BAM',
+                  bai => 'BAI',
                 },
             },
             -rc_name => '200Mb',
@@ -298,17 +309,17 @@ sub pipeline_analyses {
             -module        => 'ReseqTrack::HiveProcess::RegionsFactory',
             -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
             -parameters    => {
+                command => 'window_factory',
                 branch_parameters_in => {
                     seq_index_start => 'seq_index_start',
                     seq_index_end => 'seq_index_end',
                 },
                 branch_parameters_out => {
-                  seq_index_start => 'seq_index_start'
-                  seq_index_end => 'seq_index_end'
-                  position__start => 'position__start'
-                  position__end => 'position__end'
+                  seq_index => 'seq_index',
+                  region_start => 'region_start',
+                  region_end => 'region_end',
                 },
-                max_bases => 50000,
+                max_bases => $self->o('call_window_size'),
             },
             -flow_into => {
                 2 => [ @call_processes ],
@@ -321,6 +332,7 @@ sub pipeline_analyses {
             -parameters    => {
                 branch_parameters_in => {
                     bams => {key => 'BAM', inactivate => 1},
+                    bais => {key => 'BAI', inactivate => 1},
                 },
             },
       });
@@ -338,31 +350,39 @@ sub pipeline_analyses {
             -module        => 'ReseqTrack::HiveProcess::RunVariantCall::CallBySamtools',
             -parameters    => {
                 reference => $self->o('reference'),
+                samtools => $self->o('samtools_exe'),
+                bcftools => $self->o('bcftools_exe'),
+                vcfutils => $self->o('vcfutils_exe'),
+                bgzip => $self->o('bgzip_exe'),
+                options => $self->o('call_by_samtools_options'),
                 branch_parameters_in => {
-                    region => 'region',
-                    bam => 'BAM',
+                    seq_index => 'seq_index',
+                    region_start => 'region_start',
+                    region_end => 'region_end',
+                    bam => {key => 'BAM', ascend => 1},
                 },
                 branch_parameters_out => {
                   vcf => 'samtools_vcf'
                 },
             },
-            -rc_name => '200Mb',
-            -analysis_capacity  =>  4,  # use per-analysis limiter
+            -rc_name => '500Mb',
+            -analysis_capacity  =>  50,  # use per-analysis limiter
             -hive_capacity  =>  -1,
         });
       push(@analyses, {
             -logic_name    => 'merge_samtools',
             -module        => 'ReseqTrack::HiveProcess::MergeVcf',
             -parameters    => {
+                bgzip => $self->o('bgzip_exe'),
                 branch_parameters_in => {
-                  vcf => {key => 'samtools_vcf', inactivate => 1},
+                  vcf => {key => 'samtools_vcf', inactivate => 1, descend => 1},
                 },
                 branch_parameters_out => {
                   vcf => 'samtools_vcf'
                 },
             },
             -rc_name => '200Mb',
-            -analysis_capacity  =>  4,  # use per-analysis limiter
+            -analysis_capacity  =>  50,  # use per-analysis limiter
             -hive_capacity  =>  -1,
         });
     }
@@ -372,30 +392,36 @@ sub pipeline_analyses {
             -module        => 'ReseqTrack::HiveProcess::RunVariantCall::CallByGATK',
             -parameters    => {
                 reference => $self->o('reference'),
+                gatk_dir => $self->o('gatk_dir'),
+                options => $self->o('call_by_gatk_options'),
                 branch_parameters_in => {
-                    region => 'region',
+                    seq_index => 'seq_index',
+                    region_start => 'region_start',
+                    region_end => 'region_end',
+                    bam => {key => 'BAM', ascend => 1},
                 },
                 branch_parameters_out => {
                   vcf => 'gatk_vcf'
                 },
             },
-            -rc_name => '200Mb',
-            -analysis_capacity  =>  4,  # use per-analysis limiter
+            -rc_name => '2Gb',
+            -analysis_capacity  =>  50,  # use per-analysis limiter
             -hive_capacity  =>  -1,
         });
       push(@analyses, {
             -logic_name    => 'merge_gatk',
             -module        => 'ReseqTrack::HiveProcess::MergeVcf',
             -parameters    => {
+                bgzip => $self->o('bgzip_exe'),
                 branch_parameters_in => {
-                  vcf => {key => 'gatk_vcf', inactivate => 1},
+                  vcf => {key => 'gatk_vcf', inactivate => 1, descend => 1},
                 },
                 branch_parameters_out => {
                   vcf => 'gatk_vcf'
                 },
             },
             -rc_name => '200Mb',
-            -analysis_capacity  =>  4,  # use per-analysis limiter
+            -analysis_capacity  =>  50,  # use per-analysis limiter
             -hive_capacity  =>  -1,
         });
     }

@@ -202,7 +202,10 @@ sub _process_branch_params_in {
       push(@data_ids, map {$_->[0]} @$rows);
       push(@sorted_values, map {$_->[1]} @$rows);
     }
-    $self->param($param_key, scalar @sorted_values == 1 ? $sorted_values[0] : \@sorted_values);
+    my $param_value = scalar @sorted_values == 0 ? undef
+                    : scalar @sorted_values == 1 ? $sorted_values[0]
+                    : \@sorted_values;
+    $self->param($param_key, $param_value);
     if ($inactivate) {
       $self->_data_to_make_inactive(\@data_ids);
       $self->_files_to_delete([grep { /^$root_output_dir/ }  @sorted_values]);
