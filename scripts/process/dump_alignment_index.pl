@@ -96,7 +96,8 @@ if($output_file){
      }
          
      next if ($file->name =~ /technical\/working\//); # won't include 
-           
+     next if ($file->type =~ /P2b_/i);
+     
      #print $file->filename."\n";
      my $name = $file->filename;
      $name =~ s/\.bam//;
