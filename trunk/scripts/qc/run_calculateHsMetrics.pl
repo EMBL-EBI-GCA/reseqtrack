@@ -19,6 +19,7 @@ my (
     $flanking_50bp,
     $out,
     $col_type,
+    $bait,
 );    
 
 &GetOptions(
@@ -31,6 +32,7 @@ my (
   'type=s'			=> \$col_type,
   'out=s'			=> \$out_dir,
   'flanking!'		=> \$flanking_50bp,
+  'bait=s'			=> \$bait,
 );
 
 my $db = ReseqTrack::DBSQL::DBAdaptor->new(
@@ -72,9 +74,22 @@ foreach my $other ( @$others ) {
 	unless (-e $bam) {
 		throw("File $bam does not exist\n");
 	}		
+
+	if ($flanking_50bp ) {
+		$out = $out_dir . "/" . $basename . ".flanking_50bp.stats";
+	}
+	else {
+		$out = $out_dir . "/" . $basename . ".stats";
+	}					
 	
 	my $command = "/usr/bin/java -jar /nfs/1000g-work/G1K/work/bin/picard/CalculateHsMetrics.jar ";
+	$command .= "TARGET_INTERVALS=$bait ";
+	$command .= "BAIT_INTERVALS=$bait ";
+	$command .=  "INPUT=$bam OUTPUT=$out VALIDATION_STRINGENCY=SILENT VERBOSITY=ERROR ";
+
+	print "$command\n";
 	
+=head
 	if ($flanking_50bp ) {
 		if ($bam !~ /mosaik/i) {
 			$out = $out_dir . "/" . $basename . ".flanking_50bp.stats";
@@ -82,15 +97,13 @@ foreach my $other ( @$others ) {
 			#$command = $command . "TARGET_INTERVALS=/nfs/1000g-work/G1K/work/zheng/exome_stats/20110426_exome_add50bp.consensus.fake_anno.sam ";
 			$command = $command . "BAIT_INTERVALS=/nfs/1000g-work/G1K/work/zheng/exome_stats/reference/20110426_exome_add50bp.consensus.fake_anno.phase2.sam ";
 			$command = $command . "TARGET_INTERVALS=/nfs/1000g-work/G1K/work/zheng/exome_stats/reference/20110426_exome_add50bp.consensus.fake_anno.phase2.sam ";
-			$command = $command . "INPUT=$bam OUTPUT=$out VALIDATION_STRINGENCY=SILENT VERBOSITY=ERROR";
 		}
 		else {
 			$out = $out_dir . "/" . $basename . ".flanking_50bp.stats";
 			#$command = $command . "BAIT_INTERVALS=/nfs/1000g-work/G1K/work/zheng/exome_stats/20110426_exome_add50bp.consensus.fake_anno.mosaik.sam ";
 			#$command = $command . "TARGET_INTERVALS=/nfs/1000g-work/G1K/work/zheng/exome_stats/20110426_exome_add50bp.consensus.fake_anno.mosaik.sam ";
 			$command = $command . "BAIT_INTERVALS=/nfs/1000g-work/G1K/work/zheng/exome_stats/reference/20110426_exome_add50bp.consensus.fake_anno.mosaik.phase2.sam ";
-			$command = $command . "TARGET_INTERVALS=/nfs/1000g-work/G1K/work/zheng/exome_stats/reference/20110426_exome_add50bp.consensus.fake_anno.mosaik.phase2.sam ";
-			$command = $command . "INPUT=$bam OUTPUT=$out VALIDATION_STRINGENCY=SILENT VERBOSITY=ERROR";
+			$command = $command . "TARGET_INTERVALS=/nfs/1000g-work/G1K/work/zheng/exome_stats/reference/20110426_exome_add50bp.consensus.fake_anno.mosaik.phase2.sam ";	
 		}
 	}
 	else {
@@ -99,8 +112,7 @@ foreach my $other ( @$others ) {
 	#		$command = $command . "BAIT_INTERVALS=/nfs/1000g-work/G1K/work/zheng/exome_stats/20110225.exome.consensus.annotation.sam ";
 	#		$command = $command . "TARGET_INTERVALS=/nfs/1000g-work/G1K/work/zheng/exome_stats/20110225.exome.consensus.annotation.sam ";
 			$command = $command . "BAIT_INTERVALS=/nfs/1000g-work/G1K/work/zheng/exome_stats/reference/20110225.exome.consensus.annotation.phase2.sam ";
-			$command = $command . "TARGET_INTERVALS=/nfs/1000g-work/G1K/work/zheng/exome_stats/reference/20110225.exome.consensus.annotation.phase2.sam ";
-			$command = $command . "INPUT=$bam OUTPUT=$out VALIDATION_STRINGENCY=SILENT VERBOSITY=ERROR";
+			$command = $command . "TARGET_INTERVALS=/nfs/1000g-work/G1K/work/zheng/exome_stats/reference/20110225.exome.consensus.annotation.phase2.sam ";	
 		}
 		else {
 			$out = $out_dir . "/" . $basename . ".stats";
@@ -108,9 +120,9 @@ foreach my $other ( @$others ) {
 			#$command = $command . "TARGET_INTERVALS=/nfs/1000g-work/G1K/work/zheng/exome_stats/20110225.exome.consensus.annotation.mosaik.sam ";
 			$command = $command . "BAIT_INTERVALS=/nfs/1000g-work/G1K/work/zheng/exome_stats/reference/20110225.exome.consensus.annotation.mosaik.phase2.sam ";
 			$command = $command . "TARGET_INTERVALS=/nfs/1000g-work/G1K/work/zheng/exome_stats/reference/20110225.exome.consensus.annotation.mosaik.phase2.sam ";
-			$command = $command . "INPUT=$bam OUTPUT=$out VALIDATION_STRINGENCY=SILENT VERBOSITY=ERROR";
 		}	
 	}	
+=cut
 	
 	`$command`;
 	
@@ -119,4 +131,10 @@ foreach my $other ( @$others ) {
 
 }	
 
-##perl /nfs/1000g-work/G1K/work/zheng/reseqtrack/scripts/qc/run_calculateHsMetrics.pl -dbhost mysql-g1kdcc-public -dbname g1k_archive_staging_track -dbuser g1krw -dbpass thousandgenomes -dbport 4197 -out /nfs/1000g-work/G1K/work/zheng/bam_release.20111114/calculateHsMetrics/results -collection NA20801.ILLUMINA.bwa.exome -type EXOME_BAM &
+=pod
+perl /nfs/1000g-work/G1K/work/zheng/reseqtrack/scripts/qc/run_calculateHsMetrics.pl \
+-dbhost mysql-g1kdcc-public -dbname g1k_archive_staging_track -dbuser g1krw -dbpass thousandgenomes -dbport 4197 \
+-out /nfs/1000g-work/G1K/work/zheng/bam_release.20111114/calculateHsMetrics/results \
+-bait /nfs/1000g-work/G1K/work/zheng/exome_stats/20110225.exome.consensus.annotation.sam \
+-collection NA20801.ILLUMINA.bwa.exome \
+-type EXOME_BAM &
