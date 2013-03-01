@@ -199,8 +199,8 @@ sub resource_classes {
 sub pipeline_analyses {
     my ($self) = @_;
 
-    my $recalibrate_level = 0;
-    my $realign_knowns_only = 0;
+    my $recalibrate_level = 0; # 0 means no recalibration; 1 means lane level recalibration; 2 means sample level recalibration
+    my $realign_knowns_only = 0; # 1 means use knowns only.  0 means a full realignment
 
     die("recalibrate level must not be >2") if $recalibrate_level >2;
 
