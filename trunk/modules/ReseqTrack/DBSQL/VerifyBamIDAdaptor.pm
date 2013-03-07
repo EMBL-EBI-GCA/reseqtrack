@@ -135,19 +135,17 @@ sub update {
 		  . " using ReseqTrack::DBSQL::VerifyBamID" )
 	  unless ( $verifybamid->isa("ReseqTrack::VerifyBamID") );
 
-		my @cols = qw(  sample  chip_id snps num_reads avg_depth free_contam free_mlogl_est_contam
+	my @cols = qw(  sample  chip_id snps num_reads avg_depth free_contam free_mlogl_est_contam
 free_mlogl_zero_contam free_ref_bias_ref_het free_ref_bias_refhomalt
 chip_contam chip_mlogl_est_contam chip_mlogl_zero_contam
 chip_ref_bias_ref_het chip_ref_bias_refhomalt depth_homref_site
 rel_depth_het_site rel_depth_homalt_site run_mode
-used_genotypes target_region vcf verdict);
-
-
+used_genotypes target_region verdict);
 
 	my $update_cols = join (" = ? ," , @cols);
         $update_cols .= " = ?"; 
 
-	my $sql = "update verifybamid set $update_cols , performed = now() where ( file_id = ? and read_group = ?) ";
+	my $sql = "update verifybamid set $update_cols , performed = now() where ( file_id = ? and read_group = ? and vcf = ?) ";
 
 	my $sth = $self->prepare($sql);
 	my $ctr = 0;
@@ -173,11 +171,11 @@ used_genotypes target_region vcf verdict);
 	$sth->bind_param( 19, $verifybamid->run_mode);
 	$sth->bind_param( 20, $verifybamid->used_genotypes);
 	$sth->bind_param( 21, $verifybamid->target_region);
-	$sth->bind_param( 22, $verifybamid->vcf);
-	$sth->bind_param( 23, $verifybamid->verdict);
-	$sth->bind_param( 24, $verifybamid->file_id );
-	$sth->bind_param( 25, $verifybamid->read_group );
-
+	$sth->bind_param( 22, $verifybamid->verdict);
+	$sth->bind_param( 23, $verifybamid->file_id );
+	$sth->bind_param( 24, $verifybamid->read_group );
+	$sth->bind_param( 25, $verifybamid->vcf );
+	
 	$sth->execute();
 	$sth->finish();
 
@@ -229,6 +227,41 @@ sub object_from_hashref {
 }
 
 
+sub fetch_by_vcf_file_id_and_readgroup {
+    
+  my ($self, $vcf, $file_id, $read_group) = @_;
+  my $sql = "select ". $self->columns." from " .  $self->table_name .
+    " where vcf=? and file_id = ? and read_group = ?";
+          
+  my $sth = $self->prepare($sql);
+  $sth->bind_param(1, $vcf);
+  $sth->bind_param(2, $file_id);
+  $sth->bind_param(3, $read_group);
+  $sth->execute;
+  
+  my @results;
+  while (my $rowHashref = $sth->fetchrow_hashref) {
+    my $result = $self->object_from_hashref($rowHashref);
+    push(@results, $result);
+  }
+  $sth->finish;
+
+  throw("file_id ",$file_id." has returned multiple objects ".@results." not sure what to do") 
+    if (@results && @results >= 2);
+
+  if ( @results ==0 ){
+#   print "No results found for file_id=  $file_id  read_group $read_group\n";
+   return;
+
+  }
+
+  my $result = $results[0];
+    
+  return $result;
+}
+
+
+=head
 sub fetch_by_file_id_and_readgroup{
     
   my ($self, $file_id, $read_group) = @_;
@@ -249,7 +282,6 @@ sub fetch_by_file_id_and_readgroup{
 
   throw("file_id ",$file_id." has returned multiple objects ".@results." not sure what to do") 
     if (@results && @results >= 2);
- 
 
   if ( @results ==0 ){
 #   print "No results found for file_id=  $file_id  read_group $read_group\n";
@@ -262,7 +294,7 @@ sub fetch_by_file_id_and_readgroup{
   return $result;
 }
 
-
+=cut
 
 return 1;
 
