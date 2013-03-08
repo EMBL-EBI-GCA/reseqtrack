@@ -46,6 +46,9 @@ sub run {
       -options      => $options,
       -known_sites_files => $self->param('known_sites_vcf'),
     );
+    if ($command eq 'realign') {
+      $gatk_object->intervals_file($self->param('intervals_file'));
+    }
     $gatk_object->run($command);
     $self->output_this_branch('bam' => $gatk_object->output_bam);
     $self->data_dbc->disconnect_when_inactive(0);

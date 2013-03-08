@@ -92,6 +92,7 @@ sub default_options {
         'picard_dir' => '/nfs/1000g-work/G1K/work/bin/picard',
         'known_indels_vcf' => '',
         'known_snps_vcf' => '',
+        'realign_intervals_file' => '',
 
         'reference_uri' => $self->o('reference'),
 
@@ -256,7 +257,6 @@ sub pipeline_analyses {
             -module        => 'ReseqTrack::HiveProcess::JobFactory',
             -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
             -parameters    => {
-                branching_system => 1,
                 branch_parameters_out => {
                   data_value => 'STUDY_ID',
                 }
@@ -510,6 +510,7 @@ sub pipeline_analyses {
                 reference => $self->o('reference'),
                 gatk_dir => $self->o('gatk_dir'),
                 known_sites_vcf => $self->o('known_indels_vcf'),
+                intervals_file => $self->o('realign_intervals_file'),
                 gatk_module_options => {knowns_only => $realign_knowns_only},
                 branch_parameters_in => {
                     bam => {key => 'BAM', inactivate => 1, descend => 1},
