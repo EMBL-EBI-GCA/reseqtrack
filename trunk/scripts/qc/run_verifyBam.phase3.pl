@@ -203,7 +203,15 @@ sub which_vcf {
 		my ($sample) = split (/\./,  basename($$input{bam_name}));
 		my $pop = $sample_pop_hash{$sample};
 		if (defined $pop ) {
-			$vcf = $$input{vcf_root} . "/$pop." . $$input{vcf_suffix};
+			my $possible_vcf = $$input{vcf_root} . "/$pop." . $$input{vcf_suffix};
+			if ( -e $possible_vcf ) {
+				$vcf = $possible_vcf;
+			}
+			else {
+				warn("VCF file for population $pop does not exist, use VCF for ALL populations.");
+				$vcf = $$input{vcf_root} . "/ALL." . $$input{vcf_suffix};
+			}		
+			
 		}	
 		else {
 			throw("sample $sample doesn't mapped to any population!");
