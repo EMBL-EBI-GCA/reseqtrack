@@ -27,6 +27,7 @@ my $bam_header_info;
 my $VBAM;
 my $BAM;
 my ( $sample,$read_group);
+my $tabix;
 
 GetOptions(
 	\%input,         'dbhost=s',	'dbname=s',      'dbuser=s',
@@ -35,7 +36,7 @@ GetOptions(
 	'debug!',        'update!',	'test!',         'save_files_for_deletion!',
 	'snps_list=s',   'vcf_root:s', 'vcf_suffix:s', 'mapping=s', 'vcf:s', 'name=s',  'collection_type=s',
 	'chrom=s',       'program=s',	'not_event!',    'options=s', 'run_mode=s',
-	   'bam_name=s', 'do_read_groups!',
+	   'bam_name=s', 'do_read_groups!', 'tabix:s',
 );
 
 if ( $input{vcf_root} && (!$input{mapping} || !$input{vcf_suffix}) ) {
@@ -44,7 +45,9 @@ if ( $input{vcf_root} && (!$input{mapping} || !$input{vcf_suffix}) ) {
 if ( $input{vcf_root} && $input{vcf} ) {
 	throw("Want to run by population verifybam or not? Don't provide vcf_root and vcf at the same time");
 }
-	 
+
+$tabix =  "/nfs/1000g-work/G1K/work/bin/tabix/tabix" if ( ! $input{tabix} );
+
 &get_params( $input{cfg_file}, \%input )if (defined $input{cfg_file});
 
 $input{run_mode} = "self" if (!defined $input{run_mode});
@@ -246,11 +249,12 @@ sub create_run_program_object {
       }    
   }
 
+=head
 	print "options hash is: ";
 	foreach my $k ( keys%option_hash ) {
 		print "$k\t$option_hash{$k}\n";
 	}		
-	
+=cut	
       
   my $vcf = which_vcf($input);
   
@@ -383,10 +387,6 @@ sub set_options{
 		$input{options} .= " --chip-full ";
 	}
 	
-		
-		
-	
-
 	return;
 }
 
@@ -518,7 +518,7 @@ sub set_analysis_mode {
 	  my $tbi = $vcf . '.tbi';
 
 	  if ( -e $tbi ) {
-		  $cmd = "tabix -H $vcf | grep \"^#CHROM\"";
+		  $cmd = "$tabix -H $vcf | grep \"^#CHROM\"";
 	  }
 	  elsif ( $vcf =~ /gz$/ ) {
 		  $cmd = "zcat $vcf | head -300 | grep \"^#CHROM\"";
@@ -542,7 +542,8 @@ sub set_analysis_mode {
 	  }
 	  else {
 		  print "Have genotypes for $sample using CHIP analysis\n";
-		  $$input{analysis_type}= "FREE"; # this is correct, but leave --chip_mix on
+		  #$$input{analysis_type}= "FREE"; # this is correct, but leave --chip_mix on
+		  $$input{analysis_type}= "NOT_FREE";  ## this is my place holder
 		  $$input{used_genotypes} = 1;
 		  $$input{mix_cutoff}    = 0.02;
 	  }
