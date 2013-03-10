@@ -38,7 +38,7 @@ GetOptions(
 	   'bam_name=s', 'do_read_groups!',
 );
 
-if ( $input{vcf_root} && (!$input{mapping} || $input{vcf_suffix}) ) {
+if ( $input{vcf_root} && (!$input{mapping} || !$input{vcf_suffix}) ) {
 	throw("Please provide a sample to pop mapping file and a vcf_suffix if you want to do by population verifybam with vcf_root $input{vcf_root}");
 }
 if ( $input{vcf_root} && $input{vcf} ) {
