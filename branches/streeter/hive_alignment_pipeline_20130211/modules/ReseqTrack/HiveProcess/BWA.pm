@@ -26,6 +26,7 @@ sub run {
     my $rmia = $db->get_RunMetaInfoAdaptor;
     my $rmi = $rmia->fetch_by_run_id($run_id);
     throw("did not get run_meta_info for $run_id") if !$rmi;
+    $db->dbc->disconnect_when_inactive(1);
 
     my %read_group_fields = (
       ID => $rmi->run_id,
