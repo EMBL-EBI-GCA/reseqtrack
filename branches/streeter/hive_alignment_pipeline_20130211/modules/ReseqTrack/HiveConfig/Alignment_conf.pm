@@ -206,14 +206,14 @@ sub pipeline_analyses {
     die("recalibrate level must not be >2") if $recalibrate_level >2;
 
     # These are defaults for realign_knowns_only==0 && recalibrate_level==2
-    my $process_run_level = 0; #
-    my $do_index_for_recalibrate = 1; #
-    my $flow_split_fastq = { 2 => ['bwa']}; #
-    my $flow_decide_merge_chunks = undef; #
-    my $flow_decide_merge_libraries = {'2->A' => ['merge_libraries'], 'A->1' => ['realign']}; #
-    my $flow_realign = { 1 => ['index_for_recalibrate']}; #
-    my $flow_recalibrate = { 1 => ['calmd']}; #
-    my $flow_tag_strip = { 1 => ['reheader']}; #
+    my $process_run_level = 0;
+    my $do_index_for_recalibrate = 1;
+    my $flow_split_fastq = { 2 => ['bwa']};
+    my $flow_decide_merge_chunks = undef;
+    my $flow_decide_merge_libraries = {'2->A' => ['merge_libraries'], 'A->1' => ['realign']};
+    my $flow_realign = { 1 => ['index_for_recalibrate']};
+    my $flow_recalibrate = { 1 => ['calmd']};
+    my $flow_tag_strip = { 1 => ['reheader']};
 
     if (! $realign_knowns_only && $recalibrate_level == 0) {
       $do_index_for_recalibrate = 0;
@@ -232,7 +232,6 @@ sub pipeline_analyses {
       $do_index_for_recalibrate = 1;
       $flow_split_fastq = {'2->A' => [ 'bwa' ], 'A->1' => ['decide_merge_chunks'], };
       $flow_decide_merge_chunks = {'2->A' => ['merge_chunks'], 'A->1' => ['realign']};
-      $flow_decide_merge_libraries = {2 => ['merge_libraries']};
       $flow_decide_merge_libraries = {'2->A' => ['merge_libraries'], 'A->1' => ['reheader']};
       $flow_tag_strip = {};
     }
@@ -622,7 +621,7 @@ sub pipeline_analyses {
                 'SQ_species' => $self->o('ref_species'),
                 'SQ_uri' => $self->o('reference_uri'),
                 'branch_parameters_in' => {
-                    bam => {key => 'BAM', inactivate => 1},
+                    bam => {key => 'BAM', inactivate => 1, descend => 1},
                     fastq => {key => 'SOURCE_FASTQ', descend => 1},
                 },
                 branch_parameters_out => {
