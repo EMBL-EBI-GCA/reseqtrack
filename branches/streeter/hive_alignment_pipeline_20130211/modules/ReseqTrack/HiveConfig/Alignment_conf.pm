@@ -548,7 +548,6 @@ sub pipeline_analyses {
       push(@analyses, {
             -logic_name => 'recalibrate',
             -module        => 'ReseqTrack::HiveProcess::RunBamImprovement',
-            -meadow_type=> 'LOCAL',
             -parameters => {
                 command => 'recalibrate',
                 reference => $self->o('reference'),
