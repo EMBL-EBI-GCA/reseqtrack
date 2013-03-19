@@ -35,7 +35,7 @@ sub run {
       -input_files  => $bams,
       -working_dir  => $self->output_dir,
       -job_name     => $self->job_name,
-      -samtools     => $samtools,
+      -program      => $samtools,
       -header_lines_file => $self->param('header_lines_file'),
       -extra_header_lines => \@extra_header_lines,
       -options      => {reuse_old_header => 1,
