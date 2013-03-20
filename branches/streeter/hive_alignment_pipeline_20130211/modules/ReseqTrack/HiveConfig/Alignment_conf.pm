@@ -345,7 +345,7 @@ sub pipeline_analyses {
                   bam => 'BAM',
                 },
             },
-            -rc_name => '5Gb',
+            -rc_name => '5Gb', # Note the 'hardened' version of BWA may need 8Gb RAM or more
             -analysis_capacity  =>  50,  # use per-analysis limiter
             -hive_capacity  =>  -1,
             -flow_into => {

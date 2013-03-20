@@ -296,7 +296,7 @@ sub pipeline_analyses {
                   bai => 'BAI',
                 },
             },
-            -rc_name => '200Mb',
+            -rc_name => '2Gb',
             -analysis_capacity  =>  4,  # use per-analysis limiter
             -hive_capacity  =>  -1,
             -flow_into => {
