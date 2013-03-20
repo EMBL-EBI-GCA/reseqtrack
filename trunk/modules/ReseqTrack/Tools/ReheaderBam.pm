@@ -23,6 +23,7 @@ use ReseqTrack::Tools::Exception qw(throw);
 use ReseqTrack::Tools::Argument qw(rearrange);
 use File::Basename qw(fileparse);
 use ReseqTrack::Tools::FileSystemUtils qw(check_file_exists check_file_does_not_exist get_lines_from_file);
+use IPC::System::Simple qw(capture);
 
 use base qw(ReseqTrack::Tools::RunProgram);
 
@@ -99,22 +100,12 @@ sub get_old_header{
   my $self = shift;
   my $bam = $self->input_files->[0];
 
-  my $header_file = $self->working_dir . '/' . $self->job_name. '.bam.oldheader';
-  $header_file =~ s{//}{/}g;
-
-#my @header_lines = `samtools view -H $bam`;
-  my @cmd_words = ($self->program, 'view', '-H');
-  push(@cmd_words, $bam);
-  push(@cmd_words, '>', $header_file);
-  my $cmd = join(' ', @cmd_words);
-
-  $self->created_files($header_file);
-  $self->execute_command_line($cmd);
-
-  open my $FH, '<', $header_file
-      or die "cannot open $header_file";
-  my @header_lines = <$FH>;
-  close $FH;
+  my $cmd = $self->program . " view -H $bam";
+  my @header_lines;
+  eval {
+    @header_lines = capture($cmd);
+  };
+  throw($@) if $@;
 
   return \@header_lines;
 }
