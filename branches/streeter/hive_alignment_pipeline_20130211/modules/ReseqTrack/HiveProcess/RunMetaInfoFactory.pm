@@ -20,6 +20,9 @@ sub run {
     my $type_branch = $self->param('type_branch') || die "'type_branch' is an obligatory parameter";
     my $output_dir = $self->output_dir;
 
+    my $allowed_status_arr = defined $self->param('allowed_status') ? get_param_array('allowed_status')
+                            : ['public', 'private'];
+
     my $db = ReseqTrack::DBSQL::DBAdaptor->new(%{$self->param('reseqtrack_db')});
 
     if (lc($type_branch) eq 'sample') {
@@ -73,6 +76,10 @@ sub run {
       if (my $study_id = $self->param('branch_study_id')) {
         $sql .= ' AND study_id = ?';
         push(@bind_values, $study_id);
+      }
+      if (@$allowed_status_arr) {
+        $sql .= ' AND status in [' . join(',', map {'?'} @$allowed_status_arr) . ']';
+        push(@bind_values, @$allowed_status_arr);
       }
       my $sth = $db->dbc->prepare($sql) or die "could not prepare $sql: ".$db->dbc->errstr;;
       $sth->execute(@bind_values) or die "could not execute $sql: ".$sth->errstr;
