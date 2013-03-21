@@ -489,6 +489,11 @@ sub calculate_summary_stats{
 		$stats_hash{new}{'# Samples gt 10Gb by pop'}{$self->new_sample_map_to_pop->{$sample}}++;
 		$stats_hash{new}{'# Samples gt 10Gb by pop'}{'total'}++;
     }  
+    if($new_sample->{$sample} > 5000000000) {
+		$stats_hash{new}{'# Samples greater than 5Gb'}++;
+		$stats_hash{new}{'# Samples gt 5Gb by pop'}{$self->new_sample_map_to_pop->{$sample}}++;
+		$stats_hash{new}{'# Samples gt 5Gb by pop'}{'total'}++;
+    }  
   }
   foreach my $pop(keys(%$new_population)){
     $stats_hash{new}{'Population in Gb'}{$pop} = convert_to_giga($new_population->{$pop});
@@ -510,6 +515,11 @@ sub calculate_summary_stats{
 			$stats_hash{old}{'# Samples greater than 10Gb'}++;
 			$stats_hash{old}{'# Samples gt 10Gb by pop'}{$self->old_sample_map_to_pop->{$sample}}++;
 			$stats_hash{old}{'# Samples gt 10Gb by pop'}{'total'}++;
+        }	
+        if($old_sample->{$sample} > 5000000000) {
+			$stats_hash{old}{'# Samples greater than 5Gb'}++;
+			$stats_hash{old}{'# Samples gt 5Gb by pop'}{$self->old_sample_map_to_pop->{$sample}}++;
+			$stats_hash{old}{'# Samples gt 5Gb by pop'}{'total'}++;
         }	
     }
     foreach my $pop(keys(%$old_population)){
@@ -533,6 +543,10 @@ sub calculate_summary_stats{
       ($stats_hash{new}{'# Samples greater than 10Gb'} - 
        $stats_hash{old}{'# Samples greater than 10Gb'});
     
+    $stats_hash{diff}{'# Samples greater than 5Gb'} =
+      ($stats_hash{new}{'# Samples greater than 5Gb'} - 
+       $stats_hash{old}{'# Samples greater than 5Gb'});
+    
     foreach my $p (keys (%$new_population)) {
         my $new_gt_10gb_samples = $stats_hash{new}{'# Samples gt 10Gb by pop'}{$p};
         my $old_gt_10gb_samples = $stats_hash{old}{'# Samples gt 10Gb by pop'}{$p};
@@ -540,6 +554,14 @@ sub calculate_summary_stats{
         $new_gt_10gb_samples = 0 if (!$new_gt_10gb_samples);
     	$stats_hash{diff}{'# Samples gt 10Gb by pop'}{$p} = $new_gt_10gb_samples - $old_gt_10gb_samples;
     }	
+  
+    foreach my $p (keys (%$new_population)) {
+        my $new_gt_5gb_samples = $stats_hash{new}{'# Samples gt 5Gb by pop'}{$p};
+        my $old_gt_5gb_samples = $stats_hash{old}{'# Samples gt 5Gb by pop'}{$p};
+        $old_gt_5gb_samples = 0 if (!$old_gt_5gb_samples);
+        $new_gt_5gb_samples = 0 if (!$new_gt_5gb_samples);
+    	$stats_hash{diff}{'# Samples gt 5Gb by pop'}{$p} = $new_gt_5gb_samples - $old_gt_5gb_samples;
+    }	  
     	
     foreach my $pop(keys(%$new_population)){
       my $new_pop = $stats_hash{new}{'Population in Gb'}{$pop};
@@ -585,8 +607,9 @@ sub print_stats{
   $stats_hash = $self->calculate_summary_stats() unless($stats_hash);
 
   my @headers = ('old', 'new', 'diff');
-  my @rows = ('Date', '# Accessions', '# Samples', '# Samples greater than 10Gb', 
-  			'# Samples gt 10Gb by pop',
+  my @rows = ('Date', '# Accessions', '# Samples', '# Samples greater than 10Gb', '# Samples greater than 5Gb',
+  			'# Samples gt 10Gb by pop', 
+  			'# Samples gt 5Gb by pop', 
 	     	'Population in Gb', 'Platform in Gb', 'Center in Gb');
   my $type_hash = $self->row_type;
   print join(", ", "Category", @headers)."\n";
@@ -651,7 +674,9 @@ sub row_type{
   $hash{'# Accessions'} = 'SCALAR';
   $hash{'# Samples'} = 'SCALAR';
   $hash{'# Samples greater than 10Gb'} = 'SCALAR';
+  $hash{'# Samples greater than 5Gb'} = 'SCALAR';
   $hash{'# Samples gt 10Gb by pop'} = 'HASH';
+  $hash{'# Samples gt 5Gb by pop'} = 'HASH';
   $hash{'Population in Gb'} = 'HASH';
   $hash{'Platform in Gb'} = 'HASH';
   $hash{'Center in Gb'} = 'HASH';

@@ -211,7 +211,7 @@ sub which_vcf {
 				$vcf = $possible_vcf;
 			}
 			else {
-				warn("VCF file for population $pop does not exist, use VCF for ALL populations.");
+				warn("VCF file for population $pop does not exist. Use vcf file for the entire sample collection with ALL populations");
 				$vcf = $$input{vcf_root} . "/ALL." . $$input{vcf_suffix};
 			}		
 			
@@ -368,6 +368,8 @@ sub set_options{
 	  $input{run_mode} = "self"; 
 	}
 
+	$input{options} .= "--minCallRate 0.95 ";
+	
 	#default to low coverage setting
 	if ( $input{bam_name} =~ /exome/i )
 	  {
