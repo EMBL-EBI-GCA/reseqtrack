@@ -78,7 +78,7 @@ sub run {
         push(@bind_values, $study_id);
       }
       if (@$allowed_status_arr) {
-        $sql .= ' AND status in [' . join(',', map {'?'} @$allowed_status_arr) . ']';
+        $sql .= ' AND status in (' . join(',', map {'?'} @$allowed_status_arr) . ')';
         push(@bind_values, @$allowed_status_arr);
       }
       my $sth = $db->dbc->prepare($sql) or die "could not prepare $sql: ".$db->dbc->errstr;;
