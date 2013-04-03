@@ -453,7 +453,7 @@ sub parse_index{
 
 sub calculate_summary_stats{
   my ($self) = @_;
-
+  my $gt_n_gb = $self->threshold_in_gb;
   #get summary hashes
   my $new_run = $self->new_per_run;
   my $new_sample = $self->new_per_sample;
@@ -461,6 +461,7 @@ sub calculate_summary_stats{
   my $new_platform = $self->new_per_platform;
   my $new_center = $self->new_per_center_population;
   my ($old_sample, $old_population, $old_platform, $old_center, $old_run);
+  my $cutoff_in_gb = $gt_n_gb * 1000000000;
   if($self->old_index){
     $old_sample = $self->old_per_sample;
     $old_population = $self->old_per_population;
@@ -484,15 +485,10 @@ sub calculate_summary_stats{
   foreach my $sample(keys(%$new_sample)){
     #samples which are greater than 4x have more than 12Gb of sequence
     #print STDERR $sample." ".$new_sample->{$sample}."\n" if($sample eq 'HG00181');
-    if($new_sample->{$sample} > 10000000000) {
-		$stats_hash{new}{'# Samples greater than 10Gb'}++;
-		$stats_hash{new}{'# Samples gt 10Gb by pop'}{$self->new_sample_map_to_pop->{$sample}}++;
-		$stats_hash{new}{'# Samples gt 10Gb by pop'}{'total'}++;
-    }  
-    if($new_sample->{$sample} > 5000000000) {
-		$stats_hash{new}{'# Samples greater than 5Gb'}++;
-		$stats_hash{new}{'# Samples gt 5Gb by pop'}{$self->new_sample_map_to_pop->{$sample}}++;
-		$stats_hash{new}{'# Samples gt 5Gb by pop'}{'total'}++;
+    if($new_sample->{$sample} > $cutoff_in_gb ) {
+        $stats_hash{new}{"# Samples greater than $gt_n_gb" . "Gb"}++;
+		$stats_hash{new}{"# Samples gt $gt_n_gb" . "Gb by pop"}{$self->new_sample_map_to_pop->{$sample}}++;
+		$stats_hash{new}{"# Samples gt $gt_n_gb" . "Gb by pop"}{'total'}++;
     }  
   }
   foreach my $pop(keys(%$new_population)){
@@ -511,15 +507,10 @@ sub calculate_summary_stats{
     $stats_hash{old}{'# Accessions'} = keys(%$old_run);
     $stats_hash{old}{'# Samples'} = keys(%$old_sample);
     foreach my $sample(keys(%$old_sample)){
-        if($old_sample->{$sample} > 10000000000) {
-			$stats_hash{old}{'# Samples greater than 10Gb'}++;
-			$stats_hash{old}{'# Samples gt 10Gb by pop'}{$self->old_sample_map_to_pop->{$sample}}++;
-			$stats_hash{old}{'# Samples gt 10Gb by pop'}{'total'}++;
-        }	
-        if($old_sample->{$sample} > 5000000000) {
-			$stats_hash{old}{'# Samples greater than 5Gb'}++;
-			$stats_hash{old}{'# Samples gt 5Gb by pop'}{$self->old_sample_map_to_pop->{$sample}}++;
-			$stats_hash{old}{'# Samples gt 5Gb by pop'}{'total'}++;
+        if($old_sample->{$sample} > $cutoff_in_gb ) {
+			$stats_hash{old}{"# Samples greater than $gt_n_gb" . "Gb"}++;
+			$stats_hash{old}{"# Samples gt $gt_n_gb" . "Gb by pop"}{$self->old_sample_map_to_pop->{$sample}}++;
+			$stats_hash{old}{"# Samples gt $gt_n_gb" . "Gb by pop"}{'total'}++;
         }	
     }
     foreach my $pop(keys(%$old_population)){
@@ -539,28 +530,16 @@ sub calculate_summary_stats{
       ($stats_hash{new}{'# Accessions'} - $stats_hash{old}{'# Accessions'});
     $stats_hash{diff}{'# Samples'} =
       ($stats_hash{new}{'# Samples'} - $stats_hash{old}{'# Samples'});
-    $stats_hash{diff}{'# Samples greater than 10Gb'} =
-      ($stats_hash{new}{'# Samples greater than 10Gb'} - 
-       $stats_hash{old}{'# Samples greater than 10Gb'});
-    
-    $stats_hash{diff}{'# Samples greater than 5Gb'} =
-      ($stats_hash{new}{'# Samples greater than 5Gb'} - 
-       $stats_hash{old}{'# Samples greater than 5Gb'});
+    $stats_hash{diff}{"# Samples greater than $gt_n_gb" . "Gb"} =
+      ($stats_hash{new}{"# Samples greater than $gt_n_gb" . "Gb"} - 
+       $stats_hash{old}{"# Samples greater than $gt_n_gb" . "Gb"});
     
     foreach my $p (keys (%$new_population)) {
-        my $new_gt_10gb_samples = $stats_hash{new}{'# Samples gt 10Gb by pop'}{$p};
-        my $old_gt_10gb_samples = $stats_hash{old}{'# Samples gt 10Gb by pop'}{$p};
+        my $new_gt_10gb_samples = $stats_hash{new}{"# Samples gt $gt_n_gb" . "Gb by pop"}{$p};
+        my $old_gt_10gb_samples = $stats_hash{old}{"# Samples gt $gt_n_gb" . "Gb by pop"}{$p};
         $old_gt_10gb_samples = 0 if (!$old_gt_10gb_samples);
         $new_gt_10gb_samples = 0 if (!$new_gt_10gb_samples);
-    	$stats_hash{diff}{'# Samples gt 10Gb by pop'}{$p} = $new_gt_10gb_samples - $old_gt_10gb_samples;
-    }	
-  
-    foreach my $p (keys (%$new_population)) {
-        my $new_gt_5gb_samples = $stats_hash{new}{'# Samples gt 5Gb by pop'}{$p};
-        my $old_gt_5gb_samples = $stats_hash{old}{'# Samples gt 5Gb by pop'}{$p};
-        $old_gt_5gb_samples = 0 if (!$old_gt_5gb_samples);
-        $new_gt_5gb_samples = 0 if (!$new_gt_5gb_samples);
-    	$stats_hash{diff}{'# Samples gt 5Gb by pop'}{$p} = $new_gt_5gb_samples - $old_gt_5gb_samples;
+    	$stats_hash{diff}{"# Samples gt $gt_n_gb" . "Gb by pop"}{$p} = $new_gt_10gb_samples - $old_gt_10gb_samples;
     }	  
     	
     foreach my $pop(keys(%$new_population)){
@@ -605,12 +584,14 @@ sub print_stats{
 
   $stats_hash = $self->stats_hash unless($stats_hash);
   $stats_hash = $self->calculate_summary_stats() unless($stats_hash);
-
+  my $gt_n_gb = $self->threshold_in_gb;
   my @headers = ('old', 'new', 'diff');
-  my @rows = ('Date', '# Accessions', '# Samples', '# Samples greater than 10Gb', '# Samples greater than 5Gb',
-  			'# Samples gt 10Gb by pop', 
-  			'# Samples gt 5Gb by pop', 
-	     	'Population in Gb', 'Platform in Gb', 'Center in Gb');
+
+  my @rows = (	'Date', '# Accessions', '# Samples', 
+  				"# Samples greater than $gt_n_gb" . "Gb", 
+  				"# Samples gt $gt_n_gb" . "Gb by pop", 
+	     		'Population in Gb', 'Platform in Gb', 'Center in Gb');
+	     	
   my $type_hash = $self->row_type;
   print join(", ", "Category", @headers)."\n";
   foreach my $row(@rows){
@@ -651,9 +632,6 @@ sub print_stats{
   }
 }
 
-
-
-
 =head2 row_type
 
   Arg [1]   : ReseqTrack::Tools::Statistics::SequenceIndexStatistics
@@ -670,13 +648,12 @@ sub print_stats{
 sub row_type{
   my ($self) = @_;
   my %hash;
+  my $gt_n_gb = $self->threshold_in_gb;
   $hash{Date} = 'SCALAR';
   $hash{'# Accessions'} = 'SCALAR';
   $hash{'# Samples'} = 'SCALAR';
-  $hash{'# Samples greater than 10Gb'} = 'SCALAR';
-  $hash{'# Samples greater than 5Gb'} = 'SCALAR';
-  $hash{'# Samples gt 10Gb by pop'} = 'HASH';
-  $hash{'# Samples gt 5Gb by pop'} = 'HASH';
+  $hash{"# Samples greater than $gt_n_gb" . "Gb"} = 'SCALAR';
+  $hash{"# Samples gt $gt_n_gb" . "Gb by pop"} = 'HASH';
   $hash{'Population in Gb'} = 'HASH';
   $hash{'Platform in Gb'} = 'HASH';
   $hash{'Center in Gb'} = 'HASH';
