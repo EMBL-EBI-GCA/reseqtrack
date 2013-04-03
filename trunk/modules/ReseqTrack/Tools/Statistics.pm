@@ -27,8 +27,8 @@ sub new {
   my $self ={};
   bless $self,$class;
   my ($db, $new_index, $old_index, $skip_p2, $skip_p3, $collection_type, 
-      $collection_name) = rearrange([qw(DB NEW_INDEX OLD_INDEX SKIP_P2 SKIP_P3 
-					COLLECTION_TYPE	COLLECTION_NAME)], @args);
+      $collection_name, $threshold_in_gb) = rearrange([qw(DB NEW_INDEX OLD_INDEX SKIP_P2 SKIP_P3 
+					COLLECTION_TYPE	COLLECTION_NAME THRESHOLD_IN_GB)], @args);
 
   # setting defaults
   $skip_p2 = 1 unless(defined($skip_p2));
@@ -42,6 +42,7 @@ sub new {
   $self->skip_p3($skip_p3);
   $self->collection_type($collection_type);
   $self->collection_name($collection_name);
+  $self->threshold_in_gb($threshold_in_gb);
   return $self;
 }
 
@@ -162,6 +163,16 @@ sub collection_name{
   }
   return $self->{collection_name};
 }
+
+
+sub threshold_in_gb{
+  my ($self, $threshold_in_gb) = @_;
+  if($threshold_in_gb){
+    $self->{threshold_in_gb} = $threshold_in_gb;
+  }
+  return $self->{threshold_in_gb};
+}
+
 
 
 =head2 run_id_hash
