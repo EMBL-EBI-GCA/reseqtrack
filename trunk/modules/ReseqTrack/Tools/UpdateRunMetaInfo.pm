@@ -291,7 +291,13 @@ sub store_new_entries{
   foreach my $run_id(keys(%$rmis)){
     my $rmi = $rmis->{$run_id};
     print $logging_fh "STORING ".$self->rmi_summary_string($rmi)."\n" if($self->verbose);
-    $rmia->store($rmi);
+    eval{
+      $rmia->store($rmi);
+    };
+    if($@){
+      print $logging_fh "Failed to store ".$self->rmi_summary_string($rmi)."\n";
+      print STDERR "Failed to store ".$self->rmi_summary_string($rmi)."\n";
+    }
   }
   return 1;
 }
@@ -392,7 +398,7 @@ sub update_collections{
   }
   foreach my $name(keys(%collection_hash)){
     my $collection = $collection_hash{$name};
-    $ca->store($collection, 1);
+    $ca->store($collection, 1) if(scalar(@{$collection->others}) >= 1) ;
   }
 }
 
@@ -505,7 +511,6 @@ sub fix_file_type{
 sub print_move_hash{
   my ($self, $hash, $fh) = @_;
   my ($p, $f, $l) = caller;
-  print $f.":".$l." calling print move hash\n";
   $fh = \*STDOUT unless($fh);
   foreach my $key(keys(%$hash)){
     print $fh $key."\t".$hash->{$key}."\n";
