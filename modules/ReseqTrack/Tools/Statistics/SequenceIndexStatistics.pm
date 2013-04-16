@@ -361,6 +361,7 @@ sub fetch_index_files{
 
 sub make_stats{
   my ($self) = @_;
+  throw("Please provide threshold_in_gb for calculating number of samples with gt X gb of data") unless ($self->threshold_in_gb); 
   print STDERR "Making stats\n";
   print STDERR "Comparing ".$self->new_index."\n";
   my ($run, $sample,$pop,$platform,$center,$s_to_p) = $self->parse_index($self->new_index);
@@ -420,7 +421,7 @@ sub parse_index{
       next;
     }
     unless($values[24] =~ /^\d+$/){
-      throw($file." doesn't see to have a base count");
+      throw($file." doesn't seem to have a base count");
     }
     $per_run{$values[2]} += $values[24];
     $per_sample{$values[9]} += $values[24];
@@ -487,6 +488,7 @@ sub calculate_summary_stats{
     #print STDERR $sample." ".$new_sample->{$sample}."\n" if($sample eq 'HG00181');
     if($new_sample->{$sample} > $cutoff_in_gb ) {
         $stats_hash{new}{"# Samples greater than $gt_n_gb" . "Gb"}++;
+        #print "new gt $gt_n_gb Gb: $sample\n";
 		$stats_hash{new}{"# Samples gt $gt_n_gb" . "Gb by pop"}{$self->new_sample_map_to_pop->{$sample}}++;
 		$stats_hash{new}{"# Samples gt $gt_n_gb" . "Gb by pop"}{'total'}++;
     }  
