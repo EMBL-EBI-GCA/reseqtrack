@@ -390,7 +390,7 @@ sub update_file {
 
 perl ~/ReseqTrack/scripts/qc/bam_md5check_and_archive.pl -dbhost mysql-g1kdcc-public -dbname g1k_archive_staging_track -dbuser g1krw -dbpass thousandgenomes -dbport 4197 -bam /nfs/1000g-work/G1K/archive_staging/test/NA06985/alignment/NA06985.chrom11.ILLUMINA.bwa.SRP0000testArchive.20091216.bam -out somewhere_the_farm_job_writes_log_to -run -priority 99  
 
-perl $ZHENG_RT/scripts/qc/bam_md5check_and_archive.v2.pl -dbhost mysql-g1kdcc-public -dbname g1k_archive_staging_track -dbuser g1krw -dbpass thousandgenomes -dbport 4197 \
+perl $ZHENG_RT/scripts/qc/bam_md5check_and_archive.pl -dbhost mysql-g1kdcc-public -dbname g1k_archive_staging_track -dbuser g1krw -dbpass thousandgenomes -dbport 4197 \
 -bam /nfs/1000g-work/G1K/archive_staging/test/NA06985/alignment/NA06985.chrom10.ILLUMINA.bwa.CEU.low_coverage.2011b.bam \
 -reference /nfs/1000g-work/G1K/work/REFERENCE/aligners_reference/hs37d5/hs37d5.fa \
 -working_dir /nfs/1000g-work/G1K/scratch/zheng/tmp
