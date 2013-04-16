@@ -46,40 +46,6 @@ sub new {
   return $self;
 }
 
-=head2 new/old_index
-
-  Arg [1]   : ReseqTrack::Tools::Statistics
-  Arg [2]   : string, filepath
-  Function  : accessor method for index file paths
-  Returntype: string
-  Exceptions: throws if file doesn't exist 
-  Example   :
-
-=cut
-
-
-
-sub new_index{
-  my ($self, $new_index) = @_;
-  if($new_index){
-    throw("SequenceIndexStatistics:new_index ".$new_index." should exist")
-      unless(-e $new_index);
-    $self->{new_index} = $new_index;
-  }
-  return $self->{new_index};
-}
-
-sub old_index{
-  my ($self, $old_index) = @_;
-  if($old_index){
-    throw("SequenceIndexStatistics:old_index ".$old_index." should exist")
-      unless(-e $old_index);
-    $self->{old_index} = $old_index;
-  }
-  return $self->{old_index};
-}
-
-
 =head2 db
 
   Arg [1]   : ReseqTrack::Tools::Statistics::SequenceIndexStatistics

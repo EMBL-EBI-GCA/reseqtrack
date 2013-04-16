@@ -29,7 +29,7 @@ use vars qw (@ISA  @EXPORT);
 @EXPORT = qw(current_time parse_movelist get_input_arg create_lock_string
              delete_lock_string is_locked useage convert_to_giga current_date 
 	     create_filename calculate_coverage trim_spaces execute_system_command
-	     execute_pipe_system_command get_params get_open_file_handle);
+	     execute_pipe_system_command get_params get_open_file_handle get_time_stamps);
 
 
 
@@ -75,6 +75,27 @@ sub current_time{
   my $theTime = "$year-$months[$month]-$dayOfMonth $hour:$minute:$second";
   return $theTime;
 }
+
+=head2 get_time_stamps
+
+  Arg [1]   : n/a
+  Function  : returns three time stamps, yyyy-mm-dd.hh.mm, yyyy-mm, or yyyy-mm-dd
+  Returntype: see above
+  Exceptions: none
+  Example   : my ($time_stamp, $month_stamp, $day_stamp) = get_time_stamps
+
+=cut
+
+sub get_time_stamps {
+        my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst)=localtime();
+        $mon++;
+        $year = $year + 1900;
+        my $time = $year . "-" . $mon . "-" . $mday . "." . $hour . "." . $min;
+        my $month = $year . "-" . $mon ;
+        my $day = $year . "-" . $mon . "-" . $mday;
+        return ($time, $month, $day);
+}
+
 
 =head2 current_date
 
