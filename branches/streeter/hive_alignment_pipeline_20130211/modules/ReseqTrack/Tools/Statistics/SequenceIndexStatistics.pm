@@ -62,11 +62,11 @@ sub new {
   my ($class, @args) = @_;
   my $self = $class->SUPER::new(@args);
 
-  my ($population_rules) = rearrange([qw(POPULATION_RULES)]);
+  my ($population_rules, $analysis) = rearrange([qw(POPULATION_RULES ANALYSIS)], @args);
   $self->population_rules($population_rules) if $population_rules;
 
   unless($self->new_index && $self->old_index){
-    $self->fetch_index_files();
+    $self->fetch_index_files($analysis);
   }
   return $self;
 }
@@ -96,7 +96,7 @@ sub new_index{
     throw("SequenceIndexStatistics:new_index ".$new_index." should exist")
       unless(-e $new_index);
     throw("SequenceIndexStatistcs:new_index ".$new_index." must match pattern ".
-	  "YYYYMMDD.sequence.index") unless($new_index =~ /\d+\.sequence\.index/);
+	  "YYYYMMDD.sequence.index") unless($new_index =~ /\d+\.sequence\.index/ || $new_index =~ /\d+\.analysis\.sequence\.index/);
     $self->{new_index} = $new_index;
   }
   return $self->{new_index};
@@ -108,7 +108,7 @@ sub old_index{
     throw("SequenceIndexStatistics:old_index ".$old_index." should exist")
       unless(-e $old_index);
     throw("SequenceIndexStatistcs:new_index ".$old_index." must match pattern ".
-	  "YYYYMMDD.sequence.index") unless($old_index =~ /\d+\.sequence\.index/);
+	  "YYYYMMDD.sequence.index") unless($old_index =~ /\d+\.sequence\.index/ || $old_index =~ /\d+\.analysis\.sequence\.index/);
     $self->{old_index} = $old_index;
   }
   return $self->{old_index};
@@ -193,6 +193,16 @@ sub new_per_center_population{
   return $self->{new_per_center_population};
 }
 
+sub new_sample_map_to_pop{
+  my ($self, $hashref) = @_;
+  if($hashref){
+    throw("Must pass new_sample_map_to_pop a hashref not ".$hashref)
+      unless(ref($hashref) eq 'HASH');
+    $self->{new_sample_map_to_pop} = $hashref;
+  }
+  return $self->{new_sample_map_to_pop};
+}
+
 sub old_per_sample{
   my ($self, $hashref) = @_;
   if($hashref){
@@ -243,6 +253,16 @@ sub old_per_center_population{
   return $self->{old_per_center_population};
 }
 
+sub old_sample_map_to_pop{
+  my ($self, $hashref) = @_;
+  if($hashref){
+    throw("Must pass old_sample_map_to_pop a hashref not ".$hashref)
+      unless(ref($hashref) eq 'HASH');
+    $self->{old_sample_map_to_pop} = $hashref;
+  }
+  return $self->{old_sample_map_to_pop};
+}
+
 sub stats_hash{
   my ($self, $hashref) = @_;
   if($hashref){
@@ -271,7 +291,7 @@ sub stats_hash{
 
 
 sub fetch_index_files{
-  my ($self) = @_;
+  my ($self, $analysis) = @_;
   my $fa = $self->db->get_FileAdaptor;
   #fetch all files of type INDEX
   my $files = $fa->fetch_by_type('INDEX');
@@ -281,12 +301,24 @@ sub fetch_index_files{
     next if($file->filename =~ /alignment/);
     #skip the root sequence index file
     next if($file->filename eq 'sequence.index');
-    $file->filename =~ /(\d+)\.sequence\.index/;
-    if(!$1){
+    next if(!($file->filename =~ /sequence/));
+    next if ($file->filename =~ /CompleteGenomics/);
+    next if ($file->filename =~ /^analysis.sequence.index/);
+    my $date;
+    if($analysis){
+      next unless($file->filename =~ /analysis/);
+      $file->filename =~ /(\d+)\.analysis.sequence\.index/;
+      $date = $1;
+    }else{
+      next if($file->filename =~ /analysis/);
+      $file->filename =~ /(\d+)\.sequence\.index/;
+      $date = $1;
+    }
+    if(!$date){
       throw("Don't know how to parse ".$file->name);
     }
     #associate the date with a particular file
-    $index_files{$1} = $file->name;
+    $index_files{$date} = $file->name;
   }
   #sort dates numerically, the newest date should always be the largest number
   #provided the YYYYMMDD format is followed
@@ -331,21 +363,23 @@ sub make_stats{
   my ($self) = @_;
   print STDERR "Making stats\n";
   print STDERR "Comparing ".$self->new_index."\n";
-  my ($run, $sample,$pop,$platform,$center) = $self->parse_index($self->new_index);
+  my ($run, $sample,$pop,$platform,$center,$s_to_p) = $self->parse_index($self->new_index);
   $self->new_per_sample($sample);
   $self->new_per_population($pop);
   $self->new_per_platform($platform);
   $self->new_per_center_population($center);
   $self->new_per_run($run);
+  $self->new_sample_map_to_pop($s_to_p);
   if($self->old_index){
     print STDERR "To ".$self->old_index."\n";
-    my ($old_run, $old_sample,$old_pop,$old_platform,$old_center) = 
+    my ($old_run, $old_sample,$old_pop,$old_platform,$old_center, $s_to_p) = 
       $self->parse_index($self->old_index);
     $self->old_per_sample($old_sample);
     $self->old_per_population($old_pop);
     $self->old_per_platform($old_platform);
     $self->old_per_center_population($old_center);
     $self->old_per_run($old_run);
+    $self->old_sample_map_to_pop($s_to_p);
   }
 }
 
@@ -373,6 +407,7 @@ sub parse_index{
   my %per_population;
   my %per_platform;
   my %per_center_population;
+  my %sample_to_pop;
   foreach my $file(keys(%{$hash})){
     my @values = split /\t/, $hash->{$file};
     next if($values[20]);
@@ -394,11 +429,12 @@ sub parse_index{
     $per_platform{$values[12]} += $values[24];
     $per_platform{'total'} += $values[24];
     $per_center_population{$values[5]} += $values[24];
-    #$per_center_population{$values[5]}{total} += $values[24];
     $per_center_population{total} += $values[24];
+    $sample_to_pop{$values[9]} = $pop;
   }
   return (\%per_run, \%per_sample, \%per_population, \%per_platform, 
-	  \%per_center_population);
+	  \%per_center_population, 
+	  \%sample_to_pop);
 }
 
 
@@ -447,9 +483,12 @@ sub calculate_summary_stats{
   $stats_hash{new}{'# Samples'} = keys(%$new_sample);
   foreach my $sample(keys(%$new_sample)){
     #samples which are greater than 4x have more than 12Gb of sequence
-    print STDERR $sample." ".$new_sample->{$sample}."\n" if($sample eq 'HG00181');
-    $stats_hash{new}{'# Samples greater than 10Gb'}++ 
-      if($new_sample->{$sample} > 10000000000);
+    #print STDERR $sample." ".$new_sample->{$sample}."\n" if($sample eq 'HG00181');
+    if($new_sample->{$sample} > 10000000000) {
+		$stats_hash{new}{'# Samples greater than 10Gb'}++;
+		$stats_hash{new}{'# Samples gt 10Gb by pop'}{$self->new_sample_map_to_pop->{$sample}}++;
+		$stats_hash{new}{'# Samples gt 10Gb by pop'}{'total'}++;
+    }  
   }
   foreach my $pop(keys(%$new_population)){
     $stats_hash{new}{'Population in Gb'}{$pop} = convert_to_giga($new_population->{$pop});
@@ -467,8 +506,11 @@ sub calculate_summary_stats{
     $stats_hash{old}{'# Accessions'} = keys(%$old_run);
     $stats_hash{old}{'# Samples'} = keys(%$old_sample);
     foreach my $sample(keys(%$old_sample)){
-      $stats_hash{old}{'# Samples greater than 10Gb'}++ 
-	if($old_sample->{$sample} > 10000000000);
+        if($old_sample->{$sample} > 10000000000) {
+			$stats_hash{old}{'# Samples greater than 10Gb'}++;
+			$stats_hash{old}{'# Samples gt 10Gb by pop'}{$self->old_sample_map_to_pop->{$sample}}++;
+			$stats_hash{old}{'# Samples gt 10Gb by pop'}{'total'}++;
+        }	
     }
     foreach my $pop(keys(%$old_population)){
       $stats_hash{old}{'Population in Gb'}{$pop} = convert_to_giga($old_population->{$pop});
@@ -490,6 +532,15 @@ sub calculate_summary_stats{
     $stats_hash{diff}{'# Samples greater than 10Gb'} =
       ($stats_hash{new}{'# Samples greater than 10Gb'} - 
        $stats_hash{old}{'# Samples greater than 10Gb'});
+    
+    foreach my $p (keys (%$new_population)) {
+        my $new_gt_10gb_samples = $stats_hash{new}{'# Samples gt 10Gb by pop'}{$p};
+        my $old_gt_10gb_samples = $stats_hash{old}{'# Samples gt 10Gb by pop'}{$p};
+        $old_gt_10gb_samples = 0 if (!$old_gt_10gb_samples);
+        $new_gt_10gb_samples = 0 if (!$new_gt_10gb_samples);
+    	$stats_hash{diff}{'# Samples gt 10Gb by pop'}{$p} = $new_gt_10gb_samples - $old_gt_10gb_samples;
+    }	
+    	
     foreach my $pop(keys(%$new_population)){
       my $new_pop = $stats_hash{new}{'Population in Gb'}{$pop};
       my $old_pop = $stats_hash{old}{'Population in Gb'}{$pop};
@@ -535,7 +586,8 @@ sub print_stats{
 
   my @headers = ('old', 'new', 'diff');
   my @rows = ('Date', '# Accessions', '# Samples', '# Samples greater than 10Gb', 
-	      'Population in Gb', 'Platform in Gb', 'Center in Gb');
+  			'# Samples gt 10Gb by pop',
+	     	'Population in Gb', 'Platform in Gb', 'Center in Gb');
   my $type_hash = $self->row_type;
   print join(", ", "Category", @headers)."\n";
   foreach my $row(@rows){
@@ -599,9 +651,11 @@ sub row_type{
   $hash{'# Accessions'} = 'SCALAR';
   $hash{'# Samples'} = 'SCALAR';
   $hash{'# Samples greater than 10Gb'} = 'SCALAR';
+  $hash{'# Samples gt 10Gb by pop'} = 'HASH';
   $hash{'Population in Gb'} = 'HASH';
   $hash{'Platform in Gb'} = 'HASH';
   $hash{'Center in Gb'} = 'HASH';
+  
   return \%hash;
 }
 
@@ -622,10 +676,14 @@ sub row_type{
 
 sub get_index_date{
   my ($self, $index) = @_;
- # print STDERR "Parsing ".$index."\n";
+  print STDERR "Parsing ".$index."\n";
   $index =~ /(\d+)\.sequence\.index/;
   my $date = $1;
-  # print STDERR "RETURNING ".$date."\n";
+  if(!$date){
+    $index =~ /(\d+)\.analysis\.sequence\.index/;
+    $date = $1;
+  }
+  print STDERR "RETURNING ".$date."\n";
   return $date;
 }
 

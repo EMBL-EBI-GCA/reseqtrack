@@ -88,9 +88,11 @@ sub default_options {
         'vcfutils_exe' => '/nfs/1000g-work/G1K/work/bin/samtools/bcftools/vcfutils.pl',
         'bgzip_exe' => '/nfs/1000g-work/G1K/work/bin/tabix/bgzip',
         'gatk_dir' => '/nfs/1000g-work/G1K/work/bin/gatk/dist/',
+        'freebayes_exe' => '/nfs/1000g-work/G1K/work/bin/freebayes/bin/freebayes',
 
         call_by_gatk_options => {}, # use module defaults
         call_by_samtools_options => {}, # use module defaults
+        call_by_freebayes_options => {}, # use module defaults
 
         'fai' => $self->o('reference') . '.fai',
 
@@ -211,14 +213,17 @@ sub pipeline_analyses {
 
     my $call_by_samtools = 1;
     my $call_by_gatk = 1;
+    my $call_by_freebayes = 1;
 
     my @call_processes;
     push(@call_processes, 'call_by_samtools') if $call_by_samtools;
     push(@call_processes, 'call_by_gatk') if $call_by_gatk;
+    push(@call_processes, 'call_by_freebayes') if $call_by_freebayes;
 
     my @merge_processes;
     push(@merge_processes, 'merge_samtools') if $call_by_samtools;
     push(@merge_processes, 'merge_gatk') if $call_by_gatk;
+    push(@merge_processes, 'merge_freebayes') if $call_by_freebayes;
 
     my @analyses;
     push(@analyses, {
@@ -418,6 +423,46 @@ sub pipeline_analyses {
                 },
                 branch_parameters_out => {
                   vcf => 'gatk_vcf'
+                },
+            },
+            -rc_name => '200Mb',
+            -analysis_capacity  =>  50,  # use per-analysis limiter
+            -hive_capacity  =>  -1,
+        });
+    }
+    if ($call_by_freebayes) {
+      push(@analyses, {
+            -logic_name    => 'call_by_freebayes',
+            -module        => 'ReseqTrack::HiveProcess::RunVariantCall::CallByFreebayes',
+            -parameters    => {
+                reference => $self->o('reference'),
+                freebayes => $self->o('freebayes_exe'),
+                bgzip => $self->o('bgzip_exe'),
+                options => $self->o('call_by_freebayes_options'),
+                branch_parameters_in => {
+                    seq_index => 'seq_index',
+                    region_start => 'region_start',
+                    region_end => 'region_end',
+                    bam => {key => 'BAM', ascend => 1},
+                },
+                branch_parameters_out => {
+                  vcf => 'freebayes_vcf'
+                },
+            },
+            -rc_name => '500Mb',
+            -analysis_capacity  =>  50,  # use per-analysis limiter
+            -hive_capacity  =>  -1,
+        });
+      push(@analyses, {
+            -logic_name    => 'merge_freebayes',
+            -module        => 'ReseqTrack::HiveProcess::MergeVcf',
+            -parameters    => {
+                bgzip => $self->o('bgzip_exe'),
+                branch_parameters_in => {
+                  vcf => {key => 'freebayes_vcf', inactivate => 1, descend => 1},
+                },
+                branch_parameters_out => {
+                  vcf => 'freebayes_vcf'
                 },
             },
             -rc_name => '200Mb',

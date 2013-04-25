@@ -207,20 +207,6 @@ foreach my $host ( @$remote_hosts ) {
 							push @{$dir_file_hash{$new_directory}}, $new_f_obj;
 						}		
 						write_log($file, $loga);
-
-=head
-
-						if ($run) {
-							if ( $new_f_obj->type =~ /BAS/ && check_bas($new_f_obj->name) == 1) {
-								write_log($file, $loga, "PREP: bas file has content inconsistency");
-								$fail_flag = 1;
-								move_bam_to_trash($db, $new_f_obj, $new_f_obj->name, $run);
-							}
-						}		
-
-=cut					
-
-						####### FIXME: use above lines when doing changing file names for TGEN	
 					}
 				}
 			}	
@@ -232,7 +218,7 @@ foreach my $host ( @$remote_hosts ) {
 				
 				my $days_elapsed = ( time() - timelocal($sec, $min, $hr, $day, $mon-1, $yr-1900 ) )  / 86400; 
 				
-				if ( $days_elapsed < 15) {  ##### FIXME, 15 is a magic number, need reality check
+				if ( $days_elapsed < 30) {  ##### FIXME, 30 is a magic number, need reality check
 					$in_process_flag = 1;
 					write_log($file, $loga, "WARNING: File does not exist in dropbox, it might not have been loaded yet!");
 				}
@@ -572,7 +558,6 @@ sub check_name_and_move_file {
 		mkpath($new_dir);
 	}
 	
-	$filen =~ s/20120522/20120522_p2b/;  ##### FIXME, remove this after the last TGEN run!!!		
 	my $new_file_path = $new_dir . $filen;
 				
 	`mv $full_name $new_file_path` if ($run);	 	

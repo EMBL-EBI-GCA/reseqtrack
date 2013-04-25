@@ -18,7 +18,7 @@ use vars qw (@ISA  @EXPORT);
         copy_run_meta_info get_sequence_index_stats
         get_withdrawn_summary get_study_descriptions get_index_group_stats
         get_run_id_from_filename convert_center_name convert_population
-        create_directory_path);
+        create_directory_path index_method_array);
 
 
 

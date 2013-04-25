@@ -22,6 +22,7 @@ my $sequence_module = 'ReseqTrack::Tools::Statistics::SequenceIndexStatistics';
 my $alignment_module = 'ReseqTrack::Tools::Statistics::AlignmentIndexStatistics';
 my $collection_type;
 my $collection_name;
+my $analysis;
 my $help = 0;
 &GetOptions( 
 	    'dbhost=s'       => \$dbhost,
@@ -34,6 +35,7 @@ my $help = 0;
 	    'module=s' => \$module,
 	    'sequence!' => \$sequence,
 	    'alignment!' => \$alignment,
+	    'analysis_index!' => \$analysis,
 	    'collection_type:s' => \$collection_type,
 	    'collection_name:s' => \$collection_name,
 	    'help!' => \$help,
@@ -42,6 +44,7 @@ my $help = 0;
 if($help){
   useage();
 }
+
 
 unless($module){
   if($sequence){
@@ -84,6 +87,7 @@ my $stats = $module->new(
 			 -old_index => $old_index_file,
 			 -collection_type => $collection_type,
 			 -collection_name => $collection_name,
+			 -analysis => $analysis,
 			);
 
 $stats->make_stats;

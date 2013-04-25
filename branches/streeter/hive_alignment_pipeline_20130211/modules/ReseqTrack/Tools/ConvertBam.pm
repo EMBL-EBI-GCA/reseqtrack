@@ -115,18 +115,34 @@ sub convert_bed_graph {
 sub convert_cram {
 	my ( $self, $input_file, $output_file, $is_intermediate ) = @_;
 	
-	my $heap_size = '-Xmx' . $self->options('heap_size');
-	my $executable = $self->program . "/cramtools-1.0.jar" ;
-	my @cram_cmd = ('java', $heap_size, '-jar', $executable, 'cram');
-	push @cram_cmd, '--input-bam-file', $input_file;
-	push @cram_cmd, '--output-cram-file', $output_file;
-	push @cram_cmd, '--reference-fasta-file', $self->reference_fasta;
-	push @cram_cmd, '--capture-all-tags' if $self->options('capture-all-tags');
-	push @cram_cmd, '--preserve-read-names' if $self->options('preserve-read-names');
-	push @cram_cmd, '--create-index' if $self->options('create-index');
-	push @cram_cmd, '--lossy-quality-score-spec', $self->options('lossy-quality-score-spec') if $self->options('lossy-quality-score-spec');
+	my $heap_size;
 	
-	### FIXME, other options
+	if ($self->options('heap_size')) {
+		$heap_size = '-Xmx' . $self->options('heap_size');
+	}
+	else {
+		$heap_size = "";
+	}	
+			
+	my $executable = $self->program;
+	my @cram_cmd = ('java', $heap_size, '-jar', $executable);
+	
+	if ( $input_file =~ /bam$/ ) {  ### For creating cram files
+		push @cram_cmd, "cram";
+		push @cram_cmd, '--input-bam-file', $input_file;
+		push @cram_cmd, '--output-cram-file', $output_file if ($output_file);
+		push @cram_cmd, '--capture-all-tags' if $self->options('capture-all-tags');
+		push @cram_cmd, '--ignore-tags', $self->options('ignore-tags') if ( $self->options('ignore-tags') );
+		push @cram_cmd, '--preserve-read-names' if $self->options('preserve-read-names');
+		push @cram_cmd, '--lossy-quality-score-spec', $self->options('lossy-quality-score-spec') if $self->options('lossy-quality-score-spec');
+		push @cram_cmd, '-L', $self->options('L') if $self->options('L');
+	}
+	elsif ( $input_file =~ /cram$/ ) { ### For indexing cram files
+		push @cram_cmd, "index";
+		push @cram_cmd, '--input-file', $input_file;
+	}	
+
+	push @cram_cmd, '--reference-fasta-file', $self->reference_fasta;
 	
 	my $run_cram_cmd = join ' ', @cram_cmd;
     $self->do_conversion( $run_cram_cmd, $output_file, $is_intermediate );		
