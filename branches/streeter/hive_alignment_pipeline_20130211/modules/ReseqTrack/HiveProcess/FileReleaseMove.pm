@@ -6,7 +6,7 @@ use strict;
 use base ('ReseqTrack::HiveProcess::BranchableProcess');
 use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::Exception qw(throw);
-use ReseqTrack::Toos::HostUtils qw(get_host_object);
+use ReseqTrack::Tools::HostUtils qw(get_host_object);
 use File::Copy qw(move);
 use File::stat;
 
@@ -48,7 +48,7 @@ sub run {
     }
 
     move($dropbox_filename, $new_path) or throw("error moving to $new_path: $!");
-    my $host = get_host_object($host, $db);
+    my $host = get_host_object($hostname, $db);
     $file->name($new_path);
     $file->host($host);
     $fa->update($file);
