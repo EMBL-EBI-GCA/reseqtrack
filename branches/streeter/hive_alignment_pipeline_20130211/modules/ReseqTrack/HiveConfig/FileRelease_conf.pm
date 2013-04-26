@@ -152,7 +152,7 @@ sub pipeline_analyses {
             -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
             -parameters    => {
                 branch_parameters_in => {
-                    branch_timestamp => (key => 'factory_timestamp', ascend => 1),
+                    branch_timestamp => {key => 'factory_timestamp', ascend => 1},
                 },
             },
       });
