@@ -130,7 +130,7 @@ sub pipeline_analyses {
               check_class => 'quick',
             },
             -flow_into => {
-                3 => [ 'slow_checks' ],   # using flow 3 so I can choose whether to flow or not.
+                1 => [ 'slow_checks' ],
             },
       });
     push(@analyses, {
@@ -140,7 +140,7 @@ sub pipeline_analyses {
               check_class => 'slow',
             },
             -flow_into => {
-                3 => [ 'move_to_staging' ],   # using flow 3 so I can choose whether to flow or not.
+                1 => [ 'move_to_staging' ],
             },
             -rc_name => '200Mb',
             -analysis_capacity  =>  50,  # use per-analysis limiter

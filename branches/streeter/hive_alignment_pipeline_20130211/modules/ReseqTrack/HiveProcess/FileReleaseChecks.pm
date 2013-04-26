@@ -21,22 +21,32 @@ sub get_check_subs {
 }
 
 sub check_size {
-  my ($self) = @_;
+  my ($self, $is_reject_ref, $reject_message_ref) = @_;
   my $db_size = $self->param('db_size');
   my $file_size = -s $self->param('dropbox_filename');
-  return $db_size == $file_size ? 0 : 'sizes do not match';
+  if ($db_size != $file_size) {
+    $$is_reject_ref = 'n';
+    $$reject_message_ref = "sizes do not match: $db_size $file_size";
+    return 0;
+  }
+  return 1;
 }
 
 sub check_md5 {
-  my ($self) = @_;
+  my ($self, $is_reject_ref, $reject_message_ref) = @_;
   my $db_md5 = $self->param('db_md5');
   my $file_md5 = file_md5_hex($self->param('dropbox_filename'));
-  return $db_md5 eq $file_md5 ? 0 : 'md5 does not match';
+  if ($file_md5 ne $db_md5) {
+    $$is_reject_ref = 'y';
+    $$reject_message_ref = "md5 does not match: $file_md5";
+    return 0;
+  }
+  return 1;
 }
 
 # this is project-specific and must be implented by a child class
 sub check_name {
-  return 0;
+  return 1;
 }
 
 sub run {
@@ -47,22 +57,19 @@ sub run {
     my $log_adaptor = $db->get_RejectLogAdaptor;
 
     my $check_subs = $self->get_check_subs();
-    my $failed_checks = 0;
+    my ($is_reject, $reject_message);
     CHECK:
     foreach my $sub (@{${$self->get_check_subs}{$self->param('check_class')}}) {
-      if (my $reject_message =  &$sub($self)) {
+      if (! &$sub($self, \$is_reject, \$reject_message)) {
         my $reject_log = ReseqTrack::RejectLog->new(
           -file_id => $self->param('db_file_id'),
-          -is_reject => 'y',
+          -is_reject => $is_reject,
           -reject_reason => $reject_message,
           );
         $log_adaptor->store($reject_log, 1);
-        $failed_checks = 0;
+        $self->input_job->autoflow(0);
         last CHECK;
       }
-    }
-    if (! $failed_checks) {
-      $self->flows_this_branch(3);
     }
     return;
 }

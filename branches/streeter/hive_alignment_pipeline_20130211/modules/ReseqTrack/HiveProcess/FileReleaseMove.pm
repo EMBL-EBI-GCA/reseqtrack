@@ -44,6 +44,7 @@ sub run {
         -reject_reason => "file changed since pipeline started",
         );
         $log_adaptor->store($reject_log, 1);
+        $self->input_job->autoflow(0);
         return;
     }
 
