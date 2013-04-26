@@ -6,6 +6,7 @@ use strict;
 use base ('ReseqTrack::HiveProcess::BranchableProcess');
 use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::Exception qw(throw);
+use ReseqTrack::Toos::HostUtils qw(get_host_object);
 use File::Copy qw(move);
 use File::stat;
 
@@ -24,6 +25,7 @@ sub run {
     my $self = shift @_;
 
     my $dropbox_filename = $self->param('dropbox_filename');
+    my $hostname = $self->param('hostname') || '1000genomes.ebi.ac.uk';
 
     my $db = ReseqTrack::DBSQL::DBAdaptor->new(%{$self->param('reseqtrack_db')});
     my $fa = $db->get_FileAdaptor;
@@ -46,8 +48,9 @@ sub run {
     }
 
     move($dropbox_filename, $new_path) or throw("error moving to $new_path: $!");
+    my $host = get_host_object($host, $db);
     $file->name($new_path);
-    $file->host(???);
+    $file->host($host);
     $fa->update($file);
 }
 
