@@ -7,6 +7,7 @@ use base ('ReseqTrack::HiveProcess::BranchableProcess');
 use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::Exception qw(throw);
 use File::Copy qw(move);
+use File::stat;
 
 
 =head2 run
@@ -22,6 +23,8 @@ sub derive_directory {
 sub run {
     my $self = shift @_;
 
+    my $dropbox_filename = $self->param('dropbox_filename');
+
     my $db = ReseqTrack::DBSQL::DBAdaptor->new(%{$self->param('reseqtrack_db')});
     my $fa = $db->get_FileAdaptor;
 
@@ -29,8 +32,22 @@ sub run {
 
     my $dir = $self->derive_directory;
     my $new_path = $dir . '/' . $file->filename;
-    move($self->param('drobox_filename'), $new_path) or throw("error moving to $new_path: $!");
+
+    my $st = stat($dropbox_filename) or throw("could not stat $dropbox_filename: $!");
+    if ($st->ctime > $self->param('branch_timestamp')) {
+      my $log_adaptor = $db->get_RejectLogAdaptor;
+      my $reject_log = ReseqTrack::RejectLog->new(
+        -file_id => $self->param('db_file_id'),
+        -is_reject => 'n',
+        -reject_reason => "file changed since pipeline started",
+        );
+        $log_adaptor->store($reject_log, 1);
+        return;
+    }
+
+    move($dropbox_filename, $new_path) or throw("error moving to $new_path: $!");
     $file->name($new_path);
+    $file->host(???);
     $fa->update($file);
 }
 
