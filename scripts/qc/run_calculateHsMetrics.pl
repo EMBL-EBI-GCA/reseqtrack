@@ -60,6 +60,14 @@ if (! $others || @$others == 0) {
 	throw("No files are found in collection $col, type $col_type");
 }
 
+my $flag = 0;
+foreach my $other ( @$others ) {
+	my $bam = $other->name;
+	$flag = 1 if ( $bam =~ /\.mapped\./ );
+}
+throw("No mapped BAM is found in the collection $col") if ($flag == 0);
+
+
 foreach my $other ( @$others ) {
 	my $bam = $other->name;
 

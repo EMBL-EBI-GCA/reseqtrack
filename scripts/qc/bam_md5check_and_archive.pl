@@ -111,13 +111,12 @@ my $bas = $fa->fetch_by_name($bas_name);
 #######################################################################################################
 ### Create BAS file if there isn't one in the db and nor in the dropbox; load it into the database. ###
 #######################################################################################################
-if (!$bas && $fo->type !~ /NCBI/i && $fo->type !~ /CG/i ) {  ## When a bas is not found in the same directory as BAM (usually ther archive staging area)
-	
+if (!$bas && $fo->type !~ /NCBI/i && $fo->type !~ /CG/i && $bam !~ /20130415/) {  ## When a bas is not found in the same directory as BAM (usually ther archive staging area)
 	my $bas_basename = basename($fo->name) . ".bas";
 	my $bas_base = $fa->fetch_by_filename($bas_basename);
 	
 	if ( $bas_base && @$bas_base > 1  ) {
-		write_log($fo, $loga, "FARM: multiple bas files found for $bam. One is " $bas_base->[0]->name . " None is in the same directory as its BAM");
+		write_log($fo, $loga, "FARM: multiple bas files found for $bam. One is " . $bas_base->[0]->name . " None is in the same directory as its BAM");
 		throw("Multiple bas files found. One is " . $bas_base->[0]->name . " None is in the same directory as its BAM\n");
 	}	
 	else { # create a bas, store in db as new or replace the one exists in db
