@@ -20,9 +20,9 @@ if ($bam =~ /chrom|unmapped/i) {
 	goto END;
 }
 
-if ($bam !~ /20111114/ ) {
-	goto END;
-}	
+#if ($bam !~ /20111114/ ) {
+#	goto END;
+#}	
 
 if ($bam !~ /vol1/ ) {
 	throw("Cannot run $bam; only check phase2 BAMs that have been placed on the ftp site");
