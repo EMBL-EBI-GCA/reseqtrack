@@ -16,6 +16,14 @@ my $outdir;
   'outdir=s' 		=> \$outdir,	
 );
 
+if ($bam !~ /vol1/ ) {
+	throw("Cannot run $bam; only check BAMs that have been placed on the ftp site");
+}
+	
+unless (-e $bam) {
+	throw("Bam $bam does not exist");
+}
+
 if ($bam =~ /chrom|unmapped/i) {
 	goto END;
 }
@@ -24,14 +32,7 @@ if ($bam =~ /chrom|unmapped/i) {
 #	goto END;
 #}	
 
-if ($bam !~ /vol1/ ) {
-	throw("Cannot run $bam; only check phase2 BAMs that have been placed on the ftp site");
-}
 	
-unless (-e $bam) {
-	throw("Bam $bam does not exist");
-}
-		
 $outdir =~ s/\/$//;
 mkpath $outdir unless (-e $outdir);
 my $outfile = $outdir . "/" . basename($bam)  . ".out";
