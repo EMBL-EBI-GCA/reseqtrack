@@ -26,6 +26,16 @@ sub run {
     throw("region_start is an obligatory parameter") if ! defined $region_start;
     throw("region_end is an obligatory parameter") if ! defined $region_end;
 
+    my $region_overlap = $self->param('region_overlap');
+    if ($region_overlap) {
+      $region_start = $region_start > $region_overlap ? $region_start - $region_overlap : 1;
+
+      #This is a hack that needs to be fixed
+      use ReseqTrack::HiveUtils::SequenceRegionsUtils qw(get_sequence_length);
+      my $sequence_length = get_sequence_length($self->data_dbc, $seq_index);
+      $region_end = $region_end + $region_overlap > $sequence_length ? $sequence_length : $region_end + $region_overlap;
+    }
+
     my $sequence_name = get_sequence_name($self->data_dbc, $seq_index);
 
     $self->data_dbc->disconnect_when_inactive(1);

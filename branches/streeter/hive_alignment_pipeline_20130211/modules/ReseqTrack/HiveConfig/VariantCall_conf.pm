@@ -211,9 +211,9 @@ sub resource_classes {
 sub pipeline_analyses {
     my ($self) = @_;
 
-    my $call_by_samtools = 1;
+    my $call_by_samtools = 0;
     my $call_by_gatk = 1;
-    my $call_by_freebayes = 1;
+    my $call_by_freebayes = 0;
 
     my @call_processes;
     push(@call_processes, 'call_by_samtools') if $call_by_samtools;
@@ -360,6 +360,7 @@ sub pipeline_analyses {
                 vcfutils => $self->o('vcfutils_exe'),
                 bgzip => $self->o('bgzip_exe'),
                 options => $self->o('call_by_samtools_options'),
+                region_overlap => 100,
                 branch_parameters_in => {
                     seq_index => 'seq_index',
                     region_start => 'region_start',
@@ -399,6 +400,7 @@ sub pipeline_analyses {
                 reference => $self->o('reference'),
                 gatk_dir => $self->o('gatk_dir'),
                 options => $self->o('call_by_gatk_options'),
+                region_overlap => 100,
                 branch_parameters_in => {
                     seq_index => 'seq_index',
                     region_start => 'region_start',
@@ -439,6 +441,7 @@ sub pipeline_analyses {
                 freebayes => $self->o('freebayes_exe'),
                 bgzip => $self->o('bgzip_exe'),
                 options => $self->o('call_by_freebayes_options'),
+                region_overlap => 100,
                 branch_parameters_in => {
                     seq_index => 'seq_index',
                     region_start => 'region_start',
@@ -449,7 +452,7 @@ sub pipeline_analyses {
                   vcf => 'freebayes_vcf'
                 },
             },
-            -rc_name => '500Mb',
+            -rc_name => '1Gb',
             -analysis_capacity  =>  50,  # use per-analysis limiter
             -hive_capacity  =>  -1,
         });

@@ -6,7 +6,7 @@ use ReseqTrack::Tools::Exception qw(throw);
 use base qw(Exporter);
 
 our @ISA = qw(Exporter);
-our @EXPORT_OK = qw(fai_to_db db_to_arrays get_region_strings get_sequence_name);
+our @EXPORT_OK = qw(fai_to_db db_to_arrays get_region_strings get_sequence_name get_sequence_length);
 
 sub fai_to_db {
   my ($dbc, $fai) = @_;
@@ -79,6 +79,13 @@ sub get_sequence_name {
 
   my ($sequence_names) = db_to_arrays($dbc);
   return $sequence_names->[$seq_index];
+}
+
+sub get_sequence_length {
+  my ($dbc, $seq_index) = @_;
+
+  my ($sequence_names, $sequence_lengths) = db_to_arrays($dbc);
+  return $sequence_lengths->[$seq_index];
 }
 
 1;

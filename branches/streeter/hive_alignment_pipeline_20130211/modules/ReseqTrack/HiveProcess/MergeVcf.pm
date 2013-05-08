@@ -33,6 +33,14 @@ sub run {
     my $first_vcf = 1;
     $self->data_dbc->disconnect_when_inactive(1);
     foreach my $vcf_path (@$vcfs) {
+
+      ##############
+      #This is a temporary hack:
+      #Needs to be fixed so I get this from database.
+      use File::Basename qw(basename);
+      my ($region_start, $region_end) = basename($vcf_path) =~ /\.(\d+)-(\d+)\./;
+      ##############
+
       my $IN;
       if ($vcf_path =~ /\.b?gz(?:ip)?$/){
         open $IN, "$bgzip -cd $vcf_path |" or throw("cannot open $vcf_path: $!");
@@ -42,7 +50,13 @@ sub run {
       }
       LINE:
       while (my $line = <$IN>) {
-        next LINE if (!$first_vcf && $line =~ /^#/);
+        if ($line =~ /^#/) {
+          print $OUT $line if $first_vcf;
+          next LINE;
+        }
+        my ($pos) = $line =~ /\t(\d+)/;
+        next LINE if $pos < $region_start;
+        next LINE if $pos > $region_end;
         print $OUT $line;
       }
       close $IN;
