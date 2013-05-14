@@ -30,17 +30,22 @@ sub run {
     elsif ($command eq 'window_factory') {
       $self->window_factory;
     }
+    elsif ($command eq 'window_factory_with_targets') {
+      $self->window_factory_with_targets;
+    }
     else {
       throw("did not recognise command $command");
     }
 }
 
+#max_sequences overrules min_bases
 sub seq_region_factory {
   my ($self) = @_;
   my $min_bases = $self->param('min_bases') || 0;
   my ($sequence_names, $sequence_lengths) = db_to_arrays($self->data_dbc);
   my $num_sequences = scalar @$sequence_names;
   throw("no sequences in database") if !$num_sequences;
+  my $max_sequences = $self->param('max_sequences') || $num_sequences;
   my @regions;
   my $start_index = 0;
   my $base_counter = 0;
@@ -52,7 +57,7 @@ sub seq_region_factory {
       last SEQ;
     }
     $base_counter += $sequence_lengths->[$end_index];
-    if ($base_counter < $min_bases) {
+    if ($base_counter < $min_bases && $end_index - $start_index +1 < $max_sequences) {
       $end_index += 1;
       next SEQ;
     }
@@ -94,6 +99,40 @@ sub window_factory {
       $self->output_child_branches('seq_index' => $seq_index, 'region_start' => $region_start, 'region_end' => $region_end, 'label' => $label);
     }
   }
+
+}
+
+# similar to window_factory, but only creates window in regions allowed by the bed file
+sub window_factory_with_targets {
+  my ($self) = @_;
+  my $max_bases = $self->param('max_bases') || throw('max_bases is an obligatory parameter');
+  my $bed_file = $self->param('targets_bed_file') || throw('targets_bed_file is an obligatory parameter with the command window_factory_with_targets');
+  my $seq_index_start = $self->param('seq_index_start') || 0;
+  my $seq_index_end = $self->param('seq_index_end');
+  my ($sequence_names, $sequence_lengths) = db_to_arrays($self->data_dbc);
+  throw("no sequences in database") if ! scalar @$sequence_names;
+  my %allowed_seq_name_index;
+  foreach my $seq_index ($seq_index_start..$seq_index_end) {
+    $allowed_seq_name_index{$sequence_names->[$seq_index]} = $seq_index;
+  }
+
+  open my $BED, '<', $bed_file or throw("could not open $bed_file $!");
+  LINE:
+  while (my $line = <$BED>) {
+    chomp $line;
+    my ($target_seq_name, $target_start, $target_end) = split("\t", $line);
+    next LINE if !defined $allowed_seq_name_index{$target_seq_name};
+    my $target_length = $target_end - $target_start +1;
+    my $num_regions = ceil($target_length / $max_bases);
+    my $region_length = ceil($target_length / $num_regions);
+    foreach my $i (0..$num_regions-1) {
+      my $region_start = $target_start + $i*$region_length;
+      my $region_end = ($i == $num_regions -1) ? $target_end : $region_start + $region_length -1;
+      my $label = "$target_seq_name.$region_start-$region_end";
+      $self->output_child_branches('seq_index' => $allowed_seq_name_index{$target_seq_name}, 'region_start' => $region_start, 'region_end' => $region_end, 'label' => $label);
+    }
+  }
+  close BED;
 
 }
 

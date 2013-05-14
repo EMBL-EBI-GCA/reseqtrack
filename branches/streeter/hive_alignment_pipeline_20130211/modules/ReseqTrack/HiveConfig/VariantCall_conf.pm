@@ -211,9 +211,9 @@ sub resource_classes {
 sub pipeline_analyses {
     my ($self) = @_;
 
-    my $call_by_samtools = 0;
+    my $call_by_samtools = 1;
     my $call_by_gatk = 1;
-    my $call_by_freebayes = 0;
+    my $call_by_freebayes = 1;
 
     my @call_processes;
     push(@call_processes, 'call_by_samtools') if $call_by_samtools;
@@ -278,6 +278,7 @@ sub pipeline_analyses {
                   seq_index_end => 'seq_index_end',
                 },
                 min_bases => 50000000,
+                max_sequences => 2000,
             },
             -wait_for => ['import_genome'],
             -flow_into => {
@@ -314,7 +315,9 @@ sub pipeline_analyses {
             -module        => 'ReseqTrack::HiveProcess::RegionsFactory',
             -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
             -parameters    => {
-                command => 'window_factory',
+                command => 'window_factory', # comment out this line if you're using exome targets
+                #command => 'window_factory_with_targets', # uncomment this line if you're using exome targets
+                #targets_bed_file => $self->o('target_bed_file'), # uncomment this line if you're using exome targets
                 branch_parameters_in => {
                     seq_index_start => 'seq_index_start',
                     seq_index_end => 'seq_index_end',

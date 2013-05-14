@@ -196,7 +196,7 @@ sub execute_command_line {
       setpgrp(0,0);
       $self->save_files_from_deletion(1);
       exec(bash => (-o => 'pipefail', -c => $command_line)) or do{
-        print STDERR "$command_line did not execute: $!\n";
+        print STDERR "Did not execute: $!: $command_line\n";
         exit(255);
       }
     }
@@ -217,11 +217,11 @@ sub execute_command_line {
       }
     }
     #throw("received a signal ($term_sig) so command line was killed $command_line") if ($term_sig);
-    throw("command failed: $! $command_line") if ( $? == -1 );
 
     my $signal = $? & 127;
     throw("process died with signal $signal $command_line") if ($signal);
     my $exit = $? >> 8;
+    throw("command could not be executed by bash: $command_line") if ($exit == 255);
     throw("command exited with value $exit $command_line") if ($exit != 0);
     return $exit;
 }
