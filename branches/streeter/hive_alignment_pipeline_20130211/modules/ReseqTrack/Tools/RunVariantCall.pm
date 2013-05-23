@@ -35,12 +35,13 @@ sub new {
   my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
 
-  my ( $reference, $chrom, $region)
-        = rearrange( [ qw( REFERENCE CHROM REGION ) ], @args);
+  my ( $reference, $chrom, $region_start, $region_end)
+        = rearrange( [ qw( REFERENCE CHROM REGION_START REGION_END ) ], @args);
 
   $self->reference($reference);
   $self->chrom($chrom);
-  $self->region($region);
+  $self->region_start($region_start);
+  $self->region_end($region_end);
 
   return $self;
 }
@@ -51,7 +52,10 @@ sub generate_job_name {
     if ($self->chrom =~ /\s+/) {   ## when multiple chroms are input, seperated by white space
         $chrom =~ s/\s+/_/g;
     }       
-    my $job_name = $chrom .'.'. $self->region;
+    my $job_name = $chrom;
+    if ($self->region_start && $self->region_end) {
+      $job_name .= "." . $self->region_start . '-' . $self->region_end;
+    }
     return $self->job_name($job_name);
 }
 
@@ -106,12 +110,20 @@ sub chrom {
 
 =cut
 
-sub region {
-    my ($self, $region) = @_;
-    if ($region) {
-        $self->{'region'} = $region;
+sub region_start {
+    my ($self, $region_start) = @_;
+    if ($region_start) {
+        $self->{'region_start'} = $region_start;
     }
-    return $self->{'region'};
+    return $self->{'region_start'};
+}
+
+sub region_end {
+    my ($self, $region_end) = @_;
+    if ($region_end) {
+        $self->{'region_end'} = $region_end;
+    }
+    return $self->{'region_end'};
 }
 
 =head2 run_program

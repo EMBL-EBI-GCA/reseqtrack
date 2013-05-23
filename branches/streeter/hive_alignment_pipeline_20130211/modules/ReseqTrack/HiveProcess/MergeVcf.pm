@@ -55,8 +55,8 @@ sub run {
           next LINE;
         }
         my ($pos) = $line =~ /\t(\d+)/;
-        next LINE if $pos < $region_start;
-        next LINE if $pos > $region_end;
+        next LINE if defined $region_start && $pos < $region_start;
+        next LINE if defined $region_end && $pos > $region_end;
         print $OUT $line;
       }
       close $IN;

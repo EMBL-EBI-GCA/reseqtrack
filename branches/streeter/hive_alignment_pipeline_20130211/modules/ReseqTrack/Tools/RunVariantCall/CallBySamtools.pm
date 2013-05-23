@@ -113,7 +113,9 @@ sub run_program {
     push(@cmd_words, '-f', $self->reference);
 
     if (my $region = $self->chrom) {
-      $region .= ":".$self->region if ($self->region);
+      if (defined $self->region_start && defined $self->region_end) {
+        $region.= ':' . $self->region_start . '-' . $self->region_end;
+      }
       push(@cmd_words, '-r', $region);
     }    
     push(@cmd_words, @{$self->input_files});

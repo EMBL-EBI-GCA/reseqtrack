@@ -95,6 +95,7 @@ sub default_options {
         call_by_freebayes_options => {}, # use module defaults
 
         'fai' => $self->o('reference') . '.fai',
+        'target_bed_file' => undef,
 
         'final_label' => $self->o('pipeline_name'),
         'call_window_size' => 50000,
@@ -132,20 +133,11 @@ sub pipeline_create_commands {
       PRIMARY KEY (branch_data_id)
     )";
 
-    my $sql_3 = "
-    CREATE TABLE sequence_region (
-      sequence_region_index int(10) unsigned NOT NULL,
-      name VARCHAR(50) NOT NULL,
-      length int(10) unsigned,
-      PRIMARY KEY (sequence_region_index)
-    )";
-
     return [
         @{$self->SUPER::pipeline_create_commands},  # inheriting database and hive tables' creation
 
         $self->db_execute_command('pipeline_db', $sql_1),
         $self->db_execute_command('pipeline_db', $sql_2),
-        $self->db_execute_command('pipeline_db', $sql_3),
 
     ];
 }
@@ -166,6 +158,7 @@ sub pipeline_wide_parameters {
 
         'root_output_dir' => $self->o('root_output_dir'),
         'reseqtrack_db' => $self->o('reseqtrack_db'),
+        fai => $self->o('fai'),
 
         'universal_branch_parameters_in' => {
           'branch_label' => 'label',
@@ -227,16 +220,6 @@ sub pipeline_analyses {
 
     my @analyses;
     push(@analyses, {
-            -logic_name    => 'import_genome',
-            -module        => 'ReseqTrack::HiveProcess::RegionsFactory',
-            -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
-            -parameters    => {
-                command => 'load_db',
-                fai => $self->o('fai'),
-            },
-            -input_ids => [{}],
-      });
-    push(@analyses, {
             -logic_name    => 'callgroups_factory',
             -module        => 'ReseqTrack::HiveProcess::JobFactory',
             -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
@@ -269,18 +252,19 @@ sub pipeline_analyses {
       });
     push(@analyses, {
             -logic_name    => 'regions_factory_1',
-            -module        => 'ReseqTrack::HiveProcess::RegionsFactory',
+            -module        => 'ReseqTrack::HiveProcess::SequenceSliceFactory',
             -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
             -parameters    => {
-                command => 'seq_region_factory',
                 branch_parameters_out => {
-                  seq_index_start => 'seq_index_start',
-                  seq_index_end => 'seq_index_end',
+                  SQ_start => 'SQ_start',
+                  SQ_end => 'SQ_end',
+                  bp_start => 'bp_start',
+                  bp_end => 'bp_end',
                 },
-                min_bases => 50000000,
+                num_bases => 50000000,
                 max_sequences => 2000,
+                bed => $self->o('target_bed_file'),
             },
-            -wait_for => ['import_genome'],
             -flow_into => {
                 '2->A' => [ 'transpose_bam' ],
                 'A->1' => [ 'dummy_process' ],
@@ -294,13 +278,17 @@ sub pipeline_analyses {
                 create_index => 1,
                 branch_parameters_in => {
                     bams => {key => 'SOURCE_BAM', ascend => 1},
-                    seq_index_start => 'seq_index_start',
-                    seq_index_end => 'seq_index_end',
+                    SQ_start => 'SQ_start',
+                    SQ_end => 'SQ_end',
+                    bp_start => 'bp_start',
+                    bp_end => 'bp_end',
                 },
                 branch_parameters_out => {
                   bam => 'BAM',
                   bai => 'BAI',
                 },
+                bed => $self->o('target_bed_file'),
+                region_overlap => 100,
             },
             -rc_name => '2Gb',
             -analysis_capacity  =>  4,  # use per-analysis limiter
@@ -312,23 +300,27 @@ sub pipeline_analyses {
       });
     push(@analyses, {
             -logic_name    => 'regions_factory_2',
-            -module        => 'ReseqTrack::HiveProcess::RegionsFactory',
-            -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
+            -module        => 'ReseqTrack::HiveProcess::SequenceSliceFactory',
             -parameters    => {
-                command => 'window_factory', # comment out this line if you're using exome targets
-                #command => 'window_factory_with_targets', # uncomment this line if you're using exome targets
-                #targets_bed_file => $self->o('target_bed_file'), # uncomment this line if you're using exome targets
                 branch_parameters_in => {
-                    seq_index_start => 'seq_index_start',
-                    seq_index_end => 'seq_index_end',
+                    SQ_start => 'SQ_start',
+                    SQ_end => 'SQ_end',
+                    bp_start => 'bp_start',
+                    bp_end => 'bp_end',
                 },
                 branch_parameters_out => {
-                  seq_index => 'seq_index',
-                  region_start => 'region_start',
-                  region_end => 'region_end',
+                  SQ_start => 'SQ_start',
+                  SQ_end => 'SQ_end',
+                  bp_start => 'bp_start',
+                  bp_end => 'bp_end',
                 },
-                max_bases => $self->o('call_window_size'),
+                num_bases => $self->o('call_window_size'),
+                max_sequences => 1,
+                bed => $self->o('target_bed_file'),
             },
+            -rc_name => '200Mb',
+            -analysis_capacity  =>  4,  # use per-analysis limiter
+            -hive_capacity  =>  -1,
             -flow_into => {
                 2 => [ @call_processes ],
             },
@@ -365,9 +357,10 @@ sub pipeline_analyses {
                 options => $self->o('call_by_samtools_options'),
                 region_overlap => 100,
                 branch_parameters_in => {
-                    seq_index => 'seq_index',
-                    region_start => 'region_start',
-                    region_end => 'region_end',
+                    SQ_start => 'SQ_start',
+                    SQ_end => 'SQ_end',
+                    bp_start => 'bp_start',
+                    bp_end => 'bp_end',
                     bam => {key => 'BAM', ascend => 1},
                 },
                 branch_parameters_out => {
@@ -405,9 +398,10 @@ sub pipeline_analyses {
                 options => $self->o('call_by_gatk_options'),
                 region_overlap => 100,
                 branch_parameters_in => {
-                    seq_index => 'seq_index',
-                    region_start => 'region_start',
-                    region_end => 'region_end',
+                    SQ_start => 'SQ_start',
+                    SQ_end => 'SQ_end',
+                    bp_start => 'bp_start',
+                    bp_end => 'bp_end',
                     bam => {key => 'BAM', ascend => 1},
                 },
                 branch_parameters_out => {
@@ -446,9 +440,10 @@ sub pipeline_analyses {
                 options => $self->o('call_by_freebayes_options'),
                 region_overlap => 100,
                 branch_parameters_in => {
-                    seq_index => 'seq_index',
-                    region_start => 'region_start',
-                    region_end => 'region_end',
+                    SQ_start => 'SQ_start',
+                    SQ_end => 'SQ_end',
+                    bp_start => 'bp_start',
+                    bp_end => 'bp_end',
                     bam => {key => 'BAM', ascend => 1},
                 },
                 branch_parameters_out => {

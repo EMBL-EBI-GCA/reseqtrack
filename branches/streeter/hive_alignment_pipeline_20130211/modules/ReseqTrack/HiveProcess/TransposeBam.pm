@@ -5,7 +5,7 @@ use strict;
 
 use base ('ReseqTrack::HiveProcess::BranchableProcess');
 use ReseqTrack::Tools::RunTransposeBam;
-use ReseqTrack::HiveUtils::SequenceRegionsUtils qw(get_region_strings);
+use ReseqTrack::HiveUtils::SequenceSliceUtils qw(fai_to_slices bed_to_slices);
 use ReseqTrack::Tools::Exception qw(throw);
 
 
@@ -19,13 +19,40 @@ sub run {
     my $self = shift @_;
 
     my $bams = $self->param('bams') || throw("'bam' is an obligatory parameter");
-    my $seq_index_start = $self->param('seq_index_start');
-    my $seq_index_end = $self->param('seq_index_end');
-    throw("'seq_index_start' is an obligatory parameter") if !defined $seq_index_start;
-    throw("'seq_index_end' is an obligatory parameter") if !defined $seq_index_end;
+    my $fai = $self->param('fai') || throw("'fai' is an obligatory parameter");
+    my $bed = $self->param('bed');
+    my $SQ_start = $self->param('SQ_start');
+    my $SQ_end = $self->param('SQ_end');
+    my $bp_start = $self->param('bp_start');
+    my $bp_end = $self->param('bp_end');
+    my $overlap = $self->param('region_overlap') || 0;
+    throw("'SQ_start' is an obligatory parameter") if !defined $SQ_start;
+    throw("'SQ_end' is an obligatory parameter") if !defined $SQ_end;
+    throw("'bp_start' is an obligatory parameter") if !defined $bp_start;
+    throw("'bp_end' is an obligatory parameter") if !defined $bp_end;
 
-    my $regions = get_region_strings($self->data_dbc, $seq_index_start, $seq_index_end);
+    my $slices = fai_to_slices(
+          fai => $fai,
+          SQ_start => $SQ_start, SQ_end => $SQ_end,
+          bp_start => $bp_start, bp_end => $bp_end,
+          );
+    if (defined $bed) {
+      $slices = bed_to_slices(bed => $bed, parent_slices => $slices);
+    }
 
+    foreach my $slice (@$slices) {
+      $slice->extend($overlap);
+    }
+    #$slices = join_overlapping_slices(slices => $slices, separation => 500);
+
+    my @regions;
+    foreach my $slice (@$slices) {
+      my $region = $slice->SQ_name;
+      if (!$slice->is_whole_SQ) {
+        $region .= ':' . $slice->start . '-' . $slice->end;
+      }
+      push(@regions, $region);
+    }
 
     $self->data_dbc->disconnect_when_inactive(1);
 
@@ -34,7 +61,7 @@ sub run {
           -program => $self->param('program_file'),
           -working_dir => $self->output_dir,
           -job_name => $self->job_name,
-          -regions => $regions,
+          -regions => \@regions,
           -options => {'build_index' => $self->param('create_index')},
           );
     $bam_transposer->run;

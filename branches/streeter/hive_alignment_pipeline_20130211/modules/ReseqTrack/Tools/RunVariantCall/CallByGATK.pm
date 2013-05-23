@@ -98,7 +98,9 @@ sub run_program {
     }        
     
     if (my $region = $self->chrom) {
-      $region .= ":".$self->region if ($self->region);
+      if (defined $self->region_start && defined $self->region_end) {
+        $region.= ':' . $self->region_start . '-' . $self->region_end;
+      }
       push(@cmd_words, '-L', $region);
     }    
 
