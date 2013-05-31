@@ -14,7 +14,6 @@ use ReseqTrack::DBSQL::JobAdaptor;
 use ReseqTrack::DBSQL::WorkflowAdaptor;
 use ReseqTrack::DBSQL::CollectionAdaptor;
 use ReseqTrack::DBSQL::RunMetaInfoAdaptor;
-use ReseqTrack::DBSQL::AlignmentMetaInfoAdaptor;
 use ReseqTrack::DBSQL::HistoryAdaptor;
 use ReseqTrack::DBSQL::StatisticsAdaptor;
 use ReseqTrack::DBSQL::ArchiveAdaptor;
@@ -29,6 +28,10 @@ use ReseqTrack::DBSQL::FileTypeRuleAdaptor;
 use ReseqTrack::DBSQL::PopulationRuleAdaptor;
 use ReseqTrack::DBSQL::StudyIDAdaptor;
 use ReseqTrack::DBSQL::VerifyBamIDAdaptor;
+use ReseqTrack::DBSQL::StudyAdaptor;
+use ReseqTrack::DBSQL::ExperimentAdaptor;
+use ReseqTrack::DBSQL::SampleAdaptor;
+use ReseqTrack::DBSQL::RunAdaptor;
 
 sub new {
   my($class, @args) = @_;
@@ -176,17 +179,6 @@ sub get_RunMetaInfoAdaptor{
   return $self->{run_meta_info_adaptor};
 }
 
-sub get_AlignmentMetaInfoAdaptor{
-  my ($self) = @_;
-  if(!$self->{alignment_meta_info_adaptor}){
-    $self->{alignment_meta_info_adaptor} = ReseqTrack::DBSQL::AlignmentMetaInfoAdaptor->
-        new($self);
-  }
-  return $self->{alignment_meta_info_adaptor};
-}
-
-
-
 sub get_ArchiveAdaptor{
   my ($self, $nolock) = @_;
   if(!$self->{archive_adaptor}){
@@ -308,4 +300,28 @@ sub get_VerifyBamIDAdaptor{
   return $self->{VerifyBamIDAdaptor};
 }
 
+sub _get_adaptor{
+	my ($self,$class) = @_;
+	if (!$self->{$class}){
+		$self->{$class} = $class->new($self);
+	}
+	return $self->{$class};
+}
+
+sub get_StudyAdaptor{
+	my ($self) = @_;
+	return $self->_get_adaptor("ReseqTrack::DBSQL::StudyAdaptor");
+}
+sub get_ExperimentAdaptor{
+	my ($self) = @_;
+	return $self->_get_adaptor("ReseqTrack::DBSQL::ExperimentAdaptor");
+}
+sub get_RunAdaptor{
+	my ($self) = @_;
+	return $self->_get_adaptor("ReseqTrack::DBSQL::RunAdaptor");
+}
+sub get_SampleAdaptor{
+	my ($self) = @_;
+	return $self->_get_adaptor("ReseqTrack::DBSQL::SampleAdaptor");
+}
 1;
