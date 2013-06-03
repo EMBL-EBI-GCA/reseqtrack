@@ -19,8 +19,13 @@ use ReseqTrack::Tools::Exception qw(throw);
 sub run {
     my $self = shift @_;
 
-    my $fastqs = $self->param('fastq') || die "'fastq' is an obligatory parameter";
-    my $run_id = $self->param('run_id') || die "'run_id' is an obligatory parameter";
+    $self->param_required('fastq');
+    my $run_id = $self->param_required('run_id');
+    my $reference $self->param_required('reference');
+
+    my $fastq_ids = $self->get_param_values('fastq');
+    my $fastqs = $self->get_files($fastq_ids);
+
 
     my $db = ReseqTrack::DBSQL::DBAdaptor->new(%{$self->param('reseqtrack_db')});
     my $rmia = $db->get_RunMetaInfoAdaptor;
@@ -39,8 +44,6 @@ sub run {
       PL => $rmi->instrument_platform,
     );
 
-    $fastqs = ref($fastqs) eq 'ARRAY' ? $fastqs : [$fastqs];
-
     foreach my $fastq (@$fastqs) {
       check_file_exists($fastq);
     }
@@ -49,18 +52,20 @@ sub run {
 
     my $run_alignment = ReseqTrack::Tools::RunAlignment::BWA->new(
           -input_files => $fastqs,
-          -program => $self->param('program_file'),
-          -samtools => $self->param('samtools'),
+          -program => $self->param_is_defined('program_file') ? $self->param('program_file') : undef,
+          -samtools => $self->param_is_defined('samtools') ? $self->param('samtools') : undef,
           -output_format => 'BAM',
           -working_dir => $self->output_dir,
-          -reference => $self->param('reference'),
+          -reference => $reference,
           -job_name => $self->job_name,
           -paired_length => $rmi->paired_length,
           -read_group_fields => \%read_group_fields,
           );
     $run_alignment->run;
 
-    $self->output_this_branch('bam' => $run_alignment->output_files);
+    my $file_ids = $self->make_file_ids($run_alignment->output_files);
+    $self->param('bam', $file_ids);
+    $self->add_to_dataflow('bam');
     $self->data_dbc->disconnect_when_inactive(0);
 
 }

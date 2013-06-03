@@ -16,10 +16,10 @@ use ReseqTrack::Tools::Exception qw(throw);
 sub run {
     my $self = shift @_;
 
-    my $values = $self->get_param_array('data_values');
+    my $values = $self->get_param_values('data_value');
 
     foreach my $value (@$values) {
-      $self->output_child_branches('data_value' => $value, 'label' => $value);
+      $self->prepare_child_output_id($value, {'data_value' => $value});
     }
 
 }

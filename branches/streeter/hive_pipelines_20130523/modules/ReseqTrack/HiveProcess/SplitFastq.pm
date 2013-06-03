@@ -21,20 +21,17 @@ use ReseqTrack::Tools::Exception qw(throw);
 sub run {
     my $self = shift @_;
 
-    my $run_id = $self->param('run_id') || die "'run_id' is an obligatory parameter";
-    my $type_fastq = $self->param('type_fastq') || die "'type_fastq' is an obligatory parameter";
-    my $max_bases = $self->param('max_bases') || die "'max_bases' is an obligatory parameter";
-    my $program_file = $self->param('program_file');
-    my $directory_layout = $self->param('directory_layout');
+    $self->param_required('max_bases');
+    $self->param_required('fastq');
+
+    my $program_file = $self->param_is_defined('program_file') ? $self->param('program_file') || undef;
+
     my $output_dir = $self->output_dir;
 
-    my $db = ReseqTrack::DBSQL::DBAdaptor->new(%{$self->param('reseqtrack_db')});
-    my $ca = $db->get_CollectionAdaptor;
-    my $collection = $ca->fetch_by_name_and_type($run_id, $type_fastq);
-    throw("Failed to find a collection for $run_id $type_fastq") if(!$collection);
 
-    my $input_files = $collection->others;
-    my ($mate1, $mate2, $frag) = assign_files($input_files);
+    my $fastq_ids = $self->get_param_values('fastq');
+    my $fastqs = $self->get_files($fastq_ids);
+    my ($mate1, $mate2, $frag) = assign_files($fastqs);
     my ($mate1_path, $mate2_path, $frag_path) = map {$_ ? $_->name : ''} ($mate1, $mate2, $frag);
     throw ("No mate for $mate1_path") if ($mate1_path && ! $mate2_path);
     throw ("No mate for $mate2_path") if ($mate2_path && ! $mate1_path);
@@ -73,17 +70,18 @@ sub run {
       foreach my $label (sort {$a <=> $b} @labels_mate1) {
         throw("no matching mate2 file with label $label") if (!$output_file_hash->{$mate2_path}->{$label});
         my @files = map {$output_file_hash->{$_}->{$label}} ($mate1_path, $mate2_path);
-        $self->output_child_branches('split_fastq' => \@files, 'label' => "$run_id.mate_chunk$label");
+        my $file_ids = $self->make_file_ids(\@files);
+        $self->prepare_child_output_id("$run_id.mate_chunk$label", {'fastq' => $file_ids});
       }
     }
     if ($frag) {
       foreach my $label (sort {$a <=> $b} keys %{$output_file_hash->{$frag_path}}) {
         my $file_path = $output_file_hash->{$frag_path}{$label};
-        $self->output_child_branches('split_fastq' => $file_path, 'label' => "$run_id.frag_chunk$label");
+        my $file_ids = $self->make_file_ids([$file_path]);
+        $self->prepare_child_output_id("$run_id.frag_chunk$label", {'fastq' => $file_ids->[0]});
       }
     }
 
-    $self->output_this_branch('source_fastq' => [$mate1_path, $mate2_path, $frag_path]);
     $self->data_dbc->disconnect_when_inactive(0);
 
 }
