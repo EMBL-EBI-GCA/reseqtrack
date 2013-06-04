@@ -1,6 +1,7 @@
 package ReseqTrack::DBSQL::LazyAdaptor;
 
 use strict;
+use warnings;
 use base qw(ReseqTrack::DBSQL::BaseAdaptor);
 use ReseqTrack::Tools::Exception qw(throw);
 
@@ -48,7 +49,6 @@ sub object_from_hashref {
 	for my $column ( keys %$column_mappings ) {
 		my $method = $column_mappings->{$column};
 		my $value = $hashref->{$column};
-		
 		
 		$method->($value);
 	}

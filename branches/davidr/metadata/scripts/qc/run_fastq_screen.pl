@@ -2,10 +2,10 @@ use strict;
 use warnings;
 
 use ReseqTrack::Tools::SequenceIndexUtils qw (assign_files);
-use ReseqTrack::Tools::StatisticsUtils;
+use ReseqTrack::Tools::AttributeUtils;
 use ReseqTrack::Tools::QC::FastQScreen;
 use ReseqTrack::Tools::HostUtils qw(get_host_object);
-use ReseqTrack::Tools::StatisticsUtils;
+use ReseqTrack::Tools::AttributeUtils;
 use ReseqTrack::Tools::FileUtils;
 use ReseqTrack::Tools::FileSystemUtils;
 use ReseqTrack::DBSQL::DBAdaptor;

@@ -11,7 +11,10 @@ use ReseqTrack::Study;
 use ReseqTrack::Sample;
 use ReseqTrack::Experiment;
 use ReseqTrack::Run;
-use ReseqTrack::Tools::StatisticsUtils qw(create_statistic_for_object);
+use ReseqTrack::Tools::AttributeUtils
+	qw(create_attribute_for_object remove_outdated_attributes);
+
+use feature 'switch';
 
 my %db_params;
 my %files;
@@ -40,7 +43,6 @@ my $verbose;
 	'verbose!'         => \$verbose,
 );
 
-
 throw("Cannot write templates and read files")
 	if ( $write_templates && ( $load_new || $update_existing ) );
 
@@ -53,52 +55,50 @@ if ($write_templates) {
 	exit;
 }
 
-throw("No work to do: specify -load_new and/or -update_existing. Use -help to see options")
-	unless ( $load_new || $update_existing );
+throw(
+"No work to do: specify -load_new and/or -update_existing. Use -help to see options"
+) unless ( $load_new || $update_existing );
 
 my $db = ReseqTrack::DBSQL::DBAdaptor->new(%db_params);
 $db->dbc->db_handle->{'AutoCommit'} = 0;
 
-my $meta_data_in_file =
-	load_meta_data_from_files( \%files, $separator, $verbose );
-
-my $adaptors          = adaptors($db);
-my $attribute_adaptor = $db->get_AttributeAdaptor;
-my $fk_handlers       = fk_handlers();
-my $have_attributes   = have_attributes();
-
-my @types = qw(studies samples experiments runs)
-	; # the order of types matters - e.g. experiments reference studies, runs reference samples and experiments
+# the order of types matters - e.g. experiments reference studies, runs reference samples and experiments
+my @types = qw(studies samples experiments runs);
 
 TYPE: for my $type (@types) {
-	my $objects = $meta_data_in_file->{$type};
+	my $file_path = $files{$type};
+	
+	next TYPE unless $file_path;
+	
+	print "Reading $type file: $file_path $/" if ($verbose);
+	my $objects = load_from_file( $file_path, $type, $separator, $verbose );
+
 	next TYPE unless $objects;
+	print "Loading/updating $type$/" if ($verbose);
 
-	my $adaptor          = $adaptors->{$type};
-	my $fk_handler       = $fk_handlers->{$type};
-	my $allow_attributes = $have_attributes->{$type};
-
-	print STDERR "Loading/updating $type$/" if ($verbose);
+	my $adaptor          = adaptors( $db, $type );
+	my $fk_handler_sub       = fk_handlers($type);
+	my $allow_attributes = have_attributes($type);
 
 	for my $object (@$objects) {
 		my $current_record = $adaptor->fetch_by_source_id( $object->source_id );
 
-		$fk_handler->( $object, $db );
+		$fk_handler_sub->( $object, $db );
 
 		if ( $update_existing && defined $current_record ) {
-			print STDERR "Updating $type " . $object->source_id() . $/ if ($verbose);
+			print "Updating $type " . $object->source_id() . $/ if ($verbose);
 			$object->dbID( $current_record->dbID() );
 			$adaptor->update($object);
 
 			if ($allow_attributes) {
 				$adaptor->store_attributes( $object, 1 );
 				remove_outdated_attributes( $object, $current_record,
-					$attribute_adaptor, $verbose );
+					$db->get_AttributeAdaptor );
 			}
 
 		}
 		if ( $load_new && !defined $current_record ) {
-			print STDERR "Storing $type " . $object->source_id() . $/ if ($verbose);
+			print "Storing $type " . $object->source_id() . $/ if ($verbose);
 			$adaptor->store($object);
 			$adaptor->store_attributes($object) if ($allow_attributes);
 		}
@@ -108,54 +108,12 @@ TYPE: for my $type (@types) {
 
 $db->dbc->db_handle->commit();
 
-sub remove_outdated_attributes {
-	my ( $new_version, $old_version, $attribute_adaptor, $verbose ) =
-		@_;
-
-	my %new_attr_names;
-	map { $new_attr_names{ $_->attribute_name() } = 1 }
-		@{ $new_version->statistics() };
-
-	for my $attr ( @{ $old_version->statistics() } ) {
-		my $key = $attr->attribute_name();
-		if ( !exists $new_attr_names{$key} ) {
-			print STDERR "Attribute $key to be deleted$/" if ($verbose);
-			$attribute_adaptor->delete($attr);
-		}
-	}
-
-}
-
-sub load_meta_data_from_files {
-	my ( $files, $separator, $verbose ) = @_;
-
-	my $columns        = columns();
-	my $has_attributes = have_attributes();
-	my $classes        = classes();
-
-	my %meta_data_in_file;
-	while ( my ( $file_type, $file_path ) = each %$files ) {
-		next unless $file_path;
-
-		my $cols             = $columns->{$file_type};
-		my $allow_attributes = $has_attributes->{$file_type};
-		my $class            = $classes->{$file_type};
-
-		print STDERR "Reading $file_type file: $file_path $/" if ($verbose);
-
-		$meta_data_in_file{$file_type} =
-			load_from_file( $file_path, $cols, $allow_attributes, $class,
-			$separator );
-
-		my $count = scalar @{ $meta_data_in_file{$file_type} };
-		print STDERR "Found $count entries $/" if ($verbose);
-	}
-
-	return \%meta_data_in_file;
-}
-
 sub load_from_file {
-	my ( $file, $columns, $allow_attributes, $class, $separator ) = @_;
+	my ( $file, $type, $separator, $verbose, ) = @_;
+
+	my $columns          = columns($type);
+	my $allow_attributes = have_attributes($type);
+	my $class            = classes($type);
 
 	my @objects;
 	my @header;
@@ -198,7 +156,7 @@ sub load_from_file {
 				my @attr;
 				while ( my ( $attribute_name, $attribute_value ) = each %attributes ) {
 					push @attr,
-						create_statistic_for_object( $object, $attribute_name,
+						create_attribute_for_object( $object, $attribute_name,
 						$attribute_value );
 				}
 				$object->statistics( \@attr );
@@ -222,28 +180,26 @@ sub load_from_file {
 
 	close $fh;
 
+	my $count = scalar @objects;
+	print "Found $count entries $/" if ($verbose);
+
 	return \@objects;
 }
 
 sub print_template {
 	my ( $separator, $files ) = @_;
 
-	my $file_columns    = columns();
-	my $have_attributes = have_attributes();
-
 	while ( my ( $file_type, $file_path ) = each %$files ) {
 		next unless $file_path;
-
+		
 		throw("Template path for $file_type already exists: $file_path ")
 			if ( -e $file_path );
-
-		my @columns = @{ $file_columns->{$file_type} };
+		
+		my @columns = @{columns($file_type)};
+		throw( "Could not find columns for $file_type template") unless @columns;
+					
 		push @columns, "#add attribute columns here"
-			if $have_attributes->{$file_type};
-
-		throw( "Could not find columns for $file_type template. Lookup table: "
-				. Dumper($file_columns) )
-			unless @columns;
+			if (have_attributes($file_type));
 
 		open( my $fh, '>', $file_path )
 			or throw("Could not write to $file_path: $!");
@@ -257,94 +213,111 @@ sub print_template {
 # columns to be used in the input files. used both for parsing and for generating templates
 #first column in these lists must always map to the source_id column
 sub columns {
-	return {
-		studies => [qw(STUDY_ID	TITLE	TYPE	STATUS)],
-		samples => [
-			qw(SAMPLE_ID	SAMPLE_TITLE	STATUS	CENTER_NAME	SAMPLE_ALIAS	TAX_ID	SCIENTIFIC_NAME	COMMON_NAME	ANONYMIZED_NAME	INDIVIDUAL_NAME	)
-		],
-		experiments => [
-			qw(EXPERIMENT_ID	STUDY_ID	STATUS	CENTER_NAME	EXPERIMENT_ALIAS	INSTRUMENT_PLATFORM	INSTRUMENT_MODEL	LIBRARY_LAYOUT	LIBRARY_NAME	LIBRARY_STRATEGY	LIBRARY_SOURCE	LIBRARY_SELECTION	PAIRED_NOMINAL_LENGTH	PAIRED_NOMINAL_SDEV)
-		],
-		runs => [
-			qw(RUN_ID	EXPERIMENT_ID	SAMPLE_ID	RUN_ALIAS	STATUS	CENTER_NAME	RUN_CENTER_NAME	INSTRUMENT_PLATFORM	INSTRUMENT_MODEL)
-		],
-	};
+	my ($t) = @_;
+	given ($t) {
+		when ('studies') { return [qw(STUDY_ID	TITLE	TYPE	STATUS)] }
+		when ('samples') {
+			return [
+				qw(SAMPLE_ID	SAMPLE_TITLE	STATUS	CENTER_NAME	SAMPLE_ALIAS	TAX_ID	SCIENTIFIC_NAME	COMMON_NAME	ANONYMIZED_NAME	INDIVIDUAL_NAME	)
+				]
+		}
+		when ('experiments') {
+			return [
+				qw(EXPERIMENT_ID	STUDY_ID	STATUS	CENTER_NAME	EXPERIMENT_ALIAS	INSTRUMENT_PLATFORM	INSTRUMENT_MODEL	LIBRARY_LAYOUT	LIBRARY_NAME	LIBRARY_STRATEGY	LIBRARY_SOURCE	LIBRARY_SELECTION	PAIRED_NOMINAL_LENGTH	PAIRED_NOMINAL_SDEV)
+				]
+		}
+		when ('runs') {
+			return [
+				qw(RUN_ID	EXPERIMENT_ID	SAMPLE_ID	RUN_ALIAS	STATUS	CENTER_NAME	RUN_CENTER_NAME	INSTRUMENT_PLATFORM	INSTRUMENT_MODEL)
+				]
+		}
+	}
 }
 
 # sub-routines to turn the supplied ids for related entries in to db IDs. Also responsible for throwing errors if the values aren't set or don't relate to anything in the db
 sub fk_handlers {
-	return {
-		studies     => sub { },
-		samples     => sub { },
-		experiments => sub {
-			my ( $e, $db ) = @_;
-
-			throw( "No study ID set for experiment " . $e->source_id() )
-				unless ( $e->study_id );
-
-			my $st_a = $db->get_StudyAdaptor();
-			my $stid = $e->study_id();
-			my $st   = $st_a->fetch_by_source_id($stid);
-			throw( "Could not find study $stid for experiment " . $e->source_id() )
-				unless $st;
-			$e->study_id( $st->dbID() );
-
-		},
-		runs => sub {
-			my ( $r, $db ) = @_;
-
-			throw( "No experiment ID set for run " . $r->source_id() )
-				unless ( $r->experiment_id );
-			throw( "No sample ID set for run " . $r->source_id() )
-				unless ( $r->sample_id );
-
-			my $ea  = $db->get_ExperimentAdaptor();
-			my $eid = $r->experiment_id();
-			my $e   = $ea->fetch_by_source_id($eid);
-			throw( "Could not find experiment $eid for run " . $r->source_id() )
-				unless $e;
-			$r->experiment_id( $e->dbID() );
-
-			my $sa_a = $db->get_SampleAdaptor();
-			my $said = $r->sample_id();
-			my $sa   = $sa_a->fetch_by_source_id($said);
-			throw( "Could not find sample $said for run " . $r->source_id() )
-				unless $sa;
-			$r->sample_id( $sa->dbID() );
-		},
+	my ($t) = @_;
+	given ($t) {
+		when ('studies') {
+			return sub { }
 		}
+		when ('samples') {
+			return sub { }
+		}
+		when ('experiments') {
+			return sub {
+				my ( $e, $db ) = @_;
 
+				throw( "No study ID set for experiment " . $e->source_id() )
+					unless ( $e->study_id );
+
+				my $st_a = $db->get_StudyAdaptor();
+				my $stid = $e->study_id();
+				my $st   = $st_a->fetch_by_source_id($stid);
+				throw( "Could not find study $stid for experiment " . $e->source_id() )
+					unless $st;
+				$e->study_id( $st->dbID() );
+
+				}
+		}
+		when ('runs') {
+			return sub {
+				my ( $r, $db ) = @_;
+
+				throw( "No experiment ID set for run " . $r->source_id() )
+					unless ( $r->experiment_id );
+				throw( "No sample ID set for run " . $r->source_id() )
+					unless ( $r->sample_id );
+
+				my $ea  = $db->get_ExperimentAdaptor();
+				my $eid = $r->experiment_id();
+				my $e   = $ea->fetch_by_source_id($eid);
+				throw( "Could not find experiment $eid for run " . $r->source_id() )
+					unless $e;
+				$r->experiment_id( $e->dbID() );
+
+				my $sa_a = $db->get_SampleAdaptor();
+				my $said = $r->sample_id();
+				my $sa   = $sa_a->fetch_by_source_id($said);
+				throw( "Could not find sample $said for run " . $r->source_id() )
+					unless $sa;
+				$r->sample_id( $sa->dbID() );
+				}
+		}
+	}
 }
 
 # which data types can use the attribute table each data type
 sub have_attributes {
-	return {
-		studies     => 0,
-		samples     => 1,
-		experiments => 1,
-		runs        => 0
-	};
+	my ($t) = @_;
+	given ($t) {
+		when ('studies')     { return 0 }
+		when ('samples')     { return 1 }
+		when ('experiments') { return 1 }
+		when ('runs')        { return 0 }
+	}
 }
 
 # the class to use when creating each data type
 sub classes {
-	return {
-		studies     => 'ReseqTrack::Study',
-		samples     => 'ReseqTrack::Sample',
-		experiments => 'ReseqTrack::Experiment',
-		runs        => 'ReseqTrack::Run',
-	};
+	my ($t) = @_;
+	given ($t) {
+		when ('studies')     { return 'ReseqTrack::Study' }
+		when ('samples')     { return 'ReseqTrack::Sample' }
+		when ('experiments') { return 'ReseqTrack::Experiment' }
+		when ('runs')        { return 'ReseqTrack::Run' }
+	}
 }
 
 # the db adaptors required for each data type
 sub adaptors {
-	my ($db) = @_;
-	return {
-		studies     => $db->get_StudyAdaptor(),
-		samples     => $db->get_SampleAdaptor(),
-		experiments => $db->get_ExperimentAdaptor(),
-		runs        => $db->get_RunAdaptor(),
-	};
+	my ( $db, $t ) = @_;
+	given ($t) {
+		when ('studies')     { return $db->get_StudyAdaptor() }
+		when ('samples')     { return $db->get_SampleAdaptor() }
+		when ('experiments') { return $db->get_ExperimentAdaptor() }
+		when ('runs')        { return $db->get_RunAdaptor() }
+	}
 }
 
 =pod
@@ -386,7 +359,7 @@ Load meta data into a reseqtrack database from files.
 
         -help, flag to print this information and exit
         -separator, the column separator to use when reading or writing data files. Defaults to tab.
-        -verbose, print excessive but not quite useful information to STDERR while running
+        -verbose, print excessive but not quite useful information to STDOUT while running
 
 =head1 Notes on usage:
 

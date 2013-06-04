@@ -1,10 +1,10 @@
 use strict;
 use warnings;
 
-use ReseqTrack::Tools::StatisticsUtils;
+use ReseqTrack::Tools::AttributeUtils;
 use ReseqTrack::Tools::QC::FastQC;
 use ReseqTrack::Tools::HostUtils qw(get_host_object);
-use ReseqTrack::Tools::StatisticsUtils;
+use ReseqTrack::Tools::AttributeUtils;
 use ReseqTrack::Tools::FileUtils;
 use ReseqTrack::Tools::FileSystemUtils;
 use ReseqTrack::DBSQL::DBAdaptor;
@@ -118,7 +118,7 @@ for my $fastq_file (@{$collection->others}) {
 	while (<$summary_fh>){
 		chomp;
 		my ($value,$key,$name) = split /\t/;
-		push @$statistics, create_statistic_for_object($fastq_file,"FASTQC:$key",$value) if ($value && $key);
+		push @$statistics, create_attribute_for_object($fastq_file,"FASTQC:$key",$value) if ($value && $key);
 	}
 	
 	$fastq_file->uniquify_statistics($statistics);

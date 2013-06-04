@@ -5,7 +5,7 @@ use warnings;
 
 use ReseqTrack::Tools::RunPicard;
 use ReseqTrack::Tools::HostUtils qw(get_host_object);
-use ReseqTrack::Tools::StatisticsUtils;
+use ReseqTrack::Tools::AttributeUtils;
 use ReseqTrack::Tools::FileUtils;
 use ReseqTrack::Tools::FileSystemUtils;
 use ReseqTrack::DBSQL::DBAdaptor;
@@ -92,7 +92,7 @@ for my $metrics (@$alignment_metrics) {
 	my $category = $metrics->{'CATEGORY'};
 	while (my ($key, $value) = each %$metrics) {
 		next if $key eq 'CATEGORY';
-		push @$statistics, create_statistic_for_object($collection,$category.'_'.$key,$value) if (defined $value);
+		push @$statistics, create_attribute_for_object($collection,$category.'_'.$key,$value) if (defined $value);
 	}	 
 }
 

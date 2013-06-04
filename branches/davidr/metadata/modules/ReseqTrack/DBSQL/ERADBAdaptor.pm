@@ -5,16 +5,14 @@ use warnings;
 use vars qw(@ISA);
 
 use ReseqTrack::DBSQL::DBConnection;
-use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::Exception qw(throw warning);
 use ReseqTrack::Tools::Argument qw(rearrange);
 use ReseqTrack::DBSQL::ERARunMetaInfoAdaptor;
-use ReseqTrack::DBSQL::StudyAdaptor;
-use ReseqTrack::DBSQL::RunAdaptor;
-use ReseqTrack::DBSQL::ExperimentAdaptor;
-use ReseqTrack::DBSQL::SampleAdaptor;
-
-@ISA = qw(ReseqTrack::DBSQL::DBAdaptor);
+use ReseqTrack::DBSQL::ERA::StudyAdaptor;
+use ReseqTrack::DBSQL::ERA::RunAdaptor;
+use ReseqTrack::DBSQL::ERA::ExperimentAdaptor;
+use ReseqTrack::DBSQL::ERA::SampleAdaptor;
+use base qw(ReseqTrack::DBSQL::DBAdaptor);
 
 sub new{
   my ($class, @args) = @_;
@@ -51,35 +49,21 @@ sub get_ERARunMetaInfoAdaptor{
 }
 
 sub get_StudyAdaptor{
-  my ($self) = @_;
-  if(!$self->{study_adaptor}){
-    $self->{study_adaptor} = ReseqTrack::DBSQL::StudyAdaptor->new($self);
-  }
-  return $self->{study_adaptor};
-}
-
-sub get_SampleAdaptor{
-  my ($self) = @_;
-  if(!$self->{sample_adaptor}){
-    $self->{sample_adaptor} = ReseqTrack::DBSQL::SampleAdaptor->new($self);
-  }
-  return $self->{sample_adaptor};
-}
-
-sub get_RunAdaptor{
 	my ($self) = @_;
-  if(!$self->{run_adaptor}){
-    $self->{run_adaptor} = ReseqTrack::DBSQL::RunAdaptor->new($self);
-  }
-  return $self->{run_adaptor};
+	return $self->_get_adaptor('ReseqTrack::DBSQL::ERA::StudyAdaptor');
 }
-
+sub get_SampleAdaptor{
+	my ($self) = @_;
+	return $self->_get_adaptor('ReseqTrack::DBSQL::ERA::SampleAdaptor');
+}
 sub get_ExperimentAdaptor{
 	my ($self) = @_;
-  if(!$self->{experiment_adaptor}){
-    $self->{experiment_adaptor} = ReseqTrack::DBSQL::ExperimentAdaptor->new($self);
-  }
-  return $self->{experiment_adaptor};
+	return $self->_get_adaptor('ReseqTrack::DBSQL::ERA::ExperimentAdaptor');
 }
+sub get_RunAdaptor{
+	my ($self) = @_;
+	return $self->_get_adaptor('ReseqTrack::DBSQL::ERA::RunAdaptor');
+}
+
 
 1;
