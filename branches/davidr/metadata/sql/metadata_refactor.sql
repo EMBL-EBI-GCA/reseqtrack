@@ -4,18 +4,38 @@ drop table if exists sample_attribute;
 drop table if exists sample;
 drop table if exists experiment;
 drop table if exists study;
+drop table if exists attribute;
+
+CREATE TABLE attribute(
+   attribute_id int(10) unsigned NOT  NULL AUTO_INCREMENT,
+   table_name  enum('file', 'event', 'run_meta_info', 'alignment_meta_info', 'collection','run','sample','experiment','study'),
+   other_id int(10) unsigned NOT  NULL,      
+   attribute_name VARCHAR(50) NOT NULL,
+   attribute_value VARCHAR(255) NOT NULL,
+   PRIMARY KEY (attribute_id),
+   key(attribute_name),
+   key(other_id, table_name),
+   unique(other_id, table_name, attribute_name, attribute_value)
+) ENGINE=MYISAM; 
+
+
+
 
 create table study(
-    study_id      varchar(15) primary key,
+    study_id int(10) unsigned primary key auto_increment, 
+    source_id  varchar(15) not null,
     status varchar(50) not null ,
     md5     varchar(32),
     type      varchar(100) not null ,
     title varchar(4000)
 );
 
+create unique index study_src_idx on study(source_id);
+
 create table experiment (
-    experiment_id varchar(15) primary key,
-    study_id  varchar(15) not null ,
+    experiment_id int(10) unsigned primary key auto_increment,
+    source_id varchar(15) not null,
+    study_id  int(10) unsigned not null ,
     status varchar(50) not null ,
     md5     varchar(32),
     center_name           varchar(100) ,
@@ -32,22 +52,13 @@ create table experiment (
     constraint foreign key (study_id) references study(study_id)
 );
 
+create unique index experiment_src_idx on experiment(source_id);
 create index experiment_fk1 on experiment(study_id);
-        
-create table experiment_attribute (
-  experiment_attribute_id int(10) unsigned primary key auto_increment,
-  experiment_id varchar(15) not null,
-  name varchar(512) not null,
-  value varchar(4000),
-  constraint foreign key (experiment_id) references experiment(experiment_id)
-);
-
-create index experiment_attribute_fk1 on experiment_attribute(experiment_id);
-create unique index experiment_attribute_idx1 on experiment_attribute(experiment_id,name);
 
 create table sample
 (
-    sample_id     varchar(15) primary key ,
+    sample_id int(10) unsigned primary key auto_increment,
+    source_id varchar(15) not null,
     status varchar(50),
     md5     varchar(32),
     center_name     varchar(100) ,
@@ -60,22 +71,15 @@ create table sample
     sample_title varchar(4000)
 );
 
-create table sample_attribute (
-  sample_attribute_id int(10) unsigned primary key auto_increment,
-  sample_id     varchar(15) not null,
-  name varchar(512) not null,
-  value varchar(4000),
-  constraint foreign key (sample_id) references sample(sample_id)
-);
 
-create index sample_attribute_fk1 on sample_attribute(sample_id);
-create unique index sample_attribute_idx1 on sample_attribute(sample_id,name);
+create unique index sample_src_idx on sample(source_id);
 
 create table run
 (
-    run_id        varchar(15) primary key ,
-    experiment_id  varchar(15) not null,
-    sample_id  varchar(15) not null,
+    run_id        int(10) unsigned primary key auto_increment,
+    source_id	varchar(15) not null,
+    experiment_id  int(10) unsigned not null,
+    sample_id  int(10) unsigned not null,
     run_alias varchar(500) not null ,
     status varchar(50) not null ,
     md5 varchar(32),
@@ -89,3 +93,4 @@ create table run
 
 create index run_fk1 on run(sample_id);
 create index run_fk2 on run(experiment_id);
+create unique index run_src_idx on run(source_id);

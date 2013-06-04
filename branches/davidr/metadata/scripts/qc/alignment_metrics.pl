@@ -97,7 +97,7 @@ for my $metrics (@$alignment_metrics) {
 }
 
 $collection->uniquify_statistics($statistics);
-$collection_adaptor->store_statistics($collection);
+$collection_adaptor->store_attributes($collection);
 
 if ($keep_metrics_file){
   create_output_records($name,$metrics_file_type,$metrics_files);

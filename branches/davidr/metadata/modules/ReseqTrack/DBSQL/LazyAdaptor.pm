@@ -142,9 +142,6 @@ sub update {
 	my $sql = "update ".$self->table_name." set ";
 	
 	while (my $col = shift @column_names){
-		
-		
-		
 		$sql .= "$col = ?";
 		$sql .= ', ' if (@column_names);
 	}

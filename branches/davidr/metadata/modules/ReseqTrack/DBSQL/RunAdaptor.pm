@@ -29,6 +29,7 @@ sub column_mappings {
 		run_center_name     => sub { $r->run_center_name(@_) },
 		instrument_platform => sub { $r->instrument_platform(@_) },
 		instrument_model    => sub { $r->instrument_model(@_) },
+		source_id           => sub { $r->source_id(@_) },
 	};
 }
 
@@ -40,18 +41,14 @@ sub table_name {
 	return "run";
 }
 
-sub fetch_by_ena_run_id {
-	my ( $self, $ena_run_id ) = @_;
-	my $runs = $self->fetch_by_column_name( 'ena_run_id', $ena_run_id );
-	if (@$runs) {
-		return @$runs;
-	}
-	return undef;
+sub fetch_by_source_id {
+	my ( $self, $source_id ) = @_;
+	return pop @{ $self->fetch_by_column_name( "source_id", $source_id ) };
 }
 
 sub store {
 	my ( $self, $run, $update ) = @_;
-	my $existing_record = $self->fetch_by_ena_run_id( $run->ena_run_id );
+	my $existing_record = $self->fetch_by_dbID( $run->dbID ) if ($run->dbID);
 
 	if ( $existing_record && $update ) {
 		$run->dbID( $existing_record->dbID );

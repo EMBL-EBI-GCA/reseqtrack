@@ -193,33 +193,17 @@ sub store_history{
   }
 }
 
-sub store_statistics{
+sub store_attributes{
   my ($self, $object, $update) = @_;
-  throw("Can't store statistics for ".$object." that isnt a ReseqTrack::HasHistory ")
-      unless($object->isa("ReseqTrack::HasHistory"));
-  my $hist_a = $self->db->get_StatisticsAdaptor();
-  if($object->statistics && @{$object->statistics} >= 1){
+  throw("Can't store statistics for ".$object." that isnt a ReseqTrack::HasHistory ")  unless($object->isa("ReseqTrack::HasHistory"));
+  my $attr_a = $self->db->get_AttributeAdaptor();
+  
+  if($object->statistics){
     foreach my $statistics(@{$object->statistics}){
       $statistics->other_id($object->dbID);
       $statistics->table_name($object->object_table_name);
-      $hist_a->store($statistics, $update) unless($statistics->dbID);
+      $attr_a->store($statistics, $update);
     }
   }
 }
-
-sub update_statistics{
-  my ($self, $object) = @_;
-  throw("Can't store statistics for ".$object." that isnt a ReseqTrack::HasHistory ")
-      unless($object->isa("ReseqTrack::HasHistory"));
-  my $hist_a = $self->db->get_StatisticsAdaptor();
-  if($object->statistics && @{$object->statistics} >= 1){
-     foreach my $statistics(@{$object->statistics}){
-      if($statistics->dbID){
-	#print "inside update_statistics in BaseAdaptor.pm, dbID is " . $statistics->dbID . "\n";
-        $hist_a->store($statistics, 1);
-      }
-    }
-  }
-}
-
 1;

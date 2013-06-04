@@ -194,7 +194,7 @@ if ($store) {
         if (! $disable_md5) {
           $file->md5(run_md5($file_path));
         }
-        my $statistic = ReseqTrack::Statistic->new(
+        my $statistic = ReseqTrack::Attribute->new(
                     -attribute_name => 'paired_length',
                     -attribute_value => $run_meta_info->paired_length);
         $file->statistics($statistic);

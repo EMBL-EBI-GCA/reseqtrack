@@ -15,14 +15,24 @@ sub new{
   my ($class, @args) = @_;
   my $self = $class->SUPER::new(@args);
   
-  my ($status, $md5, $type, $title ) =
-      rearrange([qw(STATUS MD5 TYPE TITLE) ], @args);
+  my ($status, $md5, $type, $title, $source_id ) =
+      rearrange([qw(STATUS MD5 TYPE TITLE SOURCE_ID) ], @args);
   $self->status($status);
   $self->md5($md5);
   $self->type($type);
   $self->title($title);
+  $self->source_id($source_id);
   
   return $self;
+}
+
+sub source_id{
+  my ($self, $arg) = @_; 
+  
+  if($arg){
+    $self->{source_id} = $arg;
+  }
+  return $self->{source_id};
 }
 
 sub status{
@@ -56,6 +66,10 @@ sub title{
     $self->{title} = $arg;
   }
   return $self->{title};
+}
+
+sub object_table_name {
+	return "study";
 }
 
 1;

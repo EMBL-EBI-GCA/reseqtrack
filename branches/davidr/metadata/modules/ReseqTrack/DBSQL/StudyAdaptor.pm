@@ -24,6 +24,7 @@ sub column_mappings {
 		md5          => sub { $s->md5(@_) },
 		type         => sub { $s->type(@_) },
 		title        => sub { $s->title(@_) },
+		source_id		 => sub { $s->source_id(@_) },
 	};
 }
 
@@ -37,7 +38,7 @@ sub table_name {
 
 sub store {
 	my ( $self, $study, $update ) = @_;
-	my $existing_record = $self->fetch_by_dbID( $study->dbID );
+	my $existing_record = $self->fetch_by_dbID( $study->dbID ) if ($study->dbID);
 
 	if ( $existing_record ) {
 		if ($update){
@@ -47,6 +48,11 @@ sub store {
 	
 	$self->SUPER::store($study,$update);
 
+}
+
+sub fetch_by_source_id{
+   my ($self, $source_id) = @_;
+   return pop @{$self->fetch_by_column_name("source_id",$source_id)};
 }
 
 

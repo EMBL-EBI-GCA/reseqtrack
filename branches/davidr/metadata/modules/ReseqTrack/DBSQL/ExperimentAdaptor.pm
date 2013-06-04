@@ -6,6 +6,7 @@ use base qw(ReseqTrack::DBSQL::LazyAdaptor);
 
 use ReseqTrack::Experiment;
 
+
 sub new {
 	my ( $class, $db ) = @_;
 
@@ -34,39 +35,36 @@ sub column_mappings {
 		library_source        => sub { $e->library_source(@_) },
 		library_selection     => sub { $e->library_selection(@_) },
 		paired_nominal_length => sub { $e->paired_nominal_length(@_) },
-		paired_nominal_sdev   => sub { $e->paired_nominal_sdev(@_) },		
+		paired_nominal_sdev   => sub { $e->paired_nominal_sdev(@_) },
+		source_id             => sub { $e->source_id(@_) },
 	};
 }
 
 sub object_class {
-		return 'ReseqTrack::Experiment';
+	return 'ReseqTrack::Experiment';
 }
 
 sub table_name {
-		return "experiment";
+	return "experiment";
 }
 
-sub fetch_by_ena_experiment_id {
-		my ( $self, $ena_experiment_id ) = @_;
-		my $exps = $self->fetch_by_column_name( 'ena_experiment_id', $ena_experiment_id );
-		if (@$exps) {
-			return @$exps;
-		}
-		return undef;
+sub fetch_by_source_id {
+	my ( $self, $source_id ) = @_;
+	return pop @{ $self->fetch_by_column_name( "source_id", $source_id ) };
 }
 
 sub store {
-		my ( $self, $study, $update ) = @_;
-		my $existing_record = $self->fetch_by_ena_experiment_id( $study->ena_experiment_id );
+	my ( $self, $experiment, $update ) = @_;
+	my $existing_record = $self->fetch_by_dbID( $experiment->dbID ) if ($experiment->dbID);
 
-		if ( $existing_record && $update ) {
-			$study->dbID( $existing_record->dbID );
-			return $self->update($study);
-		}
+	if ( $existing_record && $update ) {
+		$experiment->dbID( $existing_record->dbID );
+		return $self->update($experiment);
+	}
 
-		if ( !$existing_record ) {
-			$self->SUPER::store( $study, $update );
-		}
+	if ( !$existing_record ) {
+		$self->SUPER::store( $experiment, $update );
+	}
 }
 
 1;

@@ -30,37 +30,33 @@ sub column_mappings {
 		anonymized_name => sub { $s->anonymized_name(@_) },
 		individual_name => sub { $s->individual_name(@_) },
 		sample_title    => sub { $s->sample_title(@_) },
+		source_id       => sub { $s->source_id(@_) },
 	};
 }
 
 sub object_class {
-	return 'ReseqTrack::Run';
+	return 'ReseqTrack::Sample';
 }
 
 sub table_name {
-	return "run";
+	return "sample";
 }
 
-sub fetch_by_ena_sample_id {
-	my ( $self, $ena_sample_id ) = @_;
-	my $runs = $self->fetch_by_column_name( 'ena_sample_id', $ena_sample_id );
-	if (@$runs) {
-		return @$runs;
-	}
-	return undef;
+sub fetch_by_source_id {
+	my ( $self, $source_id ) = @_;
+	return pop @{ $self->fetch_by_column_name( "source_id", $source_id ) };
 }
 
 sub store {
-	my ( $self, $run, $update ) = @_;
-	my $existing_record = $self->fetch_by_ena_sample_id( $run->ena_sample_id );
+	my ( $self, $sample, $update ) = @_;
+	my $existing_record = $self->fetch_by_dbID( $sample->dbID ) if ($sample->dbID);
 
 	if ( $existing_record && $update ) {
-		$run->dbID( $existing_record->dbID );
-		return $self->update($run);
+		return $self->update($sample);
 	}
 
 	if ( !$existing_record ) {
-		$self->SUPER::store( $run, $update );
+		$self->SUPER::store( $sample, $update );
 	}
 }
 

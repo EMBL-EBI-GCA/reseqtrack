@@ -258,7 +258,7 @@ if($filt_f){
 #Store all the statistic objects
 my $fa = $db->get_FileAdaptor;
 foreach my $file(@objects_to_update){
-  $fa->store_statistics($file, 1);
+  $fa->store_attributes($file, 1);
 }
 
 my $archiver = ReseqTrack::Tools::Loader::Archive->new

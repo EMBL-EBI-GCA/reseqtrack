@@ -174,7 +174,7 @@ sub store{
     $run_meta_info->adaptor($self);
     if(are_run_meta_infos_identical($existing, $run_meta_info)){
       $self->store_history($run_meta_info);
-      $self->store_statistics($run_meta_info, $update);
+      $self->store_attributes($run_meta_info, $update);
       return $run_meta_info;
     }else{
       if($update){
@@ -217,7 +217,7 @@ sub store{
   $sth->finish;
   #storing any attached histories
   $self->store_history($run_meta_info);
-  $self->store_statistics($run_meta_info, $update);
+  $self->store_attributes($run_meta_info, $update);
   #returning object with dbID and adaptor attached
   return $run_meta_info;
 }
@@ -289,7 +289,7 @@ sub update{
   $sth->finish;
   my $hist_a = $self->db->get_HistoryAdaptor();
   $self->store_history($run_meta_info);
-  $self->store_statistics($run_meta_info, 1);
+  $self->store_attributes($run_meta_info, 1);
   return $run_meta_info;
 }
 

@@ -3,7 +3,7 @@ package ReseqTrack::Tools::StatisticsUtils;
 use strict;
 use warnings;
 use Exporter;
-use ReseqTrack::Statistic;
+use ReseqTrack::Attribute;
 use ReseqTrack::Tools::Exception qw(throw warning stack_trace_dump);
 
 use vars qw (@ISA  @EXPORT);
@@ -18,7 +18,7 @@ sub create_statistic_for_object{
         "not ".$object) unless($object->isa("ReseqTrack::HasHistory"));
   throw("Can't create a statistic without a name ".$name." or value ".$value.
 	" for ".$object->name) unless($name && defined($value) && $value ne '');
-  my $statistic = ReseqTrack::Statistic->new(
+  my $statistic = ReseqTrack::Attribute->new(
     -table_name => $object->object_table_name,
     -other_id => $object->dbID,
     -attribute_name => $name,

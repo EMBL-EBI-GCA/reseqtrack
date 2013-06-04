@@ -39,7 +39,7 @@ use ReseqTrack::Base;
 
   Arg [1]   : ReseqTrack::HasHistory
   Arg [2]   : arrayref of ReseqTrack::History objects
-  Arg [3]   : arrayref of ReseqTrack::Statistic objects
+  Arg [3]   : arrayref of ReseqTrack::Attribute objects
   Function  : create ReseqTrack::HasHistory object
   Returntype: ReseqTrack::HasHistory
   Exceptions: 
@@ -203,10 +203,10 @@ sub empty_history {
 =head2 statistics
 
   Arg [1]   : ReseqTrack::HasHistory
-  Arg [2]   : arrayref of ReseqTrack::Statistics objects
+  Arg [2]   : arrayref of ReseqTrack::Attributes objects
   Function  : store arrayref of statistic objects, if no statistics objects are
   defined but a dbID and an adaptor it will try and fetch the attached statistic objects
-  Returntype: arrayref of ReseqTrack::Statistic objects
+  Returntype: arrayref of ReseqTrack::Attribute objects
   Exceptions: 
   Example   : 
 
@@ -221,16 +221,16 @@ sub statistics {
             if ( @$arg >= 1 ) {
                 throw(
 "Must pass ReseqTrack::HasHistory::statistics an arrayref of statistics objects"
-                ) unless ( $arg->[0]->isa("ReseqTrack::Statistic") );
+                ) unless ( $arg->[0]->isa("ReseqTrack::Attribute") );
                 push( @{ $self->{statistics} }, @$arg );
             }
         }
-        elsif ( $arg->isa("ReseqTrack::Statistic") ) {
+        elsif ( $arg->isa("ReseqTrack::Attribute") ) {
             push( @{ $self->{statistics} }, $arg );
         }
         else {
             throw(
-"Must give ReqseqTrack::HasHistory::statistics either a ReseqTrack::Statistic "
+"Must give ReqseqTrack::HasHistory::statistics either a ReseqTrack::Attribute "
                   . "object or an arrayref of Statistic objects not "
                   . $arg );
         }
@@ -257,7 +257,7 @@ sub populate_statistics {
     my ( $self, $dont_unique ) = @_;
     my @statistics;
     if ( $self->adaptor && $self->dbID ) {
-        my $hist_a = $self->adaptor->db->get_StatisticsAdaptor;
+        my $hist_a = $self->adaptor->db->get_AttributeAdaptor;
         my $objects =
           $hist_a->fetch_by_other_id_and_table_name( $self->dbID,
             $self->object_table_name );
@@ -277,7 +277,7 @@ sub populate_statistics {
   Arg [1]   : ReseqTrack::HasHistory
   Function  : fetch a fresh set of statistic objects from the database and remove any already 
   attached statistics
-  Returntype: arrayref of ReseqTrack::Statistic objects
+  Returntype: arrayref of ReseqTrack::Attribute objects
   Exceptions: 
   Example   : 
 
@@ -286,7 +286,7 @@ sub populate_statistics {
 sub refresh_statistics {
     my ($self) = @_;
     if ( $self->adaptor && $self->dbID ) {
-        my $hist_a = $self->adaptor->get_StatisticsAdaptor;
+        my $hist_a = $self->adaptor->get_AttributeAdaptor;
         my $objects =
           $hist_a->fetch_by_object_id_and_table_name( $self->dbID,
             $self->object_table_name );
@@ -302,9 +302,9 @@ sub refresh_statistics {
 =head2 uniquify_statistics
 
   Arg [1]   : ReseqTrack::HasHistory
-  Arg [2]   : arrayref of ReseqTrack::Statistic objects
+  Arg [2]   : arrayref of ReseqTrack::Attribute objects
   Function  : produce a unique set of statistics objects based on timestamp and comment
-  Returntype: arrayref of ReseqTrack::Statistic objects
+  Returntype: arrayref of ReseqTrack::Attribute objects
   Exceptions: 
   Example   : 
 
@@ -343,7 +343,7 @@ sub uniquify_statistics {
 =head2 replace_statistic
 
   Arg [1]   : ReseqTrack::HasHistory
-  Arg [2]   : ReseqTrack::Statistic
+  Arg [2]   : ReseqTrack::Attribute
   Function  : replace one statistic object of the same attribute name with another
   Returntype: arrayref of statistic objects
   Exceptions: 

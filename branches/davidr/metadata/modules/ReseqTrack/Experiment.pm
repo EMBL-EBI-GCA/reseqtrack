@@ -6,10 +6,10 @@ use vars qw(@ISA);
 
 use ReseqTrack::Tools::Exception qw(throw warning);
 use ReseqTrack::Tools::Argument qw(rearrange);
-use Data::Dumper;
-use ReseqTrack::HasAttributes;
+use ReseqTrack::HasHistory;
 
-@ISA = qw(ReseqTrack::HasAttributes);
+@ISA = qw(ReseqTrack::HasHistory);
+
 
 sub new{
   my ($class, @args) = @_;
@@ -18,13 +18,12 @@ sub new{
   my ($study_id, $status, $md5, $center_name, 
   	$experiment_alias, $instr_platform, $instr_model, $lib_layout, 
   	$lib_name, $lib_strategy, $lib_source, $lib_selection, 
-  	$paired_nominal_length, $paired_nominal_sdev, $sample_id ) =
+  	$paired_nominal_length, $paired_nominal_sdev, $source_id ) =
       rearrange([qw( STUDY_ID STATUS MD5 CENTER_NAME
     EXPERIMENT_ALIAS INSTRUMENT_PLATFORM INSTRUMENT_MODEL LIBRARY_LAYOUT     
     LIBRARY_NAME LIBRARY_STRATEGY LIBRARY_SOURCE LIBRARY_SELECTION  
-    PAIRED_NOMINAL_LENGTH PAIRED_NOMINAL_SDEV SAMPLE_ID) ], @args);
+    PAIRED_NOMINAL_LENGTH PAIRED_NOMINAL_SDEV SOURCE_ID) ], @args);
   
-  $self->sample_id($sample_id);
 	$self->study_id($study_id);
  	$self->status($status);
 	$self->md5($md5);
@@ -39,25 +38,32 @@ sub new{
 	$self->instrument_model($instr_model);
 	$self->library_layout($lib_layout); 
   $self->paired_nominal_sdev($paired_nominal_sdev);
+  $self->source_id($source_id); 
   
   return $self;
 }
 
-sub attribute{
-	my ($self,$name, $value) = @_;
-	
-	if (!defined $name ) {
-		throw("Must pass an attribute name");
-	}
-	if (defined $value){
-		$self->{attributes}->{$name} = $value;
-	}
-	
-	return $self->{attributes}->{$name};
+sub source_id{
+  my ($self, $arg) = @_; 
+  
+  if($arg){
+    $self->{source_id} = $arg;
+  }
+  return $self->{source_id};
 }
 
 sub study{
-	...
+	my ($self, $arg) = @_;
+	
+	if ($arg){
+		$self->{study} = $arg;
+	}
+	elsif ($self->adaptor() && $self->study_id()){
+		my $sa = $self->adaptor()->get_StudyAdaptor();
+		$self->{study} = $sa->fetch_by_dbID( $self->study_id() ); 
+	}
+	
+	return $self->{study};
 }
 
 sub study_id{
@@ -66,14 +72,6 @@ sub study_id{
     $self->{study_id} = $arg;
   }
   return $self->{study_id};
-}
-
-sub sample_id{
-  my ($self, $arg) = @_;
-  if($arg){
-    $self->{sample_id} = $arg;
-  }
-  return $self->{sample_id};
 }
 
 sub status{
@@ -178,6 +176,10 @@ sub paired_nominal_sdev{
     $self->{paired_nominal_sdev} = $arg;
   }
   return $self->{paired_nominal_sdev};
+}
+
+sub object_table_name {
+	return "experiment";
 }
 
 1;

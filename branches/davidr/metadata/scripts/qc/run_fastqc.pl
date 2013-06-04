@@ -122,7 +122,7 @@ for my $fastq_file (@{$collection->others}) {
 	}
 	
 	$fastq_file->uniquify_statistics($statistics);
-	$file_adaptor->store_statistics($fastq_file);
+	$file_adaptor->store_attributes($fastq_file);
 }
 
 create_output_records($collection->name,$summary_output_type,\@summary_files);

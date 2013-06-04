@@ -6,7 +6,6 @@ use vars qw(@ISA);
 
 use ReseqTrack::Tools::Exception qw(throw warning);
 use ReseqTrack::Tools::Argument qw(rearrange);
-use Data::Dumper;
 use ReseqTrack::Base;
 
 @ISA = qw(ReseqTrack::Base);
@@ -19,6 +18,7 @@ sub new {
 		$experiment_id,   $run_alias,
 		$status,          $md5,                 $center_name,
 		$run_center_name, $instrument_platform, $instrument_model,
+		$source_id, $sample_id
 		)
 		= rearrange(
 		[
@@ -30,7 +30,9 @@ sub new {
 				CENTER_NAME
 				RUN_CENTER_NAME
 				INSTRUMENT_PLATFORM
-				INSTRUMENT_MODEL   )
+				INSTRUMENT_MODEL   
+				SOURCE_ID
+				SAMPLE_ID)
 		],
 		@args
 		);
@@ -43,8 +45,19 @@ sub new {
 	$self->run_center_name($run_center_name);
 	$self->instrument_platform($instrument_platform);
 	$self->instrument_model($instrument_model);
+	$self->source_id($source_id);
+	$self->sample_id($sample_id);
 
 	return $self;
+}
+
+sub source_id{
+  my ($self, $arg) = @_; 
+  
+  if($arg){
+    $self->{source_id} = $arg;
+  }
+  return $self->{source_id};
 }
 
 sub experiment_id {
@@ -94,4 +107,11 @@ sub instrument_model {
 	if ($arg) { $self->{instrument_model} = $arg; }
 	return $self->{instrument_model};
 }
-
+sub sample_id {
+	my ( $self, $arg ) = @_;
+	if ($arg) { $self->{sample_id} = $arg; }
+	return $self->{sample_id};
+}
+sub object_table_name {
+	return "sample";
+}

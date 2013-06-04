@@ -6,10 +6,10 @@ use vars qw(@ISA);
 
 use ReseqTrack::Tools::Exception qw(throw warning);
 use ReseqTrack::Tools::Argument qw(rearrange);
-use Data::Dumper;
-use ReseqTrack::HasAttributes;
+use ReseqTrack::HasHistory;
 
-@ISA = qw(ReseqTrack::HasAttributes);
+@ISA = qw(ReseqTrack::HasHistory);
+
 
 sub new{
   my ($class, @args) = @_;
@@ -17,10 +17,10 @@ sub new{
   
   my ($status, $md5, $center_name, 
 		$sample_alias, $tax_id, $scientific_name, $common_name, 
-		$anonymized_name, $individual_name, $sample_title,) =
+		$anonymized_name, $individual_name, $sample_title, $source_id, ) =
       rearrange([qw(STATUS MD5 CENTER_NAME
       SAMPLE_ALIAS TAX_ID SCIENTIFIC_NAME COMMON_NAME
-			ANONYMIZED_NAME INDIVIDUAL_NAME SAMPLE_TITLE) ], @args);
+			ANONYMIZED_NAME INDIVIDUAL_NAME SAMPLE_TITLE SOURCE_ID) ], @args);
 
   $self->status($status);
 	$self->md5($md5);
@@ -32,9 +32,20 @@ sub new{
 	$self->anonymized_name($anonymized_name);
 	$self->individual_name($individual_name);
 	$self->sample_title($sample_title);
+	$self->source_id($source_id);
   
   return $self;
 }
+
+sub source_id{
+  my ($self, $arg) = @_; 
+  
+  if($arg){
+    $self->{source_id} = $arg;
+  }
+  return $self->{source_id};
+}
+
  
 sub status{
   my ($self, $arg) = @_;
@@ -114,6 +125,10 @@ sub sample_title{
     $self->{sample_title} = $arg;
   }
   return $self->{sample_title};
+}
+
+sub object_table_name {
+	return "sample";
 }
 
 1;
