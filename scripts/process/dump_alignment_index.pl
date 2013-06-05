@@ -86,10 +86,15 @@ if($output_file){
      }  
     
      if ($file->name =~ /cram/) {
-	print "File " . $file->name . " is cram, don't process\n";
-	next;
+		print "File " . $file->name . " is cram, don't process\n";
+		next;
      }
- 
+
+     if ($file->name =~ /csra/) {
+		print "File " . $file->name . " is csra, don't process\n";
+		next;
+     }
+      
      if ($file->type =~ /WITHDRAWN/i) {
          print "Don't process withdrawn file " . $file->name . "\n";
          next;
