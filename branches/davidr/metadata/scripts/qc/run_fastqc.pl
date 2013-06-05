@@ -112,7 +112,7 @@ for my $fastq_file (@{$collection->others}) {
 	push @report_files, $report_destination;
 
 	
-	my $statistics = $fastq_file->statistics;
+	my $statistics = $fastq_file->attributes;
 	
 	open (my $summary_fh, '<', $summary_destination) or throw("Could not open $summary_destination - odd as we should have just made it");
 	while (<$summary_fh>){
@@ -121,7 +121,7 @@ for my $fastq_file (@{$collection->others}) {
 		push @$statistics, create_attribute_for_object($fastq_file,"FASTQC:$key",$value) if ($value && $key);
 	}
 	
-	$fastq_file->uniquify_statistics($statistics);
+	$fastq_file->uniquify_attributes($statistics);
 	$file_adaptor->store_attributes($fastq_file);
 }
 

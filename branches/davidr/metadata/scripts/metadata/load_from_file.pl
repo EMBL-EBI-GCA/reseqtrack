@@ -159,7 +159,7 @@ sub load_from_file {
 						create_attribute_for_object( $object, $attribute_name,
 						$attribute_value );
 				}
-				$object->statistics( \@attr );
+				$object->attributes( \@attr );
 			}
 			push @objects, $object;
 		}

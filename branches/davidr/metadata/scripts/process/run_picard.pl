@@ -173,7 +173,7 @@ if ($store) {
         while ( my ( $key, $value ) = each %$metrics_row ) {
           if ( defined $value && defined $key ) {
             my $stat = create_attribute_for_object( $collection, $key, $value );
-            $collection->statistics($stat);
+            $collection->attributes($stat);
           }
         }
       }

@@ -197,7 +197,7 @@ if ($store) {
         my $statistic = ReseqTrack::Attribute->new(
                     -attribute_name => 'paired_length',
                     -attribute_value => $run_meta_info->paired_length);
-        $file->statistics($statistic);
+        $file->attributes($statistic);
         push(@files, $file);
       }
       my $collection_name = $run_id . '_m';

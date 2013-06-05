@@ -332,8 +332,8 @@ sub copy_file_object{
   if($file->history && @{$file->history} >= 1){
     $new_file->history($file->history);
   }
-  if($file->statistics && @{$file->statistics} >= 1){
-    $new_file->statistics($file->statistics);
+  if($file->attributes && @{$file->attributes} >= 1){
+    $new_file->attributes($file->attributes);
   }
   $new_file->md5($file->md5) if($keep_md5);
   return $new_file;
@@ -505,7 +505,7 @@ sub get_count_stats{
     throw "No file object passed\n";
   }
 
-  my $stats = $file->statistics;
+  my $stats = $file->attributes;
 
   if (! scalar(@$stats)){
     throw "$file_name:\n     has no statstics objects associated with it\n";

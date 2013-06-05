@@ -199,16 +199,16 @@ my @objects_to_update;
 if($mate1 && $mate2){
   my $mate1_rc = create_attribute_for_object
     ($mate1, 'read_count', $filter_fastq->unfiltered_mate1_readcount);
-  $mate1->statistics($mate1_rc);
+  $mate1->attributes($mate1_rc);
   my $mate1_bc = create_attribute_for_object
     ($mate1, 'base_count', $filter_fastq->unfiltered_mate1_basecount);
-  $mate1->statistics($mate1_bc);
+  $mate1->attributes($mate1_bc);
   my $mate2_rc = create_attribute_for_object
     ($mate2, 'read_count', $filter_fastq->unfiltered_mate2_readcount);
-  $mate2->statistics($mate2_rc);
+  $mate2->attributes($mate2_rc);
   my $mate2_bc = create_attribute_for_object
     ($mate2, 'base_count', $filter_fastq->unfiltered_mate2_basecount);
-  $mate2->statistics($mate2_bc);
+  $mate2->attributes($mate2_bc);
   push(@objects_to_update, $mate1, $mate2);
 }else{
   if(($mate1 && !$mate2) || (!$mate1 && $mate2)){
@@ -219,26 +219,26 @@ if($mate1 && $mate2){
 if($frag){
   my $frag_rc = create_attribute_for_object
     ($frag, 'read_count', $filter_fastq->unfiltered_frag_readcount);
-  $frag->statistics($frag_rc);
+  $frag->attributes($frag_rc);
   my $frag_bc = create_attribute_for_object
     ($frag, 'base_count', $filter_fastq->unfiltered_frag_basecount);
-  $frag->statistics($frag_bc);
+  $frag->attributes($frag_bc);
   push(@objects_to_update, $frag);
 }
 if($filt_m1 && $filt_m2){
   print "Creating statistic for ".$filt_m1->name."\n";
   my $filt_m1_rc = create_attribute_for_object
     ($filt_m1, 'read_count', $filter_fastq->filtered_mate1_readcount);
-  $filt_m1->statistics($filt_m1_rc);
+  $filt_m1->attributes($filt_m1_rc);
   my $filt_m1_bc = create_attribute_for_object
     ($filt_m1, 'base_count', $filter_fastq->filtered_mate1_basecount);
-  $filt_m1->statistics($filt_m1_bc);
+  $filt_m1->attributes($filt_m1_bc);
   my $filt_m2_rc = create_attribute_for_object
     ($filt_m2, 'read_count', $filter_fastq->filtered_mate2_readcount);
-  $filt_m2->statistics($filt_m2_rc);
+  $filt_m2->attributes($filt_m2_rc);
   my $filt_m2_bc = create_attribute_for_object
     ($filt_m2, 'base_count', $filter_fastq->filtered_mate2_basecount);
-  $filt_m2->statistics($filt_m2_bc);
+  $filt_m2->attributes($filt_m2_bc);
   push(@objects_to_update, $filt_m1, $filt_m2);
 }else{
   if(($filt_m1 && !$filt_m2) || (!$filt_m1 && $filt_m2)){
@@ -249,10 +249,10 @@ if($filt_m1 && $filt_m2){
 if($filt_f){
   my $frag_rc = create_attribute_for_object
     ($filt_f, 'read_count', $filter_fastq->filtered_frag_readcount);
-  $filt_f->statistics($frag_rc);
+  $filt_f->attributes($frag_rc);
   my $frag_bc = create_attribute_for_object
     ($filt_f, 'base_count', $filter_fastq->filtered_frag_basecount);
-  $filt_f->statistics($frag_bc);
+  $filt_f->attributes($frag_bc);
   push(@objects_to_update, $filt_f);
 }
 #Store all the statistic objects

@@ -184,7 +184,7 @@ if ($do_peak_stats) {
     push @stats, create_attribute_for_object( $collection, $key, $value )
       if ($key);
   }
-  $collection->statistics( \@stats );
+  $collection->attributes( \@stats );
 
   if ($metric_type) {
     my $metrics_file = $output_dir . '/' . $name . '.region_metrics';

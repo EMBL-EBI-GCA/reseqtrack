@@ -86,7 +86,7 @@ my $picard = ReseqTrack::Tools::RunPicard->new(%picard_config);
 my $alignment_metrics = $picard->run_alignment_metrics;
 my $metrics_files = $picard->output_metrics_files;
 
-my $statistics = $collection->statistics;
+my $statistics = $collection->attributes;
 
 for my $metrics (@$alignment_metrics) {
 	my $category = $metrics->{'CATEGORY'};
@@ -96,7 +96,7 @@ for my $metrics (@$alignment_metrics) {
 	}	 
 }
 
-$collection->uniquify_statistics($statistics);
+$collection->uniquify_attributes($statistics);
 $collection_adaptor->store_attributes($collection);
 
 if ($keep_metrics_file){

@@ -40,9 +40,9 @@ sub remove_outdated_attributes {
 
 	my %new_attr_names;
 	map { $new_attr_names{ $_->attribute_name() } = 1 }
-		@{ $new_object->statistics() };
+		@{ $new_object->attributes() };
 
-	for my $attr ( @{ $old_object->statistics() } ) {
+	for my $attr ( @{ $old_object->attributes() } ) {
 		my $key = $attr->attribute_name();
 		if ( !exists $new_attr_names{$key} ) {
 			$attribute_adaptor->delete($attr);
