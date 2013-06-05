@@ -111,7 +111,7 @@ my $bas = $fa->fetch_by_name($bas_name);
 #######################################################################################################
 ### Create BAS file if there isn't one in the db and nor in the dropbox; load it into the database. ###
 #######################################################################################################
-if (!$bas && $fo->type !~ /NCBI/i && $fo->type !~ /CG/i && $bam !~ /20130415/) {  ## When a bas is not found in the same directory as BAM (usually ther archive staging area)
+if (!$bas && $fo->type !~ /NCBI/i && $fo->type !~ /CG/i ) {  ## When a bas is not found in the same directory as BAM (usually ther archive staging area)
 	my $bas_basename = basename($fo->name) . ".bas";
 	my $bas_base = $fa->fetch_by_filename($bas_basename);
 	

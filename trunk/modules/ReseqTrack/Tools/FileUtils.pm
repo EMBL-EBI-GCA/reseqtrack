@@ -46,7 +46,7 @@ use vars qw (@ISA  @EXPORT);
              assign_type
 	     move_file_in_db_and_dir
              get_count_stats
-	     write_log
+	     write_reject_log
              assign_type_by_filename);
 
 =head2 are_files_identical
@@ -531,10 +531,9 @@ sub get_count_stats{
 
 }
 
-sub write_log {
-	my ($f_obj, $log_adaptor, $message) = @_;	
+sub write_reject_log {
+	my ($f_obj, $db, $message) = @_;	
 	my $new_log_obj;
-	
 	if ($message) {
 		$new_log_obj = ReseqTrack::RejectLog->new(
 			-file_id 		=> $f_obj->dbID,
@@ -549,8 +548,8 @@ sub write_log {
 			);
 	}		
 	
-	#$log_adaptor->store($new_log_obj, 1) if ($run);
-	$log_adaptor->store($new_log_obj, 1);
+	#$db->get_RejectLogAdaptor->store($new_log_obj, 1) if ($run);
+	$db->get_RejectLogAdaptor->store($new_log_obj, 1);
 	
 	return 1;
 }	

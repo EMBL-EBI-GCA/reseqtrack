@@ -488,7 +488,7 @@ sub calculate_summary_stats{
     #print STDERR $sample." ".$new_sample->{$sample}."\n" if($sample eq 'HG00181');
     if($new_sample->{$sample} > $cutoff_in_gb ) {
         $stats_hash{new}{"# Samples greater than $gt_n_gb" . "Gb"}++;
-        #print "new gt $gt_n_gb Gb: $sample\n";
+        print "new gt $gt_n_gb Gb: $sample\n";
 		$stats_hash{new}{"# Samples gt $gt_n_gb" . "Gb by pop"}{$self->new_sample_map_to_pop->{$sample}}++;
 		$stats_hash{new}{"# Samples gt $gt_n_gb" . "Gb by pop"}{'total'}++;
     }  
