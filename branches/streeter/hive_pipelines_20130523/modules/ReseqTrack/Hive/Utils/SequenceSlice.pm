@@ -1,6 +1,6 @@
 
 
-package ReseqTrack::HiveUtils::SequenceSlice;
+package ReseqTrack::Hive::Utils::SequenceSlice;
 
 use strict;
 use warnings;
@@ -106,8 +106,8 @@ sub split {
   my $slice_length = ceil( ($self->length ) / $num_slices);
   foreach my $i (0..$num_slices-1) {
     my $slice_start = $self->start + $i*$slice_length;
-    my $slice_end = ($i == $num_slices-1) ? $ $self->end : $slice_start + $slice_length -1;
-    my $slice = ReseqTrack::Hive::HiveUtils::SequenceSlice->new(
+    my $slice_end = ($i == $num_slices-1) ? $self->end : $slice_start + $slice_length -1;
+    my $slice = ReseqTrack::Hive::Utils::SequenceSlice->new(
         -SQ_name => $self->SQ_name,
         -SQ_length => $self->SQ_length,
         -start => $slice_start,

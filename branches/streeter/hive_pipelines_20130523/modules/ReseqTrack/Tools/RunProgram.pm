@@ -204,6 +204,7 @@ sub execute_command_line {
     while (! waitpid($pid, WNOHANG)) {
       sleep(3);
       if ($term_sig) {
+        $self->term_sig($term_sig);
         my $deleting_pid = fork;
         if ($deleting_pid == 0) {
           #kill -15, getpgrp($pid);
@@ -646,5 +647,14 @@ sub options {
   }
 
 }
+
+sub term_sig {
+  my ($self, $term_sig) = @_;
+  if (@_ > 1) {
+    $self->{'_term_sig'} = $term_sig
+  }
+  return $self->{'_term_sig'} || 0;
+}
+
 
 1;

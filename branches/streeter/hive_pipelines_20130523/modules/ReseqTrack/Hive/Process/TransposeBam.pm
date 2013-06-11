@@ -1,11 +1,11 @@
 
-package ReseqTrack::HiveProcess::TransposeBam;
+package ReseqTrack::Hive::Process::TransposeBam;
 
 use strict;
 
-use base ('ReseqTrack::HiveProcess::BranchableProcess');
+use base ('ReseqTrack::Hive::Process::BaseProcess');
 use ReseqTrack::Tools::RunTransposeBam;
-use ReseqTrack::HiveUtils::SequenceSliceUtils qw(fai_to_slices bed_to_slices);
+use ReseqTrack::Hive::Utils::SequenceSliceUtils qw(fai_to_slices bed_to_slices);
 use ReseqTrack::Tools::Exception qw(throw);
 
 
@@ -18,18 +18,16 @@ use ReseqTrack::Tools::Exception qw(throw);
 sub run {
     my $self = shift @_;
 
-    my $bams = $self->param('bams') || throw("'bam' is an obligatory parameter");
-    my $fai = $self->param('fai') || throw("'fai' is an obligatory parameter");
-    my $bed = $self->param('bed');
-    my $SQ_start = $self->param('SQ_start');
-    my $SQ_end = $self->param('SQ_end');
-    my $bp_start = $self->param('bp_start');
-    my $bp_end = $self->param('bp_end');
-    my $overlap = $self->param('region_overlap') || 0;
-    throw("'SQ_start' is an obligatory parameter") if !defined $SQ_start;
-    throw("'SQ_end' is an obligatory parameter") if !defined $SQ_end;
-    throw("'bp_start' is an obligatory parameter") if !defined $bp_start;
-    throw("'bp_end' is an obligatory parameter") if !defined $bp_end;
+    $self->param_required('bam');
+    my $bams = $self->get_param_values('bam');
+    my $fai = $self->param_required('fai');
+    my $bed = $self->param_is_defined('bed') ? $self->param('bed') : undef;
+    my $SQ_start = $self->param_required('SQ_start');
+    my $SQ_end = $self->param_required('SQ_end');
+    my $bp_start = $self->param_required('bp_start');
+    my $bp_end = $self->param_required('bp_end');
+    my $overlap = $self->param_is_defined('region_overlap') ? $self->param('region_overlap') : 0;
+    my $create_index = $self->param_is_defined('create_index') ? $self->param('create_index') : 1;
 
     my $slices = fai_to_slices(
           fai => $fai,
@@ -54,8 +52,6 @@ sub run {
       push(@regions, $region);
     }
 
-    $self->data_dbc->disconnect_when_inactive(1);
-
     my $bam_transposer = ReseqTrack::Tools::RunTransposeBam->new(
           -input_files => $bams,
           -program => $self->param('program_file'),
@@ -64,16 +60,13 @@ sub run {
           -regions => \@regions,
           -options => {'build_index' => $self->param('create_index')},
           );
-    $bam_transposer->run;
 
-    my %output_data;
-    $output_data{'bam'} = [grep { /\.bam$/ } @{$bam_transposer->output_files}];
-    if ($self->param('create_index')) {
-      $output_data{'bai'} = [grep { /\.bai$/ } @{$bam_transposer->output_files}];
+    $self->run_program($bam_transposer);
+
+    $self->output_param('bam', $bam_transposer->output_bam_file);
+    if ($create_index) {
+      $self->output_param('bai', $bam_transposer->output_bai_file);
     }
-
-    $self->output_this_branch(%output_data);
-    $self->data_dbc->disconnect_when_inactive(0);
 
 }
 

@@ -1,9 +1,9 @@
 
-package ReseqTrack::HiveProcess::FileReleaseMove;
+package ReseqTrack::Hive::Process::FileReleaseMove;
 
 use strict;
 
-use base ('ReseqTrack::HiveProcess::BranchableProcess');
+use base ('ReseqTrack::Hive::Process::BaseProcess');
 use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::Exception qw(throw);
 use ReseqTrack::Tools::HostUtils qw(get_host_object);

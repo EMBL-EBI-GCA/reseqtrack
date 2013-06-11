@@ -1,9 +1,9 @@
 
-package ReseqTrack::HiveProcess::FileReleaseChecks;
+package ReseqTrack::Hive::Process::FileReleaseChecks;
 
 use strict;
 
-use base ('ReseqTrack::HiveProcess::BranchableProcess');
+use base ('ReseqTrack::Hive::Process::BaseProcess');
 use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::Exception qw(throw);
 use Digest::MD5::File qw(file_md5_hex);

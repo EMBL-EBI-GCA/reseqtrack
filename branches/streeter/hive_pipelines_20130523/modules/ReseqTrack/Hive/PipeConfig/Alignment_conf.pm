@@ -1,6 +1,6 @@
 
 
-package ReseqTrack::HiveConfig::Alignment_conf;
+package ReseqTrack::Hive::PipeConfig::Alignment_conf;
 
 use strict;
 use warnings;
@@ -31,7 +31,7 @@ sub default_options {
             #-dbname => 'nextgen_track', # set on the command line
         },
 
-        'chunk_max_bases'    => 500000000,
+        'chunk_max_reads'    => 5000000,
         'type_fastq'    => 'FILTERED_FASTQ',
         'split_exe' => $self->o('ENV', 'RESEQTRACK').'/c_code/split/split',
         'validate_bam_exe' => $self->o('ENV', 'RESEQTRACK').'/c_code/validate_bam/validate_bam',
@@ -97,9 +97,6 @@ sub pipeline_wide_parameters {
         'root_output_dir' => $self->o('root_output_dir'),
         'reseqtrack_db' => $self->o('reseqtrack_db'),
 
-        ##################  WRITE SOME CODE TO HANDLE THIS!!!! Do conversion on way in and way out.
-        'file_param_names' => ['fastq', 'bam'],
-
     };
 }
 
@@ -141,16 +138,20 @@ sub pipeline_analyses {
     my @analyses;
     push(@analyses, {
             -logic_name    => 'studies_factory',
-            -module        => 'ReseqTrack::HiveProcess::JobFactory',
+            -module        => 'ReseqTrack::Hive::Process::JobFactory',
             -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
-            -input_ids => [{data_value => [split(',', $self->o('study_id'))]}],
+            -input_ids => [{study_id => [split(',', $self->o('study_id'))]}],
+            -parameters    => {
+                factory_value => '#study_id#',
+                temp_param_sub => { 2 => [['study_id','factory_value']]}, # temporary hack pending updates to hive code
+            },
             -flow_into => {
-                2 => { 'samples_factory' => {'study_id' => '#data_value#'} },   # will create a semaphored fan of jobs
+                2 => [ 'samples_factory' ],   # will create a semaphored fan of jobs
             },
       });
     push(@analyses, {
             -logic_name    => 'samples_factory',
-            -module        => 'ReseqTrack::HiveProcess::RunMetaInfoFactory',
+            -module        => 'ReseqTrack::Hive::Process::RunMetaInfoFactory',
             -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
             -parameters    => {
                 type_branch => 'sample',
@@ -161,7 +162,7 @@ sub pipeline_analyses {
       });
     push(@analyses, {
             -logic_name    => 'libraries_factory',
-            -module        => 'ReseqTrack::HiveProcess::RunMetaInfoFactory',
+            -module        => 'ReseqTrack::Hive::Process::RunMetaInfoFactory',
             -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
             -parameters    => {
                 type_branch => 'library',
@@ -173,24 +174,24 @@ sub pipeline_analyses {
       });
     push(@analyses, {
             -logic_name    => 'runs_factory',
-            -module        => 'ReseqTrack::HiveProcess::RunMetaInfoFactory',
+            -module        => 'ReseqTrack::Hive::Process::RunMetaInfoFactory',
             -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
             -parameters    => {
                 type_branch => 'run',
             },
             -flow_into => {
                 '2->A' => [ 'find_source_fastqs' ],   # will create a semaphored fan of jobs
-                'A->1' => [ 'decide_merge_runs'  ],   # will create a semaphored funnel job to wait for the fan to complete
+                'A->1' => [ 'decide_mark_duplicates'  ],   # will create a semaphored funnel job to wait for the fan to complete
             },
       });
     push(@analyses, {
             -logic_name    => 'find_source_fastqs',
-            -module        => 'ReseqTrack::HiveProcess::ImportCollection',
+            -module        => 'ReseqTrack::Hive::Process::ImportCollection',
             -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
             -parameters    => {
                 collection_type => $self->o('type_fastq'),
-                collection_name_param => 'run_id',
-                output_name_param => 'fastq',
+                collection_name => '#run_id#',
+                output_param => 'fastq',
             },
             -flow_into => {
                 1 => [ 'split_fastq', ':////accu?fastq=[]' ],
@@ -198,10 +199,10 @@ sub pipeline_analyses {
       });
     push(@analyses, {
             -logic_name    => 'split_fastq',
-            -module        => 'ReseqTrack::HiveProcess::SplitFastq',
+            -module        => 'ReseqTrack::Hive::Process::SplitFastq',
             -parameters    => {
                 program_file => $self->o('split_exe'),
-                max_bases => $self->o('chunk_max_bases'),
+                max_reads => $self->o('chunk_max_reads'),
             },
             -rc_name => '200Mb',
             -analysis_capacity  =>  4,  # use per-analysis limiter
@@ -213,7 +214,7 @@ sub pipeline_analyses {
       });
     push(@analyses, {
            -logic_name => 'bwa',
-            -module        => 'ReseqTrack::HiveProcess::BWA',
+            -module        => 'ReseqTrack::Hive::Process::BWA',
             -parameters    => {
                 program_file => $self->o('bwa_exe'),
                 samtools => $self->o('samtools_exe'),
@@ -229,12 +230,13 @@ sub pipeline_analyses {
       });
     push(@analyses, {
             -logic_name => 'sort_chunks',
-            -module        => 'ReseqTrack::HiveProcess::RunPicard',
+            -module        => 'ReseqTrack::Hive::Process::RunPicard',
             -parameters => {
                 picard_dir => $self->o('picard_dir'),
                 command => 'sort',
                 create_index => 1,
                 jvm_args => '-Xmx2g',
+                delete_param => 'bam',
             },
             -rc_name => '2Gb',
             -analysis_capacity  =>  50,  # use per-analysis limiter
@@ -245,31 +247,32 @@ sub pipeline_analyses {
       });
     push(@analyses, {
           -logic_name => 'decide_merge_chunks',
-          -module        => 'ReseqTrack::HiveProcess::FlowDecider',
+          -module        => 'ReseqTrack::Hive::Process::FlowDecider',
           -meadow_type=> 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
           -parameters => {
-              add_params_to_output => ['bam', 'bai'],
-              file_param => 'bam',
-              flows_if_no_files => undef,
-              flows_if_one_file => [1,3],
-              flows_if_multiple_files => [1,2,3],
               realign_knowns_only => $self->o('realign_knowns_only'),
               recalibrate_level => $self->o('recalibrate_level'),
+              files => '#bam#',
+              require_file_count => {
+                        1 => '1+',
+                        2 => '2+',
+                        3 => '1+',
+                      },
               require_true => {
                   1 => '#expr($realign_knowns_only || $recalibrate_level==1)expr#',
                   2 => '#expr($realign_knowns_only || $recalibrate_level==1)expr#',
                   3 => '#expr(!$realign_knowns_only && $recalibrate_level!=1)expr#',
               }
           },
-            -flow_into => {
+          -flow_into => {
                 '2->A' => [ 'merge_chunks' ],
                 'A->1' => [ 'decide_realign_run_level' ],
                 3 => [ ':////accu?bam=[]', ':////accu?bai=[]'],
-            },
+          },
       });
     push(@analyses, {
           -logic_name => 'merge_chunks',
-          -module        => 'ReseqTrack::HiveProcess::RunPicard',
+          -module        => 'ReseqTrack::Hive::Process::RunPicard',
           -parameters => {
               picard_dir => $self->o('picard_dir'),
               jvm_args => '-Xmx2g',
@@ -287,14 +290,10 @@ sub pipeline_analyses {
 
     push(@analyses, {
             -logic_name => 'decide_realign_run_level',
-            -module        => 'ReseqTrack::HiveProcess::FlowDecider',
+            -module        => 'ReseqTrack::Hive::Process::FlowDecider',
             -meadow_type=> 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
             -parameters => {
-                require_true => {2 => $self->o('realign_knowns_only')},
-                file_param => 'bam',
-                flows_if_no_files => undef,
-                flows_if_one_file => [2,1],
-                flows_if_multiple_files => [2,1],
+                require_true => {2 => $self->o('realign_knowns_only'), 1 => 1},
             },
             -flow_into => {
                 '2->A' => [ 'realign_knowns_only'],
@@ -303,7 +302,7 @@ sub pipeline_analyses {
       });
     push(@analyses, {
             -logic_name => 'realign_knowns_only',
-            -module        => 'ReseqTrack::HiveProcess::RunBamImprovement',
+            -module        => 'ReseqTrack::Hive::Process::RunBamImprovement',
             -parameters => {
                 command => 'realign',
                 reference => $self->o('reference'),
@@ -322,7 +321,7 @@ sub pipeline_analyses {
       });
     push(@analyses, {
             -logic_name => 'calmd_run_level',
-            -module        => 'ReseqTrack::HiveProcess::RunSamtools',
+            -module        => 'ReseqTrack::Hive::Process::RunSamtools',
             -parameters => {
                 program_file => $self->o('samtools_exe'),
                 command => 'calmd',
@@ -339,7 +338,7 @@ sub pipeline_analyses {
       });
     push(@analyses, {
             -logic_name => 'tag_strip_run_level',
-            -module        => 'ReseqTrack::HiveProcess::RunSqueezeBam',
+            -module        => 'ReseqTrack::Hive::Process::RunSqueezeBam',
             -parameters => {
                 program_file => $self->o('squeeze_exe'),
                 'rm_OQ_fields' => 1,
@@ -350,33 +349,36 @@ sub pipeline_analyses {
             -analysis_capacity  =>  50,  # use per-analysis limiter
             -hive_capacity  =>  -1,
             -flow_into => {
-                1 => [ ':////accu?bam=[]'],
+                1 => [ ':////accu?bam=[]', ':////accu?bai=[]'],
             },
       });
     push(@analyses, {
             -logic_name => 'decide_recalibrate_run_level',
-            -module        => 'ReseqTrack::HiveProcess::FlowDecider',
+            -module        => 'ReseqTrack::Hive::Process::FlowDecider',
             -meadow_type=> 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
             -parameters => {
-                require_true => {2 => '#expr($recalibrate_level==1)expr#'},
-                file_param => 'bam',
-                flows_if_no_files => undef,
-                flows_if_one_file => [1,2],
-                flows_if_multiple_files => [2,1],
+                recalibrate_level => $self->o('recalibrate_level'),
+                require_true => {2 => '#expr($recalibrate_level==1)expr#',
+                                 1 => '#expr($recalibrate_level!=1)expr#'},
             },
             -flow_into => {
-                '2->A' => [ 'decide_index_recalibrate_run_level'],
-                'A->1' => [ 'dummy_process_1' ],
+                2 => [ 'decide_index_recalibrate_run_level'],
+                1 => [ ':////accu?bam=[]', ':////accu?bai=[]'],
             },
       });
     push(@analyses, {
           -logic_name => 'decide_index_recalibrate_run_level',
-          -module        => 'ReseqTrack::HiveProcess::FlowDecider',
+          -module        => 'ReseqTrack::Hive::Process::FlowDecider',
           -meadow_type=> 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
           -parameters => {
-              file_param => 'bai',
-              flows_if_no_files => [1,2],
-              flows_if_one_file => 1,
+              count_files => 1,
+              files => '#bai#',
+              flows_if_no_files => 1,
+              flows_if_one_file => [1,2],
+              require_file_count => {
+                        1 => '0+',
+                        2 => '0',
+                      },
           },
             -flow_into => {
                 '2->A' => [ 'index_recalibrate_run_level' ],
@@ -385,7 +387,7 @@ sub pipeline_analyses {
       });
     push(@analyses, {
           -logic_name => 'index_recalibrate_run_level',
-          -module        => 'ReseqTrack::HiveProcess::RunSamtools',
+          -module        => 'ReseqTrack::Hive::Process::RunSamtools',
           -parameters => {
               program_file => $self->o('samtools_exe'),
               command => 'index',
@@ -399,7 +401,7 @@ sub pipeline_analyses {
     });
     push(@analyses, {
           -logic_name => 'recalibrate_run_level',
-          -module        => 'ReseqTrack::HiveProcess::RunBamImprovement',
+          -module        => 'ReseqTrack::Hive::Process::RunBamImprovement',
           -parameters => {
               command => 'recalibrate',
               reference => $self->o('reference'),
@@ -416,50 +418,21 @@ sub pipeline_analyses {
           },
     });
     push(@analyses, {
-          -logic_name => 'dummy_process_1',
-          -module        => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
-          -meadow_type=> 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
-          -flow_into => {
-              1 => [ ':////accu?bam=[]', ':////accu?bai=[]'],
-          },
-    });
-    push(@analyses, {
-          -logic_name => 'decide_merge_runs',
-          -module        => 'ReseqTrack::HiveProcess::FlowDecider',
+          -logic_name => 'decide_mark_duplicates',
+          -module        => 'ReseqTrack::Hive::Process::FlowDecider',
           -meadow_type=> 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
           -parameters => {
-              add_params_to_output => ['bam', 'bai', 'fastq'],
-              file_param => 'bam',
-              flows_if_no_files => undef,
-              flows_if_one_file => 1,
-              flows_if_multiple_files => [2,1],
+              files => '#bam#',
+              require_file_count => { 1 => '1+'},
+              temp_param_sub => { 1 => [['fastq','undef']]}, # temporary hack pending updates to hive code
           },
             -flow_into => {
-                '2->A' => [ 'merge_runs' ],
-                'A->1' => [ 'mark_duplicates' ],
-                1 => [':////accu?fastq=[]'],
+                1 => [ 'mark_duplicates', ':////accu?fastq=[]'],
             },
-    });
-    push(@analyses, {
-          -logic_name => 'merge_runs',
-          -module        => 'ReseqTrack::HiveProcess::RunPicard',
-          -parameters => {
-              picard_dir => $self->o('picard_dir'),
-              jvm_args => '-Xmx2g',
-              command => 'merge',
-              create_index => 1,
-              delete_param => ['bam', 'bai'],
-          },
-          -rc_name => '2Gb',
-          -analysis_capacity  =>  50,  # use per-analysis limiter
-          -hive_capacity  =>  -1,
-          -flow_into => {
-              1 => [ ':////accu?bam=[]', ':////accu?bai=[]'],
-          },
-    });
+      });
     push(@analyses, {
             -logic_name => 'mark_duplicates',
-            -module        => 'ReseqTrack::HiveProcess::RunPicard',
+            -module        => 'ReseqTrack::Hive::Process::RunPicard',
             -parameters => {
                 picard_dir => $self->o('picard_dir'),
                 jvm_args => '-Xmx4g',
@@ -476,14 +449,14 @@ sub pipeline_analyses {
     });
     push(@analyses, {
           -logic_name => 'decide_merge_libraries',
-          -module        => 'ReseqTrack::HiveProcess::FlowDecider',
+          -module        => 'ReseqTrack::Hive::Process::FlowDecider',
           -meadow_type=> 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
           -parameters => {
-              add_params_to_output => ['bam', 'bai', 'fastq'],
-              file_param => 'bam',
-              flows_if_no_files => undef,
-              flows_if_one_file => 1,
-              flows_if_multiple_files => [2,1],
+              files => '#bam#',
+              require_file_count => {
+                        1 => '1+',
+                        2 => '2+',
+                      }
           },
             -flow_into => {
                 '2->A' => [ 'merge_libraries' ],
@@ -492,7 +465,7 @@ sub pipeline_analyses {
     });
     push(@analyses, {
           -logic_name => 'merge_libraries',
-          -module        => 'ReseqTrack::HiveProcess::RunPicard',
+          -module        => 'ReseqTrack::Hive::Process::RunPicard',
           -parameters => {
               picard_dir => $self->o('picard_dir'),
               jvm_args => '-Xmx2g',
@@ -509,15 +482,11 @@ sub pipeline_analyses {
     });
     push(@analyses, {
             -logic_name => 'decide_realign_sample_level',
-            -module        => 'ReseqTrack::HiveProcess::FlowDecider',
+            -module        => 'ReseqTrack::Hive::Process::FlowDecider',
             -meadow_type=> 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
             -parameters => {
                 realign_knowns_only => $self->o('realign_knowns_only'),
-                require_true => {2 => '#expr(!$realign_knowns_only)expr#'},
-                file_param => 'bam',
-                flows_if_no_files => undef,
-                flows_if_one_file => [2,1],
-                flows_if_multiple_files => [2,1],
+                require_true => {2 => '#expr(!$realign_knowns_only)expr#', 1 => 1},
             },
             -flow_into => {
                 '2->A' => [ 'realign_full'],
@@ -526,7 +495,7 @@ sub pipeline_analyses {
       });
     push(@analyses, {
             -logic_name => 'realign_full',
-            -module        => 'ReseqTrack::HiveProcess::RunBamImprovement',
+            -module        => 'ReseqTrack::Hive::Process::RunBamImprovement',
             -parameters => {
                 command => 'realign',
                 reference => $self->o('reference'),
@@ -544,7 +513,7 @@ sub pipeline_analyses {
       });
     push(@analyses, {
             -logic_name => 'calmd_sample_level',
-            -module        => 'ReseqTrack::HiveProcess::RunSamtools',
+            -module        => 'ReseqTrack::Hive::Process::RunSamtools',
             -parameters => {
                 program_file => $self->o('samtools_exe'),
                 command => 'calmd',
@@ -561,7 +530,7 @@ sub pipeline_analyses {
       });
     push(@analyses, {
             -logic_name => 'tag_strip_sample_level',
-            -module        => 'ReseqTrack::HiveProcess::RunSqueezeBam',
+            -module        => 'ReseqTrack::Hive::Process::RunSqueezeBam',
             -parameters => {
                 program_file => $self->o('squeeze_exe'),
                 'rm_OQ_fields' => 1,
@@ -577,15 +546,11 @@ sub pipeline_analyses {
       });
     push(@analyses, {
             -logic_name => 'decide_recalibrate_sample_level',
-            -module        => 'ReseqTrack::HiveProcess::FlowDecider',
+            -module        => 'ReseqTrack::Hive::Process::FlowDecider',
             -meadow_type=> 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
             -parameters => {
                 recalibrate_level => $self->o('recalibrate_level'),
-                require_true => {2 => '#expr($recalibrate_level==2)expr#'},
-                file_param => 'bam',
-                flows_if_no_files => undef,
-                flows_if_one_file => [1,2],
-                flows_if_multiple_files => [1,2],
+                require_true => {2 => '#expr($recalibrate_level==2)expr#', 1=>1},
             },
             -flow_into => {
                 '2->A' => [ 'decide_index_recalibrate_sample_level'],
@@ -594,12 +559,14 @@ sub pipeline_analyses {
       });
     push(@analyses, {
           -logic_name => 'decide_index_recalibrate_sample_level',
-          -module        => 'ReseqTrack::HiveProcess::FlowDecider',
+          -module        => 'ReseqTrack::Hive::Process::FlowDecider',
           -meadow_type=> 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
           -parameters => {
-              file_param => 'bai',
-              flows_if_no_files => [1,2],
-              flows_if_one_file => 1,
+              files => '#bai#',
+              require_file_count => {
+                        1 => '0+',
+                        2 => '0',
+                      },
           },
             -flow_into => {
                 '2->A' => [ 'index_recalibrate_sample_level' ],
@@ -608,7 +575,7 @@ sub pipeline_analyses {
       });
     push(@analyses, {
           -logic_name => 'index_recalibrate_sample_level',
-          -module        => 'ReseqTrack::HiveProcess::RunSamtools',
+          -module        => 'ReseqTrack::Hive::Process::RunSamtools',
           -parameters => {
               program_file => $self->o('samtools_exe'),
               command => 'index',
@@ -622,7 +589,7 @@ sub pipeline_analyses {
     });
     push(@analyses, {
           -logic_name => 'recalibrate_sample_level',
-          -module        => 'ReseqTrack::HiveProcess::RunBamImprovement',
+          -module        => 'ReseqTrack::Hive::Process::RunBamImprovement',
           -parameters => {
               command => 'recalibrate',
               reference => $self->o('reference'),
@@ -640,7 +607,7 @@ sub pipeline_analyses {
     });
     push(@analyses, {
             -logic_name => 'reheader',
-            -module        => 'ReseqTrack::HiveProcess::ReheaderBam',
+            -module        => 'ReseqTrack::Hive::Process::ReheaderBam',
             -parameters => {
                 'samtools' => $self->o('samtools_exe'),
                 'header_lines_file' => $self->o('header_lines_file'),
@@ -653,24 +620,25 @@ sub pipeline_analyses {
             -analysis_capacity  =>  50,  # use per-analysis limiter
             -hive_capacity  =>  -1,
             -flow_into => {
-                1 => {'rename' => {'file' => '#bam#'} },
+                1 => ['rename'],
             },
       });
     push(@analyses, {
             -logic_name => 'rename',
-            -module        => 'ReseqTrack::HiveProcess::RenameFile',
+            -module        => 'ReseqTrack::Hive::Process::RenameFile',
             -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
             -parameters => {
                 analysis_label => $self->o('final_label'),
                 suffix => 'bam',
+                file_param_name => 'bam',
             },
             -flow_into => {
-                1 => {'final_index' => {'bam' => '#file#'} },
+                1 => ['final_index'],
             },
       });
     push(@analyses, {
             -logic_name => 'final_index',
-            -module        => 'ReseqTrack::HiveProcess::RunSamtools',
+            -module        => 'ReseqTrack::Hive::Process::RunSamtools',
             -parameters => {
                 program_file => $self->o('samtools_exe'),
                 command => 'index',
@@ -682,7 +650,7 @@ sub pipeline_analyses {
       });
     push(@analyses, {
             -logic_name => 'validate',
-            -module        => 'ReseqTrack::HiveProcess::RunValidateBam',
+            -module        => 'ReseqTrack::Hive::Process::RunValidateBam',
             -parameters => {
                 'program_file' => $self->o('validate_bam_exe'),
             },

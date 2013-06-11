@@ -1,9 +1,9 @@
 
-package ReseqTrack::HiveProcess::MergeVcf;
+package ReseqTrack::Hive::Process::MergeVcf;
 
 use strict;
 
-use base ('ReseqTrack::HiveProcess::BranchableProcess');
+use base ('ReseqTrack::Hive::Process::BaseProcess');
 use ReseqTrack::Tools::Exception qw(throw);
 use ReseqTrack::Tools::FileSystemUtils qw(check_directory_exists check_executable check_file_exists);
 
@@ -16,11 +16,15 @@ use ReseqTrack::Tools::FileSystemUtils qw(check_directory_exists check_executabl
 
 sub run {
     my $self = shift @_;
-    my $vcfs = $self->get_param_array('vcf');
-    my $bgzip = $self->param('bgzip') || 'bgzip';
+    $self->param_required('vcf');
+    $self->param_required('bp_start');
+    $self->param_required('bp_end');
+    my $bgzip = $self->param_is_defined('bgzip') ? $self->param('bgzip') : 'bgzip';
 
-    throw("no vcf files") if !scalar @$vcfs;
-    foreach my $vcf_path (@$vcfs) {
+    my $vcfs = $self->get_param_values('vcf');
+    my $bp_start = $self->get_param_values('bp_start');
+    my $bp_end = $self->get_param_values('bp_end');
+    foreach my $vcf_path (grep {defined $_} @$vcfs) {
       check_file_exists($vcf_path);
     }
 
@@ -32,14 +36,12 @@ sub run {
     open my $OUT, "| $bgzip -c > $output_file";
     my $first_vcf = 1;
     $self->data_dbc->disconnect_when_inactive(1);
-    foreach my $vcf_path (@$vcfs) {
-
-      ##############
-      #This is a temporary hack:
-      #Needs to be fixed so I get this from database.
-      use File::Basename qw(basename);
-      my ($region_start, $region_end) = basename($vcf_path) =~ /\.(\d+)-(\d+)\./;
-      ##############
+    VCF:
+    foreach my $i (0..$#{$vcfs}) {
+      my $vcf_path = $vcfs->[$i];
+      next VCF if ! defined $vcf_path;
+      throw("missing bp_start for $vcf_path") if ! defined $bp_start->[$i];
+      throw("missing bp_end for $vcf_path") if ! defined $bp_end->[$i];
 
       my $IN;
       if ($vcf_path =~ /\.b?gz(?:ip)?$/){
@@ -55,8 +57,8 @@ sub run {
           next LINE;
         }
         my ($pos) = $line =~ /\t(\d+)/;
-        next LINE if defined $region_start && $pos < $region_start;
-        next LINE if defined $region_end && $pos > $region_end;
+        next LINE if $pos < $bp_start->[$i];
+        next LINE if $pos > $bp_end->[$i];
         print $OUT $line;
       }
       close $IN;
@@ -65,7 +67,7 @@ sub run {
     close $OUT;
     $self->data_dbc->disconnect_when_inactive(0);
 
-    $self->output_this_branch('vcf' => $output_file);
+    $self->output_param('vcf' => $output_file);
 
 }
 

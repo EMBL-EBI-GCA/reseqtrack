@@ -1,10 +1,10 @@
 
-package ReseqTrack::HiveProcess::RenameFile;
+package ReseqTrack::Hive::Process::RenameFile;
 
 use strict;
 use warnings;
 
-use base ('ReseqTrack::HiveProcess::BranchableProcess');
+use base ('ReseqTrack::Hive::Process::BaseProcess');
 use ReseqTrack::Tools::FileSystemUtils qw(check_directory_exists);
 use ReseqTrack::Tools::Exception qw(throw);
 use File::Copy qw( move );
@@ -18,13 +18,18 @@ use File::Copy qw( move );
 
 sub run {
     my $self = shift @_;
-    my $files = $self->param('old_filename') || die "'file' is an obligatory parameter";
-    my $suffix = $self->param('suffix') || die "'suffix' is an obligatory parameter";
+
+    my $param_name = $self->param_required('file_param_name');
+    $self->param_required($param_name);
+    my $files = $self->get_param_values($param_name);
+    throw("too many files: ".join(' ', @$files)) if @$files >1;
+
+    my $suffix = $self->param_required('suffix');
+
     my $output_dir = $self->output_dir;
     my $job_name = $self->job_name;
 
-    throw("will only rename one file") if ref($files) eq 'ARRAY' && scalar @$files >1;
-    my $old_filename = ref($files) eq 'ARRAY' ? $files->[0] : $files;
+    my $old_filename = $files->[0];
     throw("do not have a file") if !$old_filename;
 
     my $new_filename = "$output_dir/$job_name.$suffix";
@@ -35,7 +40,7 @@ sub run {
     check_directory_exists($output_dir);
     move($old_filename, $new_filename) or throw("could not move $old_filename to $new_filename $!");
 
-    $self->output_this_branch('new_filename' => $new_filename);
+    $self->output_param($param_name, $new_filename);
 
 }
 

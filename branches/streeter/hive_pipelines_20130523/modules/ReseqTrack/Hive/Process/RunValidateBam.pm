@@ -1,9 +1,9 @@
 
-package ReseqTrack::HiveProcess::RunValidateBam;
+package ReseqTrack::Hive::Process::RunValidateBam;
 
 use strict;
 
-use base ('ReseqTrack::HiveProcess::BranchableProcess');
+use base ('ReseqTrack::Hive::Process::BaseProcess');
 use ReseqTrack::Tools::Exception qw(throw);
 use ReseqTrack::Tools::RunValidateBam;
 
@@ -17,19 +17,22 @@ use ReseqTrack::Tools::RunValidateBam;
 sub run {
     my ($self) = @_;
 
-    my $bams = $self->param('bam') || throw "'bam' is an obligatory parameter";
-    my $program_file = $self->param('program_file');
+    $self->param_required('bam');
+    my $bams = $self->get_param_values('bam');
 
     $self->data_dbc->disconnect_when_inactive(1);
 
     my $bam_validator = ReseqTrack::Tools::RunValidateBam->new(
       -input_files  => $bams,
       -working_dir  => $self->output_dir,
-      -program      => $program_file,
+      -program      => $self->param_is_defined('program_file') ? $self->param('program_file') : undef,
     );
-    $bam_validator->run;
-    $self->output_this_branch('bas' => $bam_validator->output_files);
-    $self->data_dbc->disconnect_when_inactive(0);
+
+    $self->run_program($bam_validator);
+
+    my $output_files = ref($self->param('bam')) ? $bam_validator->output_files : $bam_validator->output_files->[0];
+    $self->output_param('bas' => $output_files);
+
 }
 
 

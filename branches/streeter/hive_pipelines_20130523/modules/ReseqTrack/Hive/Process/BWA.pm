@@ -1,9 +1,9 @@
 
-package ReseqTrack::HiveProcess::BWA;
+package ReseqTrack::Hive::Process::BWA;
 
 use strict;
 
-use base ('ReseqTrack::HiveProcess::BranchableProcess');
+use base ('ReseqTrack::Hive::Process::BaseProcess');
 use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::FileSystemUtils qw(check_file_exists);
 use ReseqTrack::Tools::RunAlignment::BWA;
@@ -21,10 +21,9 @@ sub run {
 
     $self->param_required('fastq');
     my $run_id = $self->param_required('run_id');
-    my $reference $self->param_required('reference');
+    my $reference = $self->param_required('reference');
 
-    my $fastq_ids = $self->get_param_values('fastq');
-    my $fastqs = $self->get_files($fastq_ids);
+    my $fastqs = $self->get_param_values('fastq');
 
 
     my $db = ReseqTrack::DBSQL::DBAdaptor->new(%{$self->param('reseqtrack_db')});
@@ -48,7 +47,6 @@ sub run {
       check_file_exists($fastq);
     }
 
-    $self->data_dbc->disconnect_when_inactive(1);
 
     my $run_alignment = ReseqTrack::Tools::RunAlignment::BWA->new(
           -input_files => $fastqs,
@@ -61,12 +59,10 @@ sub run {
           -paired_length => $rmi->paired_length,
           -read_group_fields => \%read_group_fields,
           );
-    $run_alignment->run;
 
-    my $file_ids = $self->make_file_ids($run_alignment->output_files);
-    $self->param('bam', $file_ids);
-    $self->add_to_dataflow('bam');
-    $self->data_dbc->disconnect_when_inactive(0);
+    $self->run_program($run_alignment);
+
+    $self->output_param('bam', $run_alignment->output_files->[0]);
 
 }
 

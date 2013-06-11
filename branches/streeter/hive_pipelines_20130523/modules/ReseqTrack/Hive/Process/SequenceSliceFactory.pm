@@ -1,12 +1,12 @@
 
-package ReseqTrack::HiveProcess::SequenceSliceFactory;
+package ReseqTrack::Hive::Process::SequenceSliceFactory;
 
 use strict;
 
-use base ('ReseqTrack::HiveProcess::BranchableProcess');
+use base ('ReseqTrack::Hive::Process::BaseProcess');
 use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::Exception qw(throw);
-use ReseqTrack::HiveUtils::SequenceSliceUtils qw(fai_to_slices bed_to_slices);
+use ReseqTrack::Hive::Utils::SequenceSliceUtils qw(fai_to_slices bed_to_slices);
 use POSIX qw(ceil);
 
 
@@ -18,14 +18,14 @@ use POSIX qw(ceil);
 
 sub run {
   my ($self) = @_;
-  my $fai = $self->param('fai') || throw("need a fai to to run SequenceSliceFactory");
-  my $bed = $self->param('bed');
-  my $max_sequences = $self->param('max_sequences') || 0;
-  my $num_bases = $self->param('num_bases') || 0;
-  my $SQ_start = $self->param('SQ_start');
-  my $SQ_end = $self->param('SQ_end');
-  my $bp_start = $self->param('bp_start');
-  my $bp_end = $self->param('bp_end');
+  my $fai = $self->param_required('fai');
+  my $bed = $self->param_is_defined('bed') ? $self->param('bed') : undef;
+  my $max_sequences = $self->param_is_defined('max_sequences') ? $self->param('max_sequences') : 0;
+  my $num_bases = $self->param_is_defined('num_bases') ? $self->param('num_bases') : 0;
+  my $SQ_start = $self->param_is_defined('SQ_start') ? $self->param('SQ_start') : undef;
+  my $SQ_end = $self->param_is_defined('SQ_end') ? $self->param('SQ_end') : undef;
+  my $bp_start = $self->param_is_defined('bp_start') ? $self->param('bp_start') : undef;
+  my $bp_end = $self->param_is_defined('bp_end') ? $self->param('bp_end') : undef;
 
   my $slices = fai_to_slices(
           fai => $fai,
@@ -60,7 +60,13 @@ sub run {
     }
   }
 
-  foreach my $child (@child_slices) {
+  #TEMPORARY LINE FOR TESTING
+#  if (@child_slices > 50) {
+#    @child_slices = @child_slices[0..10];
+#  }
+
+  foreach my $i (0..$#child_slices) {
+    my $child = $child_slices[$i];
     my $label;
     my $SQ_start = $child->[0]->SQ_name;
     my $SQ_end = $child->[1]->SQ_name;
@@ -79,12 +85,14 @@ sub run {
       $label .= ".$bp_end" if $bp_end != $child->[1]->SQ_length;
     }
 
-    $self->output_child_branches(
-          'SQ_start' => $child->[0]->SQ_name,
-          'bp_start' => $child->[0]->start,
-          'SQ_end' => $child->[1]->SQ_name,
-          'bp_end' => $child->[1]->end,
-          'label' => $label);
+    $self->prepare_factory_output_id($label, {
+            'SQ_start' => $child->[0]->SQ_name,
+            'bp_start' => $child->[0]->start,
+            'SQ_end' => $child->[1]->SQ_name,
+            'bp_end' => $child->[1]->end,
+            'label' => $label,
+            'fan_index' => $i,
+          });
   }
 }
 

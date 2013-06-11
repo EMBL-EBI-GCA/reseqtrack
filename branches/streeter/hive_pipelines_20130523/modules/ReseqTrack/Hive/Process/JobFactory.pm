@@ -1,9 +1,9 @@
 
-package ReseqTrack::HiveProcess::JobFactory;
+package ReseqTrack::Hive::Process::JobFactory;
 
 use strict;
 
-use base ('ReseqTrack::HiveProcess::BranchableProcess');
+use base ('ReseqTrack::Hive::Process::BaseProcess');
 use ReseqTrack::Tools::Exception qw(throw);
 
 
@@ -16,10 +16,10 @@ use ReseqTrack::Tools::Exception qw(throw);
 sub run {
     my $self = shift @_;
 
-    my $values = $self->get_param_values('data_value');
+    my $values = $self->param_required('factory_value');
 
     foreach my $value (@$values) {
-      $self->prepare_child_output_id($value, {'data_value' => $value});
+      $self->prepare_factory_output_id($value, {'factory_value' => $value});
     }
 
 }

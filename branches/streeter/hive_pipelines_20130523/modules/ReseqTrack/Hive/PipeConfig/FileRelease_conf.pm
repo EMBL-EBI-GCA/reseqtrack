@@ -1,5 +1,5 @@
 
-package ReseqTrack::HiveConfig::FileRelease_conf;
+package ReseqTrack::Hive::PipeConfig::FileRelease_conf;
 
 use strict;
 use warnings;
@@ -47,32 +47,19 @@ sub pipeline_create_commands {
     my ($self) = @_;
 
     my $sql_1 = '
-    CREATE TABLE branch (
-      branch_id int(10) unsigned NOT NULL AUTO_INCREMENT,
-      parent_branch_id int(10) unsigned,
-      sibling_index int(10) unsigned,
-      PRIMARY KEY (branch_id)
+    CREATE TABLE reseqtrack_file (
+      file_id int(10) unsigned NOT NULL AUTO_INCREMENT,
+      name VARCHAR(64000) NOT NULL,
+      PRIMARY KEY (file_id)
     )';
-
-    my $sql_2 = "
-    CREATE TABLE branch_data (
-      branch_data_id int(10) unsigned NOT NULL AUTO_INCREMENT,
-      branch_id int(10) unsigned NOT NULL,
-      data_key VARCHAR(50) NOT NULL,
-      data_value VARCHAR(1000) NOT NULL,
-      is_active TINYINT(1),
-      PRIMARY KEY (branch_data_id)
-    )";
 
     return [
         @{$self->SUPER::pipeline_create_commands},  # inheriting database and hive tables' creation
 
         $self->db_execute_command('pipeline_db', $sql_1),
-        $self->db_execute_command('pipeline_db', $sql_2),
 
     ];
 }
-
 
 =head2 pipeline_wide_parameters
 
@@ -89,13 +76,13 @@ sub pipeline_wide_parameters {
 
         'reseqtrack_db' => $self->o('reseqtrack_db'),
 
-        'universal_branch_parameters_in' => {
-          'dropbox_filename' => 'filename',
-          'db_md5' => 'md5',
-          'db_size' => 'size',
-          'db_file_id' => 'file_id',
-        },
-
+#        'universal_branch_parameters_in' => {
+#          'dropbox_filename' => 'filename',
+#          'db_md5' => 'md5',
+#          'db_size' => 'size',
+#          'db_file_id' => 'file_id',
+#        },
+#
     };
 }
 
@@ -114,7 +101,7 @@ sub pipeline_analyses {
     my @analyses;
     push(@analyses, {
             -logic_name    => 'foreign_files_factory',
-            -module        => 'ReseqTrack::HiveProcess::ForeignFilesFactory',
+            -module        => 'ReseqTrack::Hive::Process::ForeignFilesFactory',
             -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
             -input_ids => [{}],
             -flow_into => {
@@ -148,7 +135,7 @@ sub pipeline_analyses {
       });
     push(@analyses, {
             -logic_name    => 'move_to_staging',
-            -module        => 'ReseqTrack::HiveProcess::FileReleaseMove',
+            -module        => 'ReseqTrack::Hive::Process::FileReleaseMove',
             -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
             -parameters    => {
                 branch_parameters_in => {

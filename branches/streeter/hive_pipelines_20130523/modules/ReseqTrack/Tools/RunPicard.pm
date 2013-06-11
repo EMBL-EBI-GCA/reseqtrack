@@ -171,60 +171,59 @@ sub run_mark_duplicates {
 
     my $jar = $self->_jar_path('MarkDuplicates.jar');
     my @metrics_data;
+    my $suffix = $self->options('remove_duplicates') ? '.rmdup' : '.mrkdup';
+    my $prefix = $self->working_dir . '/' . $self->job_name . ".$suffix";
+    $prefix =~ s{//}{/}g;
+    my $bam     = $prefix . '.bam';
+    my $metrics = $prefix . '.dup_metrics';
+
+    my @cmd_words = ( $self->java_exe );
+    push( @cmd_words, $self->jvm_options ) if ( $self->jvm_options );
+    push( @cmd_words, '-jar', $jar );
+    push( @cmd_words, $self->_get_standard_options );
     foreach my $input ( @{ $self->input_files } ) {
-        my $suffix = $self->options('remove_duplicates') ? '.rmdup' : '.mrkdup';
-        my $name = fileparse( $input, qr/\.[sb]am/ );
-        my $prefix = $self->working_dir . '/' . $name . $suffix;
-        $prefix =~ s{//}{/}g;
-        my $bam     = $prefix . '.bam';
-        my $metrics = $prefix . '.dup_metrics';
+      push( @cmd_words, 'INPUT=' . $input );
+    }
+    push( @cmd_words, 'OUTPUT=' . $bam );
+    push( @cmd_words, 'METRICS_FILE=' . $metrics );
+    push( @cmd_words,
+        'REMOVE_DUPLICATES='
+          . ( $self->options('remove_duplicates') ? 'true' : 'false' ) );
+    push( @cmd_words,
+        'ASSUME_SORTED='
+          . ( $self->options('assume_sorted') ? 'true' : 'false' ) )
+      if defined $self->options('assume_sorted');
+    push( @cmd_words,
+        'CREATE_INDEX=' . ( $self->create_index ? 'true' : 'false' ) );
+    push( @cmd_words, 'MAX_FILE_HANDLES_FOR_READ_ENDS_MAP=' . $self->options('max_file_handles'))
+      if $self->options('max_file_handles');
 
-        my @cmd_words = ( $self->java_exe );
-        push( @cmd_words, $self->jvm_options ) if ( $self->jvm_options );
-        push( @cmd_words, '-jar', $jar );
-        push( @cmd_words, $self->_get_standard_options );
-        push( @cmd_words, 'INPUT=' . $input );
-        push( @cmd_words, 'OUTPUT=' . $bam );
-        push( @cmd_words, 'METRICS_FILE=' . $metrics );
-        push( @cmd_words,
-            'REMOVE_DUPLICATES='
-              . ( $self->options('remove_duplicates') ? 'true' : 'false' ) );
-        push( @cmd_words,
-            'ASSUME_SORTED='
-              . ( $self->options('assume_sorted') ? 'true' : 'false' ) )
-          if defined $self->options('assume_sorted');
-        push( @cmd_words,
-            'CREATE_INDEX=' . ( $self->create_index ? 'true' : 'false' ) );
-        push( @cmd_words, 'MAX_FILE_HANDLES_FOR_READ_ENDS_MAP=' . $self->options('max_file_handles'))
-          if $self->options('max_file_handles');
+    my $cmd = join( ' ', @cmd_words );
 
-        my $cmd = join( ' ', @cmd_words );
+    $self->output_files($bam);
 
-        $self->output_files($bam);
+    if ( $self->keep_metrics ) {
+        $self->output_files($metrics);
+    }
+    else {
+        $self->created_files($metrics);
+    }
 
-        if ( $self->keep_metrics ) {
-            $self->output_files($metrics);
+    $self->created_files("$prefix.bai") if $self->create_index;
+    $self->execute_command_line($cmd);
+
+    push @metrics_data, $self->parse_metrics_file($metrics);
+
+    if ( $self->create_index ) {
+        my $bai       = "$prefix.bai";
+        my $index_ext = $self->options('index_ext');
+        if ( $index_ext && $index_ext ne '.bai' ) {
+            my $corrected_bai = "$prefix" . $index_ext;
+            move( $bai, $corrected_bai )
+              or throw "move failed: $!";
+            $bai = $corrected_bai;
         }
-        else {
-            $self->created_files($metrics);
-        }
-
-        $self->created_files("$prefix.bai") if $self->create_index;
-        $self->execute_command_line($cmd);
-
-        push @metrics_data, $self->parse_metrics_file($metrics);
-
-        if ( $self->create_index ) {
-            my $bai       = "$prefix.bai";
-            my $index_ext = $self->options('index_ext');
-            if ( $index_ext && $index_ext ne '.bai' ) {
-                my $corrected_bai = "$prefix" . $index_ext;
-                move( $bai, $corrected_bai )
-                  or throw "move failed: $!";
-                $bai = $corrected_bai;
-            }
-            $self->output_files($bai);
-        }
+        $self->output_files($bai);
 
     }
 

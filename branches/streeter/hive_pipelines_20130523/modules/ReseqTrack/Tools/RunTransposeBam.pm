@@ -88,6 +88,17 @@ sub regions {
     return $self->{'regions'};
 }
 
+sub output_bai_file {
+    my $self = shift;
+    return (grep { /\.bai$/ } @{$self->output_files})[0];
+}
+
+sub output_bam_file {
+    my $self = shift;
+    return (grep { /\.bam$/ } @{$self->output_files})[0];
+}
+
+
 
 1;
 

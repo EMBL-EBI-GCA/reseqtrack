@@ -113,7 +113,7 @@ sub run_program {
       }
         foreach my $tag ( keys ( %{$self->options} ) ) {
             my $value = $self->options->{$tag};
-            $tag =~ s/^dbSNP/-dbSNP/;
+            $tag =~ s/^dbSNP/-dbsnp/i;
             push(@cmd_words, "-$tag", $value);
         }
     }        

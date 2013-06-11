@@ -1,11 +1,11 @@
 
-package ReseqTrack::HiveUtils::SequenceSliceUtils;
+package ReseqTrack::Hive::Utils::SequenceSliceUtils;
 
 use strict;
 use warnings;
 
 use ReseqTrack::Tools::Exception qw(throw);
-use ReseqTrack::HiveUtils::SequenceSlice;
+use ReseqTrack::Hive::Utils::SequenceSlice;
 use ReseqTrack::Tools::FileSystemUtils qw(check_file_exists);
 use base qw(Exporter);
 
@@ -30,7 +30,7 @@ sub fai_to_slices {
     }
     next LINE if !$found_start;
 
-    my $slice = ReseqTrack::HiveUtils::SequenceSlice->new(
+    my $slice = ReseqTrack::Hive::Utils::SequenceSlice->new(
         -SQ_name => $SQ,
         -SQ_length => $length,
         );
@@ -77,7 +77,7 @@ sub bed_to_slices {
     if ($end > $parent_slice->end) {
       $end = $parent_slice->end;
     }
-    my $bed_slice = ReseqTrack::HiveUtils::SequenceSlice->new(
+    my $bed_slice = ReseqTrack::Hive::Utils::SequenceSlice->new(
         -SQ_name => $SQ,
         -SQ_length => $parent_slice->SQ_length,
         -start => $start,
