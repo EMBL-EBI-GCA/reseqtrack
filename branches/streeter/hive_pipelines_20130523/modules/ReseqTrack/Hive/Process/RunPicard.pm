@@ -18,7 +18,7 @@ use ReseqTrack::Tools::FileSystemUtils qw(check_directory_exists check_file_exis
 sub run {
     my $self = shift @_;
     $self->param_required('bam');
-    my $bams = $self->get_param_values('bam');
+    my $bams = $self->file_param_to_flat_array('bam');
     my $command = $self->param_required('command');
 
     my @allowed_cmds = ReseqTrack::Tools::RunPicard->get_valid_commands;

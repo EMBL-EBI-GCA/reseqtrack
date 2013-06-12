@@ -165,7 +165,7 @@ foreach my $host ( @$remote_hosts ) {
 		my $aspx = $file_name . ".aspx" if ($file_name);
 		
 #		if ($file->type =~ /BAM/ || $file->type =~ /BAI/ || $file->type =~ /BAS/ ) {
-		if ($file->type =~ /BAM/ || $file->type =~ /BAI/ || $file->type =~ /BAS/ || $file->type =~ /CG_/ || $file->type =~ /NCBI_CORTEX/) {
+		if ($file->type =~ /BAM/ || $file->type =~ /BAI/ || $file->type =~ /BAS/ || $file->type =~ /CG_/ || $file->type =~ /NCBI_CORTEX/ || $file->type =~ /CSRA/i) {
 			if ( $file_name && -e $file_name) {
 				my $size = -s $file_name;
 				if ( $size != $size_in_db && ( ( -M $file_name ) > 99) ) {	# if the file size is different from what is the db 
@@ -517,6 +517,12 @@ sub check_name_and_move_file {
 		$move_to_dir = "/nfs/1000g-work/G1K/archive_staging/ftp/technical/ncbi_varpipe_data";
 		$new_dir = $move_to_dir . "/alignment/" . $ind . "/";
 	}
+	elsif ( $file->type eq "CSRA" ) { ### This is for NCBI csra compressed files
+		$new_dir = $move_to_dir . "/" . $ind . "/alignment/";
+	}
+	elsif (	$file->type eq "EXOME_CSRA" ) {
+		$new_dir = $move_to_dir . "/" . $ind . "/exome_alignment/";					
+	}	
 	elsif ( $filen =~ /exome/i ) {
 		
 		#if ( ($filen =~ /bwa/i && $host->name =~ /sanger/i) || ( $filen =~ /bfast/i && $host->name =~ /baylor/i) )  { # FOR sanger exome and Baylor exome

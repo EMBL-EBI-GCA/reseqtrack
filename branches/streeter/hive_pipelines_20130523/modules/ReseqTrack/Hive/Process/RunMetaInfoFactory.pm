@@ -20,9 +20,9 @@ sub run {
     my $type_branch = $self->param_required('type_branch');
     my $output_dir = $self->output_dir;
 
-    my $allowed_status_arr = $self->param_is_defined('allowed_status') ? $self->get_param_values('allowed_status')
+    my $allowed_status_arr = $self->param_is_defined('allowed_status') ? $self->param_to_flat_array('allowed_status')
                             : ['public', 'private'];
-    my $allowed_platform_arr = $self->param_is_defined('allowed_platform') ? $self->get_param_values('allowed_platform')
+    my $allowed_platform_arr = $self->param_is_defined('allowed_platform') ? $self->param_to_flat_array('allowed_platform')
                             : ['ILLUMINA'];
 
     my $db = ReseqTrack::DBSQL::DBAdaptor->new(%{$self->param('reseqtrack_db')});

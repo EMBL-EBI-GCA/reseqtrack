@@ -23,7 +23,7 @@ sub run {
     my $run_id = $self->param_required('run_id');
     my $reference = $self->param_required('reference');
 
-    my $fastqs = $self->get_param_values('fastq');
+    my $fastqs = $self->file_param_to_flat_array('fastq');
 
 
     my $db = ReseqTrack::DBSQL::DBAdaptor->new(%{$self->param('reseqtrack_db')});

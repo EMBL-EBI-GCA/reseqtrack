@@ -19,7 +19,7 @@ sub run {
     my $self = shift @_;
 
     $self->param_required('bam');
-    my $bams = $self->get_param_values('bam');
+    my $bams = $self->file_param_to_flat_array('bam');
     my $fai = $self->param_required('fai');
     my $bed = $self->param_is_defined('bed') ? $self->param('bed') : undef;
     my $SQ_start = $self->param_required('SQ_start');

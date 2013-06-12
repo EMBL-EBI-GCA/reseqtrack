@@ -18,7 +18,7 @@ sub run {
     my ($self) = @_;
 
     $self->param_required('bam');
-    my $bams = $self->get_param_values('bam');
+    my $bams = $self->file_param_to_flat_array('bam');
 
     $self->data_dbc->disconnect_when_inactive(1);
 

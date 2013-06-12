@@ -17,28 +17,6 @@ use List::Util qw(sum);
 sub run {
     my $self = shift @_;
 
-#    my $flows = [];
-#    if ($self->param_is_defined('count_files') && $self->param('count_files')) {
-#      my $num_files = $self->count_param_values('files');
-#
-#      my $flows_if_no_files = $self->get_param_values('flows_if_no_files');
-#      my $flows_if_one_file = $self->get_param_values('flows_if_one_file');
-#      my $flows_if_multiple_files = $self->get_param_values('flows_if_multiple_files');
-#
-#      $flows = scalar $num_files >1 ? $flows_if_multiple_files
-#                      : scalar $num_files ==1 ? $flows_if_one_file
-#                      : $flows_if_no_files;
-#
-#      if ($self->param_is_defined('require_true')) {
-#        my $requires = $self->param('require_true');
-#        $flows = [grep {$requires->{$_} // 1} @$flows];
-#      }
-#    }
-#    elsif ($self->param_is_defined('require_true')) {
-#      my $requires = $self->param('require_true');
-#      $flows = [grep {$requires->{$_}} keys %$requires];
-#    }
-
 
     my $require_true_hash = $self->param_is_defined('require_true') ? $self->param('require_true') : {};
     my $require_count_hash = {};

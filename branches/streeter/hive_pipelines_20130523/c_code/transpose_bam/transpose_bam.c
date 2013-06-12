@@ -259,6 +259,6 @@ void usage()
   printf("usage: transpose_bam -o output_file -r region [-i] input_file1 [input_file2 ...]\n");
   printf("input bam files must be indexed\n");
   printf("all input bam files must be mapped to the same reference sequences\n");
-  printf("flag -i is to index the output");
+  printf("flag -i is to index the output\n");
   exit(-1);
 }

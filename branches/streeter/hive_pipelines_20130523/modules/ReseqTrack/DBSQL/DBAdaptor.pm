@@ -29,6 +29,7 @@ use ReseqTrack::DBSQL::FileTypeRuleAdaptor;
 use ReseqTrack::DBSQL::PopulationRuleAdaptor;
 use ReseqTrack::DBSQL::StudyIDAdaptor;
 use ReseqTrack::DBSQL::VerifyBamIDAdaptor;
+use ReseqTrack::DBSQL::RejectLogAdaptor;
 
 sub new {
   my($class, @args) = @_;

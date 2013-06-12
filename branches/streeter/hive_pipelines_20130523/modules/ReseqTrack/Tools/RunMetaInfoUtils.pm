@@ -40,7 +40,8 @@ use vars qw (@ISA  @EXPORT);
 sub are_run_meta_infos_identical{
   my ($one, $two, $skip_date) = @_;
   my $verbose = 0;
-  throw("Must pass are_run_meta_infos_identical two RunMetaInfo objects") unless($one && $two);
+  throw("Must pass are_run_meta_infos_identical two RunMetaInfo objects 1 ".$one." 2 ".$two) 
+    unless($one && $two);
   throw("Must pass are_run_meta_infos_identical two RunMetaInfo objects and not ".$one." and ".
         $two) unless($one->isa("ReseqTrack::RunMetaInfo") && 
                      $two->isa("ReseqTrack::RunMetaInfo"));

@@ -18,7 +18,7 @@ sub run {
     my ($self) = @_;
 
     $self->param_required('bam');
-    my $bams = $self->get_param_values('bam');
+    my $bams = $self->file_param_to_flat_array('bam');
     throw('too many bam files: '. join(' ', @$bams)) if @$bams !=1;
 
     my $bam_squeezer = ReseqTrack::Tools::RunBamSqueeze->new(

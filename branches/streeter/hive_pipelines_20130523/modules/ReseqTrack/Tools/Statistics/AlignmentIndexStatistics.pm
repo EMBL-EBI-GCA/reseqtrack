@@ -88,7 +88,7 @@ sub new_index{
     throw("AlignmentIndexStatistics:new_index ".$new_index." should exist")
       unless(-e $new_index);
     throw("AlignmentIndexStatistcs:new_index ".$new_index." must match pattern ".
-	  "YYYYMMDD.alignment.index.bas.gz") unless($new_index =~ /\d+\.alignment\.index\.bas\.gz/ || $new_index =~ /\d+\.exome\.alignment\.index\.bas\.gz/);
+	  "YYYYMMDD.alignment.index.bas.gz") unless($new_index =~ /\d+\.alignment\.index\.bas\.gz/ ||$new_index =~ /\d+\.low_coverage\.alignment\.index\.bas\.gz/ ||  $new_index =~ /\d+\.exome\.alignment\.index\.bas\.gz/);
     $self->{new_index} = $new_index;
   }
   return $self->{new_index};

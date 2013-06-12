@@ -25,7 +25,6 @@ sub run {
     my $ca = $db->get_CollectionAdaptor;
     my $collection = $ca->fetch_by_name_and_type($self->param('collection_name'), $self->param('collection_type'));
 
-    #throw(join(' ', 'Failed to find a collection for',$self->param($param_name), $self->param('collection_type')))if(!$collection);
     if (!$collection) {
       $self->flows_non_factory(undef);
       return;

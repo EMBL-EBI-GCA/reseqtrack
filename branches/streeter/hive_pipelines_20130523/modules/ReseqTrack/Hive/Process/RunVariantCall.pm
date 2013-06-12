@@ -18,7 +18,7 @@ sub run {
     my $self = shift @_;
 
     $self->param_required('bam');
-    my $bam = $self->get_param_values('bam');
+    my $bam = $self->file_param_to_flat_array('bam');
 
     my $module_name = $self->param_required('module_name');
     my $fai = $self->param_required('fai');

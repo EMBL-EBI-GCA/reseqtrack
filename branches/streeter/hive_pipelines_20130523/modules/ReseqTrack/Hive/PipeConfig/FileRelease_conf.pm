@@ -4,7 +4,7 @@ package ReseqTrack::Hive::PipeConfig::FileRelease_conf;
 use strict;
 use warnings;
 
-use base ('Bio::EnsEMBL::Hive::PipeConfig::HiveGeneric_conf');  # All Hive databases configuration files should inherit from HiveGeneric, directly or indirectly
+use base ('ReseqTrack::Hive::PipeConfig::ReseqTrackGeneric_conf');
 
 
 =head2 default_options
@@ -22,69 +22,18 @@ sub default_options {
 
         'pipeline_name' => 'file_release',                     # name used by the beekeeper to prefix job names on the farm
 
-        'reseqtrack_db'  => {
-            -host => $self->o('host'),
-            -port => 4197,
-            -user => 'g1krw',
-            #-pass => '', # set on the command line
-            #-dbname => 'file_release', # set on the command line
-        },
+        checking_module  => 'ReseqTrack::Hive::Process::FileRelease::Checks',
+        hostname => '1000genomes.ebi.ac.uk',
 
-        checking_module  => 'ReseqTrack::HiveProcess::FileReleaseChecks',
+
+        use_label_management => 0,
+        use_reseqtrack_file_table => 1,
 
     };
 }
 
+sub forbid_duplicate_file_id {return 1;}
 
-=head2 pipeline_create_commands
-
-    Description : Implements pipeline_create_commands() interface method of Bio::EnsEMBL::Hive::PipeConfig::HiveGeneric_conf that lists the commands that will create and set up the Hive database.
-                  In addition to the standard creation of the database and populating it with Hive tables and procedures it also creates two pipeline-specific tables used by Runnables to communicate.
-
-=cut
-
-sub pipeline_create_commands {
-    my ($self) = @_;
-
-    my $sql_1 = '
-    CREATE TABLE reseqtrack_file (
-      file_id int(10) unsigned NOT NULL AUTO_INCREMENT,
-      name VARCHAR(64000) NOT NULL,
-      PRIMARY KEY (file_id)
-    )';
-
-    return [
-        @{$self->SUPER::pipeline_create_commands},  # inheriting database and hive tables' creation
-
-        $self->db_execute_command('pipeline_db', $sql_1),
-
-    ];
-}
-
-=head2 pipeline_wide_parameters
-
-    Description : Interface method that should return a hash of pipeline_wide_parameter_name->pipeline_wide_parameter_value pairs.
-                  The value doesn't have to be a scalar, can be any Perl structure now (will be stringified and de-stringified automagically).
-                  Please see existing PipeConfig modules for examples.
-
-=cut
-
-sub pipeline_wide_parameters {
-    my ($self) = @_;
-    return {
-        %{$self->SUPER::pipeline_wide_parameters},          # here we inherit anything from the base class
-
-        'reseqtrack_db' => $self->o('reseqtrack_db'),
-
-#        'universal_branch_parameters_in' => {
-#          'dropbox_filename' => 'filename',
-#          'db_md5' => 'md5',
-#          'db_size' => 'size',
-#          'db_file_id' => 'file_id',
-#        },
-#
-    };
-}
 
 sub resource_classes {
     my ($self) = @_;
@@ -101,12 +50,12 @@ sub pipeline_analyses {
     my @analyses;
     push(@analyses, {
             -logic_name    => 'foreign_files_factory',
-            -module        => 'ReseqTrack::Hive::Process::ForeignFilesFactory',
+            -module        => 'ReseqTrack::Hive::Process::FileRelease::ForeignFilesFactory',
             -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
             -input_ids => [{}],
             -flow_into => {
                 '2->A' => [ 'quick_checks' ],   # will create a semaphored fan of jobs
-                'A->1' => [ 'foreign_files_factory'  ],   # will create a semaphored funnel job to wait for the fan to complete
+                'A->1' => [ 'remove_lock' ],   # will create a semaphored fan of jobs
             },
       });
     push(@analyses, {
@@ -135,13 +84,16 @@ sub pipeline_analyses {
       });
     push(@analyses, {
             -logic_name    => 'move_to_staging',
-            -module        => 'ReseqTrack::Hive::Process::FileReleaseMove',
-            -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
+            -module        => $self->o('file_move_module'),
             -parameters    => {
-                branch_parameters_in => {
-                    branch_timestamp => {key => 'factory_timestamp', ascend => 1},
-                },
+                hostname => $self->o('hostname'),
             },
+            -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
+      });
+    push(@analyses, {
+            -logic_name    => 'remove_lock',
+            -module        => 'ReseqTrack::Hive::Process::FileRelease::RemoveLock',
+            -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
       });
 
     return \@analyses;

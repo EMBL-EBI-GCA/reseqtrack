@@ -21,9 +21,9 @@ sub run {
     $self->param_required('bp_end');
     my $bgzip = $self->param_is_defined('bgzip') ? $self->param('bgzip') : 'bgzip';
 
-    my $vcfs = $self->get_param_values('vcf');
-    my $bp_start = $self->get_param_values('bp_start');
-    my $bp_end = $self->get_param_values('bp_end');
+    my $vcfs = $self->file_param_to_flat_array('vcf');
+    my $bp_start = $self->param_to_flat_array('bp_start');
+    my $bp_end = $self->param_to_flat_array('bp_end');
     foreach my $vcf_path (grep {defined $_} @$vcfs) {
       check_file_exists($vcf_path);
     }

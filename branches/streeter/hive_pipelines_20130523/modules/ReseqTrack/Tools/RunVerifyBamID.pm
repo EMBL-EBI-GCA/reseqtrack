@@ -23,9 +23,9 @@ sub new {
 			  VCF		 
 			  OUT_PREFIX
 			  OPTIONS
-                          DEBUG
-                          RUN_MODE
-			  )
+              DEBUG
+              RUN_MODE
+			)
 		],
 		@args
 	);

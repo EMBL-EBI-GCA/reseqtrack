@@ -18,6 +18,10 @@ use Bio::EnsEMBL::Hive::Utils qw(destringify);
 sub fetch_input {
   my ($self) = @_;
 
+  $self->param_required('use_label_management');
+  $self->param_required('use_reseqtrack_file_table');
+  $self->param_required('forbid_duplicate_file_id');
+
   $self->{'_BaseProcess_params'} = {};
 
   my $root_output_dir = $self->param_required('root_output_dir');
@@ -45,9 +49,9 @@ sub fetch_input {
     my %delete_params;
     my @delete_files;
     PARAM:
-    foreach my $param_name (@{$self->get_param_values('delete_param')}) {
+    foreach my $param_name (@{$self->param_to_flat_array('delete_param')}) {
       $delete_params{$param_name} = 1;
-      push(@delete_files, @{$self->get_param_values($param_name)});
+      push(@delete_files, @{$self->file_param_to_flat_array($param_name)});
     }
     $self->_files_to_delete([grep { /^$root_output_dir/ } @delete_files]);
     $self->_params_to_delete([keys %delete_params]);
@@ -86,7 +90,10 @@ sub write_output {
   }
 
   foreach my $param (keys %$output_param_hash) {
-    my $param_value = $self->_make_file_ids($output_param_hash->{$param});
+    my $param_value = $output_param_hash->{$param};
+    if ($self->param('use_reseqtrack_file_table')) {
+      $param_value = $self->_make_file_ids($param_value);
+    }
     $self->param($param, $param_value);
   }
 
@@ -105,18 +112,21 @@ sub write_output {
     my @factory_output_hashes;
     foreach my $factory_output (@$factory_outputs) {
       my ($extra_label, $extra_data_hash) = @$factory_output;
-      my %new_factory_hash = %base_output;
+      my $new_factory_hash = {%base_output};
       while (my ($param_name, $param_value) = each %$extra_data_hash) {
-        $new_factory_hash{$param_name} = $self->_make_file_ids($param_value);
+        if ($self->param('use_reseqtrack_file_table')) {
+          $param_value = $self->_make_file_ids($param_value);
+        }
+        $new_factory_hash->{$param_name} = $param_value;
       }
-      if (defined $new_factory_hash{'labels'}) {
-        $new_factory_hash{'labels'} = [@{$new_factory_hash{'labels'}}];
+      if ($self->param('use_label_management')) {
+        if (defined $new_factory_hash->{'labels'}) {
+          $new_factory_hash->{'labels'} = [@{$new_factory_hash->{'labels'}}];
+        }
+        push(@{$new_factory_hash->{'labels'}}, $extra_label);
       }
-      push(@{$new_factory_hash{'labels'}}, $extra_label);
-      push(@factory_output_hashes, \%new_factory_hash);
-    }
-    foreach my $hash (@factory_output_hashes) {
-      $hash = $self->_temp_param_sub(2, $hash);
+      $new_factory_hash = $self->_temp_param_sub(2, $new_factory_hash);
+      push(@factory_output_hashes, $new_factory_hash);
     }
     $self->dataflow_output_id(\@factory_output_hashes, 2);
   }
@@ -190,33 +200,48 @@ sub _get_files {
 
 sub _make_file_ids {
   my ($self, $data_structure) = @_;
-  my $sql = "INSERT INTO reseqtrack_file (name) values (?)";
   my $hive_dbc = $self->data_dbc();
-  my $sth = $hive_dbc->prepare($sql) or die "could not prepare $sql: ".$hive_dbc->errstr;
-  return __structure_to_file_ids($data_structure, $sth);
+  my $sql_insert = "INSERT INTO reseqtrack_file (name) values (?)";
+  my $sth_insert = $hive_dbc->prepare($sql_insert) or die "could not prepare $sql_insert: ".$hive_dbc->errstr;
+
+  my $sth_select;
+  if ($self->param('forbid_duplicate_file_id')) {
+    my $sql_select = "SELECT file_id FROM reseqtrack_file WHERE name=?";
+    $sth_select = $hive_dbc->prepare($sql_select) or die "could not prepare $sql_select: ".$hive_dbc->errstr;
+  }
+  return __structure_to_file_ids($data_structure, $sth_insert, $sth_select);
 }
 
 sub __structure_to_file_ids {
-  my ($data_structure, $sth) = @_;
+  my ($data_structure, $sth_insert, $sth_select) = @_;
   if (ref($data_structure) eq 'ARRAY') {
     foreach my $i (0..$#{$data_structure}) {
-      $data_structure->[$i] = __structure_to_file_ids($data_structure->[$i], $sth);
+      $data_structure->[$i] = __structure_to_file_ids($data_structure->[$i], $sth_insert, $sth_select);
     }
     return $data_structure;
   }
   elsif (ref($data_structure) eq 'HASH') {
     my %new_hash;
     while (my ($key, $value) = each %$data_structure) {
-      my $new_key = __data_structure_to_file_ids($key, $sth);
-      my $new_value = __data_structure_to_file_ids($value, $sth);
+      my $new_key = __structure_to_file_ids($key, $sth_insert, $sth_select);
+      my $new_value = __structure_to_file_ids($value, $sth_insert, $sth_select);
       $new_hash{$new_key} = $new_value;
-      return \%new_hash;
     }
+    return \%new_hash;
   }
   elsif ($data_structure =~ m{/\S}) {
-    $sth->bind_param(1, $data_structure);
-    $sth->execute() or die 'could not execute '.$sth->statement .': '.$sth->errstr;
-    return 'F'.$sth->{'mysql_insertid'}.'F';
+    my $file_id;
+    if (defined $sth_select) {
+      $sth_select->bind_param(1, $data_structure);
+      $sth_select->execute() or die 'could not execute '.$sth_select->statement .': '.$sth_select->errstr;
+      $file_id = $sth_select->fetchall_arrayref->[0]->[0];
+    }
+    if (!defined $file_id) {
+      $sth_insert->bind_param(1, $data_structure);
+      $sth_insert->execute() or die 'could not execute '.$sth_insert->statement .': '.$sth_insert->errstr;
+      $file_id = $sth_insert->{'mysql_insertid'};
+    }
+    return 'F'.$file_id.'F';
   }
   else {
     return $data_structure;
@@ -234,11 +259,11 @@ sub __structure_to_file_paths {
   elsif (ref($data_structure) eq 'HASH') {
     my %new_hash;
     while (my ($key, $value) = each %$data_structure) {
-      my $new_key = $self->__data_structure_to_file_paths($key, $sth);
-      my $new_value = $self->__data_structure_to_file_paths($value, $sth);
+      my $new_key = $self->__structure_to_file_paths($key, $sth);
+      my $new_value = $self->__structure_to_file_paths($value, $sth);
       $new_hash{$new_key} = $new_value;
-      return \%new_hash;
     }
+    return \%new_hash;
   }
   elsif ($data_structure =~ /^F(\d+)F$/ ) {
     my $file_id = $1;
@@ -348,15 +373,7 @@ sub count_param_values {
   __add_to_flat_array($flattened_values, $param_value);
   return scalar @$flattened_values;
 }
-sub get_param_values {
-  my ($self, $param_name) = @_;
-  return [] if ! $self->param_is_defined($param_name);
-  my $param_value = $self->param($param_name);
-  my $flattened_values = [];
-  __add_to_flat_array($flattened_values, $param_value);
-  $flattened_values = $self->_get_files($flattened_values);
-  return $flattened_values;
-}
+
 sub __add_to_flat_array {
   my ($flat_array, $value) = @_;
   if (ref($value) eq 'ARRAY') {
@@ -368,6 +385,34 @@ sub __add_to_flat_array {
   elsif (defined $value) {
     push(@$flat_array, $value);
   }
+}
+
+sub file_param {
+  my ($self, $param_name) = @_;
+  if (!$self->param('use_reseqtrack_file_table')) {
+    return $self->param($param_name)
+  }
+  return undef if ! $self->param_is_defined($param_name);
+  my $data_structure = $self->param($param_name);
+  $data_structure = $self->_get_files($data_structure);
+  return $data_structure;
+}
+sub param_to_flat_array {
+  my ($self, $param_name) = @_;
+  return [] if ! $self->param_is_defined($param_name);
+  my $data_structure = $self->param($param_name);
+  my $flattened_values = [];
+  __add_to_flat_array($flattened_values, $data_structure);
+  return $flattened_values;
+}
+
+sub file_param_to_flat_array {
+  my ($self, $param_name) = @_;
+  my $flattened_values = $self->param_to_flat_array($param_name);
+  if ($self->param('use_reseqtrack_file_table')) {
+    $flattened_values = $self->_get_files($flattened_values);
+  }
+  return $flattened_values;
 }
 
 sub run_program {

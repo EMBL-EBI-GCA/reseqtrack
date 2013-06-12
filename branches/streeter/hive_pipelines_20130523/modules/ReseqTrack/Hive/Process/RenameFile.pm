@@ -21,7 +21,7 @@ sub run {
 
     my $param_name = $self->param_required('file_param_name');
     $self->param_required($param_name);
-    my $files = $self->get_param_values($param_name);
+    my $files = $self->file_param_to_flat_array($param_name);
     throw("too many files: ".join(' ', @$files)) if @$files >1;
 
     my $suffix = $self->param_required('suffix');

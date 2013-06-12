@@ -27,8 +27,8 @@ sub new {
   my $self ={};
   bless $self,$class;
   my ($db, $new_index, $old_index, $skip_p2, $skip_p3, $collection_type, 
-      $collection_name) = rearrange([qw(DB NEW_INDEX OLD_INDEX SKIP_P2 SKIP_P3 
-					COLLECTION_TYPE	COLLECTION_NAME)], @args);
+      $collection_name, $threshold_in_gb) = rearrange([qw(DB NEW_INDEX OLD_INDEX SKIP_P2 SKIP_P3 
+					COLLECTION_TYPE	COLLECTION_NAME THRESHOLD_IN_GB)], @args);
 
   # setting defaults
   $skip_p2 = 1 unless(defined($skip_p2));
@@ -42,42 +42,9 @@ sub new {
   $self->skip_p3($skip_p3);
   $self->collection_type($collection_type);
   $self->collection_name($collection_name);
+  $self->threshold_in_gb($threshold_in_gb);
   return $self;
 }
-
-=head2 new/old_index
-
-  Arg [1]   : ReseqTrack::Tools::Statistics
-  Arg [2]   : string, filepath
-  Function  : accessor method for index file paths
-  Returntype: string
-  Exceptions: throws if file doesn't exist 
-  Example   :
-
-=cut
-
-
-
-sub new_index{
-  my ($self, $new_index) = @_;
-  if($new_index){
-    throw("SequenceIndexStatistics:new_index ".$new_index." should exist")
-      unless(-e $new_index);
-    $self->{new_index} = $new_index;
-  }
-  return $self->{new_index};
-}
-
-sub old_index{
-  my ($self, $old_index) = @_;
-  if($old_index){
-    throw("SequenceIndexStatistics:old_index ".$old_index." should exist")
-      unless(-e $old_index);
-    $self->{old_index} = $old_index;
-  }
-  return $self->{old_index};
-}
-
 
 =head2 db
 
@@ -162,6 +129,16 @@ sub collection_name{
   }
   return $self->{collection_name};
 }
+
+
+sub threshold_in_gb{
+  my ($self, $threshold_in_gb) = @_;
+  if($threshold_in_gb){
+    $self->{threshold_in_gb} = $threshold_in_gb;
+  }
+  return $self->{threshold_in_gb};
+}
+
 
 
 =head2 run_id_hash

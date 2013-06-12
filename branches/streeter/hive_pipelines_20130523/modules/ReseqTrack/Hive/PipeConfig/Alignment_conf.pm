@@ -5,7 +5,7 @@ package ReseqTrack::Hive::PipeConfig::Alignment_conf;
 use strict;
 use warnings;
 
-use base ('Bio::EnsEMBL::Hive::PipeConfig::HiveGeneric_conf');  # All Hive databases configuration files should inherit from HiveGeneric, directly or indirectly
+use base ('ReseqTrack::Hive::PipeConfig::ReseqTrackGeneric_conf');
 
 
 =head2 default_options
@@ -22,14 +22,6 @@ sub default_options {
         %{ $self->SUPER::default_options() },               # inherit other stuff from the base class
 
         'pipeline_name' => 'align',                     # name used by the beekeeper to prefix job names on the farm
-
-        'reseqtrack_db'  => {
-            -host => $self->o('host'),
-            -port => 4197,
-            -user => 'g1kro',
-            -pass => '',
-            #-dbname => 'nextgen_track', # set on the command line
-        },
 
         'chunk_max_reads'    => 5000000,
         'type_fastq'    => 'FILTERED_FASTQ',
@@ -65,18 +57,8 @@ sub default_options {
 sub pipeline_create_commands {
     my ($self) = @_;
 
-    my $sql_1 = '
-    CREATE TABLE reseqtrack_file (
-      file_id int(10) unsigned NOT NULL AUTO_INCREMENT,
-      name VARCHAR(64000) NOT NULL,
-      PRIMARY KEY (file_id)
-    )';
-
     return [
         @{$self->SUPER::pipeline_create_commands},  # inheriting database and hive tables' creation
-
-        $self->db_execute_command('pipeline_db', $sql_1),
-
     ];
 }
 
@@ -93,10 +75,6 @@ sub pipeline_wide_parameters {
     my ($self) = @_;
     return {
         %{$self->SUPER::pipeline_wide_parameters},          # here we inherit anything from the base class
-
-        'root_output_dir' => $self->o('root_output_dir'),
-        'reseqtrack_db' => $self->o('reseqtrack_db'),
-
     };
 }
 
@@ -206,7 +184,7 @@ sub pipeline_analyses {
             },
             -rc_name => '200Mb',
             -analysis_capacity  =>  4,  # use per-analysis limiter
-            -hive_capacity  =>  -1,
+            -hive_capacity  =>  200,
             -flow_into => {
               '2->A' => ['bwa'],
               'A->1' => ['decide_merge_chunks'],
@@ -222,8 +200,8 @@ sub pipeline_analyses {
                 delete_param => 'fastq',
             },
             -rc_name => '5Gb', # Note the 'hardened' version of BWA may need 8Gb RAM or more
-            -analysis_capacity  =>  50,  # use per-analysis limiter
-            -hive_capacity  =>  -1,
+            #-analysis_capacity  =>  50,  # use per-analysis limiter
+            -hive_capacity  =>  100,
             -flow_into => {
                 1 => ['sort_chunks'],
             },
@@ -239,8 +217,8 @@ sub pipeline_analyses {
                 delete_param => 'bam',
             },
             -rc_name => '2Gb',
-            -analysis_capacity  =>  50,  # use per-analysis limiter
-            -hive_capacity  =>  -1,
+            #-analysis_capacity  =>  50,  # use per-analysis limiter
+            -hive_capacity  =>  200,
             -flow_into => {
                 1 => [ ':////accu?bam=[]', ':////accu?bai=[]']
             },
@@ -281,8 +259,8 @@ sub pipeline_analyses {
               delete_param => ['bam', 'bai'],
           },
           -rc_name => '2Gb',
-          -analysis_capacity  =>  50,  # use per-analysis limiter
-          -hive_capacity  =>  -1,
+          #-analysis_capacity  =>  50,  # use per-analysis limiter
+          -hive_capacity  =>  200,
           -flow_into => {
               1 => [ ':////accu?bam=[]', ':////accu?bai=[]'],
           },
@@ -313,8 +291,8 @@ sub pipeline_analyses {
                 delete_param => ['bam', 'bai'],
             },
             -rc_name => '5Gb',
-            -analysis_capacity  =>  50,  # use per-analysis limiter
-            -hive_capacity  =>  -1,
+            #-analysis_capacity  =>  50,  # use per-analysis limiter
+            -hive_capacity  =>  100,
             -flow_into => {
                 1 => [ 'calmd_run_level'],
             },
@@ -330,8 +308,8 @@ sub pipeline_analyses {
                 delete_param => ['bam'],
             },
             -rc_name => '2Gb',
-            -analysis_capacity  =>  50,  # use per-analysis limiter
-            -hive_capacity  =>  -1,
+            #-analysis_capacity  =>  50,  # use per-analysis limiter
+            -hive_capacity  =>  200,
             -flow_into => {
                 1 => [ 'tag_strip_run_level'],
             },
@@ -346,8 +324,8 @@ sub pipeline_analyses {
                 delete_param => ['bam'],
             },
             -rc_name => '1Gb',
-            -analysis_capacity  =>  50,  # use per-analysis limiter
-            -hive_capacity  =>  -1,
+            #-analysis_capacity  =>  50,  # use per-analysis limiter
+            -hive_capacity  =>  200,
             -flow_into => {
                 1 => [ ':////accu?bam=[]', ':////accu?bai=[]'],
             },
@@ -393,8 +371,8 @@ sub pipeline_analyses {
               command => 'index',
           },
           -rc_name => '200Mb',
-          -analysis_capacity  =>  50,  # use per-analysis limiter
-          -hive_capacity  =>  -1,
+          #-analysis_capacity  =>  50,  # use per-analysis limiter
+          -hive_capacity  =>  200,
             -flow_into => {
                 1 => [':////accu?bai=[]'],
             },
@@ -411,8 +389,8 @@ sub pipeline_analyses {
               delete_param => ['bam', 'bai'],
           },
           -rc_name => '2Gb',
-          -analysis_capacity  =>  50,  # use per-analysis limiter
-          -hive_capacity  =>  -1,
+          #-analysis_capacity  =>  50,  # use per-analysis limiter
+          -hive_capacity  =>  200,
           -flow_into => {
               1 => [ ':////accu?bam=[]', ':////accu?bai=[]'],
           },
@@ -441,8 +419,8 @@ sub pipeline_analyses {
                 delete_param => ['bam', 'bai'],
             },
             -rc_name => '5Gb',
-            -analysis_capacity  =>  50,  # use per-analysis limiter
-            -hive_capacity  =>  -1,
+            #-analysis_capacity  =>  50,  # use per-analysis limiter
+            -hive_capacity  =>  100,
             -flow_into => {
                 1 => [ ':////accu?bam=[]', ':////accu?bai=[]'],
             },
@@ -474,8 +452,8 @@ sub pipeline_analyses {
               delete_param => ['bam', 'bai'],
           },
           -rc_name => '2Gb',
-          -analysis_capacity  =>  50,  # use per-analysis limiter
-          -hive_capacity  =>  -1,
+          #-analysis_capacity  =>  50,  # use per-analysis limiter
+          -hive_capacity  =>  200,
           -flow_into => {
               1 => [ ':////accu?bam=[]', ':////accu?bai=[]'],
           },
@@ -505,8 +483,8 @@ sub pipeline_analyses {
                 delete_param => ['bam', 'bai'],
             },
             -rc_name => '5Gb',
-            -analysis_capacity  =>  50,  # use per-analysis limiter
-            -hive_capacity  =>  -1,
+            #-analysis_capacity  =>  50,  # use per-analysis limiter
+            -hive_capacity  =>  100,
             -flow_into => {
                 1 => [ 'calmd_sample_level'],
             },
@@ -522,8 +500,8 @@ sub pipeline_analyses {
                 delete_param => ['bam'],
             },
             -rc_name => '2Gb',
-            -analysis_capacity  =>  50,  # use per-analysis limiter
-            -hive_capacity  =>  -1,
+            #-analysis_capacity  =>  50,  # use per-analysis limiter
+            -hive_capacity  =>  200,
             -flow_into => {
                 1 => [ 'tag_strip_sample_level'],
             },
@@ -538,8 +516,8 @@ sub pipeline_analyses {
                 delete_param => ['bam'],
             },
             -rc_name => '1Gb',
-            -analysis_capacity  =>  50,  # use per-analysis limiter
-            -hive_capacity  =>  -1,
+            #-analysis_capacity  =>  50,  # use per-analysis limiter
+            -hive_capacity  =>  200,
             -flow_into => {
                 1 => [ ':////accu?bam=[]', ':////accu?bai=[]'],
             },
@@ -581,8 +559,8 @@ sub pipeline_analyses {
               command => 'index',
           },
           -rc_name => '200Mb',
-          -analysis_capacity  =>  50,  # use per-analysis limiter
-          -hive_capacity  =>  -1,
+          #-analysis_capacity  =>  50,  # use per-analysis limiter
+          -hive_capacity  =>  200,
             -flow_into => {
                 1 => [':////accu?bai=[]'],
             },
@@ -599,8 +577,8 @@ sub pipeline_analyses {
               delete_param => ['bam', 'bai'],
           },
           -rc_name => '2Gb',
-          -analysis_capacity  =>  50,  # use per-analysis limiter
-          -hive_capacity  =>  -1,
+          #-analysis_capacity  =>  50,  # use per-analysis limiter
+          -hive_capacity  =>  200,
           -flow_into => {
               1 => [ ':////accu?bam=[]', ':////accu?bai=[]'],
           },
@@ -617,8 +595,8 @@ sub pipeline_analyses {
                 delete_param => ['bam', 'bai'],
             },
             -rc_name => '1Gb',
-            -analysis_capacity  =>  50,  # use per-analysis limiter
-            -hive_capacity  =>  -1,
+            #-analysis_capacity  =>  50,  # use per-analysis limiter
+            -hive_capacity  =>  200,
             -flow_into => {
                 1 => ['rename'],
             },
@@ -645,8 +623,8 @@ sub pipeline_analyses {
             },
             -flow_into => {1 => ['validate']},
             -rc_name => '1Gb',
-            -analysis_capacity  =>  50,  # use per-analysis limiter
-            -hive_capacity  =>  -1,
+            #-analysis_capacity  =>  50,  # use per-analysis limiter
+            -hive_capacity  =>  200,
       });
     push(@analyses, {
             -logic_name => 'validate',
@@ -655,8 +633,8 @@ sub pipeline_analyses {
                 'program_file' => $self->o('validate_bam_exe'),
             },
             -rc_name => '200Mb',
-            -analysis_capacity  =>  50,  # use per-analysis limiter
-            -hive_capacity  =>  -1,
+            #-analysis_capacity  =>  50,  # use per-analysis limiter
+            -hive_capacity  =>  200,
       });
 
 

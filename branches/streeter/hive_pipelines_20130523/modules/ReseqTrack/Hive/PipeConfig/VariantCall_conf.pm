@@ -5,7 +5,7 @@ package ReseqTrack::Hive::PipeConfig::VariantCall_conf;
 use strict;
 use warnings;
 
-use base ('Bio::EnsEMBL::Hive::PipeConfig::HiveGeneric_conf');  # All Hive databases configuration files should inherit from HiveGeneric, directly or indirectly
+use base ('ReseqTrack::Hive::PipeConfig::ReseqTrackGeneric_conf');
 
 
 =head2 default_options
@@ -22,14 +22,6 @@ sub default_options {
         %{ $self->SUPER::default_options() },               # inherit other stuff from the base class
 
         'pipeline_name' => 'vc',                     # name used by the beekeeper to prefix job names on the farm
-
-        'reseqtrack_db'  => {
-            -host => $self->o('host'),
-            -port => 4197,
-            -user => 'g1kro',
-            -pass => '',
-            #-dbname => 'nextgen_track', # set on the command line
-        },
 
         'type_bam'    => 'BAM',
         'transpose_exe' => $self->o('ENV', 'RESEQTRACK').'/c_code/transpose_bam/transpose_bam',
@@ -70,18 +62,8 @@ sub default_options {
 sub pipeline_create_commands {
     my ($self) = @_;
 
-    my $sql_1 = '
-    CREATE TABLE reseqtrack_file (
-      file_id int(10) unsigned NOT NULL AUTO_INCREMENT,
-      name VARCHAR(64000) NOT NULL,
-      PRIMARY KEY (file_id)
-    )';
-
     return [
         @{$self->SUPER::pipeline_create_commands},  # inheriting database and hive tables' creation
-
-        $self->db_execute_command('pipeline_db', $sql_1),
-
     ];
 }
 
@@ -99,12 +81,7 @@ sub pipeline_wide_parameters {
     return {
         %{$self->SUPER::pipeline_wide_parameters},          # here we inherit anything from the base class
 
-        'root_output_dir' => $self->o('root_output_dir'),
-        'reseqtrack_db' => $self->o('reseqtrack_db'),
         fai => $self->o('fai'),
-
-        'file_param_names' => ['bam', 'bai', 'vcf'],
-
     };
 }
 
@@ -196,7 +173,7 @@ sub pipeline_analyses {
             },
             -rc_name => '2Gb',
             -analysis_capacity  =>  4,  # use per-analysis limiter
-            -hive_capacity  =>  -1,
+            -hive_capacity  =>  200,
             -flow_into => {
                 '1->A' => [ 'regions_factory_2' ],
                 'A->1' => [ 'collect_vcf' ],
@@ -212,7 +189,7 @@ sub pipeline_analyses {
             },
             -rc_name => '200Mb',
             -analysis_capacity  =>  4,  # use per-analysis limiter
-            -hive_capacity  =>  -1,
+            -hive_capacity  =>  200,
             -flow_into => {
                 '2' => [ 'decide_callers',
                           ':////accu?bp_start=[fan_index]',
@@ -274,8 +251,30 @@ sub pipeline_analyses {
               temp_param_sub => { 1 => [['samtools_vcf','vcf']]}, # temporary hack pending updates to hive code
           },
           -rc_name => '500Mb',
-          -analysis_capacity  =>  50,  # use per-analysis limiter
-          -hive_capacity  =>  -1,
+          #-analysis_capacity  =>  50,  # use per-analysis limiter
+          -hive_capacity  =>  200,
+          -flow_into => {
+              1 => [ ':////accu?samtools_vcf=[fan_index]' ],
+              -1 => [ 'call_by_samtools_himem' ],
+          },
+      });
+    push(@analyses, {
+          -logic_name    => 'call_by_samtools_himem',
+          -module        => 'ReseqTrack::Hive::Process::RunVariantCall',
+          -parameters    => {
+              module_name => 'CallBySamtools',
+              reference => $self->o('reference'),
+              samtools => $self->o('samtools_exe'),
+              bcftools => $self->o('bcftools_exe'),
+              vcfutils => $self->o('vcfutils_exe'),
+              bgzip => $self->o('bgzip_exe'),
+              options => $self->o('call_by_samtools_options'),
+              region_overlap => 100,
+              temp_param_sub => { 1 => [['samtools_vcf','vcf']]}, # temporary hack pending updates to hive code
+          },
+          -rc_name => '1Gb',
+          #-analysis_capacity  =>  50,  # use per-analysis limiter
+          -hive_capacity  =>  200,
           -flow_into => {
               1 => [ ':////accu?samtools_vcf=[fan_index]' ],
           },
@@ -292,8 +291,27 @@ sub pipeline_analyses {
               temp_param_sub => { 1 => [['gatk_vcf','vcf']]}, # temporary hack pending updates to hive code
           },
           -rc_name => '2Gb',
-          -analysis_capacity  =>  50,  # use per-analysis limiter
-          -hive_capacity  =>  -1,
+          #-analysis_capacity  =>  50,  # use per-analysis limiter
+          -hive_capacity  =>  200,
+          -flow_into => {
+              1 => [ ':////accu?gatk_vcf=[fan_index]' ],
+              -1 => [ 'call_by_gatk_himem' ],
+          },
+      });
+    push(@analyses, {
+          -logic_name    => 'call_by_gatk_himem',
+          -module        => 'ReseqTrack::Hive::Process::RunVariantCall',
+          -parameters    => {
+              module_name => 'CallByGATK',
+              reference => $self->o('reference'),
+              gatk_dir => $self->o('gatk_dir'),
+              options => $self->o('call_by_gatk_options'),
+              region_overlap => 100,
+              temp_param_sub => { 1 => [['gatk_vcf','vcf']]}, # temporary hack pending updates to hive code
+          },
+          -rc_name => '4Gb',
+          #-analysis_capacity  =>  50,  # use per-analysis limiter
+          -hive_capacity  =>  100,
           -flow_into => {
               1 => [ ':////accu?gatk_vcf=[fan_index]' ],
           },
@@ -311,8 +329,28 @@ sub pipeline_analyses {
               temp_param_sub => { 1 => [['freebayes_vcf','vcf']]}, # temporary hack pending updates to hive code
           },
           -rc_name => '2Gb',
-          -analysis_capacity  =>  50,  # use per-analysis limiter
-          -hive_capacity  =>  -1,
+          #-analysis_capacity  =>  50,  # use per-analysis limiter
+          -hive_capacity  =>  200,
+          -flow_into => {
+              1 => [ ':////accu?freebayes_vcf=[fan_index]' ],
+              -1 => [ 'call_by_freebayes_himem' ],
+          },
+      });
+    push(@analyses, {
+          -logic_name    => 'call_by_freebayes_himem',
+          -module        => 'ReseqTrack::Hive::Process::RunVariantCall',
+          -parameters    => {
+              module_name => 'CallByFreebayes',
+              reference => $self->o('reference'),
+              freebayes => $self->o('freebayes_exe'),
+              bgzip => $self->o('bgzip_exe'),
+              options => $self->o('call_by_freebayes_options'),
+              region_overlap => 100,
+              temp_param_sub => { 1 => [['freebayes_vcf','vcf']]}, # temporary hack pending updates to hive code
+          },
+          -rc_name => '4Gb',
+          #-analysis_capacity  =>  50,  # use per-analysis limiter
+          -hive_capacity  =>  100,
           -flow_into => {
               1 => [ ':////accu?freebayes_vcf=[fan_index]' ],
           },
@@ -350,8 +388,8 @@ sub pipeline_analyses {
               delete_param => ['vcf'],
           },
           -rc_name => '200Mb',
-          -analysis_capacity  =>  50,  # use per-analysis limiter
-          -hive_capacity  =>  -1,
+          #-analysis_capacity  =>  50,  # use per-analysis limiter
+          -hive_capacity  =>  200,
       });
 
     return \@analyses;

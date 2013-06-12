@@ -27,6 +27,7 @@ my $fastqc_path = 'fastqc';
 my $directory_layout;
 my $report_output_type = 'FASTQC_REPORT';
 my $summary_output_type = 'FASTQC_SUMMARY';
+my $zip_output_type = 'FASTQC_ZIP';
 
 &GetOptions(
 	'dbhost=s'     => \$dbhost,
@@ -41,7 +42,8 @@ my $summary_output_type = 'FASTQC_SUMMARY';
 	'program=s' => \$fastqc_path,
 	'directory_layout=s' => \$directory_layout,
 	'report_output_type=s' => \$report_output_type,
-	'summary_output_type=s' => \$summary_output_type, 
+	'summary_output_type=s' => \$summary_output_type,
+	'zip_output_type=s' => \$zip_output_type, 
 );
 	
 
@@ -88,6 +90,7 @@ my @input_files = map {$_->name} @{$collection->others};
 
 my @summary_files;
 my @report_files;
+my @zip_files;
 
 for my $fastq_file (@{$collection->others}) {
 	$db->dbc->disconnect_when_inactive(1);
@@ -95,6 +98,7 @@ for my $fastq_file (@{$collection->others}) {
 		-program => $fastqc_path,
 		-keep_text => 1,
 		-keep_summary => 1,
+		-keep_zip => 1,
 		-working_dir => $output_dir,
 		-input_files => [$fastq_file->name],
 	);
@@ -105,13 +109,16 @@ for my $fastq_file (@{$collection->others}) {
 	my ($base_name) = $fastqc->output_base_name($fastq_file->name);	
 	my $summary_path = $fastqc->summary_text_path($fastq_file->name);
 	my $report_path = $fastqc->report_text_path($fastq_file->name);
+	my $zip_path = $fastqc->zipped_output_path($fastq_file->name); 
 	my $summary_destination = "$output_dir/${base_name}_summary.txt";
 	my $report_destination = "$output_dir/${base_name}_report.txt";
+	my $zip_destination = "$output_dir/${base_name}.zip";
 	move($summary_path,$summary_destination);
 	move($report_path,$report_destination);
-	
+	move($zip_path,$zip_destination);
 	push @summary_files, $summary_destination;
 	push @report_files, $report_destination;
+	push @zip_files, $zip_destination;
 
 	
 	my $statistics = $fastq_file->statistics;
@@ -129,6 +136,7 @@ for my $fastq_file (@{$collection->others}) {
 
 create_output_records($collection->name,$summary_output_type,\@summary_files);
 create_output_records($collection->name,$report_output_type,\@report_files);
+create_output_records($collection->name,$zip_output_type,\@zip_files);
 
 sub create_output_records {
 	my ($collection_name,$type,$file_names) = @_;

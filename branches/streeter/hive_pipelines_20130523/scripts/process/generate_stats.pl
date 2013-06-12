@@ -23,6 +23,7 @@ my $alignment_module = 'ReseqTrack::Tools::Statistics::AlignmentIndexStatistics'
 my $collection_type;
 my $collection_name;
 my $analysis;
+my $threshold_in_gb;
 my $help = 0;
 &GetOptions( 
 	    'dbhost=s'       => \$dbhost,
@@ -38,6 +39,7 @@ my $help = 0;
 	    'analysis_index!' => \$analysis,
 	    'collection_type:s' => \$collection_type,
 	    'collection_name:s' => \$collection_name,
+	    'threshold_in_gb:i'	=>\$threshold_in_gb,
 	    'help!' => \$help,
 	   );
 
@@ -88,6 +90,7 @@ my $stats = $module->new(
 			 -collection_type => $collection_type,
 			 -collection_name => $collection_name,
 			 -analysis => $analysis,
+			 -threshold_in_gb => $threshold_in_gb,
 			);
 
 $stats->make_stats;
@@ -130,6 +133,7 @@ fetched from the given database and the 2 most recent files are worked out on th
 -module, this is the perl path to the module which should be used e.g ReseqTrack::Tools::Statistics::SequenceIndexStatistics
 -sequence, this means you default to using the SequenceIndexStatistics module
 -alignment, this means you default to using the AlignmentIndexStatistics module
+-threshold_in_gb, this is useful if you want to calculate number of samples with more than X Gb of data (if 10Gb, enter as '10') 
 
 =head1 Examples
 

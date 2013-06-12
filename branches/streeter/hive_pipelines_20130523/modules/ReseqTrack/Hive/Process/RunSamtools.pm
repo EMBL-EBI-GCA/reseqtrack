@@ -18,7 +18,7 @@ use ReseqTrack::Tools::RunSamtools;
 sub run {
     my $self = shift @_;
     $self->param_required('bam');
-    my $bams = $self->get_param_values('bam');
+    my $bams = $self->file_param_to_flat_array('bam');
     my $command = $self->param_required('command');
 
     my @allowed_cmds = qw(merge sort index fix_and_calmd calmd fixmate sam_to_bam);
@@ -42,7 +42,7 @@ sub run {
       -options      => $options,
     );
 
-    $self->run_rogram($samtools_object, $command);
+    $self->run_program($samtools_object, $command);
 
     my $output_files = $samtools_object->output_files;
     if (!ref($self->param('bam')) || $command eq 'merge') {
