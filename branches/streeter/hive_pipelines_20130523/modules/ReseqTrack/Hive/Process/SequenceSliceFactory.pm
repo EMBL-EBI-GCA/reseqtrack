@@ -50,18 +50,18 @@ sub run {
     if ($base_counter == 0 || $base_counter + $slice->length > $num_bases
         || ($max_sequences && $sequence_counter >= $max_sequences) ) {
       push(@child_slices, [$slice, $slice]);
-      $base_counter += $slice->length;
+      $base_counter = $slice->length;
       $sequence_counter = 1;
     }
     else {
       $child_slices[-1][1] = $slice;
-      $base_counter = $slice->length;
+      $base_counter += $slice->length;
       $sequence_counter += 1;
     }
   }
 
   #TEMPORARY LINE FOR TESTING
-#  if (@child_slices > 50) {
+#  if (@child_slices > 10) {
 #    @child_slices = @child_slices[0..10];
 #  }
 

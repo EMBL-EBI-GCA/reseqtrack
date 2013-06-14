@@ -387,7 +387,7 @@ sub pipeline_analyses {
               bgzip => $self->o('bgzip_exe'),
               delete_param => ['vcf'],
           },
-          -rc_name => '200Mb',
+          -rc_name => '500Mb',
           #-analysis_capacity  =>  50,  # use per-analysis limiter
           -hive_capacity  =>  200,
       });

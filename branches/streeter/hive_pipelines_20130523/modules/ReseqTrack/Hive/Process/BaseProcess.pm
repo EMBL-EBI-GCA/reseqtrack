@@ -57,7 +57,6 @@ sub fetch_input {
     $self->_params_to_delete([keys %delete_params]);
   }
 
-
 }
 
 =head2 run
@@ -166,15 +165,6 @@ sub _temp_param_sub {
   }
   return $hash;
 }
-
-
-## Just in case the child class sets disconnect_when_inactive(1) and then throws an error before changing it back
-#sub DESTROY {
-#  my $self = shift;
-#  return if !$self->{'_data_dbc'};
-#  $self->data_dbc->disconnect_when_inactive(0);
-#}
-#
 
 sub _accu_keys {
   my ($self,) = @_;
