@@ -90,7 +90,8 @@ if ( 	$input{collection} && $input{collection_type} ) {
 	
 	foreach my $list (@{$collection->others}){
 	    print "list: " . $list->name . "\n";
-	    if ($list->name =~ /chrom20/) {
+	    #if ($list->name =~ /chrom20/) {
+	    if ($list->name =~ /\.mapped/) {
 	        $bam = $list->name;
 	    }    
 	}
