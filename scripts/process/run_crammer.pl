@@ -209,22 +209,22 @@ sub assign_cram_name {
 	if ($bam_basename =~ /low_coverage/) {
         $dir = $input{output_dir} . "/$sample/alignment/";
         mkpath($dir) unless (-e $dir);
-        if ( $input{mode} =~ /lossless/i ) {
+#        if ( $input{mode} =~ /lossless/i ) {
 	        $output = $dir . $bam_basename . ".cram";
-        }
-        elsif ( $input{mode} =~ /lossy/i ) {
-	        $output = $dir . $bam_basename . ".lossy_cram";
-        }
+#        }
+#        elsif ( $input{mode} =~ /lossy/i ) {
+#	        $output = $dir . $bam_basename . ".lossy_cram";
+#        }
     }
     elsif ( $bam_basename =~ /exome/) {   
         $dir = $input{output_dir} . "/$sample/exome_alignment/";
         mkpath($dir) unless (-e $dir);
-        if ( $input{mode} =~ /lossless/i ) {
+#        if ( $input{mode} =~ /lossless/i ) {
 	        $output = $dir . $bam_basename . ".cram";
-        }
-		elsif ( $input{mode} =~ /lossy/i ) {
-	        $output = $dir . $bam_basename . ".lossy_cram";
-        }     
+#        }
+#		elsif ( $input{mode} =~ /lossy/i ) {
+#	        $output = $dir . $bam_basename . ".lossy_cram";
+#        }     
     }
     else {
 		throw("bam file $bam_basename is neither low coverage nor exome");
