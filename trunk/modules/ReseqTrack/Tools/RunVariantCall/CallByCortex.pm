@@ -9,7 +9,8 @@ use ReseqTrack::Tools::Argument qw(rearrange);
 use File::Basename qw(basename fileparse);
 use ReseqTrack::Tools::FileSystemUtils qw( check_file_exists check_executable get_lines_from_file);
 
-use base qw(ReseqTrack::Tools::RunVariantCall);
+#use base qw(ReseqTrack::Tools::RunVariantCall);
+use base qw(ReseqTrack::Tools::RunProgram);
 use File::Path;
 
 =head2 new
@@ -75,7 +76,8 @@ sub new {
     					POPULATION	 )], @args);    
   
   ## Set defaults
-  $self->program("/nfs/1000g-work/G1K/work/bin/cortex/bin/") if (! $self->program);
+  #$self->program("/nfs/1000g-work/G1K/work/bin/cortex/bin/") if (! $self->program);
+  $self->program("/nfs/production/reseq-info/work/bin/cortex/bin/") if (! $self->program);
   if ( !$executable ) {
       throw("Please provide cortex executable");
   } 
