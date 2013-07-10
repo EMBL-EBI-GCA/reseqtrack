@@ -1,4 +1,4 @@
-#!/usr/local/bin/perl -w
+#!/usr/bin/env perl
 
 =pod
 
@@ -39,6 +39,7 @@ ReseqTrack/event/run_event_pipeline.pl, this is the script for creating job obje
 =cut
 
 use strict;
+use warnings;
 
 use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::EventComplete;

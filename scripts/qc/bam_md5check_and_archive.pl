@@ -1,6 +1,7 @@
-#!/sw/arch/bin/perl 
+#!/usr/bin/env perl
 
 use strict;
+use warnings;
 
 use ReseqTrack::Tools::Bas;  ### Bas module has to be imported first to make sure the enviroment variables are set properly!
 use ReseqTrack::Tools::AlignmentBase;

@@ -1,9 +1,10 @@
+#!/usr/bin/env perl
 # Use run_ids (combined with "type") to create a withdraw list.
 # File produced is tab separated list that can be used to withdraw files
 # from database. Pulls file names via Collection table.
 
-use warnings;
 use strict;
+use warnings;
 use Getopt::Long;
 use ReseqTrack::Tools::Exception;
 use ReseqTrack::Tools::FileUtils;
