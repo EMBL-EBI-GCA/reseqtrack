@@ -19,6 +19,7 @@ use File::stat;
 =cut
 
 sub derive_directory {
+  my ($dropbox_path, $file_object) = @_;
   throw("Project-specific class must implement the derive_directory subroutine");
 }
 
