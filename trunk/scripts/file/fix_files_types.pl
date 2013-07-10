@@ -1,6 +1,7 @@
-#!/sw/arch/bin/perl -w
+#!/usr/bin/env perl
 
 use strict;
+use warnings;
 use Getopt::Long;
 use ReseqTrack::Tools::Exception qw(throw warning stack_trace_dump);
 use ReseqTrack::DBSQL::DBAdaptor;

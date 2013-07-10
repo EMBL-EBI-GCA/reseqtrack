@@ -1,6 +1,7 @@
-#!/sw/arch/bin/perl 
+#!/usr/bin/env perl
 
 use strict;
+use warnings;
 use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::Exception;
 use ReseqTrack::Tools::RunMetaInfoUtils qw(are_run_meta_infos_identical create_history_for_run_meta_info);

@@ -1,8 +1,8 @@
-#!/sw/arch/bin/perl -w
+#!/usr/bin/env perl
 #RES cvs check
 
-use warnings;
 use strict;
+use warnings;
 
 
 

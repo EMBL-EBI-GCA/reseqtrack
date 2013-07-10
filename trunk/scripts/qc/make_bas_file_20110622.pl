@@ -1,3 +1,4 @@
+#!/usr/bin/env perl
 #adapted from Rick's script /homes/smithre/OneKGenomes/reseq-personal/smithre/may_2011/scripts/make_bas_scrip.pl
 
 use strict;

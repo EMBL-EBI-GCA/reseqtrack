@@ -1,6 +1,6 @@
-#!/usr/local/bin/perl
-use warnings;
+#!/usr/bin/env perl
 use strict;
+use warnings;
 
 use Getopt::Long;
 use ReseqTrack::Tools::Exception;
