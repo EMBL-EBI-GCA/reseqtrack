@@ -16,24 +16,24 @@ use File::Path;
 
 sub new {
 
-  my ( $class, @args ) = @_;	
+  my ( $class, @args ) = @_;    
   my $gatk_obj = $class->ReseqTrack::Tools::GATKTools::new(@args);
   my $variant_call_obj = $class->ReseqTrack::Tools::RunVariantCall::new(@args);
   my $self = {(%$gatk_obj, %$variant_call_obj)};
   bless $self, $class;
 
-  my (	$dbsnp,
-  		$input_vcf,
-  		$anno,
-  		$anno_group,
-  		$parameters,
-	)
-    = rearrange( [ qw( 	DBSNP 
-        				INPUT_VCF
-    					ANNO
-    					ANNO_GROUP
-    					parameters		
-    				) ], @args);
+  my (    $dbsnp,
+          $input_vcf,
+          $anno,
+          $anno_group,
+          $parameters,
+    )
+    = rearrange( [ qw(     DBSNP 
+                        INPUT_VCF
+                        ANNO
+                        ANNO_GROUP
+                        parameters        
+                    ) ], @args);
 
   
   ### SET DEFAULT
@@ -67,8 +67,8 @@ sub run_program {
     my ($self) = @_; 
          
     my $input_bams = $self->input_files; 
-	my $input_vcf_basename = basename($self->input_vcf);
-	
+    my $input_vcf_basename = basename($self->input_vcf);
+    
     check_file_exists($self->reference);
     check_file_exists(@$input_bams) if ($self->input_files && @{$self->input_files} != 0 );
     check_file_exists($self->input_vcf);  
@@ -85,14 +85,14 @@ sub run_program {
     }            
     
     if ( $self->anno &&  @{$self->anno} != 0 ) {
-  	  foreach my $anno ( @{$self->anno} ) {
-	        $cmd .= "-A " . $anno . "  \\\n";
-	    } 
+        foreach my $anno ( @{$self->anno} ) {
+            $cmd .= "-A " . $anno . "  \\\n";
+        } 
     }
     elsif ( $self->anno_group && @{$self->anno_group} != 0 ) {
-  	  foreach my $anno_g ( @{$self->anno_group} ) {
-	        $cmd .= "-G " . $anno_g . "  \\\n";
-	    } 
+        foreach my $anno_g ( @{$self->anno_group} ) {
+            $cmd .= "-G " . $anno_g . "  \\\n";
+        } 
     }   
     
     if ( ! $self->anno && ! $self->anno_group && @{$self->anno} == 0 &&  @{$self->anno_group} == 0) {
@@ -120,11 +120,11 @@ sub run_program {
     }
     
     print "Running command...........................................\n$cmd\n";
-  	
-  	$self->output_files($outfile);
-  	
-  	$self->execute_command_line($cmd);
-  	return $self;
+      
+      $self->output_files($outfile);
+      
+      $self->execute_command_line($cmd);
+      return $self;
 }
 
 
@@ -181,9 +181,9 @@ sub anno {
   $self->{'anno'} ||= {};
   if ($arg) {
       foreach my $an (@{ref($arg) eq 'ARRAY' ? $arg : [$arg]}) {
-      	    $an =~ s/^\s+|\s+$//g;
-      	    $self->{'anno'}->{$an} = 1;	
-    	}
+              $an =~ s/^\s+|\s+$//g;
+              $self->{'anno'}->{$an} = 1;    
+        }
   }
   my @annotations = keys %{$self->{'anno'}};  
   return \@annotations;
@@ -206,9 +206,9 @@ sub anno_group {
   $self->{'anno_group'} ||= {};
   if ($arg) {
       foreach my $an (@{ref($arg) eq 'ARRAY' ? $arg : [$arg]}) {
-      	    $an =~ s/^\s+|\s+$//g;
-      	    $self->{'anno_group'}->{$an} = 1;	
-    	}
+              $an =~ s/^\s+|\s+$//g;
+              $self->{'anno_group'}->{$an} = 1;    
+        }
   }
   my @anno_group = keys %{$self->{'anno_group'}};  
   return \@anno_group;

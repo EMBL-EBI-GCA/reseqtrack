@@ -62,7 +62,6 @@ sub new {
   my (	$resources,
   		$use_annotation,
   		$parameters_VR,
-  		$save_files_from_deletion,
 )
     = rearrange( [ qw( 	RESOURCES 
     					USE_ANNOTATION
@@ -76,7 +75,6 @@ sub new {
   $self->resources($resources);
   $self->use_annotation($use_annotation);
   $self->options($parameters_VR);
-  $self->save_files_from_deletion($save_files_from_deletion);
 
   return $self;
 }

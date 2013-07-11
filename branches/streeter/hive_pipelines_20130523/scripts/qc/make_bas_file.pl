@@ -1,7 +1,7 @@
-#!/sw/arch/bin/perl -w
-use warnings;
+#!/usr/bin/env perl
 
 use strict;
+use warnings;
 
 use Getopt::Long;
 use ReseqTrack::Tools::Exception;

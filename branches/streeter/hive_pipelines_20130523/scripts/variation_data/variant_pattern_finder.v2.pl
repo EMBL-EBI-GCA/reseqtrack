@@ -1,4 +1,4 @@
-#!/sw/arch/bin/perl -w
+#!/usr/bin/env perl
 
 =head1 LICENSE
 
@@ -29,6 +29,7 @@
 =cut
 
 use strict;
+use warnings;
 use Getopt::Long;
 use Bio::EnsEMBL::Registry;
 use File::Copy;

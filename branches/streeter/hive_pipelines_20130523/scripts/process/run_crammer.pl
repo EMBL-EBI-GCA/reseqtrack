@@ -1,6 +1,7 @@
-#!/sw/arch/bin/perl -w
+#!/usr/bin/env perl
 
 use strict;
+use warnings;
 use ReseqTrack::Tools::Exception;
 use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::FileUtils;
@@ -90,7 +91,8 @@ if ( 	$input{collection} && $input{collection_type} ) {
 	
 	foreach my $list (@{$collection->others}){
 	    print "list: " . $list->name . "\n";
-	    if ($list->name =~ /chrom20/) {
+	    #if ($list->name =~ /chrom20/) {
+	    if ($list->name =~ /mapped/ && $list->name !~ /unmapped/) {
 	        $bam = $list->name;
 	    }    
 	}
@@ -208,22 +210,22 @@ sub assign_cram_name {
 	if ($bam_basename =~ /low_coverage/) {
         $dir = $input{output_dir} . "/$sample/alignment/";
         mkpath($dir) unless (-e $dir);
-        if ( $input{mode} =~ /lossless/i ) {
+#        if ( $input{mode} =~ /lossless/i ) {
 	        $output = $dir . $bam_basename . ".cram";
-        }
-        elsif ( $input{mode} =~ /lossy/i ) {
-	        $output = $dir . $bam_basename . ".lossy_cram";
-        }
+#        }
+#        elsif ( $input{mode} =~ /lossy/i ) {
+#	        $output = $dir . $bam_basename . ".lossy_cram";
+#        }
     }
     elsif ( $bam_basename =~ /exome/) {   
         $dir = $input{output_dir} . "/$sample/exome_alignment/";
         mkpath($dir) unless (-e $dir);
-        if ( $input{mode} =~ /lossless/i ) {
+#        if ( $input{mode} =~ /lossless/i ) {
 	        $output = $dir . $bam_basename . ".cram";
-        }
-		elsif ( $input{mode} =~ /lossy/i ) {
-	        $output = $dir . $bam_basename . ".lossy_cram";
-        }     
+#        }
+#		elsif ( $input{mode} =~ /lossy/i ) {
+#	        $output = $dir . $bam_basename . ".lossy_cram";
+#        }     
     }
     else {
 		throw("bam file $bam_basename is neither low coverage nor exome");

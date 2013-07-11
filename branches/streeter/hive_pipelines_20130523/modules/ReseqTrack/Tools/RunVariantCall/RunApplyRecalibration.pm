@@ -54,7 +54,6 @@ sub new {
   bless $self, $class;
 
   my (	$parameters_AR,
-  		$save_files_from_deletion,
   		$tranchesFile,
   		$recalFile,
 )
@@ -69,7 +68,6 @@ sub new {
   $self->gatk_path('/nfs/1000g-work/G1K/work/bin/gatk/dist/') if (! $self->gatk_path); #this calls ->program
     
   $self->options($parameters_AR);
-  $self->save_files_from_deletion($save_files_from_deletion);
   $self->tranchesFile($tranchesFile);
   $self->recalFile($recalFile);
   

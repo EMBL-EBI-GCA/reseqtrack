@@ -1,6 +1,7 @@
-#!/sw/arch/bin/perl 
+#!/usr/bin/env perl
 
 use strict;
+use warnings;
 use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::Exception;
 use ReseqTrack::Tools::HostUtils qw(get_host_object);

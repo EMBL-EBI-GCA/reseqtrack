@@ -1,6 +1,7 @@
-#!/sw/bin/perl -w
+#!/usr/bin/env perl
 
 use strict;
+use warnings;
 use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::Exception;
 use ReseqTrack::Tools::FileSystemUtils qw( get_lines_from_file );
