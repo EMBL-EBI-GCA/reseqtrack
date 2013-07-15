@@ -420,11 +420,10 @@ sub pipeline_analyses {
           -logic_name    => 'apply_recalibration_snps',
           -module        => 'ReseqTrack::Hive::Process::RunApplyRecalibration',
           -parameters    => {
-              delete_param => ['vcf', 'recal', 'tbi'],
+              delete_param => ['vcf', 'recal_file', 'tbi'],
               reference => $self->o('reference'),
               gatk_dir => $self->o('gatk_dir'),
               options => $self->o('apply_recalibration_snps_options'),
-              delete_param => ['recal_file'],
           },
           -rc_name => '500Mb',
           #-analysis_capacity  =>  50,  # use per-analysis limiter
@@ -434,11 +433,10 @@ sub pipeline_analyses {
           -logic_name    => 'apply_recalibration_indels',
           -module        => 'ReseqTrack::Hive::Process::RunApplyRecalibration',
           -parameters    => {
-              delete_param => ['vcf', 'recal', 'tbi'],
+              delete_param => ['vcf', 'recal_file', 'tbi'],
               reference => $self->o('reference'),
               gatk_dir => $self->o('gatk_dir'),
               options => $self->o('apply_recalibration_indels_options'),
-              delete_param => ['recal_file'],
           },
           -rc_name => '500Mb',
           #-analysis_capacity  =>  50,  # use per-analysis limiter
