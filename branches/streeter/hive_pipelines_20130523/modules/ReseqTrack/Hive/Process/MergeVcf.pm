@@ -20,6 +20,8 @@ sub run {
     $self->param_required('bp_start');
     $self->param_required('bp_end');
     my $bgzip = $self->param_is_defined('bgzip') ? $self->param('bgzip') : 'bgzip';
+    my $tabix = $self->param_is_defined('tabix') ? $self->param('tabix') : 'tabix';
+    my $run_tabix = $self->param_is_defined('run_tabix') && $self->param('run_tabix') ? 1 : 0;
 
     my $vcfs = $self->file_param_to_flat_array('vcf');
     my $bp_start = $self->param_to_flat_array('bp_start');
@@ -33,6 +35,9 @@ sub run {
     my $output_file = "$output_dir/$job_name.vcf.gz";
     check_directory_exists($output_dir);
     check_executable($bgzip);
+    if ($run_tabix) {
+      check_executable($tabix);
+    }
     open my $OUT, "| $bgzip -c > $output_file";
     my $first_vcf = 1;
     $self->data_dbc->disconnect_when_inactive(1);
@@ -65,9 +70,17 @@ sub run {
       $first_vcf = 0;
     }
     close $OUT;
+
+    if ($run_tabix) {
+      system("$tabix -p vcf $output_file") ==0 or throw("tabix failed $!");
+    }
+
     $self->data_dbc->disconnect_when_inactive(0);
 
     $self->output_param('vcf' => $output_file);
+    if ($run_tabix) {
+      $self->output_param('tbi' => "$output_file.tbi");
+    }
 
 }
 

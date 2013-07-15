@@ -1,6 +1,6 @@
 
 
-package ReseqTrack::Hive::PipeConfig::VariantCall_conf;
+package ReseqTrack::Hive::PipeConfig::VQSR_conf;
 
 use strict;
 use warnings;
@@ -25,18 +25,33 @@ sub default_options {
 
         'type_bam'    => 'BAM',
         'transpose_exe' => $self->o('ENV', 'RESEQTRACK').'/c_code/transpose_bam/transpose_bam',
-        'samtools_exe' => '/nfs/1000g-work/G1K/work/bin/samtools/samtools',
-        'bcftools_exe' => '/nfs/1000g-work/G1K/work/bin/samtools/bcftools/bcftools',
-        'vcfutils_exe' => '/nfs/1000g-work/G1K/work/bin/samtools/bcftools/vcfutils.pl',
         'bgzip_exe' => '/nfs/1000g-work/G1K/work/bin/tabix/bgzip',
         'gatk_dir' => '/nfs/1000g-work/G1K/work/bin/gatk/dist/',
-        'freebayes_exe' => '/nfs/1000g-work/G1K/work/bin/freebayes/bin/freebayes',
 
-        call_by_gatk_options => {}, # use module defaults
-        call_by_samtools_options => {}, # use module defaults
-        call_by_freebayes_options => {}, # use module defaults
+        call_by_gatk_snps_options => {
+                glm => 'SNP',
+                gt_mode => "GENOTYPE_GIVEN_ALLELES",
+                out_mode => "EMIT_ALL_SITES",
+                alleles => $self->o('snp_alleles'),
+              },
 
-        callgroup => [],
+        call_by_gatk_indels_options => {
+                glm => 'INDEL',
+                gt_mode => "GENOTYPE_GIVEN_ALLELES",
+                out_mode => "EMIT_ALL_SITES",
+                alleles => $self->o('indel_alleles'),
+              },
+
+        variant_recalibrator_snps_options => {mode => 'SNP'},
+        variant_recalibrator_indels_options => {mode => 'INDEL'},
+        apply_recalibration_snps_options => {mode => 'SNP'},
+        apply_recalibration_indels_options => {mode => 'INDEL'},
+
+        snp_resources => {},
+        indel_resources => {},
+
+        snp_annotations => [], # use defaults
+        indel_annotations => [], # use defaults
 
         'fai' => $self->o('reference') . '.fai',
         'target_bed_file' => undef,
@@ -45,9 +60,8 @@ sub default_options {
         'call_window_size' => 50000,
         'transpose_window_size' => 50000000,
 
-        'call_by_samtools' => 1,
-        'call_by_gatk' => 1,
-        'call_by_freebayes' => 1,
+        'vqsr_snps' => 1,
+        'vqsr_indels' => 1,
 
 
     };
@@ -132,8 +146,7 @@ sub pipeline_analyses {
                 factory_value => '#callgroup#',
                 temp_param_sub => { 2 => [['callgroup','factory_value']]}, # temporary hack pending updates to hive code
             },
-            #-input_ids => [{callgroup => [split(',', $self->o('callgroup'))]}],
-            -input_ids => [{callgroup => [$self->o('callgroup')]}],
+            -input_ids => [{callgroup => [split(',', $self->o('callgroup'))]}],
             -flow_into => {
                 2 => [ 'find_source_bams' ],   # will create a semaphored fan of jobs
             },
@@ -159,6 +172,7 @@ sub pipeline_analyses {
                 num_bases => $self->o('transpose_window_size'),
                 max_sequences => 2000,
                 bed => $self->o('target_bed_file'),
+                temp_param_sub => { 1 => [['bam','undef']]}, # temporary hack pending updates to hive code
             },
             -flow_into => {
                 '2->A' => [ 'transpose_bam' ],
@@ -206,15 +220,13 @@ sub pipeline_analyses {
           -meadow_type=> 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
           -parameters => {
               require_true => {
-                  1 => $self->o('call_by_samtools'),
-                  2 => $self->o('call_by_gatk'),
-                  3 => $self->o('call_by_freebayes'),
+                  1 => $self->o('vqsr_snps'),
+                  2 => $self->o('vqsr_indels'),
               }
           },
             -flow_into => {
-                '1' => [ 'call_by_samtools' ],
-                '2' => [ 'call_by_gatk' ],
-                '3' => [ 'call_by_freebayes' ],
+                '1' => [ 'call_by_gatk_snps' ],
+                '2' => [ 'call_by_gatk_indels' ],
             },
       });
     push(@analyses, {
@@ -223,139 +235,94 @@ sub pipeline_analyses {
             -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
             -parameters    => {
                 require_true => {
-                  1 => $self->o('call_by_samtools'),
-                  2 => $self->o('call_by_gatk'),
-                  3 => $self->o('call_by_freebayes'),
-                  4 => 1,
+                  1 => $self->o('vqsr_snps'),
+                  2 => $self->o('vqsr_indels'),
+                  3 => 1,
               },
               delete_param => ['bam','bai'],
             },
             -flow_into => {
-                1 => [ ':////accu?samtools_vcf=[fan_index]'],
-                2 => [ ':////accu?gatk_vcf=[fan_index]'],
-                3 => [ ':////accu?freebayes_vcf=[fan_index]'],
-                4 => [ ':////accu?bp_start=[fan_index]',
+                1 => [ ':////accu?gatk_snps_vcf=[fan_index]'],
+                2 => [ ':////accu?gatk_indels_vcf=[fan_index]'],
+                3 => [ ':////accu?bp_start=[fan_index]',
                        ':////accu?bp_end=[fan_index]',
                     ],
             },
       });
     push(@analyses, {
-          -logic_name    => 'call_by_samtools',
-          -module        => 'ReseqTrack::Hive::Process::RunVariantCall',
-          -parameters    => {
-              module_name => 'CallBySamtools',
-              reference => $self->o('reference'),
-              samtools => $self->o('samtools_exe'),
-              bcftools => $self->o('bcftools_exe'),
-              vcfutils => $self->o('vcfutils_exe'),
-              bgzip => $self->o('bgzip_exe'),
-              options => $self->o('call_by_samtools_options'),
-              region_overlap => 100,
-              temp_param_sub => { 1 => [['samtools_vcf','vcf']]}, # temporary hack pending updates to hive code
-          },
-          -rc_name => '500Mb',
-          #-analysis_capacity  =>  50,  # use per-analysis limiter
-          -hive_capacity  =>  200,
-          -flow_into => {
-              1 => [ ':////accu?samtools_vcf=[fan_index]' ],
-              -1 => [ 'call_by_samtools_himem' ],
-          },
-      });
-    push(@analyses, {
-          -logic_name    => 'call_by_samtools_himem',
-          -module        => 'ReseqTrack::Hive::Process::RunVariantCall',
-          -parameters    => {
-              module_name => 'CallBySamtools',
-              reference => $self->o('reference'),
-              samtools => $self->o('samtools_exe'),
-              bcftools => $self->o('bcftools_exe'),
-              vcfutils => $self->o('vcfutils_exe'),
-              bgzip => $self->o('bgzip_exe'),
-              options => $self->o('call_by_samtools_options'),
-              region_overlap => 100,
-              temp_param_sub => { 1 => [['samtools_vcf','vcf']]}, # temporary hack pending updates to hive code
-          },
-          -rc_name => '1Gb',
-          #-analysis_capacity  =>  50,  # use per-analysis limiter
-          -hive_capacity  =>  200,
-          -flow_into => {
-              1 => [ ':////accu?samtools_vcf=[fan_index]' ],
-          },
-      });
-    push(@analyses, {
-          -logic_name    => 'call_by_gatk',
+          -logic_name    => 'call_by_gatk_snps',
           -module        => 'ReseqTrack::Hive::Process::RunVariantCall',
           -parameters    => {
               module_name => 'CallByGATK',
               reference => $self->o('reference'),
               gatk_dir => $self->o('gatk_dir'),
-              options => $self->o('call_by_gatk_options'),
+              options => $self->o('call_by_gatk_snps_options'),
               region_overlap => 100,
-              temp_param_sub => { 1 => [['gatk_vcf','vcf']]}, # temporary hack pending updates to hive code
+              temp_param_sub => { 1 => [['gatk_snps_vcf','vcf']]}, # temporary hack pending updates to hive code
           },
           -rc_name => '2Gb',
           #-analysis_capacity  =>  50,  # use per-analysis limiter
           -hive_capacity  =>  200,
           -flow_into => {
-              1 => [ ':////accu?gatk_vcf=[fan_index]' ],
-              -1 => [ 'call_by_gatk_himem' ],
+              1 => [ ':////accu?gatk_snps_vcf=[fan_index]' ],
+              -1 => [ 'call_by_gatk_snps_himem' ],
           },
       });
     push(@analyses, {
-          -logic_name    => 'call_by_gatk_himem',
+          -logic_name    => 'call_by_gatk_snps_himem',
           -module        => 'ReseqTrack::Hive::Process::RunVariantCall',
           -parameters    => {
               module_name => 'CallByGATK',
               reference => $self->o('reference'),
               gatk_dir => $self->o('gatk_dir'),
-              options => $self->o('call_by_gatk_options'),
+              options => $self->o('call_by_gatk_snps_options'),
               region_overlap => 100,
-              temp_param_sub => { 1 => [['gatk_vcf','vcf']]}, # temporary hack pending updates to hive code
+              temp_param_sub => { 1 => [['gatk_snps_vcf','vcf']]}, # temporary hack pending updates to hive code
           },
           -rc_name => '4Gb',
           #-analysis_capacity  =>  50,  # use per-analysis limiter
           -hive_capacity  =>  100,
           -flow_into => {
-              1 => [ ':////accu?gatk_vcf=[fan_index]' ],
+              1 => [ ':////accu?gatk_snps_vcf=[fan_index]' ],
           },
       });
     push(@analyses, {
-          -logic_name    => 'call_by_freebayes',
+          -logic_name    => 'call_by_gatk_indels',
           -module        => 'ReseqTrack::Hive::Process::RunVariantCall',
           -parameters    => {
-              module_name => 'CallByFreebayes',
+              module_name => 'CallByGATK',
               reference => $self->o('reference'),
-              freebayes => $self->o('freebayes_exe'),
-              bgzip => $self->o('bgzip_exe'),
-              options => $self->o('call_by_freebayes_options'),
+              gatk_dir => $self->o('gatk_dir'),
+              options => $self->o('call_by_gatk_indels_options'),
               region_overlap => 100,
-              temp_param_sub => { 1 => [['freebayes_vcf','vcf']]}, # temporary hack pending updates to hive code
+              temp_param_sub => { 1 => [['gatk_indels_vcf','vcf']]}, # temporary hack pending updates to hive code
           },
           -rc_name => '2Gb',
           #-analysis_capacity  =>  50,  # use per-analysis limiter
           -hive_capacity  =>  200,
           -flow_into => {
-              1 => [ ':////accu?freebayes_vcf=[fan_index]' ],
-              -1 => [ 'call_by_freebayes_himem' ],
+              1 => [ ':////accu?gatk_indels_vcf=[fan_index]' ],
+              -1 => [ 'call_by_gatk_indels_himem' ],
           },
       });
     push(@analyses, {
-          -logic_name    => 'call_by_freebayes_himem',
+          -logic_name    => 'call_by_gatk_indels_himem',
           -module        => 'ReseqTrack::Hive::Process::RunVariantCall',
           -parameters    => {
-              module_name => 'CallByFreebayes',
+              module_name => 'CallByGATK',
               reference => $self->o('reference'),
-              freebayes => $self->o('freebayes_exe'),
-              bgzip => $self->o('bgzip_exe'),
-              options => $self->o('call_by_freebayes_options'),
+              gatk_dir => $self->o('gatk_dir'),
+              extra_options => $self->o('call_by_gatk_indels_options'),
+              alleles_file => $self->o('indel_alleles'),
+              options => '#expr({%$extra_options, glm => "INDEL", gt_mode => "GENOTYPE_GIVEN_ALLELES", out_mode => "EMIT_ALL_SITES", alleles => $alleles_file})expr#',
               region_overlap => 100,
-              temp_param_sub => { 1 => [['freebayes_vcf','vcf']]}, # temporary hack pending updates to hive code
+              temp_param_sub => { 1 => [['gatk_indels_vcf','vcf']]}, # temporary hack pending updates to hive code
           },
           -rc_name => '4Gb',
           #-analysis_capacity  =>  50,  # use per-analysis limiter
           -hive_capacity  =>  100,
           -flow_into => {
-              1 => [ ':////accu?freebayes_vcf=[fan_index]' ],
+              1 => [ ':////accu?gatk_indels_vcf=[fan_index]' ],
           },
       });
     push(@analyses, {
@@ -364,31 +331,114 @@ sub pipeline_analyses {
           -meadow_type=> 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
           -parameters => {
               require_true => {
-                  1 => $self->o('call_by_samtools'),
-                  2 => $self->o('call_by_gatk'),
-                  3 => $self->o('call_by_freebayes'),
+                  1 => $self->o('vqsr_snps'),
+                  2 => $self->o('vqsr_indels'),
               },
               temp_param_sub => {
-                1 => [['vcf','samtools_vcf'],['gatk_vcf', 'undef'],['freebayes_vcf','undef'],['caller', '"samtools"']],
-                2 => [['vcf','gatk_vcf'],['samtools_vcf', 'undef'],['freebayes_vcf','undef'],['caller', '"gatk"']],
-                3 => [['vcf','freebayes_vcf'],['samtools_vcf', 'undef'],['gatk_vcf','undef'],['caller', '"freebayes"']],
+                1 => [['vcf','gatk_snps_vcf'],['gatk_indels_vcf', 'undef']],
+                2 => [['vcf','gatk_indels_vcf'],['gatk_snps_vcf', 'undef']],
               }, # temporary hack pending updates to hive code
           },
             -flow_into => {
-                '1' => [ 'merge_vcf' ],
-                '2' => [ 'merge_vcf' ],
-                '3' => [ 'merge_vcf' ],
+                '1' => [ 'merge_vcf_snps' ],
+                '2' => [ 'merge_vcf_indels' ],
             },
       });
 
 
     push(@analyses, {
-          -logic_name    => 'merge_vcf',
+          -logic_name    => 'merge_vcf_snps',
           -module        => 'ReseqTrack::Hive::Process::MergeVcf',
           -parameters    => {
-              analysis_label => '#expr("call_by_".$caller)expr#',
               bgzip => $self->o('bgzip_exe'),
               delete_param => ['vcf'],
+              temp_param_sub => { 1 => [['bp_start','undef'],['bp_end','undef']]}, # temporary hack pending updates to hive code
+              run_tabix => 1,
+          },
+          -rc_name => '500Mb',
+          #-analysis_capacity  =>  50,  # use per-analysis limiter
+          -hive_capacity  =>  200,
+          -flow_into => {
+              '1' => [ 'variant_recalibrator_snps' ],
+          },
+      });
+    push(@analyses, {
+          -logic_name    => 'merge_vcf_indels',
+          -module        => 'ReseqTrack::Hive::Process::MergeVcf',
+          -parameters    => {
+              bgzip => $self->o('bgzip_exe'),
+              delete_param => ['vcf'],
+              temp_param_sub => { 1 => [['bp_start','undef'],['bp_end','undef']]}, # temporary hack pending updates to hive code
+              run_tabix => 1,
+          },
+          -rc_name => '500Mb',
+          #-analysis_capacity  =>  50,  # use per-analysis limiter
+          -hive_capacity  =>  200,
+          -flow_into => {
+              '1' => [ 'variant_recalibrator_indels' ],
+          },
+      });
+
+    push(@analyses, {
+          -logic_name    => 'variant_recalibrator_snps',
+          -module        => 'ReseqTrack::Hive::Process::RunVariantRecalibrator',
+          -parameters    => {
+              reference => $self->o('reference'),
+              gatk_dir => $self->o('gatk_dir'),
+              options => $self->o('variant_recalibrator_snps_options'),
+              resources => $self->o('snp_resources'),
+              annotations => $self->o('snp_annotations'),
+              mode => 'SNP',
+          },
+          -rc_name => '2Gb',
+          #-analysis_capacity  =>  50,  # use per-analysis limiter
+          -hive_capacity  =>  200,
+          -flow_into => {
+              1 => [ 'apply_recalibration_snps' ],
+          },
+      });
+    push(@analyses, {
+          -logic_name    => 'variant_recalibrator_indels',
+          -module        => 'ReseqTrack::Hive::Process::RunVariantRecalibrator',
+          -parameters    => {
+              reference => $self->o('reference'),
+              gatk_dir => $self->o('gatk_dir'),
+              options => $self->o('variant_recalibrator_indels_options'),
+              resources => $self->o('indel_resources'),
+              annotations => $self->o('indel_annotations'),
+              mode => 'INDEL',
+          },
+          -rc_name => '2Gb',
+          #-analysis_capacity  =>  50,  # use per-analysis limiter
+          -hive_capacity  =>  200,
+          -flow_into => {
+              1 => [ 'apply_recalibration_indels' ],
+          },
+      });
+
+    push(@analyses, {
+          -logic_name    => 'apply_recalibration_snps',
+          -module        => 'ReseqTrack::Hive::Process::RunApplyRecalibration',
+          -parameters    => {
+              delete_param => ['vcf', 'recal', 'tbi'],
+              reference => $self->o('reference'),
+              gatk_dir => $self->o('gatk_dir'),
+              options => $self->o('apply_recalibration_snps_options'),
+              delete_param => ['recal_file'],
+          },
+          -rc_name => '500Mb',
+          #-analysis_capacity  =>  50,  # use per-analysis limiter
+          -hive_capacity  =>  200,
+      });
+    push(@analyses, {
+          -logic_name    => 'apply_recalibration_indels',
+          -module        => 'ReseqTrack::Hive::Process::RunApplyRecalibration',
+          -parameters    => {
+              delete_param => ['vcf', 'recal', 'tbi'],
+              reference => $self->o('reference'),
+              gatk_dir => $self->o('gatk_dir'),
+              options => $self->o('apply_recalibration_indels_options'),
+              delete_param => ['recal_file'],
           },
           -rc_name => '500Mb',
           #-analysis_capacity  =>  50,  # use per-analysis limiter

@@ -115,9 +115,12 @@ sub run_program {
     my $outfile = $self->working_dir . "/" . $input_vcf_basename . ".annotated.vcf"; 
     $cmd .= "-o $outfile \\\n";
     
-    if ($self->chrom && $self->region) {
-        $cmd .= "-L " . $self->chrom . ":" . $self->region . " \\\n";
-    }
+    if (my $region = $self->chrom) {
+      if (defined $self->region_start && defined $self->region_end) {
+        $region.= ':' . $self->region_start . '-' . $self->region_end;
+      }
+      $cmd .= "-L $region \\\n";
+    }    
     
     print "Running command...........................................\n$cmd\n";
       

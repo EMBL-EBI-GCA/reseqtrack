@@ -85,6 +85,11 @@ sub run_program {
     $self->check_bai_exists();
     check_executable($self->java_exe);
 
+    if (my $alleles_file = $self->options('alleles')) {
+      check_file_exists($alleles_file);
+      check_file_exists("$alleles_file.tbi");
+    }
+
     my $output_vcf = $self->working_dir .'/'. $self->job_name . '.vcf.gz';
     $output_vcf =~ s{//}{/};
 
