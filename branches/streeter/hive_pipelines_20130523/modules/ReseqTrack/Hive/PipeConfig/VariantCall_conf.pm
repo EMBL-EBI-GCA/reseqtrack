@@ -133,7 +133,7 @@ sub pipeline_analyses {
                 temp_param_sub => { 2 => [['callgroup','factory_value']]}, # temporary hack pending updates to hive code
             },
             #-input_ids => [{callgroup => [split(',', $self->o('callgroup'))]}],
-            -input_ids => [{callgroup => [$self->o('callgroup')]}],
+            -input_ids => [{callgroup => $self->o('callgroup')}],
             -flow_into => {
                 2 => [ 'find_source_bams' ],   # will create a semaphored fan of jobs
             },

@@ -121,7 +121,7 @@ sub pipeline_analyses {
             -module        => 'ReseqTrack::Hive::Process::JobFactory',
             -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
             #-input_ids => [{study_id => [split(',', $self->o('study_id'))]}],
-            -input_ids => [{study_id => [$self->o('study_id')]}],
+            -input_ids => [{study_id => $self->o('study_id')}],
             -parameters    => {
                 factory_value => '#study_id#',
                 temp_param_sub => { 2 => [['study_id','factory_value']]}, # temporary hack pending updates to hive code
