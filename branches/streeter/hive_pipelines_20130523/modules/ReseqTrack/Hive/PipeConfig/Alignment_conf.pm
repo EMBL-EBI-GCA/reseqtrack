@@ -89,6 +89,8 @@ sub resource_classes {
             '2Gb' => { 'LSF' => '-C0 -M2000 -q production -R"select[mem>2000] rusage[mem=2000]"' },
             '4Gb' => { 'LSF' => '-C0 -M4000 -q production -R"select[mem>4000] rusage[mem=4000]"' },
             '5Gb' => { 'LSF' => '-C0 -M5000 -q production -R"select[mem>5000] rusage[mem=5000]"' },
+            '6Gb' => { 'LSF' => '-C0 -M6000 -q production -R"select[mem>6000] rusage[mem=6000]"' },
+            '8Gb' => { 'LSF' => '-C0 -M8000 -q production -R"select[mem>8000] rusage[mem=8000]"' },
     };
 }
 
@@ -202,7 +204,7 @@ sub pipeline_analyses {
                 reference => $self->o('reference'),
                 delete_param => 'fastq',
             },
-            -rc_name => '5Gb', # Note the 'hardened' version of BWA may need 8Gb RAM or more
+            -rc_name => '8Gb', # Note the 'hardened' version of BWA may need 8Gb RAM or more
             #-analysis_capacity  =>  50,  # use per-analysis limiter
             -hive_capacity  =>  100,
             -flow_into => {
@@ -314,22 +316,6 @@ sub pipeline_analyses {
             #-analysis_capacity  =>  50,  # use per-analysis limiter
             -hive_capacity  =>  200,
             -flow_into => {
-                1 => [ 'tag_strip_run_level'],
-            },
-      });
-    push(@analyses, {
-            -logic_name => 'tag_strip_run_level',
-            -module        => 'ReseqTrack::Hive::Process::RunSqueezeBam',
-            -parameters => {
-                program_file => $self->o('squeeze_exe'),
-                'rm_OQ_fields' => 1,
-                'rm_tag_types' => ['XM:i', 'XG:i', 'XO:i'],
-                delete_param => ['bam'],
-            },
-            -rc_name => '1Gb',
-            #-analysis_capacity  =>  50,  # use per-analysis limiter
-            -hive_capacity  =>  200,
-            -flow_into => {
                 1 => [ ':////accu?bam=[]', ':////accu?bai=[]'],
             },
       });
@@ -339,12 +325,11 @@ sub pipeline_analyses {
             -meadow_type=> 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
             -parameters => {
                 recalibrate_level => $self->o('recalibrate_level'),
-                require_true => {2 => '#expr($recalibrate_level==1)expr#',
-                                 1 => '#expr($recalibrate_level!=1)expr#'},
+                require_true => {2 => '#expr($recalibrate_level==1)expr#', 1 => 1},
             },
             -flow_into => {
-                2 => [ 'decide_index_recalibrate_run_level'],
-                1 => [ ':////accu?bam=[]', ':////accu?bai=[]'],
+                '2->A' => [ 'decide_index_recalibrate_run_level'],
+                'A->1' => [ 'decide_tag_strip_run_level'],
             },
       });
     push(@analyses, {
@@ -398,6 +383,37 @@ sub pipeline_analyses {
               1 => [ ':////accu?bam=[]', ':////accu?bai=[]'],
           },
     });
+    push(@analyses, {
+            -logic_name => 'decide_tag_strip_run_level',
+            -module        => 'ReseqTrack::Hive::Process::FlowDecider',
+            -meadow_type=> 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
+            -parameters => {
+                recalibrate_level => $self->o('recalibrate_level'),
+                realign_knowns_only => $self->o('realign_knowns_only'),
+                require_true => {2 => '#expr($realign_knowns_only && $recalibrate_level<2)expr#',
+                                 1 => '#expr(!$realign_knowns_only || $recalibrate_level==2)expr#'},
+            },
+            -flow_into => {
+                2 => [ 'tag_strip_run_level'],
+                1 => [ ':////accu?bam=[]', ':////accu?bai=[]'],
+            },
+      });
+    push(@analyses, {
+            -logic_name => 'tag_strip_run_level',
+            -module        => 'ReseqTrack::Hive::Process::RunSqueezeBam',
+            -parameters => {
+                program_file => $self->o('squeeze_exe'),
+                'rm_OQ_fields' => 1,
+                'rm_tag_types' => ['XM:i', 'XG:i', 'XO:i'],
+                delete_param => ['bam'],
+            },
+            -rc_name => '1Gb',
+            #-analysis_capacity  =>  50,  # use per-analysis limiter
+            -hive_capacity  =>  200,
+            -flow_into => {
+                1 => [ ':////accu?bam=[]', ':////accu?bai=[]'],
+            },
+      });
     push(@analyses, {
           -logic_name => 'decide_mark_duplicates',
           -module        => 'ReseqTrack::Hive::Process::FlowDecider',
@@ -506,22 +522,6 @@ sub pipeline_analyses {
             #-analysis_capacity  =>  50,  # use per-analysis limiter
             -hive_capacity  =>  200,
             -flow_into => {
-                1 => [ 'tag_strip_sample_level'],
-            },
-      });
-    push(@analyses, {
-            -logic_name => 'tag_strip_sample_level',
-            -module        => 'ReseqTrack::Hive::Process::RunSqueezeBam',
-            -parameters => {
-                program_file => $self->o('squeeze_exe'),
-                'rm_OQ_fields' => 1,
-                'rm_tag_types' => ['XM:i', 'XG:i', 'XO:i'],
-                delete_param => ['bam'],
-            },
-            -rc_name => '1Gb',
-            #-analysis_capacity  =>  50,  # use per-analysis limiter
-            -hive_capacity  =>  200,
-            -flow_into => {
                 1 => [ ':////accu?bam=[]', ':////accu?bai=[]'],
             },
       });
@@ -535,7 +535,7 @@ sub pipeline_analyses {
             },
             -flow_into => {
                 '2->A' => [ 'decide_index_recalibrate_sample_level'],
-                'A->1' => [ 'reheader' ],
+                'A->1' => [ 'decide_tag_strip_sample_level' ],
             },
       });
     push(@analyses, {
@@ -586,6 +586,36 @@ sub pipeline_analyses {
               1 => [ ':////accu?bam=[]', ':////accu?bai=[]'],
           },
     });
+    push(@analyses, {
+            -logic_name => 'decide_tag_strip_sample_level',
+            -module        => 'ReseqTrack::Hive::Process::FlowDecider',
+            -meadow_type=> 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
+            -parameters => {
+                recalibrate_level => $self->o('recalibrate_level'),
+                realign_knowns_only => $self->o('realign_knowns_only'),
+                require_true => {2 => '#expr(!$realign_knowns_only || $recalibrate_level==2)expr#', 1 => 1},
+            },
+            -flow_into => {
+                '2->A' => [ 'tag_strip_sample_level'],
+                'A->1' => [ 'reheader'],
+            },
+      });
+    push(@analyses, {
+            -logic_name => 'tag_strip_sample_level',
+            -module        => 'ReseqTrack::Hive::Process::RunSqueezeBam',
+            -parameters => {
+                program_file => $self->o('squeeze_exe'),
+                'rm_OQ_fields' => 1,
+                'rm_tag_types' => ['XM:i', 'XG:i', 'XO:i'],
+                delete_param => ['bam'],
+            },
+            -rc_name => '1Gb',
+            #-analysis_capacity  =>  50,  # use per-analysis limiter
+            -hive_capacity  =>  200,
+            -flow_into => {
+                1 => [ ':////accu?bam=[]'],
+            },
+      });
     push(@analyses, {
             -logic_name => 'reheader',
             -module        => 'ReseqTrack::Hive::Process::ReheaderBam',

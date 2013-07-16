@@ -240,7 +240,7 @@ sub run_bwa_mem {
       push(@cmd_words, '-E', $self->options('gap_extension_penalty'))
               if ($self->options('gap_extension_penalty'));
 
-      push(@cmd_words, '-M') if $self->options('mark_secondary_hits'));
+      push(@cmd_words, '-M') if $self->options('mark_secondary_hits');
 
       if ($self->read_group_fields->{'ID'}) {
         my $rg_string = q("@RG\tID:) . $self->read_group_fields->{'ID'};
