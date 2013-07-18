@@ -17,15 +17,21 @@ use base ('Bio::EnsEMBL::Hive::PipeConfig::HiveGeneric_conf');  # All Hive datab
 sub default_options {
     my ($self) = @_;
 
-    return {
-        %{ $self->SUPER::default_options() },               # inherit other stuff from the base class
+    my $super_default_options = $self->SUPER::default_options();
+    # override defaults set in parent class:
+    $super_default_options->{'pipeline_db'}->{'-port'} = 4175;
+    $super_default_options->{'pipeline_db'}->{'-user'} = 'g1krw';
 
+    return {
+        %{ $super_default_options },
+
+        'host' => 'mysql-g1k',
         'reseqtrack_db'  => {
             -host => $self->o('host'),
-            -port => 4197,
+            -port => 4175,
             -user => 'g1kro',
             -pass => undef, # set on the command line
-            -dbname => undef, # set on the command line
+            -dbname => $self->o('reseqtrack_db_name'),
         },
 
         root_output_dir => $self->o('ENV', 'PWD'), # Should be set to something more sensible

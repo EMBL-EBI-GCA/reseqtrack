@@ -1,3 +1,60 @@
+=head1 NAME
+
+ ReseqTrack::Hive::PipeConfig::Alignment_conf
+
+=head1 SYNOPSIS
+  
+  Options you MUST specify on the command line:
+
+      -study_id, refers to a study_id in your run_meta_info table
+      -reference, fasta file of your reference genome.  Should be indexed for bwa and should have a .fai and .dict
+      -password, for accessing the hive database
+      -reseqtrack_db_name, (or -reseqtrack_db -db_name=??) your reseqtrack database
+
+  Options that have defaults but you will often want to modify:
+
+      Connection to the hive database:
+      -pipeline_db -host=???, (default mysql-g1k)
+      -pipeline_db -port=???, (default 4175)
+      -pipeline_db -user=???, must have write access (default g1krw)
+      -dipeline_db -dbname=???, (default is a mixture of your unix user name + the pipeline name)
+
+      Connection to the reseqtrack database:
+      -reseqtrack_db -host=???, (default mysql-g1k)
+      -reseqtrack_db -user=???, read only access is OK (default g1kro)
+      -reseqtrack_db -port=???, (default 4175)
+      -reseqtrack_db -pass=???, (default undefined)
+
+      -root_output_dir, (default is your current directory)
+      -type_fastq, type of fastq files to look for in the reseqtrack database, default FILTERED_FASTQ
+      -final_label, used to name your final output files (default is your pipeline name)
+
+      -chunk_max_reads, (default 5000000) controls how fastq files are split up into chunks for parallel alignment
+
+      Recalibration and Realignment options:
+      -realign_knowns_only, boolean, default 0.  You can choose between full indel realignment (1) or faster realignment around known indels only (0)
+      -recalibrate_level, can be 0 (don't recalibrate), 1 (fast recalibration at lane level, e.g. 1000genomes), 2 (slower recalibration at sample level for better accuracy)
+      -known_indels_vcf, used for indel realignment (default undefined).  Optional if realign_knowns_only=0; mandatory if realign_knowns_only=1.
+      -known_snps_vcf, used for recalibration (default undefined). Mandatory if recalibrate_level != 0.
+      -realign_intervals_file, should be given if realign_known_only=1.  Can be generated using gatk RealignerTargetCreator
+
+      Various options for reheadering a bam file:
+      -header_lines_file should contain any @PG and @CO lines you want written to your bam header.
+      -dict_file.  @SQ lines from this file will be written to the bam header.  Default is to use the dict file associated with your reference file
+      -reference_uri. (undef) Used to override default in the @SQ lines.
+      -ref_species. (undef) Used to override default in the @SQ lines.
+      -ref_assembly. (undef) Used to override default in the @SQ lines.
+
+      Paths of executables:
+      -split_exe, (default is to work it out from your environment variable $RESEQTRACK)
+      -validate_bam_exe, (default is to work it out from your environment variable $RESEQTRACK)
+      -bwa_exe, (default /nfs/1000g-work/G1K/work/bin/bwa/bwa)
+      -samtools_exe => (default /nfs/1000g-work/G1K/work/bin/samtools/samtools)
+      -squeeze_exe => (default /nfs/1000g-work/G1K/work/bin/bamUtil/bin/bam)
+      -gatk_dir => (default /nfs/1000g-work/G1K/work/bin/gatk/dist/)
+      -picard_dir => (default /nfs/1000g-work/G1K/work/bin/picard)
+
+=cut
 
 
 package ReseqTrack::Hive::PipeConfig::Alignment_conf;
@@ -8,20 +65,13 @@ use warnings;
 use base ('ReseqTrack::Hive::PipeConfig::ReseqTrackGeneric_conf');
 
 
-=head2 default_options
-
-    Description : Implements default_options() interface method of Bio::EnsEMBL::Hive::PipeConfig::HiveGeneric_conf that is used to initialize default options.
-                  In addition to the standard things it defines two options, 'first_mult' and 'second_mult' that are supposed to contain the long numbers to be multiplied.
-
-=cut
-
 sub default_options {
     my ($self) = @_;
 
     return {
-        %{ $self->SUPER::default_options() },               # inherit other stuff from the base class
+        %{ $self->SUPER::default_options() },
 
-        'pipeline_name' => 'align',                     # name used by the beekeeper to prefix job names on the farm
+        'pipeline_name' => 'align',
 
         'chunk_max_reads'    => 5000000,
         'type_fastq'    => 'FILTERED_FASTQ',
@@ -32,13 +82,18 @@ sub default_options {
         'squeeze_exe' => '/nfs/1000g-work/G1K/work/bin/bamUtil/bin/bam',
         'gatk_dir' => '/nfs/1000g-work/G1K/work/bin/gatk/dist/',
         'picard_dir' => '/nfs/1000g-work/G1K/work/bin/picard',
-        'known_indels_vcf' => '',
-        'known_snps_vcf' => '',
-        'realign_intervals_file' => '',
+        'known_indels_vcf' => undef,
+        'known_snps_vcf' => undef,
+        'realign_intervals_file' => undef,
 
         'study_id' => [],
 
-        'reference_uri' => $self->o('reference'),
+        #various options for overriding defaults in reheadering bam
+        'dict_file' => undef,
+        'reference_uri' => undef,
+        'ref_assembly' => undef,
+        'ref_species' => undef,
+        'header_lines_file' => undef,
 
         'final_label' => $self->o('pipeline_name'),
 
@@ -49,34 +104,18 @@ sub default_options {
 }
 
 
-=head2 pipeline_create_commands
-
-    Description : Implements pipeline_create_commands() interface method of Bio::EnsEMBL::Hive::PipeConfig::HiveGeneric_conf that lists the commands that will create and set up the Hive database.
-                  In addition to the standard creation of the database and populating it with Hive tables and procedures it also creates two pipeline-specific tables used by Runnables to communicate.
-
-=cut
-
 sub pipeline_create_commands {
     my ($self) = @_;
 
     return [
-        @{$self->SUPER::pipeline_create_commands},  # inheriting database and hive tables' creation
+        @{$self->SUPER::pipeline_create_commands},
     ];
 }
-
-
-=head2 pipeline_wide_parameters
-
-    Description : Interface method that should return a hash of pipeline_wide_parameter_name->pipeline_wide_parameter_value pairs.
-                  The value doesn't have to be a scalar, can be any Perl structure now (will be stringified and de-stringified automagically).
-                  Please see existing PipeConfig modules for examples.
-
-=cut
 
 sub pipeline_wide_parameters {
     my ($self) = @_;
     return {
-        %{$self->SUPER::pipeline_wide_parameters},          # here we inherit anything from the base class
+        %{$self->SUPER::pipeline_wide_parameters},
     };
 }
 
@@ -95,24 +134,6 @@ sub resource_classes {
 }
 
 
-=head2 pipeline_analyses
-
-    Description : Implements pipeline_analyses() interface method of Bio::EnsEMBL::Hive::PipeConfig::HiveGeneric_conf that defines the structure of the pipeline: analyses, jobs, rules, etc.
-                  Here it defines three analyses:
-
-                    * 'start' with two jobs (multiply 'first_mult' by 'second_mult' and vice versa - to check the commutativity of multiplivation).
-                      Each job will dataflow (create more jobs) via branch #2 into 'part_multiply' and via branch #1 into 'add_together'.
-
-                    * 'part_multiply' initially without jobs (they will flow from 'start')
-
-                    * 'add_together' initially without jobs (they will flow from 'start').
-                       All 'add_together' jobs will wait for completion of 'part_multiply' jobs before their own execution (to ensure all data is available).
-
-    There are two control modes in this pipeline:
-        A. The default mode is to use the '2' and '1' dataflow rules from 'start' analysis and a -wait_for rule in 'add_together' analysis for analysis-wide synchronization.
-        B. The semaphored mode is to use '2->A' and 'A->1' semaphored dataflow rules from 'start' instead, and comment out the analysis-wide -wait_for rule, relying on semaphores.
-
-=cut
 
 sub pipeline_analyses {
     my ($self) = @_;
@@ -121,56 +142,55 @@ sub pipeline_analyses {
     push(@analyses, {
             -logic_name    => 'studies_factory',
             -module        => 'ReseqTrack::Hive::Process::JobFactory',
-            -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
-            #-input_ids => [{study_id => [split(',', $self->o('study_id'))]}],
+            -meadow_type => 'LOCAL',
             -input_ids => [{study_id => $self->o('study_id')}],
             -parameters    => {
                 factory_value => '#study_id#',
                 temp_param_sub => { 2 => [['study_id','factory_value']]}, # temporary hack pending updates to hive code
             },
             -flow_into => {
-                2 => [ 'samples_factory' ],   # will create a semaphored fan of jobs
+                2 => [ 'samples_factory' ],
             },
       });
     push(@analyses, {
             -logic_name    => 'samples_factory',
             -module        => 'ReseqTrack::Hive::Process::RunMetaInfoFactory',
-            -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
+            -meadow_type => 'LOCAL',
             -parameters    => {
                 type_branch => 'sample',
             },
             -flow_into => {
-                2 => [ 'libraries_factory' ],   # will create a semaphored fan of jobs
+                2 => [ 'libraries_factory' ],
             },
       });
     push(@analyses, {
             -logic_name    => 'libraries_factory',
             -module        => 'ReseqTrack::Hive::Process::RunMetaInfoFactory',
-            -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
+            -meadow_type => 'LOCAL',
             -parameters    => {
                 type_branch => 'library',
             },
             -flow_into => {
-                '2->A' => [ 'runs_factory' ],   # will create a semaphored fan of jobs
-                'A->1' => [ 'decide_merge_libraries'  ],   # will create a semaphored funnel job to wait for the fan to complete
+                '2->A' => [ 'runs_factory' ],
+                'A->1' => [ 'decide_merge_libraries'  ],
             },
       });
     push(@analyses, {
             -logic_name    => 'runs_factory',
             -module        => 'ReseqTrack::Hive::Process::RunMetaInfoFactory',
-            -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
+            -meadow_type => 'LOCAL',
             -parameters    => {
                 type_branch => 'run',
             },
             -flow_into => {
-                '2->A' => [ 'find_source_fastqs' ],   # will create a semaphored fan of jobs
-                'A->1' => [ 'decide_mark_duplicates'  ],   # will create a semaphored funnel job to wait for the fan to complete
+                '2->A' => [ 'find_source_fastqs' ],
+                'A->1' => [ 'decide_mark_duplicates'  ],
             },
       });
     push(@analyses, {
             -logic_name    => 'find_source_fastqs',
             -module        => 'ReseqTrack::Hive::Process::ImportCollection',
-            -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
+            -meadow_type => 'LOCAL',
             -parameters    => {
                 collection_type => $self->o('type_fastq'),
                 collection_name => '#run_id#',
@@ -188,7 +208,7 @@ sub pipeline_analyses {
                 max_reads => $self->o('chunk_max_reads'),
             },
             -rc_name => '200Mb',
-            -analysis_capacity  =>  4,  # use per-analysis limiter
+            -analysis_capacity  =>  4,
             -hive_capacity  =>  200,
             -flow_into => {
               '2->A' => ['bwa'],
@@ -205,7 +225,6 @@ sub pipeline_analyses {
                 delete_param => 'fastq',
             },
             -rc_name => '8Gb', # Note the 'hardened' version of BWA may need 8Gb RAM or more
-            #-analysis_capacity  =>  50,  # use per-analysis limiter
             -hive_capacity  =>  100,
             -flow_into => {
                 1 => ['sort_chunks'],
@@ -222,7 +241,6 @@ sub pipeline_analyses {
                 delete_param => 'bam',
             },
             -rc_name => '2Gb',
-            #-analysis_capacity  =>  50,  # use per-analysis limiter
             -hive_capacity  =>  200,
             -flow_into => {
                 1 => [ ':////accu?bam=[]', ':////accu?bai=[]']
@@ -231,7 +249,7 @@ sub pipeline_analyses {
     push(@analyses, {
           -logic_name => 'decide_merge_chunks',
           -module        => 'ReseqTrack::Hive::Process::FlowDecider',
-          -meadow_type=> 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
+          -meadow_type=> 'LOCAL',
           -parameters => {
               realign_knowns_only => $self->o('realign_knowns_only'),
               recalibrate_level => $self->o('recalibrate_level'),
@@ -264,7 +282,6 @@ sub pipeline_analyses {
               delete_param => ['bam', 'bai'],
           },
           -rc_name => '2Gb',
-          #-analysis_capacity  =>  50,  # use per-analysis limiter
           -hive_capacity  =>  200,
           -flow_into => {
               1 => [ ':////accu?bam=[]', ':////accu?bai=[]'],
@@ -274,7 +291,7 @@ sub pipeline_analyses {
     push(@analyses, {
             -logic_name => 'decide_realign_run_level',
             -module        => 'ReseqTrack::Hive::Process::FlowDecider',
-            -meadow_type=> 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
+            -meadow_type=> 'LOCAL',
             -parameters => {
                 require_true => {2 => $self->o('realign_knowns_only'), 1 => 1},
             },
@@ -296,7 +313,6 @@ sub pipeline_analyses {
                 delete_param => ['bam', 'bai'],
             },
             -rc_name => '5Gb',
-            #-analysis_capacity  =>  50,  # use per-analysis limiter
             -hive_capacity  =>  100,
             -flow_into => {
                 1 => [ 'calmd_run_level'],
@@ -313,7 +329,6 @@ sub pipeline_analyses {
                 delete_param => ['bam'],
             },
             -rc_name => '2Gb',
-            #-analysis_capacity  =>  50,  # use per-analysis limiter
             -hive_capacity  =>  200,
             -flow_into => {
                 1 => [ ':////accu?bam=[]', ':////accu?bai=[]'],
@@ -322,7 +337,7 @@ sub pipeline_analyses {
     push(@analyses, {
             -logic_name => 'decide_recalibrate_run_level',
             -module        => 'ReseqTrack::Hive::Process::FlowDecider',
-            -meadow_type=> 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
+            -meadow_type=> 'LOCAL',
             -parameters => {
                 recalibrate_level => $self->o('recalibrate_level'),
                 require_true => {2 => '#expr($recalibrate_level==1)expr#', 1 => 1},
@@ -335,7 +350,7 @@ sub pipeline_analyses {
     push(@analyses, {
           -logic_name => 'decide_index_recalibrate_run_level',
           -module        => 'ReseqTrack::Hive::Process::FlowDecider',
-          -meadow_type=> 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
+          -meadow_type=> 'LOCAL',
           -parameters => {
               count_files => 1,
               files => '#bai#',
@@ -359,7 +374,6 @@ sub pipeline_analyses {
               command => 'index',
           },
           -rc_name => '200Mb',
-          #-analysis_capacity  =>  50,  # use per-analysis limiter
           -hive_capacity  =>  200,
             -flow_into => {
                 1 => [':////accu?bai=[]'],
@@ -377,7 +391,6 @@ sub pipeline_analyses {
               delete_param => ['bam', 'bai'],
           },
           -rc_name => '2Gb',
-          #-analysis_capacity  =>  50,  # use per-analysis limiter
           -hive_capacity  =>  200,
           -flow_into => {
               1 => [ ':////accu?bam=[]', ':////accu?bai=[]'],
@@ -386,7 +399,7 @@ sub pipeline_analyses {
     push(@analyses, {
             -logic_name => 'decide_tag_strip_run_level',
             -module        => 'ReseqTrack::Hive::Process::FlowDecider',
-            -meadow_type=> 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
+            -meadow_type=> 'LOCAL',
             -parameters => {
                 recalibrate_level => $self->o('recalibrate_level'),
                 realign_knowns_only => $self->o('realign_knowns_only'),
@@ -408,7 +421,6 @@ sub pipeline_analyses {
                 delete_param => ['bam'],
             },
             -rc_name => '1Gb',
-            #-analysis_capacity  =>  50,  # use per-analysis limiter
             -hive_capacity  =>  200,
             -flow_into => {
                 1 => [ ':////accu?bam=[]', ':////accu?bai=[]'],
@@ -417,7 +429,7 @@ sub pipeline_analyses {
     push(@analyses, {
           -logic_name => 'decide_mark_duplicates',
           -module        => 'ReseqTrack::Hive::Process::FlowDecider',
-          -meadow_type=> 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
+          -meadow_type=> 'LOCAL',
           -parameters => {
               files => '#bam#',
               require_file_count => { 1 => '1+'},
@@ -438,7 +450,6 @@ sub pipeline_analyses {
                 delete_param => ['bam', 'bai'],
             },
             -rc_name => '5Gb',
-            #-analysis_capacity  =>  50,  # use per-analysis limiter
             -hive_capacity  =>  100,
             -flow_into => {
                 1 => [ ':////accu?bam=[]', ':////accu?bai=[]'],
@@ -447,7 +458,7 @@ sub pipeline_analyses {
     push(@analyses, {
           -logic_name => 'decide_merge_libraries',
           -module        => 'ReseqTrack::Hive::Process::FlowDecider',
-          -meadow_type=> 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
+          -meadow_type=> 'LOCAL',
           -parameters => {
               files => '#bam#',
               require_file_count => {
@@ -471,7 +482,6 @@ sub pipeline_analyses {
               delete_param => ['bam', 'bai'],
           },
           -rc_name => '2Gb',
-          #-analysis_capacity  =>  50,  # use per-analysis limiter
           -hive_capacity  =>  200,
           -flow_into => {
               1 => [ ':////accu?bam=[]', ':////accu?bai=[]'],
@@ -480,7 +490,7 @@ sub pipeline_analyses {
     push(@analyses, {
             -logic_name => 'decide_realign_sample_level',
             -module        => 'ReseqTrack::Hive::Process::FlowDecider',
-            -meadow_type=> 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
+            -meadow_type=> 'LOCAL',
             -parameters => {
                 realign_knowns_only => $self->o('realign_knowns_only'),
                 require_true => {2 => '#expr(!$realign_knowns_only)expr#', 1 => 1},
@@ -502,7 +512,6 @@ sub pipeline_analyses {
                 delete_param => ['bam', 'bai'],
             },
             -rc_name => '5Gb',
-            #-analysis_capacity  =>  50,  # use per-analysis limiter
             -hive_capacity  =>  100,
             -flow_into => {
                 1 => [ 'calmd_sample_level'],
@@ -519,7 +528,6 @@ sub pipeline_analyses {
                 delete_param => ['bam'],
             },
             -rc_name => '2Gb',
-            #-analysis_capacity  =>  50,  # use per-analysis limiter
             -hive_capacity  =>  200,
             -flow_into => {
                 1 => [ ':////accu?bam=[]', ':////accu?bai=[]'],
@@ -528,7 +536,7 @@ sub pipeline_analyses {
     push(@analyses, {
             -logic_name => 'decide_recalibrate_sample_level',
             -module        => 'ReseqTrack::Hive::Process::FlowDecider',
-            -meadow_type=> 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
+            -meadow_type=> 'LOCAL',
             -parameters => {
                 recalibrate_level => $self->o('recalibrate_level'),
                 require_true => {2 => '#expr($recalibrate_level==2)expr#', 1=>1},
@@ -541,7 +549,7 @@ sub pipeline_analyses {
     push(@analyses, {
           -logic_name => 'decide_index_recalibrate_sample_level',
           -module        => 'ReseqTrack::Hive::Process::FlowDecider',
-          -meadow_type=> 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
+          -meadow_type=> 'LOCAL',
           -parameters => {
               files => '#bai#',
               require_file_count => {
@@ -562,7 +570,6 @@ sub pipeline_analyses {
               command => 'index',
           },
           -rc_name => '200Mb',
-          #-analysis_capacity  =>  50,  # use per-analysis limiter
           -hive_capacity  =>  200,
             -flow_into => {
                 1 => [':////accu?bai=[]'],
@@ -580,7 +587,6 @@ sub pipeline_analyses {
               delete_param => ['bam', 'bai'],
           },
           -rc_name => '2Gb',
-          #-analysis_capacity  =>  50,  # use per-analysis limiter
           -hive_capacity  =>  200,
           -flow_into => {
               1 => [ ':////accu?bam=[]', ':////accu?bai=[]'],
@@ -589,7 +595,7 @@ sub pipeline_analyses {
     push(@analyses, {
             -logic_name => 'decide_tag_strip_sample_level',
             -module        => 'ReseqTrack::Hive::Process::FlowDecider',
-            -meadow_type=> 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
+            -meadow_type=> 'LOCAL',
             -parameters => {
                 recalibrate_level => $self->o('recalibrate_level'),
                 realign_knowns_only => $self->o('realign_knowns_only'),
@@ -610,7 +616,6 @@ sub pipeline_analyses {
                 delete_param => ['bam'],
             },
             -rc_name => '1Gb',
-            #-analysis_capacity  =>  50,  # use per-analysis limiter
             -hive_capacity  =>  200,
             -flow_into => {
                 1 => [ ':////accu?bam=[]'],
@@ -622,13 +627,14 @@ sub pipeline_analyses {
             -parameters => {
                 'samtools' => $self->o('samtools_exe'),
                 'header_lines_file' => $self->o('header_lines_file'),
+                'dict_file' => $self->o('dict_file'),
+                'reference' => $self->o('reference'),
                 'SQ_assembly' => $self->o('ref_assembly'),
                 'SQ_species' => $self->o('ref_species'),
                 'SQ_uri' => $self->o('reference_uri'),
                 delete_param => ['bam', 'bai'],
             },
             -rc_name => '1Gb',
-            #-analysis_capacity  =>  50,  # use per-analysis limiter
             -hive_capacity  =>  200,
             -flow_into => {
                 1 => ['rename'],
@@ -637,7 +643,7 @@ sub pipeline_analyses {
     push(@analyses, {
             -logic_name => 'rename',
             -module        => 'ReseqTrack::Hive::Process::RenameFile',
-            -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
+            -meadow_type => 'LOCAL',
             -parameters => {
                 analysis_label => $self->o('final_label'),
                 suffix => 'bam',
@@ -656,7 +662,6 @@ sub pipeline_analyses {
             },
             -flow_into => {1 => ['validate']},
             -rc_name => '1Gb',
-            #-analysis_capacity  =>  50,  # use per-analysis limiter
             -hive_capacity  =>  200,
       });
     push(@analyses, {
@@ -666,7 +671,6 @@ sub pipeline_analyses {
                 'program_file' => $self->o('validate_bam_exe'),
             },
             -rc_name => '200Mb',
-            #-analysis_capacity  =>  50,  # use per-analysis limiter
             -hive_capacity  =>  200,
       });
 

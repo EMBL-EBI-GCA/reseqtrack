@@ -29,12 +29,22 @@ sub run {
       push(@extra_header_lines, "\@CO\tFASTQ=$basename");
     }
 
+    my $dict_file;
+    if ($self->param_is_defined('dict_file') {
+      $dict_file = $self->param('dict_file');
+    }
+    elsif ($self->param_is_defined('reference') {
+      $dict_file = $self->param('reference');
+      $dict_file =~ s/fa(?:sta)?(?:\.gz)?$/dict/;
+    }
+
     my $reheader_object = ReseqTrack::Tools::ReheaderBam->new(
       -input_files  => $bams,
       -working_dir  => $self->output_dir,
       -job_name     => $self->job_name,
       -program      => $self->param_is_defined('samtools') ? $self->param('samtools') : undef,
       -header_lines_file => $self->param_is_defined('header_lines_file') ? $self->param('header_lines_file') : undef,
+      -dict_file => $dict_file,
       -extra_header_lines => \@extra_header_lines,
       -options      => {reuse_old_header => 1,
                         replace_PG => 1,
