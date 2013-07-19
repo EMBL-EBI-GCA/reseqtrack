@@ -1,3 +1,40 @@
+=head1 NAME
+
+ReseqTrack::Hive::Process::BaseProcess;
+
+=head1 SYNOPSIS
+
+    Extended Hive API for ReseqTrack pipelines
+
+    Any ReseqTrack hive process should inherit from this base class.
+    The fetch_input and write_output subroutines are defined here (requirements for any Hive Process)
+    The child class should implement the run subroutine.
+
+    Advantages of using this base class:
+
+      Files can be stored in the reseqtrack_file table of the hive database.  A job input_id can then contain the file dbID instead of a long file string.
+          (This behaviour can be turned off for a pipeline by setting 'use_reseqtrack_file_table' => 0 in the pipeline configuration file)
+
+      Files can be deleted automatically after successful completion of a job. E.g. by adding the following in your analysis definition:
+        -parameters => {
+            delete_param => 'fastq'
+        }
+        or:
+        -parameters => {
+            delete_param => ['bam', 'bai']
+        }
+      Files will only be deleted if they are located somewhere under the root_output_dir
+
+      Output files and directories are given sensible names.  This is managed by using the concept of a branch 'label'.  Each time the pipeline branches into factory jobs, each branch is given a new label string.
+          (This behaviour can be turned off for a pipeline by setting 'use_label_management' => 0 in the pipeline configuration file)
+
+      Management of job input_ids: When job A creates job B, the input_id for job B will contain:
+          1. any parameter from the input_id of job A
+          2. any parameter from the accu table for job A
+          3. any extra data added by job A
+
+=cut
+
 
 package ReseqTrack::Hive::Process::BaseProcess;
 
@@ -8,10 +45,239 @@ use base ('Bio::EnsEMBL::Hive::Process');
 use ReseqTrack::Tools::FileSystemUtils qw(delete_file);
 use Bio::EnsEMBL::Hive::Utils qw(destringify);
 
+
+
+=head2 output_param
+
+  Arg [1]   : param_name, string
+  Arg [2]   : arg, any Perl structure or object
+  Function  : This data will be written to the dataflow_output_id when jobs are created later by the write_output subroutine
+  Example   : $self->output_param('bam', '/path/to/new_file.bam');
+
+=cut
+
+
+sub output_param {
+  my ($self, $param_name, $arg) = @_;
+  if (@_ >=3 ) {
+    $self->{'_BaseProcess_params'}->{'output_hash'}->{$param_name} = $arg;
+  }
+  if (@_ >=2) {
+    return $self->{'_BaseProcess_params'}->{'output_hash'}->{$param_name};
+  }
+  return $self->{'_BaseProcess_params'}->{'output_hash'} // {};
+}
+
+=head2 prepare_factory_output_id
+
+  Arg [1]   : label, a string that will be used to name the child branch in this pipeline
+  Arg [2]   : hashref, any data unique to the child branch
+  Function  : A factory module should create jobs by using this subroutine
+              It should be called once for each child branch.  Each branch should have a different label and data hashref
+              The jobs will be created later by the write_output subroutine
+  Example   : $self->prepare_factory_output_id('ERR000001', {run_id => 'ERR000001'});
+
+=cut
+
+sub prepare_factory_output_id {
+  my ($self, $label, $data_hash) = @_;
+  push(@{$self->{'_BaseProcess_params'}->{'factory_outputs'}}, [$label, $data_hash || {}]);
+}
+
+=head2 flows_non_factory
+
+  Arg [1]   : integer of hashref, flow ids for output jobs (not factory jobs)
+  Function  : Output jobs are written later by the write_output subroutine.  This sets which flows have jobs sent down them.
+              The default flow for non-factory jobs is 1
+  Example   : $self->flows_non_factory([3,4,5])
+
+=cut
+
+
+sub flows_non_factory {
+  my ($self, $arg) = @_;
+  if (@_ >= 2) {
+    my $flows = ref($arg) eq 'ARRAY' ? $arg
+              : defined $arg ? [$arg]
+              : [];
+    $self->{'_BaseProcess_params'}->{'flows_non_factory'} = $flows;
+  }
+  return $self->{'_BaseProcess_params'}->{'flows_non_factory'} || [1];
+}
+
+
+
+=head2 label
+
+  Arg [1]   : (optional) dir
+  Function  : Returns a sensible location to write all output for this job.
+  Example   : my $output_dir = $self->output_dir
+  Returntype: string
+
+=cut
+
+
+sub output_dir {
+  my ($self, $dir) = @_;
+  if (defined $dir) {
+    $self->{'_BaseProcess_params'}->{'output_dir'} = $dir;
+  }
+  return $self->{'_BaseProcess_params'}->{'output_dir'};
+}
+
+=head2 label
+
+  Arg [1]   : (optional) label
+  Function  : Returns the 'label' name of the current branch of the pipeline.
+              Each time the pipeline branches, a new label is created which is used for naming output files and directories
+  Example   : my $child_label = $self.label . '_child1';
+  Returntype: string
+
+=cut
+
+sub label {
+  my ($self, $label) = @_;
+  if (defined $label) {
+    $self->{'_BaseProcess_params'}->{'label'} = $label;
+  }
+  return $self->{'_BaseProcess_params'}->{'label'};
+}
+
+=head2 job_name
+
+  Arg [1]   : (optional) job_name
+  Function  : Returns a sensible job_name for passing to a RunProgram object. Unique within the pipeline.
+  Example   : my $job_name = $self->job_name;
+  Returntype: string
+
+=cut
+
+sub job_name {
+  my ($self, $job_name) = @_;
+  if (defined $job_name) {
+    $self->{'_BaseProcess_params'}->{'job_name'} = $job_name;
+  }
+  return $self->{'_BaseProcess_params'}->{'job_name'};
+}
+
+
+=head2 count_param_values
+
+  Arg [1]   : param_name
+  Function  : Counts how many values have been passed to the job for a particular parameter
+            E.g. if $self->param('A') is [10,20,30] then $self->count_param_values('A') is 3
+  Example   : my $num_bams = $self->count_param_values('bam');
+  Returntype: Integer
+
+=cut
+
+
+sub count_param_values {
+  my ($self, $param_name) = @_;
+  return 0 if ! $self->param_is_defined($param_name);
+  my $param_value = $self->param($param_name);
+  my $flattened_values = [];
+  __add_to_flat_array($flattened_values, $param_value);
+  return scalar @$flattened_values;
+}
+
+=head2 file_param
+
+  Arg [1]   : param_name
+  Function  : Getter for job parameters.  Does a dbID to filename conversion if the 
+            stored object is a file stored in the reseqtrack_file table (or a data structure
+            containing files in the reseqtrack_file table)
+  Example   : my $bam = $self->file_param('bam');
+  Returntype: Any Perl structure or object
+
+=cut
+
+sub file_param {
+  my ($self, $param_name) = @_;
+  if (!$self->param('use_reseqtrack_file_table')) {
+    return $self->param($param_name)
+  }
+  return undef if ! $self->param_is_defined($param_name);
+  my $data_structure = $self->param($param_name);
+  $data_structure = $self->_get_files($data_structure);
+  return $data_structure;
+}
+
+=head2 param_to_flat_array
+
+  Arg [1]   : param_name
+  Function  : Getter for job parameters.  Converts complex data structures to arrays.
+            E.g. a nested array [[[1,2],[4,5]],[7,8]] to [1,2,4,5,7,8]
+  Returntype: Array ref
+  Example   : my $bam_list = $self->file_param('bam');
+
+=cut
+
+sub param_to_flat_array {
+  my ($self, $param_name) = @_;
+  return [] if ! $self->param_is_defined($param_name);
+  my $data_structure = $self->param($param_name);
+  my $flattened_values = [];
+  __add_to_flat_array($flattened_values, $data_structure);
+  return $flattened_values;
+}
+
+=head2 file_param_to_flat_array
+
+  Arg [1]   : param_name
+  Function  : Getter for job parameters.  Combines the functions of param_to_flat_array and file_param.
+  Returntype: Array ref
+  Example   : my $bam_list = $self->file_param_to_flat_array('bam');
+
+=cut
+
+
+sub file_param_to_flat_array {
+  my ($self, $param_name) = @_;
+  my $flattened_values = $self->param_to_flat_array($param_name);
+  if ($self->param('use_reseqtrack_file_table')) {
+    $flattened_values = $self->_get_files($flattened_values);
+  }
+  return $flattened_values;
+}
+
+=head2 run_program
+
+  Arg [1]   : A ReseqTrack::Tools::RunProgram object
+  Arg [2]   : Additional arguments to pass to the RunProgram run subroutine
+  Function  : A safe way to call the run subroutine of a RunProgram object in a hive analysis
+  Exceptions: throws if execution of command fails
+              Deliberately hangs if it notices a term_sig
+  Example   : $self->run_program($run_samtools_object, 'merge');
+
+=cut
+
+
+sub run_program {
+  my ($self, $run_program_object, @args) = @_;
+
+  $self->data_dbc->disconnect_when_inactive(1);
+  my $return = eval{$run_program_object->run(@args);};
+  my $msg_thrown = $@;
+  $self->data_dbc->disconnect_when_inactive(0);
+  return $return if !$msg_thrown;
+  print "term_sig is ".$run_program_object->term_sig . "\n";
+  if ($run_program_object->term_sig) {
+    while (1) {
+      next; # Looks like sleep doesn't work when we have a term_sig
+    }
+  }
+  die $msg_thrown;
+}
+
 =head2 fetch_input
 
-    Description : Implements fetch_input() interface method of Bio::EnsEMBL::Hive::Process that is used to read in parameters and load data.
-                  Here we have nothing to fetch.
+  Description : All hive processes run three subroutines in order:
+                    1. fetch_input
+                    2. run
+                    3. write_output
+                This is the standard fetch_input subroutine for any ReseqTrack::Hive process
+                Any ReseqTrack::Hive::Process class inheriting from this class only needs to define the run subroutine.
 
 =cut
 
@@ -70,10 +336,15 @@ sub run {
 
 =head2 write_output
 
-    Description : Implements write_output() interface method of Bio::EnsEMBL::Hive::Process that is used to deal with job's output after the execution.
-                  Dataflows the intermediate results down branch 1, which will be routed into 'intermediate_result' table.
+  Description : All hive processes run three subroutines in order:
+                    1. fetch_input
+                    2. run
+                    3. write_output
+                This is the standard write_output subroutine for any ReseqTrack::Hive process
+                Any ReseqTrack::Hive::Process class inheriting from this class only needs to define the run subroutine.
 
 =cut
+
 
 sub write_output {
     my ($self) = @_;
@@ -143,28 +414,7 @@ sub write_output {
   }
 }
 
-# Note all references to temp_param_sub will be removed when new features to hive code are released.
-sub _temp_param_sub {
-  my ($self, $flow, $hash) = @_;
-  my $temp_param_subs = $self->{'_BaseProcess_params'}->{'temp_param_sub'};
-  if (! defined $temp_param_subs) {
-    $temp_param_subs = $self->param_is_defined('temp_param_sub') ? $self->param('temp_param_sub') : {};
-    $self->{'_BaseProcess_params'}->{'temp_param_sub'} = $temp_param_subs
-  }
-  return $hash if !defined $temp_param_subs->{$flow};
-  SUB:
-  foreach my $sub_pair (@{$temp_param_subs->{$flow}}) {
-    my ($new_name, $old_name) = @$sub_pair;
-    if ($old_name =~ /^"(.*)"$/) {
-      $hash->{$new_name} = $1;
-      next SUB;
-    }
-    $hash->{$new_name} = $hash->{$old_name};
-    delete $hash->{$old_name};
-    delete $hash->{$new_name} if !defined $hash->{$new_name};
-  }
-  return $hash;
-}
+# ########## private subroutines that should not be called by child class ###############
 
 sub _accu_keys {
   my ($self,) = @_;
@@ -201,6 +451,30 @@ sub _make_file_ids {
   }
   return __structure_to_file_ids($data_structure, $sth_insert, $sth_select);
 }
+
+# Note all references to temp_param_sub will be removed when new features to hive code are released.
+sub _temp_param_sub {
+  my ($self, $flow, $hash) = @_;
+  my $temp_param_subs = $self->{'_BaseProcess_params'}->{'temp_param_sub'};
+  if (! defined $temp_param_subs) {
+    $temp_param_subs = $self->param_is_defined('temp_param_sub') ? $self->param('temp_param_sub') : {};
+    $self->{'_BaseProcess_params'}->{'temp_param_sub'} = $temp_param_subs
+  }
+  return $hash if !defined $temp_param_subs->{$flow};
+  SUB:
+  foreach my $sub_pair (@{$temp_param_subs->{$flow}}) {
+    my ($new_name, $old_name) = @$sub_pair;
+    if ($old_name =~ /^"(.*)"$/) {
+      $hash->{$new_name} = $1;
+      next SUB;
+    }
+    $hash->{$new_name} = $hash->{$old_name};
+    delete $hash->{$old_name};
+    delete $hash->{$new_name} if !defined $hash->{$new_name};
+  }
+  return $hash;
+}
+
 
 sub __structure_to_file_ids {
   my ($data_structure, $sth_insert, $sth_select) = @_;
@@ -274,17 +548,6 @@ sub __structure_to_file_paths {
   }
 }
 
-
-sub output_param {
-  my ($self, $param_name, $arg) = @_;
-  if (@_ >=3 ) {
-    $self->{'_BaseProcess_params'}->{'output_hash'}->{$param_name} = $arg;
-  }
-  if (@_ >=2) {
-    return $self->{'_BaseProcess_params'}->{'output_hash'}->{$param_name};
-  }
-  return $self->{'_BaseProcess_params'}->{'output_hash'} // {};
-}
 sub _params_to_delete {
   my ($self, $arg) = @_;
   if (@_ >=2) {
@@ -292,25 +555,6 @@ sub _params_to_delete {
   }
   return $self->{'_BaseProcess_params'}->{'params_to_delete'} // [];
 }
-
-
-sub prepare_factory_output_id {
-  my ($self, $label, $data_hash) = @_;
-  push(@{$self->{'_BaseProcess_params'}->{'factory_outputs'}}, [$label, $data_hash || {}]);
-}
-
-sub flows_non_factory {
-  my ($self, $arg) = @_;
-  if (@_ >= 2) {
-    my $flows = ref($arg) eq 'ARRAY' ? $arg
-              : defined $arg ? [$arg]
-              : [];
-    $self->{'_BaseProcess_params'}->{'flows_non_factory'} = $flows;
-  }
-  return $self->{'_BaseProcess_params'}->{'flows_non_factory'} || [1];
-}
-
-
 
 sub _files_to_delete {
   my ($self, $arg) = @_;
@@ -322,46 +566,12 @@ sub _files_to_delete {
   return $self->{'_BaseProcess_params'}->{'files_to_delete'} || [];
 }
 
-sub output_dir {
-  my ($self, $dir) = @_;
-  if (defined $dir) {
-    $self->{'_BaseProcess_params'}->{'output_dir'} = $dir;
-  }
-  return $self->{'_BaseProcess_params'}->{'output_dir'};
-}
-
-sub label {
-  my ($self, $label) = @_;
-  if (defined $label) {
-    $self->{'_BaseProcess_params'}->{'label'} = $label;
-  }
-  return $self->{'_BaseProcess_params'}->{'label'};
-}
-
-sub job_name {
-  my ($self, $job_name) = @_;
-  if (defined $job_name) {
-    $self->{'_BaseProcess_params'}->{'job_name'} = $job_name;
-  }
-  return $self->{'_BaseProcess_params'}->{'job_name'};
-}
-
-
 sub _file_cache {
   my ($self, $dbID, $name) = @_;
   if (defined $name) {
     $self->{'_BaseProcess_params'}->{'file_cache'}->{$dbID} = $name;
   }
   return $self->{'_BaseProcess_params'}->{'file_cache'}->{$dbID};
-}
-
-sub count_param_values {
-  my ($self, $param_name) = @_;
-  return 0 if ! $self->param_is_defined($param_name);
-  my $param_value = $self->param($param_name);
-  my $flattened_values = [];
-  __add_to_flat_array($flattened_values, $param_value);
-  return scalar @$flattened_values;
 }
 
 sub __add_to_flat_array {
@@ -377,51 +587,18 @@ sub __add_to_flat_array {
   }
 }
 
-sub file_param {
-  my ($self, $param_name) = @_;
-  if (!$self->param('use_reseqtrack_file_table')) {
-    return $self->param($param_name)
-  }
-  return undef if ! $self->param_is_defined($param_name);
-  my $data_structure = $self->param($param_name);
-  $data_structure = $self->_get_files($data_structure);
-  return $data_structure;
-}
-sub param_to_flat_array {
-  my ($self, $param_name) = @_;
-  return [] if ! $self->param_is_defined($param_name);
-  my $data_structure = $self->param($param_name);
-  my $flattened_values = [];
-  __add_to_flat_array($flattened_values, $data_structure);
-  return $flattened_values;
-}
-
-sub file_param_to_flat_array {
-  my ($self, $param_name) = @_;
-  my $flattened_values = $self->param_to_flat_array($param_name);
-  if ($self->param('use_reseqtrack_file_table')) {
-    $flattened_values = $self->_get_files($flattened_values);
-  }
-  return $flattened_values;
-}
-
-sub run_program {
-  my ($self, $run_program_object, @args) = @_;
-
-  $self->data_dbc->disconnect_when_inactive(1);
-  my $return = eval{$run_program_object->run(@args);};
-  my $msg_thrown = $@;
-  $self->data_dbc->disconnect_when_inactive(0);
-  return $return if !$msg_thrown;
-  print "term_sig is ".$run_program_object->term_sig . "\n";
-  if ($run_program_object->term_sig) {
-    while (1) {
-      next; # Looks like sleep doesn't work when we have a term_sig
+sub __add_to_flat_array {
+  my ($flat_array, $value) = @_;
+  if (ref($value) eq 'ARRAY') {
+    foreach my $sub_value (@$value) {
+      __add_to_flat_array($flat_array, $sub_value);
     }
   }
-  die $msg_thrown;
+  #elsif (defined $value && $value ne 'undef') {
+  elsif (defined $value) {
+    push(@$flat_array, $value);
+  }
 }
-
 
 
 1;

@@ -1,3 +1,56 @@
+=head1 NAME
+
+ ReseqTrack::Hive::PipeConfig::VariantCall_conf
+
+=head1 SYNOPSIS
+  
+  Options you MUST specify on the command line:
+
+      -callgroup, (e.g. a population name) Can be specified multiple times.  The name of a collection of bams in your reseqtrack database
+      -reference, fasta file of your reference genome.  Should be indexed for bwa and should have a .fai and .dict
+      -password, for accessing the hive database
+      -reseqtrack_db_name, (or -reseqtrack_db -db_name=??) your reseqtrack database
+
+  Options that have defaults but you will often want to modify:
+
+      Connection to the hive database:
+      -pipeline_db -host=???, (default mysql-g1k)
+      -pipeline_db -port=???, (default 4175)
+      -pipeline_db -user=???, must have write access (default g1krw)
+      -dipeline_db -dbname=???, (default is a mixture of your unix user name + the pipeline name)
+
+      Connection to the reseqtrack database:
+      -reseqtrack_db -host=???, (default mysql-g1k)
+      -reseqtrack_db -user=???, read only access is OK (default g1kro)
+      -reseqtrack_db -port=???, (default 4175)
+      -reseqtrack_db -pass=???, (default undefined)
+
+      -root_output_dir, (default is your current directory)
+      -type_bam, type of bam files to look for in the reseqtrack database, default BAM
+      -final_label, used to name your final output files (default is your pipeline name)
+      -target_bed_file, for if you want to do exome calling (default undefined)
+      -transpose_window_size, (default 50000000) Controls the size of the region convered by a single transposed bam
+      -call_window_size, (default 50000) Controls the size of the region for each individual variant calling job
+
+      Caller options
+      -call_by_samtools, boolean, default 1, turn on/off calling by samtools mpileup
+      -call_by_gatk, boolean, default 1, turn on/off calling by gatk UnifiedGenotyper
+      -call_by_freebayes, boolean, default 1, turn on/off calling by freebayes
+      -call_by_gatk_options, key/val pairs, passed on to the CallByGATK module
+      -call_by_samtools_options, key/val pairs, passed on to the CallBySamtools module
+      -call_by_freebayes_options, key/val pairs, passed on to the CallByFreebayes module
+
+      Paths of executables:
+      -transpose_exe, (default is to work it out from your environment variable $RESEQTRACK)
+      -samtools_exe, (default /nfs/1000g-work/G1K/work/bin/samtools/samtools)
+      -bcftools_exe, (default /nfs/1000g-work/G1K/work/bin/samtools/bcftools/bcftools)
+      -vcfutils_exe, (default /nfs/1000g-work/G1K/work/bin/samtools/bcftools/vcfutils.pl)
+      -bgzip_exe, (default /nfs/1000g-work/G1K/work/bin/tabix/bgzip)
+      -gatk_dir, (default /nfs/1000g-work/G1K/work/bin/gatk/dist/)
+      -freebayes_exe, (default /nfs/1000g-work/G1K/work/bin/freebayes/bin/freebayes)
+
+=cut
+
 
 
 package ReseqTrack::Hive::PipeConfig::VariantCall_conf;
@@ -8,20 +61,13 @@ use warnings;
 use base ('ReseqTrack::Hive::PipeConfig::ReseqTrackGeneric_conf');
 
 
-=head2 default_options
-
-    Description : Implements default_options() interface method of Bio::EnsEMBL::Hive::PipeConfig::HiveGeneric_conf that is used to initialize default options.
-                  In addition to the standard things it defines two options, 'first_mult' and 'second_mult' that are supposed to contain the long numbers to be multiplied.
-
-=cut
-
 sub default_options {
     my ($self) = @_;
 
     return {
-        %{ $self->SUPER::default_options() },               # inherit other stuff from the base class
+        %{ $self->SUPER::default_options() },
 
-        'pipeline_name' => 'vc',                     # name used by the beekeeper to prefix job names on the farm
+        'pipeline_name' => 'vc',
 
         'type_bam'    => 'BAM',
         'transpose_exe' => $self->o('ENV', 'RESEQTRACK').'/c_code/transpose_bam/transpose_bam',
@@ -53,14 +99,6 @@ sub default_options {
     };
 }
 
-
-=head2 pipeline_create_commands
-
-    Description : Implements pipeline_create_commands() interface method of Bio::EnsEMBL::Hive::PipeConfig::HiveGeneric_conf that lists the commands that will create and set up the Hive database.
-                  In addition to the standard creation of the database and populating it with Hive tables and procedures it also creates two pipeline-specific tables used by Runnables to communicate.
-
-=cut
-
 sub pipeline_create_commands {
     my ($self) = @_;
 
@@ -69,19 +107,10 @@ sub pipeline_create_commands {
     ];
 }
 
-
-=head2 pipeline_wide_parameters
-
-    Description : Interface method that should return a hash of pipeline_wide_parameter_name->pipeline_wide_parameter_value pairs.
-                  The value doesn't have to be a scalar, can be any Perl structure now (will be stringified and de-stringified automagically).
-                  Please see existing PipeConfig modules for examples.
-
-=cut
-
 sub pipeline_wide_parameters {
     my ($self) = @_;
     return {
-        %{$self->SUPER::pipeline_wide_parameters},          # here we inherit anything from the base class
+        %{$self->SUPER::pipeline_wide_parameters},
 
         fai => $self->o('fai'),
     };
@@ -90,7 +119,7 @@ sub pipeline_wide_parameters {
 sub resource_classes {
     my ($self) = @_;
     return {
-            %{$self->SUPER::resource_classes},  # inherit 'default' from the parent class
+            %{$self->SUPER::resource_classes},
             '200Mb' => { 'LSF' => '-C0 -M200 -q production -R"select[mem>200] rusage[mem=200]"' },
             '500Mb' => { 'LSF' => '-C0 -M500 -q production -R"select[mem>500] rusage[mem=500]"' },
             '1Gb'   => { 'LSF' => '-C0 -M1000 -q production -R"select[mem>1000] rusage[mem=1000]"' },
@@ -101,25 +130,6 @@ sub resource_classes {
 }
 
 
-=head2 pipeline_analyses
-
-    Description : Implements pipeline_analyses() interface method of Bio::EnsEMBL::Hive::PipeConfig::HiveGeneric_conf that defines the structure of the pipeline: analyses, jobs, rules, etc.
-                  Here it defines three analyses:
-
-                    * 'start' with two jobs (multiply 'first_mult' by 'second_mult' and vice versa - to check the commutativity of multiplivation).
-                      Each job will dataflow (create more jobs) via branch #2 into 'part_multiply' and via branch #1 into 'add_together'.
-
-                    * 'part_multiply' initially without jobs (they will flow from 'start')
-
-                    * 'add_together' initially without jobs (they will flow from 'start').
-                       All 'add_together' jobs will wait for completion of 'part_multiply' jobs before their own execution (to ensure all data is available).
-
-    There are two control modes in this pipeline:
-        A. The default mode is to use the '2' and '1' dataflow rules from 'start' analysis and a -wait_for rule in 'add_together' analysis for analysis-wide synchronization.
-        B. The semaphored mode is to use '2->A' and 'A->1' semaphored dataflow rules from 'start' instead, and comment out the analysis-wide -wait_for rule, relying on semaphores.
-
-=cut
-
 sub pipeline_analyses {
     my ($self) = @_;
 
@@ -127,21 +137,20 @@ sub pipeline_analyses {
     push(@analyses, {
             -logic_name    => 'callgroups_factory',
             -module        => 'ReseqTrack::Hive::Process::JobFactory',
-            -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
+            -meadow_type => 'LOCAL',
             -parameters    => {
                 factory_value => '#callgroup#',
                 temp_param_sub => { 2 => [['callgroup','factory_value']]}, # temporary hack pending updates to hive code
             },
-            #-input_ids => [{callgroup => [split(',', $self->o('callgroup'))]}],
             -input_ids => [{callgroup => $self->o('callgroup')}],
             -flow_into => {
-                2 => [ 'find_source_bams' ],   # will create a semaphored fan of jobs
+                2 => [ 'find_source_bams' ],
             },
       });
     push(@analyses, {
             -logic_name    => 'find_source_bams',
             -module        => 'ReseqTrack::Hive::Process::ImportCollection',
-            -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
+            -meadow_type => 'LOCAL',
             -parameters    => {
                 collection_type => $self->o('type_bam'),
                 collection_name=> '#callgroup#',
@@ -154,7 +163,7 @@ sub pipeline_analyses {
     push(@analyses, {
             -logic_name    => 'regions_factory_1',
             -module        => 'ReseqTrack::Hive::Process::SequenceSliceFactory',
-            -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
+            -meadow_type => 'LOCAL',
             -parameters    => {
                 num_bases => $self->o('transpose_window_size'),
                 max_sequences => 2000,
@@ -175,7 +184,7 @@ sub pipeline_analyses {
                 region_overlap => 100,
             },
             -rc_name => '2Gb',
-            -analysis_capacity  =>  4,  # use per-analysis limiter
+            -analysis_capacity  =>  4,
             -hive_capacity  =>  200,
             -flow_into => {
                 '1->A' => [ 'regions_factory_2' ],
@@ -191,7 +200,7 @@ sub pipeline_analyses {
                 bed => $self->o('target_bed_file'),
             },
             -rc_name => '200Mb',
-            -analysis_capacity  =>  4,  # use per-analysis limiter
+            -analysis_capacity  =>  4,
             -hive_capacity  =>  200,
             -flow_into => {
                 '2' => [ 'decide_callers',
@@ -203,7 +212,7 @@ sub pipeline_analyses {
     push(@analyses, {
           -logic_name => 'decide_callers',
           -module        => 'ReseqTrack::Hive::Process::FlowDecider',
-          -meadow_type=> 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
+          -meadow_type=> 'LOCAL',
           -parameters => {
               require_true => {
                   1 => $self->o('call_by_samtools'),
@@ -220,7 +229,7 @@ sub pipeline_analyses {
     push(@analyses, {
             -logic_name    => 'collect_vcf',
             -module        => 'ReseqTrack::Hive::Process::FlowDecider',
-            -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
+            -meadow_type => 'LOCAL',
             -parameters    => {
                 require_true => {
                   1 => $self->o('call_by_samtools'),
@@ -254,7 +263,6 @@ sub pipeline_analyses {
               temp_param_sub => { 1 => [['samtools_vcf','vcf']]}, # temporary hack pending updates to hive code
           },
           -rc_name => '500Mb',
-          #-analysis_capacity  =>  50,  # use per-analysis limiter
           -hive_capacity  =>  200,
           -flow_into => {
               1 => [ ':////accu?samtools_vcf=[fan_index]' ],
@@ -276,7 +284,6 @@ sub pipeline_analyses {
               temp_param_sub => { 1 => [['samtools_vcf','vcf']]}, # temporary hack pending updates to hive code
           },
           -rc_name => '1Gb',
-          #-analysis_capacity  =>  50,  # use per-analysis limiter
           -hive_capacity  =>  200,
           -flow_into => {
               1 => [ ':////accu?samtools_vcf=[fan_index]' ],
@@ -294,7 +301,6 @@ sub pipeline_analyses {
               temp_param_sub => { 1 => [['gatk_vcf','vcf']]}, # temporary hack pending updates to hive code
           },
           -rc_name => '2Gb',
-          #-analysis_capacity  =>  50,  # use per-analysis limiter
           -hive_capacity  =>  200,
           -flow_into => {
               1 => [ ':////accu?gatk_vcf=[fan_index]' ],
@@ -313,7 +319,6 @@ sub pipeline_analyses {
               temp_param_sub => { 1 => [['gatk_vcf','vcf']]}, # temporary hack pending updates to hive code
           },
           -rc_name => '4Gb',
-          #-analysis_capacity  =>  50,  # use per-analysis limiter
           -hive_capacity  =>  100,
           -flow_into => {
               1 => [ ':////accu?gatk_vcf=[fan_index]' ],
@@ -332,7 +337,6 @@ sub pipeline_analyses {
               temp_param_sub => { 1 => [['freebayes_vcf','vcf']]}, # temporary hack pending updates to hive code
           },
           -rc_name => '2Gb',
-          #-analysis_capacity  =>  50,  # use per-analysis limiter
           -hive_capacity  =>  200,
           -flow_into => {
               1 => [ ':////accu?freebayes_vcf=[fan_index]' ],
@@ -352,7 +356,6 @@ sub pipeline_analyses {
               temp_param_sub => { 1 => [['freebayes_vcf','vcf']]}, # temporary hack pending updates to hive code
           },
           -rc_name => '4Gb',
-          #-analysis_capacity  =>  50,  # use per-analysis limiter
           -hive_capacity  =>  100,
           -flow_into => {
               1 => [ ':////accu?freebayes_vcf=[fan_index]' ],
@@ -361,7 +364,7 @@ sub pipeline_analyses {
     push(@analyses, {
           -logic_name => 'decide_mergers',
           -module        => 'ReseqTrack::Hive::Process::FlowDecider',
-          -meadow_type=> 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
+          -meadow_type=> 'LOCAL',
           -parameters => {
               require_true => {
                   1 => $self->o('call_by_samtools'),
@@ -391,7 +394,6 @@ sub pipeline_analyses {
               delete_param => ['vcf'],
           },
           -rc_name => '500Mb',
-          #-analysis_capacity  =>  50,  # use per-analysis limiter
           -hive_capacity  =>  200,
       });
 

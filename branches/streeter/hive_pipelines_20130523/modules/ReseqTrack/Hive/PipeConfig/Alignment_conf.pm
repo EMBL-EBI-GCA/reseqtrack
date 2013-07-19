@@ -6,7 +6,7 @@
   
   Options you MUST specify on the command line:
 
-      -study_id, refers to a study_id in your run_meta_info table
+      -study_id, refers to a study_id in your run_meta_info table. Can be specified multiple times.
       -reference, fasta file of your reference genome.  Should be indexed for bwa and should have a .fai and .dict
       -password, for accessing the hive database
       -reseqtrack_db_name, (or -reseqtrack_db -db_name=??) your reseqtrack database
