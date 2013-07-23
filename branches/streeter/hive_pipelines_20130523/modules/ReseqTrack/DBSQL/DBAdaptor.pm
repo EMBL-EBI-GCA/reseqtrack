@@ -30,6 +30,10 @@ use ReseqTrack::DBSQL::PopulationRuleAdaptor;
 use ReseqTrack::DBSQL::StudyIDAdaptor;
 use ReseqTrack::DBSQL::VerifyBamIDAdaptor;
 use ReseqTrack::DBSQL::RejectLogAdaptor;
+use ReseqTrack::DBSQL::PipelineAdaptor;
+use ReseqTrack::DBSQL::HiveDBAdaptor;
+use ReseqTrack::DBSQL::PipelineSeedAdaptor;
+use ReseqTrack::DBSQL::PipelineOutputAdaptor;
 
 sub new {
   my($class, @args) = @_;
@@ -305,8 +309,43 @@ sub get_VerifyBamIDAdaptor{
     $self->{VerifyBamIDAdaptor} = ReseqTrack::DBSQL::VerifyBamIDAdaptor->
         new($self);
   }
-
   return $self->{VerifyBamIDAdaptor};
+}
+
+sub get_PipelineAdaptor{
+  my ($self) = @_;
+  if(!$self->{PipelineAdaptor}){
+    $self->{PipelineAdaptor} = ReseqTrack::DBSQL::PipelineAdaptor->
+        new($self);
+  }
+  return $self->{PipelineAdaptor};
+}
+
+sub get_HiveDBAdaptor{
+  my ($self) = @_;
+  if(!$self->{HiveDBAdaptor}){
+    $self->{HiveDBAdaptor} = ReseqTrack::DBSQL::HiveDBAdaptor->
+        new($self);
+  }
+  return $self->{HiveDBAdaptor};
+}
+
+sub get_PipelineSeedAdaptor{
+  my ($self) = @_;
+  if(!$self->{PipelineSeedAdaptor}){
+    $self->{PipelineSeedAdaptor} = ReseqTrack::DBSQL::PipelineSeedAdaptor->
+        new($self);
+  }
+  return $self->{PipelineSeedAdaptor};
+}
+
+sub get_PipelineOutputAdaptor{
+  my ($self) = @_;
+  if(!$self->{PipelineOutputAdaptor}){
+    $self->{PipelineOutputAdaptor} = ReseqTrack::DBSQL::PipelineOutputAdaptor->
+        new($self);
+  }
+  return $self->{PipelineOutputAdaptor};
 }
 
 1;

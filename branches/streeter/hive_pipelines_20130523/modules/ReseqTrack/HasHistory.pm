@@ -52,8 +52,8 @@ sub new {
     my $self = $class->SUPER::new(@args);
     my ( $history, $statistics ) =
       rearrange( [ 'HISTORY', 'STATISTICS' ], @args );
-    $self->history($history);
-    $self->statistics($statistics);
+    $self->history($history) if $history;
+    $self->statistics($statistics) if $statistics;
     return $self;
 }
 

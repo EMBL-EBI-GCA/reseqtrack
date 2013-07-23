@@ -27,7 +27,7 @@ CREATE TABLE host(
 create table history(
    history_id int(10) unsigned NOT NULL AUTO_INCREMENT,
    other_id int(10) unsigned NOT NULL,
-   table_name enum('file', 'collection', 'event', 'run_meta_info', 'alignment_meta_info'),
+   table_name enum('file', 'collection', 'event', 'run_meta_info', 'alignment_meta_info', 'pipeline'),
    comment VARCHAR(255) NOT NULL,  
    time   datetime NOT NULL, 
    PRIMARY KEY(history_id), 
@@ -375,6 +375,53 @@ CREATE TABLE  verifybamid(
 
      PRIMARY KEY (verifybamid_id),
      UNIQUE(file_id, read_group)
+) ENGINE=MYISAM;
+
+CREATE TABLE pipeline(
+       pipeline_id int(10) unsigned NOT NULL AUTO_INCREMENT,
+       name VARCHAR(100) NOT NULL,
+       table_name VARCHAR(50),
+       type VARCHAR(50) NOT NULL,       
+       table_column VARCHAR(50) NOT NULL,       
+       config_module VARCHAR(255) NOT NULL,
+       config_options VARCHAR(1000),
+       created   datetime NOT NULL,
+       
+       PRIMARY KEY(pipeline_id),
+       UNIQUE(name)   
+) ENGINE=MYISAM;
+
+CREATE TABLE hive_db(
+       hive_db_id int(10) unsigned NOT NULL AUTO_INCREMENT,
+       url VARCHAR(255) NOT NULL,
+       pipeline_id int(10) unsigned NOT NULL,
+       created   datetime NOT NULL,
+       deleted   datetime,
+       hive_version VARCHAR(255) NOT NULL,
+       
+       PRIMARY KEY(hive_db_id),
+       UNIQUE(url,created)   
+) ENGINE=MYISAM;
+
+CREATE TABLE pipeline_seed(
+       pipeline_seed_id int(10) unsigned NOT NULL AUTO_INCREMENT,
+       seed_id int(10) unsigned NOT NULL,
+       hive_db_id int(10) unsigned NOT NULL,
+       status VARCHAR(50) NOT NULL,     
+       updated datetime NOT NULL,
+
+       PRIMARY KEY(pipeline_seed_id),
+       UNIQUE(hive_db_id, seed_id)   
+) ENGINE=MYISAM;
+
+CREATE TABLE pipeline_output(
+       pipeline_output_id int(10) unsigned NOT NULL AUTO_INCREMENT,
+       pipeline_seed_id int(10) unsigned NOT NULL,
+       table_name VARCHAR(50) NOT NULL,
+       output_id int(10) unsigned NOT NULL,
+       action VARCHAR(50) NOT NULL,     
+
+       PRIMARY KEY(pipeline_output_id)
 ) ENGINE=MYISAM;
 
 
