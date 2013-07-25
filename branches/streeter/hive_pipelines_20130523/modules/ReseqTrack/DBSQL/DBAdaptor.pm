@@ -348,4 +348,15 @@ sub get_PipelineOutputAdaptor{
   return $self->{PipelineOutputAdaptor};
 }
 
+sub get_adaptor_for_table{
+  my ($self, $table_name) = @_;
+  throw("undefined table name") if ! defined $table_name;
+  return $self->get_FileAdaptor if ($table_name eq 'file');
+  return $self->get_CollectionAdaptor if ($table_name eq 'collection');
+  return $self->get_EventAdaptor if ($table_name eq 'event');
+  return $self->get_RunMetaInfoAdaptor if ($table_name eq 'run_meta_info');
+  return $self->get_InputStringAdaptor if ($table_name eq 'input_string');
+  throw("do not know what to return for $table_name (yet)");
+}
+
 1;

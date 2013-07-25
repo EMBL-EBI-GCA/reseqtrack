@@ -40,7 +40,7 @@ sub run {
     }
     open my $OUT, "| $bgzip -c > $output_file";
     my $first_vcf = 1;
-    $self->data_dbc->disconnect_when_inactive(1);
+    $self->dbc->disconnect_when_inactive(1);
     VCF:
     foreach my $i (0..$#{$vcfs}) {
       my $vcf_path = $vcfs->[$i];
@@ -75,7 +75,7 @@ sub run {
       system("$tabix -p vcf $output_file") ==0 or throw("tabix failed $!");
     }
 
-    $self->data_dbc->disconnect_when_inactive(0);
+    $self->dbc->disconnect_when_inactive(0);
 
     $self->output_param('vcf' => $output_file);
     if ($run_tabix) {

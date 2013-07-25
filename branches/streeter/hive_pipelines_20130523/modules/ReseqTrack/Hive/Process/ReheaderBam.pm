@@ -30,10 +30,10 @@ sub run {
     }
 
     my $dict_file;
-    if ($self->param_is_defined('dict_file') {
+    if ($self->param_is_defined('dict_file')) {
       $dict_file = $self->param('dict_file');
     }
-    elsif ($self->param_is_defined('reference') {
+    elsif ($self->param_is_defined('reference')) {
       $dict_file = $self->param('reference');
       $dict_file =~ s/fa(?:sta)?(?:\.gz)?$/dict/;
     }

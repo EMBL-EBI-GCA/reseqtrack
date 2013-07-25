@@ -34,8 +34,6 @@ sub run {
     throw ("No mate for $mate1") if ($mate1 && ! $mate2);
     throw ("No mate for $mate2") if ($mate2 && ! $mate1);
 
-    $self->data_dbc->disconnect_when_inactive(1);
-
     my $run_split = ReseqTrack::Tools::RunSplit->new(
         -input_files => $fastqs,
         -program => $program_file,
@@ -60,8 +58,6 @@ sub run {
         $self->prepare_factory_output_id("$input_label.frag_chunk$label", {'fastq' => $file_path});
       }
     }
-
-    $self->data_dbc->disconnect_when_inactive(0);
 
 }
 

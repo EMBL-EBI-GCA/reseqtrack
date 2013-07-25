@@ -256,10 +256,12 @@ sub file_param_to_flat_array {
 sub run_program {
   my ($self, $run_program_object, @args) = @_;
 
-  $self->data_dbc->disconnect_when_inactive(1);
+  #$self->data_dbc->disconnect_when_inactive(1);
+  $self->dbc->disconnect_when_inactive(1);
   my $return = eval{$run_program_object->run(@args);};
   my $msg_thrown = $@;
-  $self->data_dbc->disconnect_when_inactive(0);
+  #$self->data_dbc->disconnect_when_inactive(0);
+  $self->dbc->disconnect_when_inactive(0);
   return $return if !$msg_thrown;
   print "term_sig is ".$run_program_object->term_sig . "\n";
   if ($run_program_object->term_sig) {
@@ -419,7 +421,8 @@ sub write_output {
 sub _accu_keys {
   my ($self,) = @_;
   my $sql = "SELECT DISTINCT struct_name FROM accu WHERE receiving_job_id=?";
-  my $hive_dbc = $self->data_dbc();
+  #my $hive_dbc = $self->data_dbc();
+  my $hive_dbc = $self->dbc();
   my $sth = $hive_dbc->prepare($sql) or die "could not prepare $sql: ".$hive_dbc->errstr;
   $sth->bind_param(1, $self->input_job->dbID);
   $sth->execute() or die 'could not execute '.$sth->statement .': '.$sth->errstr;
@@ -433,14 +436,16 @@ sub _accu_keys {
 sub _get_files {
   my ($self, $data_structure) = @_;
   my $sql = "SELECT name FROM reseqtrack_file WHERE file_id=?";
-  my $hive_dbc = $self->data_dbc();
+  #my $hive_dbc = $self->data_dbc();
+  my $hive_dbc = $self->dbc();
   my $sth = $hive_dbc->prepare($sql) or die "could not prepare $sql: ".$hive_dbc->errstr;
   return $self->__structure_to_file_paths($data_structure, $sth);
 }
 
 sub _make_file_ids {
   my ($self, $data_structure) = @_;
-  my $hive_dbc = $self->data_dbc();
+  #my $hive_dbc = $self->data_dbc();
+  my $hive_dbc = $self->dbc();
   my $sql_insert = "INSERT INTO reseqtrack_file (name) values (?)";
   my $sth_insert = $hive_dbc->prepare($sql_insert) or die "could not prepare $sql_insert: ".$hive_dbc->errstr;
 

@@ -13,9 +13,9 @@ sub new{
   my ($class, @args) = @_;
   my  $self = $class->SUPER::new(@args);
   my ($name, $table_name, $type, $table_column, $config_module,
-      $config_options, $created, $loaded) = 
+      $config_options, $created, $is_loaded) = 
       rearrange(['NAME', 'TABLE_NAME', 'TYPE', 'TABLE_COLUMN', 'CONFIG_MODULE',
-                 'CONFIG_OPTIONS', 'CREATED', 'LOADED'], @args);
+                 'CONFIG_OPTIONS', 'CREATED', 'IS_LOADED'], @args);
   
   $self->name($name) if $name;
   $self->table_name($table_name) if $table_name;
@@ -24,25 +24,25 @@ sub new{
   $self->config_module($config_module) if $config_module;
   $self->config_options($config_options) if $config_options;
   $self->created($created) if $created;
-  $self->loaded($loaded);
+  $self->is_loaded($is_loaded);
 
   return $self;
 }
 
 # Controls lazy loading
-sub loaded{
-  my ($self, $loaded) = @_;
+sub is_loaded{
+  my ($self, $is_loaded) = @_;
   if (@_>1){
-    $self->{loaded} = $loaded || 0;
+    $self->{is_loaded} = $is_loaded || 0;
   }
-  return $self->{loaded};
+  return $self->{is_loaded};
 }
 
 sub load {
   my ($self) = @_;
   return if !$self->adaptor;
   my $object = $self->adaptor->fetch_by_dbID($self->dbID);
-  $self->loaded(1);
+  $self->is_loaded(1);
   $self->name($self->name // $object->name);
   $self->table_name($self->table_name // $object->table_name);
   $self->table_column($self->table_column // $object->table_column);
@@ -56,7 +56,7 @@ sub name{
   if($name){
     $self->{name} = $name;
   }
-  if (!$self->{name} && !$self->loaded && $self->adaptor) {
+  if (!$self->{name} && !$self->is_loaded) {
     $self->load;
   }
   return $self->{name};
@@ -67,7 +67,7 @@ sub table_name{
   if($table_name){
     $self->{table_name} = $table_name;
   }
-  if (!$self->{table_name} && !$self->loaded && $self->adaptor) {
+  if (!$self->{table_name} && !$self->is_loaded) {
     $self->load;
   }
   return $self->{table_name};
@@ -78,7 +78,7 @@ sub type{
   if($type){
     $self->{type} = $type;
   }
-  if (!$self->{type} && !$self->loaded && $self->adaptor) {
+  if (!$self->{type} && !$self->is_loaded) {
     $self->load;
   }
   return $self->{type};
@@ -89,7 +89,7 @@ sub table_column{
   if($table_column){
     $self->{table_column} = $table_column;
   }
-  if (!$self->{table_column} && !$self->loaded && $self->adaptor) {
+  if (!$self->{table_column} && !$self->is_loaded) {
     $self->load;
   }
   return $self->{table_column};
@@ -100,7 +100,7 @@ sub config_module{
   if($config_module){
     $self->{config_module} = $config_module;
   }
-  if (!$self->{config_module} && !$self->loaded && $self->adaptor) {
+  if (!$self->{config_module} && !$self->is_loaded) {
     $self->load;
   }
   return $self->{config_module};
@@ -111,7 +111,7 @@ sub config_options{
   if($config_options){
     $self->{config_options} = $config_options;
   }
-  if (!$self->{config_options} && !$self->loaded && $self->adaptor) {
+  if (!$self->{config_options} && !$self->is_loaded) {
     $self->load;
   }
   return $self->{config_options};
@@ -122,7 +122,7 @@ sub created{
   if($created){
     $self->{created} = $created;
   }
-  if (!$self->{created} && !$self->loaded && $self->adaptor) {
+  if (!$self->{created} && !$self->is_loaded) {
     $self->load;
   }
   return $self->{created};

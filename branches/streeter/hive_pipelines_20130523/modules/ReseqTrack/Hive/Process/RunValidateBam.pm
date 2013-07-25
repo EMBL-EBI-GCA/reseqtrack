@@ -20,8 +20,6 @@ sub run {
     $self->param_required('bam');
     my $bams = $self->file_param_to_flat_array('bam');
 
-    $self->data_dbc->disconnect_when_inactive(1);
-
     my $bam_validator = ReseqTrack::Tools::RunValidateBam->new(
       -input_files  => $bams,
       -working_dir  => $self->output_dir,
