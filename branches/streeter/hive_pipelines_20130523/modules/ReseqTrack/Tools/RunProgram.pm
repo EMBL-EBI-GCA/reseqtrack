@@ -180,7 +180,9 @@ sub DESTROY {
 =cut
 
 sub execute_command_line {
-    my ($self, $command_line) = @_;
+    my ($self, $command_line, $exit_code_handler) = @_;
+
+    $exit_code_handler //= \&default_process_exit_code;
 
     if ($self->echo_cmd_line) {
         $command_line = "echo \'" . $command_line . "\'";
@@ -223,11 +225,11 @@ sub execute_command_line {
     throw("process died with signal $signal $command_line") if ($signal);
     my $exit = $? >> 8;
     throw("command could not be executed by bash: $command_line") if ($exit == 255);
-    $self->process_exit_code($exit, $command_line);
+    $exit_code_handler->($self, $exit, $command_line);
     return $exit;
 }
 
-sub process_exit_code {
+sub default_process_exit_code {
   my ($self, $exit, $command_line) = @_;
   throw("command exited with value $exit $command_line") if ($exit != 0);
 }
