@@ -223,8 +223,13 @@ sub execute_command_line {
     throw("process died with signal $signal $command_line") if ($signal);
     my $exit = $? >> 8;
     throw("command could not be executed by bash: $command_line") if ($exit == 255);
-    throw("command exited with value $exit $command_line") if ($exit != 0);
+    $self->process_exit_code($exit, $command_line);
     return $exit;
+}
+
+sub process_exit_code {
+  my ($self, $exit, $command_line) = @_;
+  throw("command exited with value $exit $command_line") if ($exit != 0);
 }
 
 =head2 save_files_from_deletion
