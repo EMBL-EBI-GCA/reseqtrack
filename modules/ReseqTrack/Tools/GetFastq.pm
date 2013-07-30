@@ -83,6 +83,7 @@ sub run {
   $self->get_fastq_details;
   $self->make_output_hash;
   $self->prepare_output_dir;
+  $self->db->dbc->disconnect_when_inactive(1);
   $self->get_files;
   $self->check_sizes;
   $self->check_md5s;
