@@ -6,54 +6,57 @@ use base qw(ReseqTrack::DBSQL::LazyAdaptor);
 use ReseqTrack::Study;
 
 sub new {
-	my ( $class, $db ) = @_;
+  my ( $class, $db ) = @_;
 
-	my $self = $class->SUPER::new($db);
+  my $self = $class->SUPER::new($db);
 
-	return $self;
+  return $self;
 }
 
 sub column_mappings {
-	my ($self,$s) = @_;
-	
-	throw("must be passed an object") unless ($s);
-	
-	return {
-		study_id     => sub { $s->dbID(@_) } ,
-		status       => sub { $s->status(@_) },
-		md5          => sub { $s->md5(@_) },
-		type         => sub { $s->type(@_) },
-		title        => sub { $s->title(@_) },
-		source_id		 => sub { $s->source_id(@_) },
-	};
+  my ( $self, $s ) = @_;
+
+  throw("must be passed an object") unless ($s);
+
+  return {
+    study_id        => sub { $s->dbID(@_) },
+    status          => sub { $s->status(@_) },
+    md5             => sub { $s->md5(@_) },
+    type            => sub { $s->type(@_) },
+    title           => sub { $s->title(@_) },
+    study_alias     => sub { $s->study_alias(@_) },
+    source_id       => sub { $s->source_id(@_) },
+    submission_id   => sub { $s->submission_id(@_) },
+    submission_date => sub { $s->submission_date(@_) },
+  };
 }
 
 sub object_class {
-	return 'ReseqTrack::Study';
+  return 'ReseqTrack::Study';
 }
 
 sub table_name {
-	return "study";
+  return "study";
 }
 
 sub store {
-	my ( $self, $study, $update ) = @_;
-	my $existing_record = $self->fetch_by_dbID( $study->dbID ) if ($study->dbID);
+  my ( $self, $study, $update ) = @_;
+  my $existing_record = $self->fetch_by_dbID( $study->dbID )
+    if ( $study->dbID );
 
-	if ( $existing_record ) {
-		if ($update){
-			return $self->update($study);	
-		}
-	}
-	
-	$self->SUPER::store($study,$update);
+  if ($existing_record) {
+    if ($update) {
+      return $self->update($study);
+    }
+  }
+
+  $self->SUPER::store( $study, $update );
 
 }
 
-sub fetch_by_source_id{
-   my ($self, $source_id) = @_;
-   return pop @{$self->fetch_by_column_name("source_id",$source_id)};
+sub fetch_by_source_id {
+  my ( $self, $source_id ) = @_;
+  return pop @{ $self->fetch_by_column_name( "source_id", $source_id ) };
 }
-
 
 1;

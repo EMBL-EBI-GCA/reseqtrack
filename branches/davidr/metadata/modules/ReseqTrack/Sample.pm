@@ -17,10 +17,10 @@ sub new{
   
   my ($status, $md5, $center_name, 
 		$sample_alias, $tax_id, $scientific_name, $common_name, 
-		$anonymized_name, $individual_name, $sample_title, $source_id, ) =
+		$anonymized_name, $individual_name, $sample_title, $source_id, $submission_id, $submission_date) =
       rearrange([qw(STATUS MD5 CENTER_NAME
       SAMPLE_ALIAS TAX_ID SCIENTIFIC_NAME COMMON_NAME
-			ANONYMIZED_NAME INDIVIDUAL_NAME SAMPLE_TITLE SOURCE_ID) ], @args);
+			ANONYMIZED_NAME INDIVIDUAL_NAME SAMPLE_TITLE SOURCE_ID SUBMISSION_ID SUBMISSION_DATE) ], @args);
 
   $self->status($status);
 	$self->md5($md5);
@@ -33,8 +33,15 @@ sub new{
 	$self->individual_name($individual_name);
 	$self->sample_title($sample_title);
 	$self->source_id($source_id);
+	$self->submission_id($submission_id);
+	$self->submission_date($submission_date);
   
   return $self;
+}
+
+sub name {
+  my ($self) = @_;
+  return $self->source_id();
 }
 
 sub source_id{
@@ -125,6 +132,22 @@ sub sample_title{
     $self->{sample_title} = $arg;
   }
   return $self->{sample_title};
+}
+
+sub submission_id{
+  my ($self, $arg) = @_;
+  if($arg){
+    $self->{submission_id} = $arg;
+  }
+  return $self->{submission_id};
+}
+
+sub submission_date{
+  my ($self, $arg) = @_;
+  if($arg){
+    $self->{submission_date} = $arg;
+  }
+  return $self->{submission_date};
 }
 
 sub object_table_name {

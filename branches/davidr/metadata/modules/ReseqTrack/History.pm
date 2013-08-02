@@ -61,7 +61,11 @@ sub new {
         || $table_name eq 'event'
         || $table_name eq 'run_meta_info'
         || $table_name eq 'alignment_meta_info'
-        || $table_name eq 'collection' );
+        || $table_name eq 'collection' 
+        || $table_name eq 'study'
+        || $table_name eq 'sample'
+        || $table_name eq 'experiment'
+        || $table_name eq 'run');
     throw("Can't create a history object without a comment")
       unless ($comment);
     ######

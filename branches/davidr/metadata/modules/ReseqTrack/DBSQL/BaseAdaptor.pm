@@ -151,14 +151,15 @@ sub fetch_by_column_names{
 	for my $column_name (@$column_names){
 		push @sql, 'and', $column_name, ' = ?';
 	} 
+	my $sql_stmt = join ' ', @sql;
 	
-	my $sth = $self->prepare(join ' ', @sql);
+	my $sth = $self->prepare($sql_stmt);
 	
 	my $index = 1;
 	for my $value (@$column_values){
 		$sth->bind_param($index++, $value);
 	}
-	
+
 	$sth->execute;
 	
 	my @objects;

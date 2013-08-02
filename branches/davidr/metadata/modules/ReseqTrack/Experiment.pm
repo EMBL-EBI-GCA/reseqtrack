@@ -18,11 +18,11 @@ sub new{
   my ($study_id, $status, $md5, $center_name, 
   	$experiment_alias, $instr_platform, $instr_model, $lib_layout, 
   	$lib_name, $lib_strategy, $lib_source, $lib_selection, 
-  	$paired_nominal_length, $paired_nominal_sdev, $source_id ) =
+  	$paired_nominal_length, $paired_nominal_sdev, $source_id,$submission_id,$submission_date ) =
       rearrange([qw( STUDY_ID STATUS MD5 CENTER_NAME
     EXPERIMENT_ALIAS INSTRUMENT_PLATFORM INSTRUMENT_MODEL LIBRARY_LAYOUT     
     LIBRARY_NAME LIBRARY_STRATEGY LIBRARY_SOURCE LIBRARY_SELECTION  
-    PAIRED_NOMINAL_LENGTH PAIRED_NOMINAL_SDEV SOURCE_ID) ], @args);
+    PAIRED_NOMINAL_LENGTH PAIRED_NOMINAL_SDEV SOURCE_ID SUBMISSION_ID SUBMISSION_DATE) ], @args);
   
 	$self->study_id($study_id);
  	$self->status($status);
@@ -39,8 +39,25 @@ sub new{
 	$self->library_layout($lib_layout); 
   $self->paired_nominal_sdev($paired_nominal_sdev);
   $self->source_id($source_id); 
+  $self->submission_id($submission_id);
+  $self->submission_date($submission_date);
+  
   
   return $self;
+}
+
+sub study {
+  my ($self) = @_;
+  
+  if ( $self->adaptor && $self->study_id ) {
+      my $sa = $self->adaptor->db->get_StudyAdaptor;
+      return $sa->fetch_by_dbID($self->study_id);
+  }
+}
+
+sub name {
+  my ($self) = @_;
+  return $self->source_id();
 }
 
 sub source_id{
@@ -50,20 +67,6 @@ sub source_id{
     $self->{source_id} = $arg;
   }
   return $self->{source_id};
-}
-
-sub study{
-	my ($self, $arg) = @_;
-	
-	if ($arg){
-		$self->{study} = $arg;
-	}
-	elsif ($self->adaptor() && $self->study_id()){
-		my $sa = $self->adaptor()->get_StudyAdaptor();
-		$self->{study} = $sa->fetch_by_dbID( $self->study_id() ); 
-	}
-	
-	return $self->{study};
 }
 
 sub study_id{
@@ -176,6 +179,22 @@ sub paired_nominal_sdev{
     $self->{paired_nominal_sdev} = $arg;
   }
   return $self->{paired_nominal_sdev};
+}
+
+sub submission_id{
+  my ($self, $arg) = @_;
+  if($arg){
+    $self->{submission_id} = $arg;
+  }
+  return $self->{submission_id};
+}
+
+sub submission_date{
+  my ($self, $arg) = @_;
+  if($arg){
+    $self->{submission_date} = $arg;
+  }
+  return $self->{submission_date};
 }
 
 sub object_table_name {

@@ -364,4 +364,14 @@ sub replace_attributes {
     return \@values;
 }
 
+sub attributes_hash {
+  my ($self) = @_;
+  
+  my %attrs;
+  for my $a (@{$self->statistics()}){
+    $attrs{$a->attribute_name} = $a;
+  }
+  return \%attrs;
+}
+
 1;

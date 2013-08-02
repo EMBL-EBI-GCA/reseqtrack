@@ -91,9 +91,9 @@ sub store{
   	
     if($update && $exists->attribute_value ne $attribute->attribute_value){
       $attribute->dbID($exists->dbID);
-      print "existing stats id is " . $exists->dbID . "\n";
-			print "reassigned stats id is: " . $attribute->dbID . "\n";
-			print "new attribute value is " . $attribute->attribute_value . "\n";
+#      print "existing stats id is " . $exists->dbID . "\n";
+#			print "reassigned stats id is: " . $attribute->dbID . "\n";
+#			print "new attribute value is " . $attribute->attribute_value . "\n";
 			return $self->update($attribute);      
     }
     return $attribute;
