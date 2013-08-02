@@ -137,3 +137,6 @@ left outer join attribute pop on pop.table_name = 'sample' and pop.attribute_nam
 left outer join attribute rc on rc.table_name = 'run' and rc.attribute_name = 'READ_COUNT' and rc.other_id = r.run_id
 left outer join attribute bc on bc.table_name = 'run' and bc.attribute_name = 'BASE_COUNT' and bc.other_id = r.run_id
 ;
+
+alter table history modify table_name enum('file','collection','event','run_meta_info','alignment_meta_info','study','sample','experiment','run') not null;
+alter table history modify comment varchar(65000) not null;
