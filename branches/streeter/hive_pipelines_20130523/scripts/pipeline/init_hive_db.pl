@@ -75,3 +75,51 @@ my $hive_db = ReseqTrack::HiveDB->new(
 );
 
 $db->get_HiveDBAdaptor->store($hive_db);
+
+=pod
+
+=head1 NAME
+
+reseqtrack/scripts/pipeline/init_hive_db.pl
+
+=head1 SYNOPSIS
+
+This script initialises a hive database using the configuration defined in the pipeline table
+  
+
+=head1 OPTIONS
+
+  database options for the reseqtrack database (must exist and have a pipeline defined):
+
+      -dbhost, the name of the mysql-host
+      -dbname, the name of the mysql database
+      -dbuser, the name of the mysql user
+      -dbpass, the database password if appropriate
+      -dbport, the port the mysql instance is running on
+
+  database options for the hive database (to be created):
+
+      -hive_host, the name of the mysql-host
+      -hive_user, the name of the mysql user
+      -hive_pass, the database password if appropriate
+      -hive_port, the port the mysql instance is running on
+      (optional) -hive_name, the name of the mysql database, defaults to something sensible and unique
+
+  other options:
+
+  -pipeline_name, refers to a name in the pipeline table
+  -ensembl_cvs_dir, path to the ensembl api
+  -ensembl_hive_version, (optional) default is to infer it from ensembl_cvs_dir
+
+=head1 Examples
+
+    $DB_OPTS="-dbhost mysql-host -dbuser rw_user -dbpass **** -dbport 4197 -dbname my_database"
+    $HIVE_DB_OPTS="-hive_host mysql-host -hive_user rw_user -hive_pass **** -hive_port 4175"
+
+
+  perl reseqtrack/process/run_picard.pl $DB_OPTS $HIVE_DB_OPTS
+    -ensembl_cvs_dir /path/to/ensembl-100
+    -pipeline_name alignment
+
+=cut
+

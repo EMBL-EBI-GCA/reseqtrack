@@ -11,7 +11,6 @@ my ($dbhost, $dbuser, $dbpass, $dbport, $dbname);
 my ($hive_user, $hive_pass);
 my $pipeline_name;
 my $ensembl_cvs_dir;
-my $run_pipeline;
 
 my %options;
 &GetOptions( 
@@ -24,7 +23,6 @@ my %options;
   'hive_pass=s'      => \$hive_pass,
   'pipeline_name=s'  => \$pipeline_name,
   'ensembl_cvs_dir=s'  => \$ensembl_cvs_dir,
-  'run_pipeline!' => \$run_pipeline,
   );
 
 my $db = ReseqTrack::DBSQL::DBAdaptor->new(
@@ -59,3 +57,44 @@ execute_system_command(join(' ', @cmd_words));
 
 $hive_db->is_seeded(1);
 $db->get_HiveDBAdaptor->update($hive_db);
+
+=pod
+
+=head1 NAME
+
+reseqtrack/scripts/pipeline/seed_pipeline.pl
+
+=head1 SYNOPSIS
+
+This script is used to create a job in a hive database in order to seed the pipeline (make it ready to run)
+
+=head1 OPTIONS
+
+  database options for the reseqtrack database (i.e. NOT the hive database)
+
+      -dbhost, the name of the mysql-host
+      -dbname, the name of the mysql database
+      -dbuser, the name of the mysql user
+      -dbpass, the database password if appropriate
+      -dbport, the port the mysql instance is running on
+
+  database options for the hive database:
+
+      -hive_user, the name of the mysql user
+      -hive_pass, the database password if appropriate
+      (all other hive_db params are got from the reseqtrack hive_db table)
+
+  other options:
+
+  -pipeline_name, refers to a name in the pipeline table
+  -ensembl_cvs_dir, path to the ensembl api
+
+=head1 Examples
+
+    $DB_OPTS="-dbhost mysql-host -dbuser rw_user -dbpass **** -dbport 4197 -dbname my_database"
+
+  perl reseqtrack/process/run_picard.pl $DB_OPTS $HIVE_DB_OPTS
+    -pipeline_name alignment
+    -ensembl_cvs_dir /path/to/api
+
+=cut

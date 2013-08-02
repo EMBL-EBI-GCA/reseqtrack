@@ -64,3 +64,42 @@ foreach my $hive_db (@$hive_dbs) {
 
 delete_lock_string($lock_string, $meta_adaptor);
 
+
+=pod
+
+=head1 NAME
+
+reseqtrack/scripts/pipeline/retire_hive_db.pl
+
+=head1 SYNOPSIS
+
+This script marks an old hive database as 'retired' in the hive_db table of a reseqtrack database.
+This is so the hive database will not be used any more for running pipelines
+  
+
+=head1 OPTIONS
+
+  database options for the reseqtrack database (i.e. NOT the hive database)
+
+      -dbhost, the name of the mysql-host
+      -dbname, the name of the mysql database
+      -dbuser, the name of the mysql user
+      -dbpass, the database password if appropriate
+      -dbport, the port the mysql instance is running on
+
+  other options:
+
+  -pipeline_name, refers to a name in the pipeline table
+  -force, binary flag. This is needed if the hive_db is still marked as running some pipeline seeds.  These pipeline seeds will be marked as failed.
+  -futile, binary flag.  For use with the -force flag.  Failed pipeline seeds can also be marked futile for that pipeline so they will not be retried by another hive_db.
+
+=head1 Examples
+
+    $DB_OPTS="-dbhost mysql-host -dbuser rw_user -dbpass **** -dbport 4197 -dbname my_database"
+
+  perl reseqtrack/process/run_picard.pl $DB_OPTS $HIVE_DB_OPTS
+    -pipeline_name alignment
+    -force -nofutile
+
+=cut
+
