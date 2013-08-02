@@ -21,7 +21,16 @@ sub new {
 
 sub columns{
 
-  return  ' pipeline_seed.pipeline_seed_id, pipeline_seed.seed_id, pipeline_seed.hive_db_id, pipeline_seed.status, pipeline_seed.updated ';
+  return  join(', ',qw(
+      pipeline_seed.pipeline_seed_id
+      pipeline_seed.seed_id
+      pipeline_seed.hive_db_id
+      pipeline_seed.is_running
+      pipeline_seed.is_complete
+      pipeline_seed.is_failed
+      pipeline_seed.is_futile
+      pipeline_seed.created
+      pipeline_seed.completed));
   
 }
 
@@ -55,24 +64,25 @@ sub fetch_by_seed{
 }
 
 sub fetch_by_hive_db{
-
   my ($self, $hive_db) = @_;
 
-  my $sql = "select ".$self->columns." from pipeline_seed where hive_db_id = ?";
-
-  my $sth = $self->prepare($sql);
-  $sth->bind_param(1, $hive_db->dbID);
-  $sth->execute;
-  my @pipeline_seeds;
-  while(my $rowHashref = $sth->fetchrow_hashref){
-    my $pipeline_seed = $self->object_from_hashref($rowHashref);
+  my $pipeline_seeds = $self->fetch_by_column_name('hive_db', $hive_db->dbID);
+  foreach my $pipeline_seed (@$pipeline_seeds) {
     $pipeline_seed->hive_db($hive_db);
-    push(@pipeline_seeds, $pipeline_seed);
   }
-  $sth->finish;
-
-  return \@pipeline_seeds;
+  return $pipeline_seeds;
 }
+
+sub fetch_running_by_hive_db{
+  my ($self, $hive_db) = @_;
+
+  my $pipeline_seeds = $self->fetch_by_column_names(['hive_db_id', 'is_running'], [$hive_db->dbID, 1]);
+  foreach my $pipeline_seed (@$pipeline_seeds) {
+    $pipeline_seed->hive_db($hive_db);
+  }
+  return $pipeline_seeds;
+}
+
 
 sub fetch_by_pipeline{
 
@@ -99,23 +109,29 @@ sub fetch_by_pipeline{
 
 sub store{
   my ($self, $pipeline_seed) = @_;
+  my $created_value = defined $pipeline_seed->created ? '?' : 'NOW()';
   my $sql = 
       "INSERT INTO  pipeline_seed " 
-      . "(seed_id, hive_db_id, status, updated) "
-      . "values(?, ?, ?, now()) ";
+      . "(seed_id, hive_db_id, is_running, is_complete, is_failed, is_futile, completed, created) "
+      . "values(?, ?, ?, ?, ?, ?, ?, $created_value) ";
  
   my $sth = $self->prepare($sql);
 
   $sth->bind_param(1,  $pipeline_seed->seed_id);
   $sth->bind_param(2,  $pipeline_seed->hive_db_id);
-  $sth->bind_param(3,  $pipeline_seed->status);
+  $sth->bind_param(3,  $pipeline_seed->is_running);
+  $sth->bind_param(4,  $pipeline_seed->is_complete // 0);
+  $sth->bind_param(5,  $pipeline_seed->is_failed // 0);
+  $sth->bind_param(6,  $pipeline_seed->is_futile // 0);
+  $sth->bind_param(7,  $pipeline_seed->completed);
+  $sth->bind_param(8,  $pipeline_seed->created) if defined $pipeline_seed->created;
   my $rows_inserted = $sth->execute();
   my $dbID = $sth->{'mysql_insertid'};
  
   $sth->finish();
   $pipeline_seed->dbID($dbID);
   $pipeline_seed->adaptor($self);
-  $pipeline_seed->loaded(1);
+  $pipeline_seed->is_loaded(1);
 }
 #############
 
@@ -127,8 +143,12 @@ sub update{
       "UPDATE pipeline_seed SET ".
       "seed_id     = ?, ".
       "hive_db_id = ?, ".
-      "status = ?,  ".
-      "updated = now(),  ".
+      "is_running = ?,  ".
+      "is_complete = ?,  ".
+      "is_failed = ?,  ".
+      "is_futile = ?,  ".
+      "created = ?,  ".
+      "completed = ?  ".
       "WHERE pipeline_seed_id  = ?;";
   
   
@@ -137,9 +157,66 @@ sub update{
   
   $sth->bind_param(1,  $pipeline_seed->seed_id);
   $sth->bind_param(2,  $pipeline_seed->hive_db_id);
-  $sth->bind_param(3,  $pipeline_seed->status);
-  $sth->bind_param(4, $pipeline_seed->dbID);
-  $pipeline_seed->loaded(1);
+  $sth->bind_param(3,  $pipeline_seed->is_running);
+  $sth->bind_param(4,  $pipeline_seed->is_complete);
+  $sth->bind_param(5,  $pipeline_seed->is_failed);
+  $sth->bind_param(6,  $pipeline_seed->is_futile);
+  $sth->bind_param(7,  $pipeline_seed->created);
+  $sth->bind_param(8,  $pipeline_seed->completed);
+  $sth->bind_param(9, $pipeline_seed->dbID);
+  $pipeline_seed->is_loaded(1);
+ 
+  $sth->execute();
+  $sth->finish();
+  return;
+}
+
+sub update_completed {
+  my ($self, $pipeline_seed) = @_;
+  $pipeline_seed->is_running(0);
+  $pipeline_seed->is_complete(1);
+  $pipeline_seed->is_failed(0);
+  $pipeline_seed->is_futile(0);
+
+  my $sql = 
+      "UPDATE pipeline_seed SET ".
+      "is_running = 0,  ".
+      "is_complete = 1,  ".
+      "is_failed = 0,  ".
+      "is_futile = 0,  ".
+      "completed = now()  ".
+      "WHERE pipeline_seed_id  = ?;";
+  
+  my $sth = $self->prepare($sql);
+  
+  $sth->bind_param(1, $pipeline_seed->dbID);
+ 
+  $sth->execute();
+  $sth->finish();
+  return;
+}
+
+sub update_failed {
+  my ($self, $pipeline_seed, $is_futile) = @_;
+  throw("must specify if failure is futile") if ! defined $is_futile;
+  $pipeline_seed->is_running(0);
+  $pipeline_seed->is_complete(0);
+  $pipeline_seed->is_failed(1);
+  $pipeline_seed->is_futile($is_futile);
+
+  my $sql = 
+      "UPDATE pipeline_seed SET ".
+      "is_running = 0,  ".
+      "is_complete = 0,  ".
+      "is_failed = 1,  ".
+      "is_futile = ?,  ".
+      "completed = now()  ".
+      "WHERE pipeline_seed_id  = ?;";
+  
+  my $sth = $self->prepare($sql);
+  
+  $sth->bind_param(1, $pipeline_seed->dbID);
+  $sth->bind_param(2, $is_futile);
  
   $sth->execute();
   $sth->finish();
@@ -159,9 +236,13 @@ sub object_from_hashref{
          -adaptor => $self,
          -seed_id              =>$hashref->{seed_id},
          -hive_db_id         =>$hashref->{hive_db_id},
-         -status          =>$hashref->{status},
-         -updated          =>$hashref->{updated},
-         -loaded            =>1,
+         -is_running          =>$hashref->{is_running},
+         -is_complete          =>$hashref->{is_complete},
+         -is_failed          =>$hashref->{is_failed},
+         -is_futile          =>$hashref->{is_futile},
+         -created          =>$hashref->{created},
+         -completed          =>$hashref->{completed},
+         -is_loaded            =>1,
      
     );
     return $pipeline_seed; 

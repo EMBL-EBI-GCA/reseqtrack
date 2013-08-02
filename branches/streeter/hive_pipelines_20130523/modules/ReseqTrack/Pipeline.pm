@@ -12,15 +12,14 @@ use ReseqTrack::Tools::Argument qw(rearrange);
 sub new{
   my ($class, @args) = @_;
   my  $self = $class->SUPER::new(@args);
-  my ($name, $table_name, $type, $table_column, $config_module,
+  my ($name, $table_name, $type, $config_module,
       $config_options, $created, $is_loaded) = 
-      rearrange(['NAME', 'TABLE_NAME', 'TYPE', 'TABLE_COLUMN', 'CONFIG_MODULE',
+      rearrange(['NAME', 'TABLE_NAME', 'TYPE', 'CONFIG_MODULE',
                  'CONFIG_OPTIONS', 'CREATED', 'IS_LOADED'], @args);
   
   $self->name($name) if $name;
   $self->table_name($table_name) if $table_name;
   $self->type($type) if $type;
-  $self->table_column($table_column) if $table_column;
   $self->config_module($config_module) if $config_module;
   $self->config_options($config_options) if $config_options;
   $self->created($created) if $created;
@@ -45,7 +44,6 @@ sub load {
   $self->is_loaded(1);
   $self->name($self->name // $object->name);
   $self->table_name($self->table_name // $object->table_name);
-  $self->table_column($self->table_column // $object->table_column);
   $self->config_module($self->config_module // $object->config_module);
   $self->config_options($self->config_options // $object->config_options);
   $self->created($self->created // $object->created);
@@ -82,17 +80,6 @@ sub type{
     $self->load;
   }
   return $self->{type};
-}
-
-sub table_column{
-  my ($self, $table_column) = @_;
-  if($table_column){
-    $self->{table_column} = $table_column;
-  }
-  if (!$self->{table_column} && !$self->is_loaded) {
-    $self->load;
-  }
-  return $self->{table_column};
 }
 
 sub config_module{

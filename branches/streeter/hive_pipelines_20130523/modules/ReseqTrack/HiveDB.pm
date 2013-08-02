@@ -8,13 +8,12 @@ use ReseqTrack::Tools::Exception qw(throw warning stack_trace_dump);
 use ReseqTrack::Tools::Argument qw(rearrange);
 
 
-
 sub new{
   my ($class, @args) = @_;
   my  $self = $class->SUPER::new(@args);
-  my ($url, $pipeline_id, $pipeline, $created, $deleted, $hive_version, $loaded,
+  my ($url, $pipeline_id, $pipeline, $created, $retired, $hive_version, $is_seeded, $is_loaded,
       ) = 
-      rearrange(['URL', 'PIPELINE_ID', 'PIPELINE', 'CREATED', 'DELETED', 'HIVE_VERSION', 'LOADED',
+      rearrange(['URL', 'PIPELINE_ID', 'PIPELINE', 'CREATED', 'RETIRED', 'HIVE_VERSION', 'IS_SEEDED', 'IS_LOADED',
                  ], @args);
   
   #don't trigger any lazy loading if parameters are undefined
@@ -22,32 +21,34 @@ sub new{
   $self->pipeline($pipeline) if $pipeline;
   $self->pipeline_id($pipeline_id) if $pipeline_id;
   $self->created($created) if $created;
-  $self->deleted($deleted) if $deleted;
+  $self->retired($retired) if $retired;
   $self->hive_version($hive_version) if $hive_version;
-  $self->loaded($loaded);
+  $self->is_seeded($is_seeded) if defined $is_seeded;
+  $self->is_loaded($is_loaded);
 
   return $self;
 }
 
 # Controls lazy loading
-sub loaded{
-  my ($self, $loaded) = @_;
+sub is_loaded{
+  my ($self, $is_loaded) = @_;
   if (@_>1){
-    $self->{loaded} = $loaded || 0;
+    $self->{is_loaded} = $is_loaded || 0;
   }
-  return $self->{loaded};
+  return $self->{is_loaded};
 }
 
 sub load {
   my ($self) = @_;
   return if !$self->adaptor;
   my $object = $self->adaptor->fetch_by_dbID($self->dbID);
-  $self->loaded(1); # set to 1 now to prevent recursive loops
+  $self->is_loaded(1); # set to 1 now to prevent recursive loops
   $self->url($self->url // $object->url);
   $self->pipeline_id($self->pipeline_id // $object->pipeline_id);
   $self->created($self->created // $object->created);
-  $self->deleted($self->deleted // $object->deleted);
+  $self->retired($self->retired // $object->retired);
   $self->hive_version($self->hive_version // $object->hive_version);
+  $self->is_seeded($self->is_seeded // $object->is_seeded);
 }
 
 
@@ -56,7 +57,7 @@ sub url{
   if($url){
     $self->{url} = $url;
   }
-  if (!$self->{url} && !$self->loaded) {
+  if (!$self->{url} && !$self->is_loaded) {
     $self->load;
   }
   return $self->{url};
@@ -68,7 +69,7 @@ sub pipeline{
     throw("not a ReseqTrack::Pipeline object") if ref($pipeline) ne 'ReseqTrack::Pipeline';
     $self->{pipeline} = $pipeline;
   }
-  if (!$self->{pipeline} && !$self->loaded) {
+  if (!$self->{pipeline} && !$self->is_loaded) {
     $self->load;
   }
   if (!$self->{pipeline}) {
@@ -99,21 +100,21 @@ sub created{
   if($created){
     $self->{created} = $created;
   }
-  if (!$self->{created} && !$self->loaded) {
-    $self->adaptor->load($self);
+  if (!$self->{created} && !$self->is_loaded) {
+    $self->load;
   }
   return $self->{created};
 }
 
-sub deleted{
-  my ($self, $deleted) = @_;
-  if($deleted){
-    $self->{deleted} = $deleted;
+sub retired{
+  my ($self, $retired) = @_;
+  if($retired){
+    $self->{retired} = $retired;
   }
-  if (!$self->{deleted} && !$self->loaded) {
-    $self->adaptor->load($self);
+  if (!$self->{retired} && !$self->is_loaded) {
+    $self->load;
   }
-  return $self->{deleted};
+  return $self->{retired};
 }
 
 sub hive_version{
@@ -121,10 +122,21 @@ sub hive_version{
   if($hive_version){
     $self->{hive_version} = $hive_version;
   }
-  if (!$self->{hive_version} && !$self->loaded) {
-    $self->adaptor->load($self);
+  if (!$self->{hive_version} && !$self->is_loaded) {
+    $self->load;
   }
   return $self->{hive_version};
+}
+
+sub is_seeded{
+  my ($self, $is_seeded) = @_;
+  if(defined $is_seeded){
+    $self->{is_seeded} = $is_seeded;
+  }
+  if (!defined $self->{is_seeded} && !$self->is_loaded) {
+    $self->load;
+  }
+  return $self->{is_seeded};
 }
 
 

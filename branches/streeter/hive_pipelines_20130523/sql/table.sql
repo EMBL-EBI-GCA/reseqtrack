@@ -28,7 +28,7 @@ create table history(
    history_id int(10) unsigned NOT NULL AUTO_INCREMENT,
    other_id int(10) unsigned NOT NULL,
    table_name enum('file', 'collection', 'event', 'run_meta_info', 'alignment_meta_info', 'pipeline'),
-   comment VARCHAR(255) NOT NULL,  
+   comment VARCHAR(65000) NOT NULL,  
    time   datetime NOT NULL, 
    PRIMARY KEY(history_id), 
    key(other_id, table_name)
@@ -382,7 +382,6 @@ CREATE TABLE pipeline(
        name VARCHAR(100) NOT NULL,
        table_name VARCHAR(50),
        type VARCHAR(50),
-       table_column VARCHAR(50) NOT NULL,       
        config_module VARCHAR(255) NOT NULL,
        config_options VARCHAR(1000),
        created   datetime NOT NULL,
@@ -396,8 +395,9 @@ CREATE TABLE hive_db(
        url VARCHAR(255) NOT NULL,
        pipeline_id int(10) unsigned NOT NULL,
        created   datetime NOT NULL,
-       deleted   datetime,
+       retired   datetime,
        hive_version VARCHAR(255) NOT NULL,
+       is_seeded tinyint NOT NULL DEFAULT 0,
        
        PRIMARY KEY(hive_db_id),
        UNIQUE(url,created)   
@@ -407,8 +407,12 @@ CREATE TABLE pipeline_seed(
        pipeline_seed_id int(10) unsigned NOT NULL AUTO_INCREMENT,
        seed_id int(10) unsigned NOT NULL,
        hive_db_id int(10) unsigned NOT NULL,
-       status VARCHAR(50) NOT NULL,     
-       updated datetime NOT NULL,
+       is_running tinyint NOT NULL,
+       is_complete tinyint NOT NULL default 0,
+       is_failed tinyint NOT NULL default 0,
+       is_futile tinyint NOT NULL default 0,
+       created datetime NOT NULL,
+       completed datetime,
 
        PRIMARY KEY(pipeline_seed_id),
        UNIQUE(hive_db_id, seed_id)   

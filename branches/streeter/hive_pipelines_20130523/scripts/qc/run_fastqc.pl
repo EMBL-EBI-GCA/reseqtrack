@@ -106,25 +106,24 @@ for my $fastq_file (@{$collection->others}) {
 	
 	$fastqc->run;
 	$db->dbc->disconnect_when_inactive(0);
+
+        my @summary_paths = grep { /_summary\.txt$/ } @{$fastqc->output_files};
+        my @report_paths = grep { /_report\.txt$/ } @{$fastqc->output_files};
+        my @zip_paths = grep { /\.zip$/ } @{$fastqc->output_files};
+
+        throw("unexpected number of summary paths: " . scalar @summary_paths) if @summary_paths != 1;
+        throw("unexpected number of report paths: " . scalar @report_paths) if @report_paths != 1;
+        throw("unexpected number of zip paths: " . scalar @zip_paths) if @zip_paths != 1;
+        my ($summary_path, $report_path, $zip_path) = ($summary_paths[0], $report_paths[0], $zip_paths[0]);
 	
-	my ($base_name) = $fastqc->output_base_name($fastq_file->name);	
-	my $summary_path = $fastqc->summary_text_path($fastq_file->name);
-	my $report_path = $fastqc->report_text_path($fastq_file->name);
-	my $zip_path = $fastqc->zipped_output_path($fastq_file->name); 
-	my $summary_destination = "$output_dir/${base_name}_summary.txt";
-	my $report_destination = "$output_dir/${base_name}_report.txt";
-	my $zip_destination = "$output_dir/${base_name}.zip";
-	move($summary_path,$summary_destination);
-	move($report_path,$report_destination);
-	move($zip_path,$zip_destination);
-	push @summary_files, $summary_destination;
-	push @report_files, $report_destination;
-	push @zip_files, $zip_destination;
+	push @summary_files, $summary_path;
+	push @report_files, $report_path;
+	push @zip_files, $zip_path;
 
 	
 	my $statistics = $fastq_file->statistics;
 	
-	open (my $summary_fh, '<', $summary_destination) or throw("Could not open $summary_destination - odd as we should have just made it");
+	open (my $summary_fh, '<', $summary_path) or throw("Could not open $summary_path - odd as we should have just made it");
 	while (<$summary_fh>){
 		chomp;
 		my ($value,$key,$name) = split /\t/;

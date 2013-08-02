@@ -21,7 +21,7 @@ sub new {
 
 sub columns{
 
-  return  ' pipeline.pipeline_id, pipeline.name, pipeline.table_name,  pipeline.type, pipeline.table_column, pipeline.config_module, pipeline.config_options, pipeline.created ';
+  return  ' pipeline.pipeline_id, pipeline.name, pipeline.table_name,  pipeline.type, pipeline.config_module, pipeline.config_options, pipeline.created ';
   
 }
 
@@ -54,17 +54,16 @@ sub store{
   my $sql = 
       "INSERT INTO  pipeline " 
       . "(name, table_name, type,
-          table_column, config_module, config_options, created) "
-      . "values(?, ?, ?, ?, ?, ?, now()) ";
+          config_module, config_options, created) "
+      . "values(?, ?, ?, ?, ?, now()) ";
  
   my $sth = $self->prepare($sql);
 
   $sth->bind_param(1,  $pipeline->name);
   $sth->bind_param(2,  $pipeline->table_name);
   $sth->bind_param(3,  $pipeline->type);
-  $sth->bind_param(4,  $pipeline->table_column);
-  $sth->bind_param(5,  $pipeline->config_module);
-  $sth->bind_param(6,  $pipeline->config_options);
+  $sth->bind_param(4,  $pipeline->config_module);
+  $sth->bind_param(5,  $pipeline->config_options);
   my $rows_inserted = $sth->execute();
   my $dbID = $sth->{'mysql_insertid'};
  
@@ -72,7 +71,7 @@ sub store{
   $pipeline->dbID($dbID);
   $pipeline->adaptor($self);
   $self->store_history($pipeline);
-  $pipeline->loaded(1);
+  $pipeline->is_loaded(1);
 }
 #############
 
@@ -84,7 +83,6 @@ sub update{
       "UPDATE pipeline SET name   = ?, ".
       "table_name     = ?, ".
       "type = ?, ".
-      "table_column = ?,  ".
       "config_module = ?,  ".
       "config_options = ?  ".
       "WHERE pipeline_id  = ?";
@@ -96,15 +94,14 @@ sub update{
   $sth->bind_param(1,  $pipeline->name);
   $sth->bind_param(2,  $pipeline->table_name);
   $sth->bind_param(3,  $pipeline->type);
-  $sth->bind_param(4,  $pipeline->table_column);
-  $sth->bind_param(5,  $pipeline->config_module);
-  $sth->bind_param(6,  $pipeline->config_options);
-  $sth->bind_param(7, $pipeline->dbID);
+  $sth->bind_param(4,  $pipeline->config_module);
+  $sth->bind_param(5,  $pipeline->config_options);
+  $sth->bind_param(6, $pipeline->dbID);
  
   $sth->execute();
   $sth->finish();
   $self->store_history($pipeline);
-  $pipeline->loaded(1);
+  $pipeline->is_loaded(1);
   return;
 }
 ############
@@ -122,11 +119,10 @@ sub object_from_hashref{
          -name              =>$hashref->{name},
          -table_name        =>$hashref->{table_name},
          -type              =>$hashref->{type},
-         -table_column      =>$hashref->{table_column},
          -config_module     =>$hashref->{config_module},
          -config_options    =>$hashref->{config_options},
          -created           =>$hashref->{created},
-         -loaded            =>1,
+         -is_loaded            =>1,
      
     );
     return $pipeline; 

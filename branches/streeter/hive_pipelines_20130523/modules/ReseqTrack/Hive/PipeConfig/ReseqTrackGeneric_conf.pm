@@ -29,7 +29,7 @@ sub default_options {
         'reseqtrack_db'  => {
             -host => $self->o('host'),
             -port => 4175,
-            -user => 'g1kro',
+            -user => undef, # set on the command line
             -pass => undef, # set on the command line
             -dbname => $self->o('reseqtrack_db_name'),
         },

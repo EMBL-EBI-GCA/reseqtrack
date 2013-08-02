@@ -141,7 +141,7 @@ sub store{
   $sth->finish();
   $pipeline_output->dbID($dbID);
   $pipeline_output->adaptor($self);
-  $pipeline_output->loaded(1);
+  $pipeline_output->is_loaded(1);
 }
 #############
 
@@ -169,7 +169,7 @@ sub update{
  
   $sth->execute();
   $sth->finish();
-  $pipeline_output->loaded(1);
+  $pipeline_output->is_loaded(1);
   return;
 }
 ############
@@ -188,7 +188,7 @@ sub object_from_hashref{
          -output_id       =>$hashref->{output_id},
          -table_name          =>$hashref->{table_name},
          -action          =>$hashref->{action},
-         -loaded            =>1,
+         -is_loaded            =>1,
      
     );
     return $pipeline_output; 

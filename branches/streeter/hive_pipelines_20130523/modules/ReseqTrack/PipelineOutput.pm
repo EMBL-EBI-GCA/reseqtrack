@@ -17,14 +17,14 @@ sub new{
       $pipeline, $pipeline_id,
       $seed, $seed_id,
       $output, $output_id,
-      $action, $table_name, $loaded,
+      $action, $table_name, $is_loaded,
       ) = 
       rearrange(['PIPELINE_SEED', 'PIPELINE_SEED_ID',
                 'HIVE_DB', 'HIVE_DB_ID',
                 'PIPELINE', 'PIPELINE_ID',
                 'SEED', 'SEED_ID',
                 'OUTPUT', 'OUTPUT_ID',
-                'ACTION', 'TABLE_NAME', 'LOADED',
+                'ACTION', 'TABLE_NAME', 'IS_LOADED',
                  ], @args);
   
   #don't trigger any lazy loading if parameters are undefined
@@ -40,26 +40,26 @@ sub new{
   $self->output_id($output_id) if $output;
   $self->action($action) if $action;
   $self->table_name($table_name) if $table_name;
-  $self->loaded($loaded);
+  $self->is_loaded($is_loaded);
 
   return $self;
 }
 
 
 # Controls lazy loading
-sub loaded{
-  my ($self, $loaded) = @_;
+sub is_loaded{
+  my ($self, $is_loaded) = @_;
   if (@_>1){
-    $self->{loaded} = $loaded || 0;
+    $self->{is_loaded} = $is_loaded || 0;
   }
-  return $self->{loaded};
+  return $self->{is_loaded};
 }
 
 sub load {
   my ($self) = @_;
   return if !$self->adaptor;
   my $object = $self->adaptor->fetch_by_dbID($self->dbID);
-  $self->loaded(1); # set to 1 now to prevent recursive loops
+  $self->is_loaded(1); # set to 1 now to prevent recursive loops
   $self->table_name($self->table_name // $object->table_name);
   $self->pipeline_seed_id($self->pipeline_seed_id // $object->pipeline_seed_id);
   $self->output_id($self->output_id // $object->output_id);
@@ -73,7 +73,7 @@ sub pipeline_seed{
     throw("not a ReseqTrack::PipelineSeed object") if ref($pipeline_seed) ne 'ReseqTrack::PipelineSeed';
     $self->{pipeline_seed} = $pipeline_seed;
   }
-  if (!$self->{pipeline_seed} && !$self->loaded) {
+  if (!$self->{pipeline_seed} && !$self->is_loaded) {
     $self->load;
   }
   if (!$self->{pipeline_seed}) {
@@ -163,8 +163,8 @@ sub output_id{
   if (!$self->{output_id} && $self->{output}) {
     $self->{output_id} = $self->output->dbID;
   }
-  if (!$self->{output_id} && !$self->loaded) {
-    $self->load($self);
+  if (!$self->{output_id} && !$self->is_loaded) {
+    $self->load;
   }
   return $self->{output_id};
 }
@@ -178,8 +178,8 @@ sub table_name{
   if (!$self->{table_name} && $self->{output}) {
     $self->{table_name} = $self->output->object_table_name;
   }
-  if (!$self->{table_name} && !$self->loaded) {
-    $self->load($self);
+  if (!$self->{table_name} && !$self->is_loaded) {
+    $self->load;
   }
   return $self->{table_name};
 }
@@ -187,10 +187,12 @@ sub table_name{
 sub action{
   my ($self, $action) = @_;
   if($action){
+    throw("valid actions are CREATED, UPDATED, DELETED, not $action")
+      if (! grep {$action eq $_} qw( CREATED UPDATED DELETED ));
     $self->{action} = $action;
   }
-  if (!$self->{action} && !$self->loaded) {
-    $self->load($self);
+  if (!$self->{action} && !$self->is_loaded) {
+    $self->load;
   }
   return $self->{action};
 }

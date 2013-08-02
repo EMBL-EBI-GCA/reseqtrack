@@ -27,12 +27,11 @@ sub run {
 
     # sanity check:
     my $self_url = $self->dbc->url;
+    $self_url =~ s/[^\/]*\@//; # remove username and password from url
     my $ps_url = $pipeline_seed->hive_db->url;
     throw("url does not match $self_url $ps_url") if $self_url ne $ps_url;
 
-
-    $pipeline_seed->status('COMPLETE');
-    $psa->update($pipeline_seed);
+    $psa->update_completed($pipeline_seed);
     
 }
 

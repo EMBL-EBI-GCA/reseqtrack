@@ -352,7 +352,7 @@ sub working_dir {
 
   Arg [1]   : ReseqTrack::Tools::RunProgram
   Arg [2]   : string, path of output directory
-  Function  : accessor method for output directory
+  Function  : alternative accessor to working_dir.  output_dir and working_dir are the same thing.
   Returntype: string
   Exceptions: n/a
   Example   : my $output_dir = $self->output_dir;
@@ -361,10 +361,7 @@ sub working_dir {
 
 sub output_dir {
   my ( $self, $arg ) = @_;
-  if ($arg) {
-    $self->{'output_dir'} = $arg;
-  }
-  return $self->{'output_dir'};
+  return $self->working_dir($arg);
 }
 
 

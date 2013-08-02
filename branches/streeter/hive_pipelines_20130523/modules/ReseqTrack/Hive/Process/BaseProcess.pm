@@ -27,6 +27,7 @@ ReseqTrack::Hive::Process::BaseProcess;
 
       Output files and directories are given sensible names.  This is managed by using the concept of a branch 'label'.  Each time the pipeline branches into factory jobs, each branch is given a new label string.
           (This behaviour can be turned off for a pipeline by setting 'use_label_management' => 0 in the pipeline configuration file)
+          (Output directory can be overriden for a particular analysis by explicitly setting the parameter 'output_dir' => '/path/to/dir' in the pipeline configuration file)
 
       Management of job input_ids: When job A creates job B, the input_id for job B will contain:
           1. any parameter from the input_id of job A
@@ -293,13 +294,14 @@ sub fetch_input {
   $self->{'_BaseProcess_params'} = {};
 
   my $root_output_dir = $self->param_required('root_output_dir');
+  my $output_dir = $self->param_is_defined('output_dir') ? $self->param('output_dir') : undef;
 
   my $analysis_label = $self->param_is_defined('analysis_label') ?
             $self->param('analysis_label') : $self->analysis->logic_name;
   if ($self->param_is_defined('labels')) {
     my $labels = $self->param('labels');
     throw("labels is defined but empty") if !@$labels;
-    my $output_dir = join('/', $root_output_dir, @$labels);
+    $output_dir //= join('/', $root_output_dir, @$labels);
     $output_dir =~ s{//}{/}g;
     $self->output_dir($output_dir);
     my $current_label = $labels->[-1];
@@ -308,7 +310,7 @@ sub fetch_input {
     $self->job_name($job_name);
   }
   else {
-    $self->output_dir($root_output_dir);
+    $self->output_dir($output_dir // $root_output_dir);
     my $job_name = join('.', $self->input_job->dbID, $analysis_label);
     $self->job_name($job_name);
   }
