@@ -1,4 +1,4 @@
-package ReseqTrack::Statistic;
+package ReseqTrack::Attribute;
 
 use strict;
 use warnings;

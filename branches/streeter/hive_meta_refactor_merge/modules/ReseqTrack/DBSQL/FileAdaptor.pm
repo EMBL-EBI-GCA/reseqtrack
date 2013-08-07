@@ -209,7 +209,7 @@ sub store{
       $file->created($existing->created);
       if(are_files_identical($existing, $file)){
         $self->store_history($file);
-        $self->store_statistics($file, $update);
+        $self->store_attributes($file, $update);
         return $file;
       }
       if($update){
@@ -229,7 +229,7 @@ sub store{
           $file->created($existing->created);
           if(are_files_identical($existing, $file)){
             $self->store_history($file);
-            $self->store_statistics($file, $update);
+            $self->store_attributes($file, $update);
             return $file;
           }
           if($update){
@@ -301,7 +301,7 @@ sub store{
   $sth->finish;
   #storing any attached histories
   $self->store_history($file);
-  $self->store_statistics($file);
+  $self->store_attributes($file);
   #returning object with dbID and adaptor attached
   return $file;
 }
@@ -415,7 +415,7 @@ sub update{
   $sth->finish;
   #storing any attached histories
   $self->store_history($file);
-  $self->store_statistics($file, 1);
+  $self->store_attributes($file, 1);
   return $file;
 }
 
@@ -457,7 +457,7 @@ sub fast_update{
   $sth->finish;
   #storing any attached histories
   $self->store_history($file);
-  $self->store_statistics($file, 1);
+  $self->store_attributes($file, 1);
   return $file;
 }
 

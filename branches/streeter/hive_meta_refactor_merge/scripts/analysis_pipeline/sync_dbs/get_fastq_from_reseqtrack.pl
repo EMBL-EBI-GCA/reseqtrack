@@ -82,14 +82,14 @@ foreach my $run_meta_info (@{$rmia_w->fetch_all}) {
   my $collection = $ca_r->fetch_by_name_and_type($run_meta_info->run_id, $type);
   next RMI if (!$collection);
   foreach my $file (@{$collection->others}) {
-    foreach my $statistics (@{$file->statistics}){
+    foreach my $statistics (@{$file->attributes}){
       $statistics->dbID(undef);
     }
     $file->host->dbID($host_ids{$file->host_id});
     $file->dbID(undef);
     $file->empty_history;
   }
-  foreach my $statistics(@{$collection->statistics}){
+  foreach my $statistics(@{$collection->attributes}){
     $statistics->dbID(undef);
   }
   foreach my $history(@{$collection->history}){

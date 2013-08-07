@@ -9,7 +9,7 @@ use ReseqTrack::Tools::FileSystemUtils qw(run_md5 delete_file);
 use ReseqTrack::Tools::HostUtils qw(get_host_object);
 use ReseqTrack::Tools::RunMetaInfoUtils qw(create_directory_path);
 use ReseqTrack::Tools::RunPicard;
-use ReseqTrack::Tools::StatisticsUtils;
+use ReseqTrack::Tools::AttributeUtils;
 use ReseqTrack::Tools::Loader::File;
 use File::Basename qw(fileparse);
 use Getopt::Long;
@@ -174,8 +174,8 @@ if ($store) {
       for my $metrics_row (@$metrics) {
         while ( my ( $key, $value ) = each %$metrics_row ) {
           if ( defined $value && defined $key ) {
-            my $stat = create_statistic_for_object( $collection, $key, $value );
-            $collection->statistics($stat);
+            my $stat = create_attribute_for_object( $collection, $key, $value );
+            $collection->attributes($stat);
           }
         }
       }

@@ -57,7 +57,7 @@ sub new {
     throw("Can't create a history object with an undefined table name")
       unless ($table_name);
     throw( "Can't create a history object with a table name " . $table_name )
-      if ! scalar grep {$table_name eq $_} qw( file event run_meta_info alignment_meta_info pipeline collection);
+      if ! scalar grep {$table_name eq $_} qw( file event run_meta_info alignment_meta_info pipeline collection study sample experiment run);
     throw("Can't create a history object without a comment")
       unless ($comment);
     ######
