@@ -14,9 +14,8 @@ use ReseqTrack::DBSQL::JobAdaptor;
 use ReseqTrack::DBSQL::WorkflowAdaptor;
 use ReseqTrack::DBSQL::CollectionAdaptor;
 use ReseqTrack::DBSQL::RunMetaInfoAdaptor;
-use ReseqTrack::DBSQL::AlignmentMetaInfoAdaptor;
 use ReseqTrack::DBSQL::HistoryAdaptor;
-use ReseqTrack::DBSQL::StatisticsAdaptor;
+use ReseqTrack::DBSQL::AttributeAdaptor;
 use ReseqTrack::DBSQL::ArchiveAdaptor;
 use ReseqTrack::DBSQL::ArchiveActionAdaptor;
 use ReseqTrack::DBSQL::ArchiveLocationAdaptor;
@@ -29,7 +28,14 @@ use ReseqTrack::DBSQL::FileTypeRuleAdaptor;
 use ReseqTrack::DBSQL::PopulationRuleAdaptor;
 use ReseqTrack::DBSQL::StudyIDAdaptor;
 use ReseqTrack::DBSQL::VerifyBamIDAdaptor;
+<<<<<<< .working
 use ReseqTrack::DBSQL::RejectLogAdaptor;
+=======
+use ReseqTrack::DBSQL::StudyAdaptor;
+use ReseqTrack::DBSQL::ExperimentAdaptor;
+use ReseqTrack::DBSQL::SampleAdaptor;
+use ReseqTrack::DBSQL::RunAdaptor;
+>>>>>>> .merge-right.r826
 
 sub new {
   my($class, @args) = @_;
@@ -88,105 +94,57 @@ sub dbc{
 
 
 sub get_FileAdaptor{
-  my ($self) = @_;
-  if(!$self->{file_adaptor}){
-    $self->{file_adaptor} = ReseqTrack::DBSQL::FileAdaptor->
-        new($self);
-  }
-  return $self->{file_adaptor};
+		my ($self) = @_;
+	return $self->_get_adaptor('ReseqTrack::DBSQL::FileAdaptor');
 }
 
-sub get_StatisticsAdaptor{
-  my ($self) = @_;
-  if(!$self->{statistics_adaptor}){
-    $self->{statistics_adaptor} = ReseqTrack::DBSQL::StatisticsAdaptor->
-        new($self);
-  }
-  return $self->{statistics_adaptor};
+sub get_AttributeAdaptor{
+		my ($self) = @_;
+	return $self->_get_adaptor('ReseqTrack::DBSQL::AttributeAdaptor');
+  
 }
 
 sub get_HistoryAdaptor{
-  my ($self) = @_;
-  if(!$self->{history_adaptor}){
-    $self->{history_adaptor} = ReseqTrack::DBSQL::HistoryAdaptor->
-        new($self);
-  }
-  return $self->{history_adaptor};
+		my ($self) = @_;
+	return $self->_get_adaptor('ReseqTrack::DBSQL::HistoryAdaptor');
+ 
 }
 
 sub get_HostAdaptor{
-  my ($self) = @_;
-  if(!$self->{host_adaptor}){
-    $self->{host_adaptor} = ReseqTrack::DBSQL::HostAdaptor->
-        new($self);
-  }
-  return $self->{host_adaptor};
+		my ($self) = @_;
+	return $self->_get_adaptor('ReseqTrack::DBSQL::HostAdaptor');
+
 }
 
 sub get_EventAdaptor{
-  my ($self) = @_;
-  if(!$self->{event_adaptor}){
-    $self->{event_adaptor} = ReseqTrack::DBSQL::EventAdaptor->
-        new($self);
-  }
-  return $self->{event_adaptor};
+		my ($self) = @_;
+	return $self->_get_adaptor('ReseqTrack::DBSQL::EventAdaptor');
 }
 
 sub get_EventCompleteAdaptor{
-  my ($self) = @_;
-  if(!$self->{event_complete_adaptor}){
-    $self->{event_complete_adaptor} = ReseqTrack::DBSQL::EventCompleteAdaptor->
-        new($self);
-  }
-  return $self->{event_complete_adaptor};
+		my ($self) = @_;
+	return $self->_get_adaptor('ReseqTrack::DBSQL::EventCompleteAdaptor');
 }
 
 sub get_JobAdaptor{
-  my ($self) = @_;
-  if(!$self->{job_adaptor}){
-    $self->{job_adaptor} = ReseqTrack::DBSQL::JobAdaptor->
-        new($self);
-  }
-  return $self->{job_adaptor};
+		my ($self) = @_;
+	return $self->_get_adaptor('ReseqTrack::DBSQL::JobAdaptor');
 }
 
 sub get_WorkflowAdaptor{
-  my ($self) = @_;
-  if(!$self->{workflow_adaptor}){
-    $self->{workflow_adaptor} = ReseqTrack::DBSQL::WorkflowAdaptor->
-        new($self);
-  }
-  return $self->{workflow_adaptor};
+		my ($self) = @_;
+	return $self->_get_adaptor('ReseqTrack::DBSQL::WorkflowAdaptor');
 }
 
 sub get_CollectionAdaptor{
-  my ($self) = @_;
-  if(!$self->{collection_adaptor}){
-    $self->{collection_adaptor} = ReseqTrack::DBSQL::CollectionAdaptor->
-        new($self);
-  }
-  return $self->{collection_adaptor};
+		my ($self) = @_;
+	return $self->_get_adaptor('ReseqTrack::DBSQL::CollectionAdaptor');
 }
 
 sub get_RunMetaInfoAdaptor{
-  my ($self) = @_;
-  if(!$self->{run_meta_info_adaptor}){
-    $self->{run_meta_info_adaptor} = ReseqTrack::DBSQL::RunMetaInfoAdaptor->
-        new($self);
-  }
-  return $self->{run_meta_info_adaptor};
+		my ($self) = @_;
+	return $self->_get_adaptor('ReseqTrack::DBSQL::RunMetaInfoAdaptor');
 }
-
-sub get_AlignmentMetaInfoAdaptor{
-  my ($self) = @_;
-  if(!$self->{alignment_meta_info_adaptor}){
-    $self->{alignment_meta_info_adaptor} = ReseqTrack::DBSQL::AlignmentMetaInfoAdaptor->
-        new($self);
-  }
-  return $self->{alignment_meta_info_adaptor};
-}
-
-
 
 sub get_ArchiveAdaptor{
   my ($self, $nolock) = @_;
@@ -199,114 +157,86 @@ sub get_ArchiveAdaptor{
 
 
 sub get_ArchiveLocationAdaptor{
-  my ($self) = @_;
-  if(!$self->{archive_location_adaptor}){
-    $self->{archive_location_adaptor} = ReseqTrack::DBSQL::ArchiveLocationAdaptor->
-        new($self);
-  }
-  return $self->{archive_location_adaptor};
+		my ($self) = @_;
+	return $self->_get_adaptor('ReseqTrack::DBSQL::ArchiveLocationAdaptor');
 }
 
-
 sub get_ArchiveActionAdaptor{
-  my ($self) = @_;
-  if(!$self->{archive_action_adaptor}){
-    $self->{archive_action_adaptor} = ReseqTrack::DBSQL::ArchiveActionAdaptor->
-        new($self);
-  }
-  return $self->{archive_action_adaptor};
+		my ($self) = @_;
+	return $self->_get_adaptor('ReseqTrack::DBSQL::ArchiveActionAdaptor');
 }
 
 sub get_InputStringAdaptor{
-  my ($self) = @_;
-  if(!$self->{input_string_adaptor}){
-    $self->{input_string_adaptor} = ReseqTrack::DBSQL::InputStringAdaptor->
-        new($self);
-  }
-  return $self->{input_string_adaptor};
+		my ($self) = @_;
+	return $self->_get_adaptor('ReseqTrack::DBSQL::InputStringAdaptor');
 }
 
 sub get_MetaAdaptor{
-  my ($self) = @_;
-  if(!$self->{meta_adaptor}){
-    $self->{meta_adaptor} = ReseqTrack::DBSQL::MetaAdaptor->
-        new($self);
-  }
-  return $self->{meta_adaptor};
+		my ($self) = @_;
+	return $self->_get_adaptor('ReseqTrack::DBSQL::MetaAdaptor');
 }
 
 sub get_GenotypeResultsAdaptor{
-  my ($self) = @_;
-  if(!$self->{genotype_results_adaptor}){
-    $self->{genotype_results_adaptor} = ReseqTrack::DBSQL::GenotypeResultsAdaptor->
-        new($self);
-  }
-  return $self->{genotype_results_adaptor};
+		my ($self) = @_;
+	return $self->_get_adaptor('ReseqTrack::DBSQL::GenotypeResultsAdaptor');
 }
 
 sub get_RejectLogAdaptor{
-  my ($self) = @_;
-  if(!$self->{rejectlog_adaptor}){
-    $self->{rejectlog_adaptor} = ReseqTrack::DBSQL::RejectLogAdaptor->
-        new($self);
-  }
-  return $self->{rejectlog_adaptor};
+		my ($self) = @_;
+	return $self->_get_adaptor('ReseqTrack::DBSQL::RejectLogAdaptor');
 }
 
 sub get_VerifyBamIDSampleAdaptor{
-  my ($self) = @_;
-  if(!$self->{VerifyBamIDSampleAdaptor}){
-    $self->{VerifyBamIDSampleAdaptor} = ReseqTrack::DBSQL::VerifyBamIDSampleAdaptor->
-        new($self);
-  }
-  return $self->{VerifyBamIDSampleAdaptor};
+		my ($self) = @_;
+	return $self->_get_adaptor('ReseqTrack::DBSQL::VerifyBamIDSampleAdaptor');
 }
 
 sub get_VerifyBamIDReadGroupAdaptor{
-  my ($self) = @_;
-  if(!$self->{VerifyBamIDReadGroupAdaptor}){
-    $self->{VerifyBamIDReadGroupAdaptor} = ReseqTrack::DBSQL::VerifyBamIDReadGroupAdaptor->
-        new($self);
-  }
-
-  return $self->{VerifyBamIDReadGroupAdaptor};
+		my ($self) = @_;
+	return $self->_get_adaptor('ReseqTrack::DBSQL::VerifyBamIDReadGroupAdaptor');
 }
 
 sub get_FileTypeRuleAdaptor{
-  my ($self) = @_;
-  if(!$self->{file_type_rule_adaptor}){
-    $self->{file_type_rule_adaptor} = ReseqTrack::DBSQL::FileTypeRuleAdaptor->
-        new($self);
-  }
-  return $self->{file_type_rule_adaptor};
+		my ($self) = @_;
+	return $self->_get_adaptor('ReseqTrack::DBSQL::FileTypeRuleAdaptor');
 }
 
 sub get_PopulationRuleAdaptor{
-  my ($self) = @_;
-  if(!$self->{population_rule_adaptor}){
-    $self->{population_rule_adaptor} = ReseqTrack::DBSQL::PopulationRuleAdaptor->
-        new($self);
-  }
-  return $self->{population_rule_adaptor};
+		my ($self) = @_;
+	return $self->_get_adaptor('ReseqTrack::DBSQL::PopulationRuleAdaptor');
 }
 
 sub get_StudyIDAdaptor{
-  my ($self) = @_;
-  if(!$self->{study_id_adaptor}){
-    $self->{study_id_adaptor} = ReseqTrack::DBSQL::StudyIDAdaptor->
-        new($self);
-  }
-  return $self->{study_id_adaptor};
+		my ($self) = @_;
+	return $self->_get_adaptor('ReseqTrack::DBSQL::StudyIDAdaptor');
 }
 
 sub get_VerifyBamIDAdaptor{
-  my ($self) = @_;
-  if(!$self->{VerifyBamIDAdaptor}){
-    $self->{VerifyBamIDAdaptor} = ReseqTrack::DBSQL::VerifyBamIDAdaptor->
-        new($self);
-  }
-
-  return $self->{VerifyBamIDAdaptor};
+		my ($self) = @_;
+	return $self->_get_adaptor('ReseqTrack::DBSQL::VerifyBamIDAdaptor');
 }
 
+sub get_StudyAdaptor{
+	my ($self) = @_;
+	return $self->_get_adaptor('ReseqTrack::DBSQL::StudyAdaptor');
+}
+sub get_ExperimentAdaptor{
+	my ($self) = @_;
+	return $self->_get_adaptor('ReseqTrack::DBSQL::ExperimentAdaptor');
+}
+sub get_RunAdaptor{
+	my ($self) = @_;
+	return $self->_get_adaptor('ReseqTrack::DBSQL::RunAdaptor');
+}
+sub get_SampleAdaptor{
+	my ($self) = @_;
+	return $self->_get_adaptor('ReseqTrack::DBSQL::SampleAdaptor');
+}
+sub _get_adaptor{
+	my ($self,$class,@args) = @_;
+	if (!$self->{$class}){
+		$self->{$class} = $class->new($self,@args);
+	}
+	return $self->{$class};
+}
 1;

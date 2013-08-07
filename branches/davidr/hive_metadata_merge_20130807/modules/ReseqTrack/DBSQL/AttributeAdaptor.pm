@@ -1,11 +1,11 @@
-package ReseqTrack::DBSQL::StatisticsAdaptor;
+package ReseqTrack::DBSQL::AttributeAdaptor;
 
 use strict;
 use warnings;
 use vars qw(@ISA);
 
 use ReseqTrack::DBSQL::BaseAdaptor;
-use ReseqTrack::Statistic;
+use ReseqTrack::Attribute;
 use ReseqTrack::Tools::Exception qw(throw warning);
 use ReseqTrack::Tools::Argument qw(rearrange);
 
@@ -20,12 +20,12 @@ sub new {
 }
 
 sub columns{
-  return "statistics.statistics_id, statistics.other_id, statistics.table_name, ".
-      "statistics.attribute_name, statistics.attribute_value";
+  return "attribute.attribute_id, attribute.other_id, attribute.table_name, ".
+      "attribute.attribute_name, attribute.attribute_value";
 }
 
 sub table_name{
-  return "statistics";
+  return "attribute";
 }
 
 sub fetch_by_table_name{
@@ -35,13 +35,13 @@ sub fetch_by_table_name{
   my $sth = $self->prepare($sql);
   $sth->bind_param(1, $table_name);
   $sth->execute;
-  my @statistics_objects;
+  my @attributes_objects;
   while(my $rowHashref = $sth->fetchrow_hashref){
     my $object = $self->object_from_hashref($rowHashref) if($rowHashref);
-    push(@statistics_objects, $object) if($object);
+    push(@attributes_objects, $object) if($object);
   }
   $sth->finish;
-  return \@statistics_objects;
+  return \@attributes_objects;
 }
 
 sub fetch_by_other_id_and_table_name{
@@ -52,13 +52,13 @@ sub fetch_by_other_id_and_table_name{
   $sth->bind_param(1, $table_name);
   $sth->bind_param(2, $other_id);
   $sth->execute;
-  my @statistics_objects;
+  my @attributes_objects;
   while(my $rowHashref = $sth->fetchrow_hashref){
     my $object = $self->object_from_hashref($rowHashref) if($rowHashref);
-    push(@statistics_objects, $object) if($object);
+    push(@attributes_objects, $object) if($object);
   }
   $sth->finish;
-  return \@statistics_objects;
+  return \@attributes_objects;
 }
 
 sub fetch_by_other_id_and_table_name_and_attribute_name{
@@ -78,76 +78,88 @@ sub fetch_by_other_id_and_table_name_and_attribute_name{
 }
 
 sub store{
-  my ($self, $statistics, $update) = @_;
-  my $exists = $self->fetch_by_other_id_and_table_name_and_attribute_name
-      ($statistics->other_id, $statistics->table_name, $statistics->attribute_name);
+  my ($self, $attribute, $update) = @_;
+  
+  throw("Can't store attribute without an other_id") unless($attribute->other_id);
+  throw("Can't store attribute without a table_nme") unless($attribute->table_name);
+  
+  my $exists = $self->fetch_by_other_id_and_table_name_and_attribute_name($attribute->other_id, $attribute->table_name, $attribute->attribute_name);
+  
   if($exists){
-    if($exists->attribute_value eq $statistics->attribute_value){
-      $statistics->dbID($exists->dbID);
-      $statistics->adaptor($self);
-      return $statistics;
-    }else{
-      if($update){
-	$statistics->dbID($exists->dbID); #holly added this line
-       	#print "existing stats id is " . $exists->dbID . "\n";
-	#print "reassigned stats id is: " . $statistics->dbID . "\n";
-	#print "new attribute value is " . $statistics->attribute_value . "\n";
-	return $self->update($statistics);
-      }
+  	$attribute->dbID($exists->dbID);
+  	$attribute->adaptor($self);
+  	
+    if($update && $exists->attribute_value ne $attribute->attribute_value){
+      $attribute->dbID($exists->dbID);
+#      print "existing stats id is " . $exists->dbID . "\n";
+#			print "reassigned stats id is: " . $attribute->dbID . "\n";
+#			print "new attribute value is " . $attribute->attribute_value . "\n";
+			return $self->update($attribute);      
     }
+    return $attribute;
   }
-  throw("Can't store statistic without an other id") unless($statistics->other_id);
-  my $sql = "insert into statistics (other_id, table_name, attribute_name, ".
+  
+  
+  my $sql = "insert into attribute (other_id, table_name, attribute_name, ".
       "attribute_value) values(?, ?, ?, ?)";
   my $sth = $self->prepare($sql);
-  $sth->bind_param(1, $statistics->other_id);
-  $sth->bind_param(2, $statistics->table_name);
-  $sth->bind_param(3, $statistics->attribute_name);
-  $sth->bind_param(4, $statistics->attribute_value);
+  $sth->bind_param(1, $attribute->other_id);
+  $sth->bind_param(2, $attribute->table_name);
+  $sth->bind_param(3, $attribute->attribute_name);
+  $sth->bind_param(4, $attribute->attribute_value);
   $sth->execute;
+  
   my $dbID = $sth->{'mysql_insertid'};
   $sth->finish;
-  $statistics->dbID($dbID);
-  $statistics->adaptor($self);
-  return $statistics;
+  $attribute->dbID($dbID);
+  $attribute->adaptor($self);
+  return $attribute;
 }
 
 
 sub update{
-  my ($self, $statistics) = @_;
+  my ($self, $attribute) = @_;
 
-  my $sql = "update statistics ".
+  my $sql = "update attribute ".
       "set table_name = ? ".
       ", other_id = ? ".
       ", attribute_name = ? ".
       ", attribute_value = ? ".
-      "where statistics_id = ? ";
+      "where attribute_id = ? ";
   my $sth = $self->prepare($sql);
 
-  $sth->bind_param(1, $statistics->table_name);
-  $sth->bind_param(2, $statistics->other_id);
-  $sth->bind_param(3, $statistics->attribute_name);
-  $sth->bind_param(4, $statistics->attribute_value);
-  $sth->bind_param(5, $statistics->dbID);  
+  $sth->bind_param(1, $attribute->table_name);
+  $sth->bind_param(2, $attribute->other_id);
+  $sth->bind_param(3, $attribute->attribute_name);
+  $sth->bind_param(4, $attribute->attribute_value);
+  $sth->bind_param(5, $attribute->dbID);  
   $sth->execute; 
   $sth->finish; 
-  return $statistics; 
+  return $attribute; 
 }
 
 sub object_from_hashref{
   my ($self, $hashref) = @_;
   throw("Can't create a History object from an empty hashref") unless($hashref);
-  #print "test object_from_hashref, stats id is " . $hashref->{statistics_id} . "\n";
-  my $statistics = ReseqTrack::Statistic->new(
-    #-db_id => $hashref->{statistics_id},
-    -dbID =>  $hashref->{statistics_id},
+  #print "test object_from_hashref, stats id is " . $hashref->{attribute_id} . "\n";
+  my $attribute = ReseqTrack::Attribute->new(
+    -dbID =>  $hashref->{attribute_id},
     -adaptor => $self,
     -other_id => $hashref->{other_id},
     -table_name => $hashref->{table_name},
     -attribute_name => $hashref->{attribute_name},
     -attribute_value => $hashref->{attribute_value},
       );
-  return $statistics;
+  return $attribute;
+}
+
+sub delete {
+	my ($self, $attribute) = @_;
+	my $sql = "delete from ".$self->table_name()." where attribute_id = ?";
+	my $sth = $self->prepare($sql);
+	$sth->bind_param(1, $attribute->dbID);
+	$sth->execute();
+	$sth->finish();
 }
 
 1;

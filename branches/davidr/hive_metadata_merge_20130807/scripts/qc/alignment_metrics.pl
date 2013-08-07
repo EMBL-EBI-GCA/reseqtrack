@@ -5,7 +5,7 @@ use warnings;
 
 use ReseqTrack::Tools::RunPicard;
 use ReseqTrack::Tools::HostUtils qw(get_host_object);
-use ReseqTrack::Tools::StatisticsUtils;
+use ReseqTrack::Tools::AttributeUtils;
 use ReseqTrack::Tools::FileUtils;
 use ReseqTrack::Tools::FileSystemUtils;
 use ReseqTrack::DBSQL::DBAdaptor;
@@ -113,13 +113,13 @@ for my $metrics (@$picard_metrics) {
       $key = join( '_', $prefix, $key );
     }
 
-    push @$statistics, create_statistic_for_object( $collection, $key, $value )
+    push @$statistics, create_attribute_for_object( $collection, $key, $value )
       if ( defined $value );
   }
 }
 
-$collection->statistics($statistics);
-$collection_adaptor->store_statistics($collection,1);
+$collection->uniquify_attributes($statistics);
+$collection_adaptor->store_attributes($collection);
 
 if ($keep_metrics_file) {
   create_output_records( $name, $metrics_file_type, $metrics_files );
