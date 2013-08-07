@@ -32,7 +32,7 @@ create table study(
     submission_date datetime,
     title varchar(2000),
     study_alias varchar(500)
-);
+) ENGINE=MYISAM;
 
 create unique index study_src_idx on study(source_id);
 
@@ -56,7 +56,7 @@ create table experiment (
     submission_id varchar(15),
     submission_date datetime,
     constraint foreign key (study_id) references study(study_id)
-);
+) ENGINE=MYISAM;
 
 create unique index experiment_src_idx on experiment(source_id);
 create index experiment_fk1 on experiment(study_id);
@@ -77,7 +77,7 @@ create table sample
     submission_id varchar(15),
     submission_date datetime,
     sample_title varchar(4000)
-);
+) ENGINE=MYISAM;
 
 
 create unique index sample_src_idx on sample(source_id);
@@ -99,7 +99,7 @@ create table run
     submission_date datetime,
     constraint foreign key (sample_id) references sample(sample_id),
     constraint foreign key (experiment_id) references experiment(experiment_id)
-  );
+  ) ENGINE=MYISAM;
 
 create index run_fk1 on run(sample_id);
 create index run_fk2 on run(experiment_id);
