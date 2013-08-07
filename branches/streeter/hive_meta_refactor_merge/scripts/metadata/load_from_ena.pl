@@ -53,6 +53,11 @@ my $log_dir;
   'log_dir=s'                 => \$log_dir,
 );
 
+
+if($help){
+  usage();
+}
+
 my $era_db = get_erapro_conn(@era_params);
 $era_db->dbc->db_handle->{LongReadLen} = $clob_read_length;
 
@@ -104,3 +109,77 @@ $updater->update_from_era( $load_new, $update_existing, $force_update );
 
 $reseq_db->dbc->db_handle->commit();
 
+sub usage{
+  exec('perldoc', $0);
+  exit(0);
+}
+
+=pod
+
+=head1 NAME
+
+reseqtrack/scripts/metadata/load_from_ena.pl
+
+=head1 SYNOPSIS
+
+This script loads metadata from the ENA database (ERAPRO) into a ReseqTrack database.
+
+=head1 OPTIONS
+
+  database options:
+
+    -dbhost, the name of the mysql-host
+    -dbname, the name of the mysql database
+    -dbuser, the name of the mysql user
+    -dbpass, the database password if appropriate
+    -dbport, the port the mysql instance is running on
+    -era_db_user, the name of the user on ERAPRO
+    -era_dbpass, the password for ERAPRO
+
+  initial set up options:
+
+	-new_study <study_id>, studies to be added to the ReseqTrack database (can be specified many times)
+	-seed_from_old_study_table, flad to populate new_study from the study_id table    
+
+	regular options:
+	
+	-load_new, load new entries from ERA pro into your ReseqTrack database
+	-update_existing, update existing entries in your ReseqTrack database from ERAPRO
+	-manipulator_module, package name for a module that will transfrom the information from ERAPRO before recording it in the ReseqTrack database. See ReseqTrack::Tools::Metadata::BaseMetadataManipulator. Can be specified many times.
+	-skip_run_stats, data from the ENA has Run statistics. data from the EGA does not, so you set this flag and we won't try to load that information
+	-log_dir, a new log file will be created in the specified directory. 
+	
+	advanced options:
+	
+	-force_update, update existing entries even when no change is detected (useful if a bug has been fixed, or a manipulator module has been changed)
+	-clob_read_length <integer>, setting passed to the Oracle driver. You should not need to set this.
+	-study <erapro_study_id>, only update given study, rather than the default of all known studies
+	-type <type>, only update the given data types, rather than all. valid values are: study sample experiment run. It is possible to cause errors with this if you try to load data without a referenced entity being listed (i.e. runs need experiments and samples, experiments need studies)
+
+	misc options:
+	
+	-help, display this documentation
+	-verbose, print logging information to STDOUT
+
+=head1 Examples
+
+    $DB_OPTS="-dbhost mysql-host -dbuser rw_user -dbpass **** -dbport 4197 -dbname my_database -era_user an_era_user -era_pass era_password"
+
+	Convert an old style ReseqTrack DB to use the new metadata schema
+	 
+  perl reseqtrack/metadata/load_from_ena.pl $DB_OPTS -seed_from_old_study_table
+	
+	Add studies:
+	perl reseqtrack/metadata/load_from_ena.pl $DB_OPTS -new_study ERP001466 -new_study ERP001664
+	
+	Normal invocation for a 1000genomes DB (ENA):
+	perl reseqtrack/metadata/load_from_ena.pl $DB_OPTS -load_new -update_existing
+		-manipulator_module ReseqTrack::Tools::Metadata::G1KManipulator
+		-manipulator ReseqTrack::Tools::Metadata::PopulationRulesManipulator
+
+	Normal invocation for a Blueprint DB (EGA):
+	perl reseqtrack/metadata/load_from_ena.pl $DB_OPTS -load_new -update_existing
+		-skip_run_stats
+
+
+=cut
