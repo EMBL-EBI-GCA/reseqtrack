@@ -28,14 +28,11 @@ use ReseqTrack::DBSQL::FileTypeRuleAdaptor;
 use ReseqTrack::DBSQL::PopulationRuleAdaptor;
 use ReseqTrack::DBSQL::StudyIDAdaptor;
 use ReseqTrack::DBSQL::VerifyBamIDAdaptor;
-<<<<<<< .working
 use ReseqTrack::DBSQL::RejectLogAdaptor;
-=======
 use ReseqTrack::DBSQL::StudyAdaptor;
 use ReseqTrack::DBSQL::ExperimentAdaptor;
 use ReseqTrack::DBSQL::SampleAdaptor;
 use ReseqTrack::DBSQL::RunAdaptor;
->>>>>>> .merge-right.r826
 
 sub new {
   my($class, @args) = @_;
