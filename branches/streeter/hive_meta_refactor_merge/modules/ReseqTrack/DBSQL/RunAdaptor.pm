@@ -53,6 +53,11 @@ sub fetch_by_experiment_id {
   return $self->fetch_by_column_name( "experiment_id", $experiment_id)
 }
 
+sub fetch_by_sample_id {
+  my ($self, $sample_id) = @_;
+  return $self->fetch_by_column_name( "sample_id", $sample_id)
+}
+
 sub store {
   my ( $self, $run, $update ) = @_;
   my $existing_record = $self->fetch_by_dbID( $run->dbID ) if ( $run->dbID );
