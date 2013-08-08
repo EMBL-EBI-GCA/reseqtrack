@@ -187,8 +187,8 @@ sub find_attribute_changes {
   my $oah = $old_obj->attributes_hash;
   my $nah = $new_obj->attributes_hash;
 
-  my @old_keys = sort keys $oah;
-  my @new_keys = sort keys $nah;
+  my @old_keys = sort keys %$oah;
+  my @new_keys = sort keys %$nah;
 
   my $lc      = List::Compare->new( \@old_keys, \@new_keys );
   my @removed = $lc->get_Lonly;

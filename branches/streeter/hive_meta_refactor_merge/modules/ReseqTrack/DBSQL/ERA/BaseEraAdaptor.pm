@@ -76,7 +76,7 @@ sub attach_attributes_from_xml {
   );
 
   $twig->parse($xml);
-  $object->statistics( \@attributes );
+  $object->attributes( \@attributes );
 }
 
 sub fetch_by_study_id {
@@ -88,7 +88,7 @@ sub add_ega_id {
   
   if ($hashref->{EGA_ID}){
      my $attr = create_attribute_for_object( $object, 'EGA_ID', $hashref->{EGA_ID} );
-     $object->statistics( [$attr] );
+     $object->attributes( [$attr] );
    }
 }
 

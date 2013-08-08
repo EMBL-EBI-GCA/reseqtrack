@@ -380,10 +380,10 @@ CREATE TABLE  verifybamid(
 CREATE TABLE pipeline(
        pipeline_id int(10) unsigned NOT NULL AUTO_INCREMENT,
        name VARCHAR(100) NOT NULL,
-       table_name VARCHAR(50),
+       table_name VARCHAR(50) NOT NULL,
        type VARCHAR(50),
        config_module VARCHAR(255) NOT NULL,
-       config_options VARCHAR(1000),
+       config_options VARCHAR(60000),
        created   datetime NOT NULL,
        
        PRIMARY KEY(pipeline_id),

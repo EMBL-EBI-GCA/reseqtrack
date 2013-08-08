@@ -18,6 +18,12 @@ use ReseqTrack::Tools::GeneralUtils qw(delete_lock_string is_locked create_lock_
 sub run {
     my $self = shift @_;
     my $table_columns = $self->param_to_flat_array('table_column');
+    my $filter_module = $self->param_is_defined('seed_filter_module') ? $self->param('seed_filter_module') : undef;
+    my $filter_options = $self->param_is_defined('seed_filter_options') ? $self->param('seed_filter_options') : {};
+
+    if (defined $filter_module) {
+      eval "require $filter_module" or throw "cannot load module $module $@";
+    }
 
     my $db = ReseqTrack::DBSQL::DBAdaptor->new(%{$self->param('reseqtrack_db')});
 
@@ -53,13 +59,28 @@ sub run {
     }
     my $sth = $db->dbc->prepare($sql) or throw("could not prepare $sql: ".$db->dbc->errstr);
     $sth->bind_param(1, $hive_db->pipeline->dbID);
-    $sth->execute or die "could not execute $sql: ".$sth->errstr;;
+    $sth->execute or die "could not execute $sql: ".$sth->errstr;
+
+    my @seed_ids;
+    if (defined $filter_module) {
+      my $filter_function = $filter_module . '::filter';
+      SEED:
+      while (my $rowHashref = $sth->fetchrow_hashref) {
+        my $object = $adaptor->object_from_hashref($rowHashref);
+        if (&$filter_function($object, $filter_options){
+          push(@seed_ids, $object->dbID);
+        }
+      }
+    }
+    else {
+      @seed_ids = map {$_->{$dbID_name}} @$fetchall_hashref;
+    }
 
     my $psa = $db->get_PipelineSeedAdaptor;
-    while(my $rowHashref = $sth->fetchrow_hashref){
+    foreach my $seed_id (@seed_ids) {
       my $pipeline_seed = ReseqTrack::PipelineSeed->new
           (
-           -seed_id         => $rowHashref->{$dbID_name},
+           -seed_id         => $seed_id,
            -hive_db         => $hive_db,
            -is_running      => 1,
       );

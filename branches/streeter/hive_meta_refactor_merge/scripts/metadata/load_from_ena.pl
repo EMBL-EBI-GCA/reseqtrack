@@ -132,7 +132,7 @@ This script loads metadata from the ENA database (ERAPRO) into a ReseqTrack data
     -dbuser, the name of the mysql user
     -dbpass, the database password if appropriate
     -dbport, the port the mysql instance is running on
-    -era_db_user, the name of the user on ERAPRO
+    -era_dbuser, the name of the user on ERAPRO
     -era_dbpass, the password for ERAPRO
 
   initial set up options:

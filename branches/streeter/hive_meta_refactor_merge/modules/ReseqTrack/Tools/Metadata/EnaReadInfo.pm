@@ -48,7 +48,7 @@ sub add_attribute_if_changed {
 
   if ($update_required) {
     my $attr = create_attribute_for_object( $run, $name, $value );
-    $run->statistics( [$attr] );
+    $run->attributes( [$attr] );
   }
   
   return $update_required;

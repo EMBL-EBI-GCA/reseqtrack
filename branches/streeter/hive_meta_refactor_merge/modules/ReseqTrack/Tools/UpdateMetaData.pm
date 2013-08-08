@@ -56,7 +56,7 @@ sub load_new_studies {
   my ( $self, @studies_to_add ) = @_;
   for my $study_id (@studies_to_add) {
     $self->log("Adding study $study_id");
-    $self->load_type_by_study_id( 'studies', $study_id, 1, 0, 0 );
+    $self->load_type_by_study_id( 'study', $study_id, 0, 1, 0 );
   }
 }
 
