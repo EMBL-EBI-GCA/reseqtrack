@@ -368,7 +368,7 @@ sub attributes_hash {
   my ($self) = @_;
   
   my %attrs;
-  for my $a (@{$self->statistics()}){
+  for my $a (@{$self->attributes()}){
     $attrs{$a->attribute_name} = $a;
   }
   return \%attrs;
