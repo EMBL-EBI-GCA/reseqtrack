@@ -27,20 +27,27 @@ sub run {
 
 
     my $db = ReseqTrack::DBSQL::DBAdaptor->new(%{$self->param('reseqtrack_db')});
-    my $rmia = $db->get_RunMetaInfoAdaptor;
-    my $rmi = $rmia->fetch_by_run_id($run_id);
-    throw("did not get run_meta_info for $run_id") if !$rmi;
+
+    my $run = $db->get_RunAdaptor->fetch_by_dbID($run_id);
+    throw('did not get run with id '.$run_id) if !$run;
+    my $sample = $db->get_SampleAdaptor->fetch_by_dbID($run->sample_id);
+    throw('did not get sample with id '.$run->sample_id) if !$sample;
+    my $experiment = $db->get_ExperimentAdaptor->fetch_by_dbID($run->experiment_id);
+    throw('did not get experiment with id '.$run->experiment_id) if !$experiment;
+    my $study = $db->get_StudyAdaptor($experiment->study_id)->fetch_by_dbID($experiment->study_id);
+    throw('did not get study with id '.$experiment->study_id) if !$study;
+
     $db->dbc->disconnect_when_inactive(1);
 
     my %read_group_fields = (
-      ID => $rmi->run_id,
-      CN => $rmi->center_name,
-      LB => $rmi->library_name,
-      PI => $rmi->paired_length,
-      SM => $rmi->sample_name,
-      DS => $rmi->study_id,
-      PU => $rmi->run_name,
-      PL => $rmi->instrument_platform,
+      ID => $run->source_id,
+      CN => $run->center_name,
+      LB => $experiment->library_name,
+      PI => $experiment->paired_nominal_length,
+      SM => $sample->sample_alias,
+      DS => $study->source_id,
+      PU => $run->run_alias,
+      PL => $experiment->instrument_platform,
     );
 
     foreach my $fastq (@$fastqs) {
@@ -56,7 +63,7 @@ sub run {
           -working_dir => $self->output_dir,
           -reference => $reference,
           -job_name => $self->job_name,
-          -paired_length => $rmi->paired_length,
+          -paired_length => $experiment->paired_nominal_length,
           -read_group_fields => \%read_group_fields,
           );
 

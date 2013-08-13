@@ -385,7 +385,7 @@ sub write_output {
   if (defined $factory_outputs && @$factory_outputs) {
     my @factory_output_hashes;
     foreach my $factory_output (@$factory_outputs) {
-      my ($extra_label, $extra_data_hash) = @$factory_output;
+      my ($extra_labels, $extra_data_hash) = @$factory_output;
       my $new_factory_hash = {%base_output};
       while (my ($param_name, $param_value) = each %$extra_data_hash) {
         if ($self->param('use_reseqtrack_file_table')) {
@@ -397,7 +397,8 @@ sub write_output {
         if (defined $new_factory_hash->{'labels'}) {
           $new_factory_hash->{'labels'} = [@{$new_factory_hash->{'labels'}}];
         }
-        push(@{$new_factory_hash->{'labels'}}, $extra_label);
+        $extra_labels = ref($extra_labels) eq 'ARRAY' ? $extra_labels : [$extra_labels];
+        push(@{$new_factory_hash->{'labels'}}, @$extra_labels);
       }
       $new_factory_hash = $self->_temp_param_sub(2, $new_factory_hash);
       push(@factory_output_hashes, $new_factory_hash);

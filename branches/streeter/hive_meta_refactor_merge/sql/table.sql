@@ -381,11 +381,11 @@ CREATE TABLE pipeline(
        pipeline_id int(10) unsigned NOT NULL AUTO_INCREMENT,
        name VARCHAR(100) NOT NULL,
        table_name VARCHAR(50) NOT NULL,
-       type VARCHAR(50),
        config_module VARCHAR(255) NOT NULL,
-       config_options VARCHAR(60000),
+       config_options VARCHAR(30000),
+       seeding_module VARCHAR(255) NOT NULL,
+       seeding_options VARCHAR(30000),
        created   datetime NOT NULL,
-       
        PRIMARY KEY(pipeline_id),
        UNIQUE(name)   
 ) ENGINE=MYISAM;
@@ -398,7 +398,6 @@ CREATE TABLE hive_db(
        retired   datetime,
        hive_version VARCHAR(255) NOT NULL,
        is_seeded tinyint NOT NULL DEFAULT 0,
-       
        PRIMARY KEY(hive_db_id),
        UNIQUE(url,created)   
 ) ENGINE=MYISAM;
@@ -413,7 +412,6 @@ CREATE TABLE pipeline_seed(
        is_futile tinyint NOT NULL default 0,
        created datetime NOT NULL,
        completed datetime,
-
        PRIMARY KEY(pipeline_seed_id),
        UNIQUE(hive_db_id, seed_id)   
 ) ENGINE=MYISAM;
@@ -424,7 +422,6 @@ CREATE TABLE pipeline_output(
        table_name VARCHAR(50) NOT NULL,
        output_id int(10) unsigned NOT NULL,
        action VARCHAR(50) NOT NULL,     
-
        PRIMARY KEY(pipeline_output_id)
 ) ENGINE=MYISAM;
 

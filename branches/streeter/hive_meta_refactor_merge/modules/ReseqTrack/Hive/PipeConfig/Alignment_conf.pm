@@ -6,7 +6,6 @@
   
   Options you MUST specify on the command line:
 
-      -study_id, refers to a study_id in your run_meta_info table. Can be specified multiple times.
       -reference, fasta file of your reference genome.  Should be indexed for bwa and should have a .fai and .dict
       -password, for accessing the hive database
       -reseqtrack_db_name, (or -reseqtrack_db -db_name=??) your reseqtrack database
@@ -86,7 +85,6 @@ sub default_options {
         'known_snps_vcf' => undef,
         'realign_intervals_file' => undef,
 
-        'study_id' => [],
 
         #various options for overriding defaults in reheadering bam
         'dict_file' => undef,
@@ -97,8 +95,15 @@ sub default_options {
 
         'final_label' => $self->o('pipeline_name'),
 
+        'sample_label' => 'source_id',
+        'sample_group_attribute' => 'POPULATION',
+
         'realign_knowns_only' => 0,
         'recalibrate_level' => 2,
+
+        'bam_type' => undef,
+        'bai_type' => undef,
+        'bas_type' => undef,
 
     };
 }
@@ -140,24 +145,16 @@ sub pipeline_analyses {
 
     my @analyses;
     push(@analyses, {
-            -logic_name    => 'studies_factory',
-            -module        => 'ReseqTrack::Hive::Process::JobFactory',
-            -meadow_type => 'LOCAL',
-            -input_ids => [{study_id => $self->o('study_id')}],
-            -parameters    => {
-                factory_value => '#study_id#',
-                temp_param_sub => { 2 => [['study_id','factory_value']]}, # temporary hack pending updates to hive code
-            },
-            -flow_into => {
-                2 => [ 'samples_factory' ],
-            },
-      });
-    push(@analyses, {
-            -logic_name    => 'samples_factory',
-            -module        => 'ReseqTrack::Hive::Process::RunMetaInfoFactory',
+            -logic_name    => 'get_seeds',
+            -module        => 'ReseqTrack::Hive::Process::SeedFactory',
             -meadow_type => 'LOCAL',
             -parameters    => {
-                type_branch => 'sample',
+                sample_label => $self->o('sample_label'),
+                sample_group_attribute => $self->o('sample_group_attribute'),
+                seed_label => ['#sample_group_attribute#', '#sample_label#'],
+                output_columns => ['sample_id', '#sample_label#'],
+                output_attributes => '#sample_group_attribute#',
+                temp_param_sub => { 2 => [['#sample_label#','undef'], ['#sample_group_attribute#', 'undef']]}, # temporary hack pending updates to hive code
             },
             -flow_into => {
                 2 => [ 'libraries_factory' ],
@@ -168,7 +165,8 @@ sub pipeline_analyses {
             -module        => 'ReseqTrack::Hive::Process::RunMetaInfoFactory',
             -meadow_type => 'LOCAL',
             -parameters    => {
-                type_branch => 'library',
+                factory_type => 'library',
+                allowed_strategy => $self->o('allowed_strategy'),
             },
             -flow_into => {
                 '2->A' => [ 'runs_factory' ],
@@ -180,7 +178,8 @@ sub pipeline_analyses {
             -module        => 'ReseqTrack::Hive::Process::RunMetaInfoFactory',
             -meadow_type => 'LOCAL',
             -parameters    => {
-                type_branch => 'run',
+                factory_type => 'run',
+                temp_param_sub => { 1 => [['run_source_id','undef']]}, # temporary hack pending updates to hive code
             },
             -flow_into => {
                 '2->A' => [ 'find_source_fastqs' ],
@@ -193,8 +192,9 @@ sub pipeline_analyses {
             -meadow_type => 'LOCAL',
             -parameters    => {
                 collection_type => $self->o('type_fastq'),
-                collection_name => '#run_id#',
+                collection_name => '#run_source_id#',
                 output_param => 'fastq',
+              temp_param_sub => { 1 => [['run_source_id','undef']]}, # temporary hack pending updates to hive code
             },
             -flow_into => {
                 1 => [ 'split_fastq', ':////accu?fastq=[]' ],
@@ -464,11 +464,13 @@ sub pipeline_analyses {
               require_file_count => {
                         1 => '1+',
                         2 => '2+',
+                        3 => '0',
                       }
           },
             -flow_into => {
                 '2->A' => [ 'merge_libraries' ],
                 'A->1' => [ 'decide_realign_sample_level' ],
+                '3' => [ 'mark_seed_futile' ],
             },
     });
     push(@analyses, {
@@ -672,6 +674,53 @@ sub pipeline_analyses {
             },
             -rc_name => '200Mb',
             -hive_capacity  =>  200,
+            -flow_into => {1 => ['store_bam']},
+      });
+    push(@analyses, {
+            -logic_name    => 'store_bam',
+            -module        => 'ReseqTrack::Hive::Process::LoadFile',
+            -meadow_type => 'LOCAL',
+            -parameters    => {
+              type => $self->o('bam_type'),
+              file => '#bam#',
+            },
+            -flow_into => {1 => ['store_bas']},
+      });
+    push(@analyses, {
+            -logic_name    => 'store_bas',
+            -module        => 'ReseqTrack::Hive::Process::LoadFile',
+            -meadow_type => 'LOCAL',
+            -parameters    => {
+              type => $self->o('bas_type'),
+              file => '#bas#',
+            },
+            -flow_into => {1 => ['store_bai']},
+      });
+    push(@analyses, {
+            -logic_name    => 'store_bai',
+            -module        => 'ReseqTrack::Hive::Process::LoadFile',
+            -meadow_type => 'LOCAL',
+            -parameters    => {
+              type => $self->o('bai_type'),
+              file => '#bai#',
+            },
+            -flow_into => {1 => ['mark_seed_complete']},
+      });
+    push(@analyses, {
+            -logic_name    => 'mark_seed_complete',
+            -module        => 'ReseqTrack::Hive::Process::UpdateSeed',
+            -parameters    => {
+              is_complete  => 1,
+            },
+            -meadow_type => 'LOCAL',
+      });
+    push(@analyses, {
+            -logic_name    => 'mark_seed_futile',
+            -module        => 'ReseqTrack::Hive::Process::UpdateSeed',
+            -parameters    => {
+              is_futile  => 1,
+            },
+            -meadow_type => 'LOCAL',
       });
 
 

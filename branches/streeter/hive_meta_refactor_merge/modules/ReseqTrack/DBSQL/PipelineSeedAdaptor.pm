@@ -84,6 +84,32 @@ sub fetch_running_by_hive_db{
 }
 
 
+sub fetch_by_seed_and_pipeline{
+
+  my ($self, $seed, $pipeline) = @_;
+  return [] if $seed->object_table_name ne $pipeline->table_name;
+
+  my $sql = "select ".$self->columns." from pipeline_seed, hive_db"
+          ." where pipeline_seed.hive_db_id = hive_db.hive_db_id"
+          ." and hive_db.pipeline_id = ?"
+          ." and seed_id = ?";
+
+
+  my $sth = $self->prepare($sql);
+  $sth->bind_param(1, $pipeline->dbID);
+  $sth->bind_param(2, $seed->dbID);
+  $sth->execute;
+  my @pipeline_seeds;
+  while(my $rowHashref = $sth->fetchrow_hashref){
+    my $pipeline_seed = $self->object_from_hashref($rowHashref);
+    $pipeline_seed->pipeline($pipeline);
+    push(@pipeline_seeds, $pipeline_seed);
+  }
+  $sth->finish;
+
+  return \@pipeline_seeds;
+}
+
 sub fetch_by_pipeline{
 
   my ($self, $pipeline) = @_;
@@ -215,8 +241,8 @@ sub update_failed {
   
   my $sth = $self->prepare($sql);
   
-  $sth->bind_param(1, $pipeline_seed->dbID);
-  $sth->bind_param(2, $is_futile);
+  $sth->bind_param(1, $is_futile);
+  $sth->bind_param(2, $pipeline_seed->dbID);
  
   $sth->execute();
   $sth->finish();

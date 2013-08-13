@@ -1,5 +1,5 @@
 
-package ReseqTrack::Hive::Process::SeedComplete;
+package ReseqTrack::Hive::Process::UpdateSeed;
 
 use strict;
 
@@ -18,6 +18,11 @@ sub run {
     my $self = shift @_;
 
     my $ps_id = $self->param_required('ps_id');
+    my $is_complete = ($self->param_is_defined('is_complete') && $self->param('is_complete')) ? 1 : 0;
+    my $is_failed = ($self->param_is_defined('is_failed') && $self->param('is_failed')) ? 1 : 0;
+    my $is_futile = ($self->param_is_defined('is_futile') && $self->param('is_futile')) ? 1 : 0;
+    $is_failed ||= $is_futile;
+    throw('is_complete or is_failed must be set') if !$is_failed && !$is_complete;
 
     my $db = ReseqTrack::DBSQL::DBAdaptor->new(%{$self->param('reseqtrack_db')});
 
@@ -31,7 +36,12 @@ sub run {
     my $ps_url = $pipeline_seed->hive_db->url;
     throw("url does not match $self_url $ps_url") if $self_url ne $ps_url;
 
-    $psa->update_completed($pipeline_seed);
+    if ($is_failed) {
+      $psa->update_failed($pipeline_seed, $is_futile);
+    }
+    else {
+      $psa->update_completed($pipeline_seed);
+    }
     
 }
 

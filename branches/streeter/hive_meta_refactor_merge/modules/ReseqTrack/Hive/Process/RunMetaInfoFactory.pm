@@ -14,82 +14,58 @@ use ReseqTrack::Tools::Exception qw(throw);
 
 =cut
 
-sub run {
-    my $self = shift @_;
-
-    my $type_branch = $self->param_required('type_branch');
-    my $output_dir = $self->output_dir;
-
-    my $allowed_status_arr = $self->param_is_defined('allowed_status') ? $self->param_to_flat_array('allowed_status')
-                            : ['public', 'private'];
-    my $allowed_platform_arr = $self->param_is_defined('allowed_platform') ? $self->param_to_flat_array('allowed_platform')
+sub libraries_factory {
+    my ($self) = @_;
+    my $sample_id = $self->param_required('sample_id');
+    my $allowed_strategies = $self->param_to_flat_array('allowed_strategy');
+    my $allowed_platforms = $self->param_is_defined('allowed_platform') ? $self->param_to_flat_array('allowed_platform')
                             : ['ILLUMINA'];
 
     my $db = ReseqTrack::DBSQL::DBAdaptor->new(%{$self->param('reseqtrack_db')});
-
-    if (lc($type_branch) eq 'sample') {
-      my $sql = "SELECT sample_id, sample_name FROM run_meta_info";
-      my @bind_values;
-      if ($self->param_is_defined('study_id')) {
-        $sql .= ' WHERE study_id = ?';
-        push(@bind_values, $self->param('study_id'));
+    my %library_names;
+    EXPERIMENT:
+    foreach my $experiment (@{$db->get_ExperimentAdaptor->fetch_by_sample_id($sample_id)}) {
+      if (@$allowed_strategies) {
+        next EXPERIMENT if ! grep {$experiment->library_strategy eq $_} @$allowed_strategies;
       }
-      $sql .= " GROUP BY sample_id";
-      my $sth = $db->dbc->prepare($sql) or die "could not prepare $sql: ".$db->dbc->errstr;;
-      $sth->execute(@bind_values) or die "could not execute $sql: ".$sth->errstr;
+      next EXPERIMENT if ! grep {$experiment->instrument_platform eq $_} @$allowed_platforms;
+      $library_names{$experiment->library_name} = 1;
+    }
+    foreach my $library_name (keys %library_names) {
+      $self->prepare_factory_output_id($library_name, {'library_name' => $library_name});
+    }
+}
 
-      while (my $row = $sth->fetchrow_arrayref) {
-        my ($sample_id, $sample_name) = @$row;
-        $self->prepare_factory_output_id($sample_name, {'sample_id' => $sample_id});
+sub runs_factory {
+    my ($self) = @_;
+    my $library_name = $self->param_required('library_name');
+    my $sample_id = $self->param_required('sample_id');
+    my $allowed_statuses = $self->param_is_defined('allowed_status') ? $self->param_to_flat_array('allowed_status')
+                            : ['public', 'private'];
+
+    my $db = ReseqTrack::DBSQL::DBAdaptor->new(%{$self->param('reseqtrack_db')});
+
+    my $experiments = $db->get_ExperimentAdaptor->fetch_by_column_name('library_name', $library_name);
+    my $ra = $db->get_RunAdaptor;
+    foreach my $experiment (@{$db->get_ExperimentAdaptor->fetch_by_column_name('library_name', $library_name)}) {
+      RUN:
+      foreach my $run (@{$ra->fetch_by_experiment_id($experiment->dbID)}) {
+        next RUN if $run->sample_id != $sample_id;
+        next RUN if ! grep {$run->status eq $_} @$allowed_statuses;
+        $self->prepare_factory_output_id($run->source_id, {'run_id' => $run->dbID, 'run_source_id' => $run->source_id});
       }
     }
-    elsif(lc($type_branch) eq 'library') {
-      my $sql = 'SELECT DISTINCT library_name FROM run_meta_info WHERE 1';
-      my @bind_values;
-      if ($self->param_is_defined('sample_id')) {
-        $sql .= ' AND sample_id = ?';
-        push(@bind_values, $self->param('sample_id'));
-      }
-      if ($self->param_is_defined('study_id')) {
-        $sql .= ' AND study_id = ?';
-        push(@bind_values, $self->param('study_id'));
-      }
-      my $sth = $db->dbc->prepare($sql) or die "could not prepare $sql: ".$db->dbc->errstr;;
-      $sth->execute(@bind_values) or die "could not execute $sql: ".$sth->errstr;
-      foreach my $library_name (map {$_->[0]} @{$sth->fetchall_arrayref()}) {
-        $self->prepare_factory_output_id($library_name, {'library_name' => $library_name});
-      }
-    }
-    elsif(lc($type_branch) eq 'run') {
-      my $sql = 'SELECT run_id FROM run_meta_info where 1';
-      my @bind_values;
-      if ($self->param_is_defined('sample_id')) {
-        $sql .= ' AND sample_id = ?';
-        push(@bind_values, $self->param('sample_id'));
-      }
-      if ($self->param_is_defined('library_name')) {
-        $sql .= ' AND library_name = ?';
-        push(@bind_values, $self->param('library_name'));
-      }
-      if ($self->param_is_defined('study_id')) {
-        $sql .= ' AND study_id = ?';
-        push(@bind_values, $self->param('study_id'));
-      }
-      if (@$allowed_status_arr) {
-        $sql .= ' AND status in (' . join(',', map {'?'} @$allowed_status_arr) . ')';
-        push(@bind_values, @$allowed_status_arr);
-      }
-      if (@$allowed_platform_arr) {
-        $sql .= ' AND instrument_platform in (' . join(',', map {'?'} @$allowed_platform_arr) . ')';
-        push(@bind_values, @$allowed_platform_arr);
-      }
-      my $sth = $db->dbc->prepare($sql) or die "could not prepare $sql: ".$db->dbc->errstr;;
-      $sth->execute(@bind_values) or die "could not execute $sql: ".$sth->errstr;
-      foreach my $run_id (map {$_->[0]} @{$sth->fetchall_arrayref()}) {
-        $self->prepare_factory_output_id($run_id, {'run_id' => $run_id});
-      }
-    }
+}
 
+sub run {
+    my $self = shift @_;
+
+    my %factories = (
+        'run' => \&runs_factory,
+        'library' => \&libraries_factory,
+        );
+
+    &{$factories{$self->param_required('factory_type')}}($self);
 }
 
 1;

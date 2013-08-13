@@ -6,15 +6,10 @@ use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::Exception;
 use Getopt::Long;
 
-my $dbhost;
-my $dbuser;
-my $dbpass;
-my $dbport;
-my $dbname;
-
+my ($dbhost, $dbuser, $dbpass, $dbport, $dbname);
 my $file;
-
 my ($read, $write, $update, $help);
+my $default_seeding_module = 'ReseqTrack::Hive::PipeSeed::Default';
 
 &GetOptions(
     'dbhost=s'  => \$dbhost,
@@ -68,10 +63,10 @@ sub dump_pipelines {
   foreach my $pipeline (@$pipelines) {
     print $fh "[" , $pipeline->name , "]\n";
     print $fh "table_name=", $pipeline->table_name, "\n";
-    print $fh "type=", $pipeline->type, "\n";
-    print $fh "table_column=", $pipeline->table_column, "\n";
     print $fh "config_module=", $pipeline->config_module, "\n";
     print $fh "config_options=", $pipeline->config_options, "\n" if $pipeline->config_options;
+    print $fh "seeding_module=", $pipeline->seeding_module, "\n";
+    print $fh "seeding_options=", $pipeline->seeding_options, "\n" if $pipeline->seeding_options;
     print $fh "\n";
   }
   close $fh;
@@ -89,6 +84,8 @@ sub parse_file {
     my ($name) = $line =~ /\[(.*)\]/;
     throw("could not find a pipeline name in $line") if !$name;
     my $pipeline = ReseqTrack::Pipeline->new( -name => $name);
+    my @config_options;
+    my @seeding_options;;
     LINE:
     while (my $line = <$fh>) {
       last LINE if $line !~ /\S/; # blank line
@@ -98,21 +95,26 @@ sub parse_file {
       if ($key eq 'table_name') {
         $pipeline->table_name($val);
       }
-      elsif ($key eq 'type') {
-        $pipeline->type($val);
-      }
-      elsif ($key eq 'table_column') {
-        $pipeline->table_column($val);
-      }
       elsif ($key eq 'config_module') {
         $pipeline->config_module($val);
       }
       elsif ($key eq 'config_options') {
-        $pipeline->config_options($val);
+        push(@config_options, $val);
+      }
+      elsif ($key eq 'seeding_module') {
+        $pipeline->seeding_module($val);
+      }
+      elsif ($key eq 'seeding_options') {
+        push(@seeding_options, $val);
       }
       else {
         throw("could not interpret key $key");
       }
+    }
+    $pipeline->config_options(join(' ', @config_options));
+    $pipeline->seeding_options(join(' ', @seeding_options));
+    if (! $pipeline->seeding_module) {
+        $pipeline->seeding_module($default_seeding_module);
     }
     push(@pipelines, $pipeline);
   }
@@ -126,16 +128,17 @@ sub create_history {
   if ($new->table_name ne $old->table_name) {
     push(@comments, "table_name changed from ".$old->table_name." to ".$new->table_name);
   }
-  my $new_type = $new->type // '{NULL}';
-  my $old_type = $old->type // '{NULL}';
-  if ($new_type ne $old_type) {
-    push(@comments, "type changed from $old_type to $new_type");
-  }
   if ($new->config_module ne $old->config_module) {
     push(@comments, "config_module changed from ".$old->config_module." to ".$new->config_module);
   }
   if ($new->config_options ne $old->config_options) {
     push(@comments, "config_options changed from ".$old->config_options." to ".$new->config_options);
+  }
+  if ($new->seeding_module ne $old->seeding_module) {
+    push(@comments, "seeding_module changed from ".$old->seeding_module." to ".$new->seeding_module);
+  }
+  if ($new->seeding_options ne $old->seeding_options) {
+    push(@comments, "seeding_options changed from ".$old->seeding_options." to ".$new->seeding_options);
   }
   foreach my $comment (@comments) {
     my $history = ReseqTrack::History->new(
@@ -165,9 +168,10 @@ ReseqTrack/scripts/event/load_pipeline_from_conf.pl
 
         [pipeline_name]
         table_name=file
-        type=BAM
         config_module=ReseqTrack::Hive::PipeConfig::MyModule
         config_options= (any flags you want to give to the hive init_pipeline.pl script)
+        seeding_module=ReseqTrack::Hive::PipeSeed::MyModule
+        seeding_options= (any flags you want to give to the hive seed factory)
 
     It can also dump existing events in this format
 

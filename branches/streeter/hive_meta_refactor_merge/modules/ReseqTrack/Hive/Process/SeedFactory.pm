@@ -15,14 +15,27 @@ use ReseqTrack::Tools::GeneralUtils qw(delete_lock_string is_locked create_lock_
 
 =cut
 
+sub sql_existing {
+  my ($self, $pipeline) = @_;
+  my $table_name = $pipeline->table_name;
+  my $dbID_name = $table_name . '_id';
+  my $pipeline_id = $pipeline->dbID;
+  my $sql_existing =
+        "SELECT $table_name.$dbID_name FROM $table_name, pipeline_seed, hive_db"
+      . " WHERE pipeline_seed.hive_db_id = hive_db.hive_db_id"
+      . " AND hive_db.pipeline_id = $pipeline_id"
+      . " AND (pipeline_seed.is_running = 1"
+      .      " OR pipeline_seed.is_complete = 1"
+      .      " OR pipeline_seed.is_futile = 1)";
+  return $sql_existing;
+}
+
 sub run {
     my $self = shift @_;
-    my $table_columns = $self->param_to_flat_array('table_column');
-    my $filter_module = $self->param_is_defined('seed_filter_module') ? $self->param('seed_filter_module') : undef;
-    my $filter_options = $self->param_is_defined('seed_filter_options') ? $self->param('seed_filter_options') : {};
+    my $seed_labels = $self->param_to_flat_array('seed_label');
 
-    if (defined $filter_module) {
-      eval "require $filter_module" or throw "cannot load module $module $@";
+    if (!@$seed_labels) {
+      $seed_labels = ['ps_id'];
     }
 
     my $db = ReseqTrack::DBSQL::DBAdaptor->new(%{$self->param('reseqtrack_db')});
@@ -41,58 +54,36 @@ sub run {
     }
     create_lock_string($lock_string, $meta_adaptor);
 
-    my $table_name = $hive_db->pipeline->table_name;
-    my $dbID_name = $table_name . '_id';
+    my $pipeline = $hive_db->pipeline;
+    my $seeding_module = $pipeline->seeding_module;
+    eval "require $seeding_module" or throw "cannot load module $seeding_module $@";
 
-    my $adaptor = $db->get_adaptor_for_table($table_name);
-    my $sql_existing =
-          "SELECT $table_name.$dbID_name FROM $table_name, pipeline_seed, hive_db"
-        . " WHERE pipeline_seed.hive_db_id = hive_db.hive_db_id"
-        . " AND hive_db.pipeline_id = ?"
-        . " AND (pipeline_seed.is_running = 1"
-        .      " OR pipeline_seed.is_complete = 1"
-        .      " OR pipeline_seed.is_futile = 1)";
-    my $sql = "SELECT ".$adaptor->columns." FROM $table_name "
-          . " WHERE $dbID_name NOT IN ($sql_existing)";
-    if (my $type = $hive_db->pipeline->type) {
-      $sql .= " AND $table_name.type = $type";
-    }
-    my $sth = $db->dbc->prepare($sql) or throw("could not prepare $sql: ".$db->dbc->errstr);
-    $sth->bind_param(1, $hive_db->pipeline->dbID);
-    $sth->execute or die "could not execute $sql: ".$sth->errstr;
-
-    my @seed_ids;
-    if (defined $filter_module) {
-      my $filter_function = $filter_module . '::filter';
-      SEED:
-      while (my $rowHashref = $sth->fetchrow_hashref) {
-        my $object = $adaptor->object_from_hashref($rowHashref);
-        if (&$filter_function($object, $filter_options){
-          push(@seed_ids, $object->dbID);
-        }
-      }
-    }
-    else {
-      @seed_ids = map {$_->{$dbID_name}} @$fetchall_hashref;
-    }
+    my $seeding_sub_name = $seeding_module . '::create_seed_params';
+    my $seeding_sub = \&$seeding_sub_name;
+    my $seeding_options = $pipeline->seeding_options 
+                        ? destringify($pipeline->seeding_options)
+                        : {};
 
     my $psa = $db->get_PipelineSeedAdaptor;
-    foreach my $seed_id (@seed_ids) {
+    foreach my $seed_params (@{&$seeding_sub($self, $pipeline, $seeding_options)}) {
+      my ($seed, $output_hash) = @$seed_params;
+      throw('seeding module has returned an object of the wrong type')
+          if $seed->adaptor->table_name ne $pipeline->table_name;
       my $pipeline_seed = ReseqTrack::PipelineSeed->new
           (
-           -seed_id         => $seed_id,
+           -seed_id         => $seed->dbID,
            -hive_db         => $hive_db,
            -is_running      => 1,
       );
       $psa->store($pipeline_seed);
-      my %output_id = ('ps_id' => $pipeline_seed->dbID);
-      foreach my $column_name (@$table_columns) {
-        throw("$column_name is not a valid column name for $table_name") if !exists($rowHashref->{$column_name});
-        $output_id{$column_name} = $rowHashref->{$column_name};
+      $output_hash->{'ps_id'} = $pipeline_seed->dbID;
+      my @label_values;
+      foreach my $seed_label (@$seed_labels) {
+        throw("output hash is missing label $seed_label") if ! defined $output_hash->{$seed_label};
+        push(@label_values, $output_hash->{$seed_label});
       }
-      $self->prepare_factory_output_id($pipeline_seed->dbID, \%output_id);
+      $self->prepare_factory_output_id(\@label_values, $output_hash);
     }
-    $sth->finish;
 
     delete_lock_string($lock_string, $meta_adaptor);
     $hive_db->is_seeded(0);
