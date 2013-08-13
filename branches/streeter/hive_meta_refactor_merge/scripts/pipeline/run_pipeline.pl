@@ -31,6 +31,9 @@ my %options;
   'run!' => \$run,
   'hive_log_dir=s'  => \$hive_log_dir,
   );
+$reseed //= 1;
+$loop //= 1;
+$run //= 1;
 
 my $db = ReseqTrack::DBSQL::DBAdaptor->new(
   -host   => $dbhost,
@@ -111,11 +114,13 @@ if ($run || $loop) {
 
 =head1 NAME
 
-reseqtrack/scripts/pipeline/seed_pipeline.pl
+reseqtrack/scripts/pipeline/run_pipeline.pl
 
 =head1 SYNOPSIS
 
-This script is used to create a job in a hive database in order to seed the pipeline (make it ready to run)
+This script is used to do two things:
+    1. create a job in a hive database in order to seed the pipeline (make it ready to run)
+    2. run the hive pipeline
 
 =head1 OPTIONS
 
@@ -135,8 +140,15 @@ This script is used to create a job in a hive database in order to seed the pipe
 
   other options:
 
-  -pipeline_name, refers to a name in the pipeline table
+  -pipeline_name, refers to a name in the pipeline table. Must specify either this or -hive_db_id
+  -hive_db_id, refers to a dbID in the hive_db table. Must specify either this or -pipeline_name
   -ensembl_cvs_dir, path to the ensembl api
+  -reseed, boolean flag to add a new seed job to the pipeline. Default is 1. Use -noreseed to disable.
+  -run, boolean flag to run the pipeline. Default is 1. Use -norun to disable.
+  -loop, boolean flag to run the pipeline continuously until nothing let to be done.  Default is 1. Use -noloop to disable.
+  -hive_log_dir, optional path to a directory.
+        All stdout and stderr for all hive jobs will be written to this directory
+        Unnecessary except for debugging because important messages are stored in the hive db.
 
 =head1 Examples
 

@@ -31,10 +31,9 @@ sub run {
     throw("did not get pipeline_seed for $ps_id") if !$pipeline_seed;
 
     # sanity check:
-    my $self_url = $self->dbc->url;
-    $self_url =~ s/[^\/]*\@//; # remove username and password from url
-    my $ps_url = $pipeline_seed->hive_db->url;
-    throw("url does not match $self_url $ps_url") if $self_url ne $ps_url;
+    my $self_dbname = $self->dbc->dbname;
+    my $ps_dbname = $pipeline_seed->hive_db->name;
+    throw("dbnames do not match $self_dbname $ps_dbname") if $self_dbname ne $ps_dbname;
 
     if ($is_failed) {
       $psa->update_failed($pipeline_seed, $is_futile);
