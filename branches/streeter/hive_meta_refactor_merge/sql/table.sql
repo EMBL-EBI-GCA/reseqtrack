@@ -392,14 +392,16 @@ CREATE TABLE pipeline(
 
 CREATE TABLE hive_db(
        hive_db_id int(10) unsigned NOT NULL AUTO_INCREMENT,
-       url VARCHAR(255) NOT NULL,
        pipeline_id int(10) unsigned NOT NULL,
+       name VARCHAR(255) NOT NULL,
+       host VARCHAR(255) NOT NULL,
+       port smallint unsigned NOT NULL,
        created   datetime NOT NULL,
        retired   datetime,
        hive_version VARCHAR(255) NOT NULL,
        is_seeded tinyint NOT NULL DEFAULT 0,
        PRIMARY KEY(hive_db_id),
-       UNIQUE(url,created)   
+       UNIQUE(name,host,port,created)   
 ) ENGINE=MYISAM;
 
 CREATE TABLE pipeline_seed(

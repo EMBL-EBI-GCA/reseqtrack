@@ -376,7 +376,8 @@ sub write_output {
   my %base_output;
   PARAM:
   foreach my $param_name (keys %base_output_keys) {
-    next PARAM if !$self->param_is_defined($param_name);
+    #next PARAM if !$self->param_is_defined($param_name);
+    next PARAM if !$self->count_param_values($param_name);
     $base_output{$param_name} = $self->param($param_name);
   }
 

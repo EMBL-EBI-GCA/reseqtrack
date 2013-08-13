@@ -154,7 +154,7 @@ sub pipeline_analyses {
                 seed_label => ['#sample_group_attribute#', '#sample_label#'],
                 output_columns => ['sample_id', '#sample_label#'],
                 output_attributes => '#sample_group_attribute#',
-                temp_param_sub => { 2 => [['#sample_label#','undef'], ['#sample_group_attribute#', 'undef']]}, # temporary hack pending updates to hive code
+                temp_param_sub => { 2 => [['#sample_label#','undef'], ['#sample_group_attribute#', 'undef'], ['seed_time', 'undef']]}, # temporary hack pending updates to hive code
             },
             -flow_into => {
                 2 => [ 'libraries_factory' ],
@@ -433,7 +433,6 @@ sub pipeline_analyses {
           -parameters => {
               files => '#bam#',
               require_file_count => { 1 => '1+'},
-              temp_param_sub => { 1 => [['fastq','undef']]}, # temporary hack pending updates to hive code
           },
             -flow_into => {
                 1 => [ 'mark_duplicates', ':////accu?fastq=[]'],

@@ -51,7 +51,7 @@ foreach my $hive_db (@$hive_dbs) {
   my $pipeline_seeds = $db->get_PipelineSeedAdaptor->fetch_running_by_hive_db($hive_db);
   if (@$pipeline_seeds) {
     if (!$force) {
-      warn("will not retire ".$hive_db->url." because pipeline seeds are still marked as running and -force is not set");
+      warn("will not retire ".$hive_db->name." because pipeline seeds are still marked as running and -force is not set");
       next HIVEDB;
     }
     foreach my $ps (@$pipeline_seeds) {

@@ -40,11 +40,13 @@ sub run {
 
     my $db = ReseqTrack::DBSQL::DBAdaptor->new(%{$self->param('reseqtrack_db')});
 
-    my $url = $self->dbc->url;
-    $url =~ s/[^\/]*\@//; # remove username and password from url
-
-    my $hive_db = $db->get_HiveDBAdaptor->fetch_by_url($url);
-    throw("did not get a hive_db object for $url") if !$hive_db;
+    my $dbname = $self->dbc->dbname;
+    my $host = $self->dbc->host;
+    my $port = $self->dbc->port;
+    my ($hive_db) = @{$db->get_HiveDBAdaptor->fetch_by_column_names(
+            ['name', 'host', 'port'],
+            [$dbname, $host, $port])};
+    throw("did not get a hive_db object for $dbname $host $port") if !$hive_db;
 
     my $meta_adaptor = $db->get_MetaAdaptor;
     my $lock_string = $hive_db->pipeline->name . '.lock';
