@@ -6,7 +6,6 @@
   
   Options you MUST specify on the command line:
 
-      -callgroup, (e.g. a population name) Can be specified multiple times.  The name of a collection of bams in your reseqtrack database
       -reference, fasta file of your reference genome.  Should be indexed for bwa and should have a .fai and .dict
       -password, for accessing the hive database
       -reseqtrack_db_name, (or -reseqtrack_db -db_name=??) your reseqtrack database
@@ -82,8 +81,6 @@ sub default_options {
         call_by_samtools_options => {}, # use module defaults
         call_by_freebayes_options => {}, # use module defaults
 
-        callgroup => [],
-
         'fai' => $self->o('reference') . '.fai',
         'target_bed_file' => undef,
 
@@ -95,6 +92,7 @@ sub default_options {
         'call_by_gatk' => 1,
         'call_by_freebayes' => 1,
 
+        'vcf_type' => undef,
 
     };
 }
@@ -135,14 +133,14 @@ sub pipeline_analyses {
 
     my @analyses;
     push(@analyses, {
-            -logic_name    => 'callgroups_factory',
-            -module        => 'ReseqTrack::Hive::Process::JobFactory',
+            -logic_name    => 'get_seeds',
+            -module        => 'ReseqTrack::Hive::Process::SeedFactory',
             -meadow_type => 'LOCAL',
             -parameters    => {
-                factory_value => '#callgroup#',
-                temp_param_sub => { 2 => [['callgroup','factory_value']]}, # temporary hack pending updates to hive code
+                seed_label => 'name',
+                output_columns => 'name',
+                temp_param_sub => { 2 => [['callgroup','name'], ['seed_time', 'undef']]}, # temporary hack pending updates to hive code
             },
-            -input_ids => [{callgroup => $self->o('callgroup')}],
             -flow_into => {
                 2 => [ 'find_source_bams' ],
             },
@@ -389,12 +387,30 @@ sub pipeline_analyses {
           -logic_name    => 'merge_vcf',
           -module        => 'ReseqTrack::Hive::Process::MergeVcf',
           -parameters    => {
-              analysis_label => '#expr("call_by_".$caller)expr#',
+              analysis_label => '#expr($caller.'.'.$final_label)expr#',
               bgzip => $self->o('bgzip_exe'),
               delete_param => ['vcf'],
           },
           -rc_name => '500Mb',
           -hive_capacity  =>  200,
+      });
+    push(@analyses, {
+            -logic_name    => 'store_vcf',
+            -module        => 'ReseqTrack::Hive::Process::LoadFile',
+            -meadow_type => 'LOCAL',
+            -parameters    => {
+              type => $self->o('vcf_type'),
+              file => '#vcf#',
+            },
+            -flow_into => {1 => ['mark_seed_complete']},
+      });
+    push(@analyses, {
+            -logic_name    => 'mark_seed_complete',
+            -module        => 'ReseqTrack::Hive::Process::UpdateSeed',
+            -parameters    => {
+              is_complete  => 1,
+            },
+            -meadow_type => 'LOCAL',
       });
 
     return \@analyses;

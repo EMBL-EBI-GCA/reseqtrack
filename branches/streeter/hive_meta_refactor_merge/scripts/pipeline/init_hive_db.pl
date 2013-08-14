@@ -46,6 +46,7 @@ throw("did not find pipeline with name $pipeline_name") if !$pipeline;
 $ensembl_hive_version //= (split(/\/+/, abs_path($ensembl_cvs_dir)))[-1];
 
 $hive_name //= join('_', $dbname, $pipeline_name, strftime("%Y%m%d_%H%M", localtime));
+$hive_name =~ s/\s+/_/g;
 
 my @init_options = ($pipeline->config_options);
 push(@init_options, '-reseqtrack_db', "-host=$dbhost");
