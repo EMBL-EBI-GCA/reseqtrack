@@ -19,7 +19,7 @@ use warnings;
 
 use ReseqTrack::Tools::FileSystemUtils
     qw(check_file_exists check_directory_exists delete_directory
-    delete_file check_file_does_not_exist make_directory check_executable);
+    delete_file check_file_does_not_exist check_executable create_tmp_process_dir);
 use ReseqTrack::Tools::Exception qw(throw warning stack_trace_dump);
 use ReseqTrack::Tools::Argument qw(rearrange);
 use Env qw( @PATH );
@@ -550,7 +550,6 @@ sub _running {
 =head2 get_temp_dir
 
   Arg [1]   : ReseqTrack::Tools::RunProgram
-  Arg [2]   : boolean, default 0, allow_test_mode
   Function  : Gets a temp directory for use by the child class.
               Adds the temp directory to list of created files.
               (in test mode, the temp directory is allowed to be an existing directory)
@@ -564,17 +563,9 @@ sub get_temp_dir {
     my ($self, $allow_test_mode) = @_;
     my $temp_dir = $self->{'_temp_dir'};
     if (! $temp_dir) {
-      $temp_dir = $self->working_dir() .'/'.$self->job_name;
-      if ($allow_test_mode && $GLOBAL_save_files_from_deletion) {
-        warn("directory already exists: $temp_dir") if (-d $temp_dir);
-      }
-      else {
-        $temp_dir .= '.'.$$.'.tmp';
-        check_file_does_not_exist($temp_dir);
-      }
+      $temp_dir = create_tmp_process_dir($self->working_dir, $self->job_name, 0);
       $self->created_files($temp_dir);
       $self->{'_temp_dir'} = $temp_dir;
-      make_directory($temp_dir);
     }
     return $temp_dir;
 }
