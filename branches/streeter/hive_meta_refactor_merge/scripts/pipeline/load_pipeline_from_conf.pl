@@ -137,8 +137,8 @@ sub create_history {
   if ($new->seeding_module ne $old->seeding_module) {
     push(@comments, "seeding_module changed from ".$old->seeding_module." to ".$new->seeding_module);
   }
-  if ($new->seeding_options ne $old->seeding_options) {
-    push(@comments, "seeding_options changed from ".$old->seeding_options." to ".$new->seeding_options);
+  if (($new->seeding_options // '') ne ($old->seeding_options // '')) {
+    push(@comments, "seeding_options changed from ".($old->seeding_options // 'NULL')." to ".($new->seeding_options // 'NULL'));
   }
   foreach my $comment (@comments) {
     my $history = ReseqTrack::History->new(

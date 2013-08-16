@@ -3,13 +3,26 @@
  ReseqTrack::Hive::PipeConfig::VQSR_conf
 
 =head1 SYNOPSIS
-  
-  Options you MUST specify on the command line:
 
-      -callgroup, (e.g. a population name) Can be specified multiple times.  The name of a collection of bams in your reseqtrack database
+  Pipeline MUST be seeded by the collection table of a ReseqTrack database (collection of bam files)
+  Vcf files will be created for each collection (possibly for SNPs and for indels), and stored in the ReseqTrack database
+
+  Here is an example pipeline configuration to load using reseqtrack/scripts/pipeline/load_pipeline_from_conf.pl
+
+[vqsr]
+table_name=collection
+seeding_module=ReseqTrack::Hive::PipeSeed::Default
+config_module=ReseqTrack::Hive::PipeConfig::VQSR_conf
+config_options=-root_output_dir /path/to/dir
+config_options=-reference /path/to/human.fa
+config_options=-snp_alleles /nfs/1000g-work/G1K/work/REFERENCE/snps/grc37_snps/OMNI25_1856/Omni25_genotypes_1856_PASS.vcf.gz
+config_options=-indel_alleles /nfs/1000g-archive/vol1/ftp/technical/reference/phase2_mapping_resources/ALL.wgs.indels_mills_devine_hg19_leftAligned_collapsed_double_hit.indels.sites.vcf.gz
+config_options=-snp_resources omni='known=true,training=true,truth=true,prior=12.0 /nfs/1000g-work/G1K/work/REFERENCE/snps/grc37_snps/OMNI25_1856/Omni25_genotypes_1856_PASS.vcf.gz'
+config_options=-indel_resources mills='known=true,training=true,truth=true,prior=12.0 /nfs/1000g-archive/vol1/ftp/technical/reference/phase2_mapping_resources/ALL.wgs.indels_mills_devine_hg19_leftAligned_collapsed_double_hit.indels.sites.vcf.gz'
+  
+  Options that MUST be specified in the pipeline.config_options table/column of your ReseqTrack database:
+
       -reference, fasta file of your reference genome.  Should be indexed for bwa and should have a .fai and .dict
-      -password, for accessing the hive database
-      -reseqtrack_db_name, (or -reseqtrack_db -db_name=??) your reseqtrack database
 
       -snp_alleles, path to a vcf file containing sites for recalibration (should be tabixed)
       -indel_alleles, path to a vcf file containing sites for recalibration (should be tabixed)
@@ -18,19 +31,7 @@
       -indel_resources, key/val pairs e.g.  mills='known=true,training=true,truth=true,prior=12.0 /path/to/file.vcf
           Resource files should be tabixed
 
-  Options that have defaults but you will often want to modify:
-
-      Connection to the hive database:
-      -pipeline_db -host=???, (default mysql-g1k)
-      -pipeline_db -port=???, (default 4175)
-      -pipeline_db -user=???, must have write access (default g1krw)
-      -dipeline_db -dbname=???, (default is a mixture of your unix user name + the pipeline name)
-
-      Connection to the reseqtrack database:
-      -reseqtrack_db -host=???, (default mysql-g1k)
-      -reseqtrack_db -user=???, read only access is OK (default g1kro)
-      -reseqtrack_db -port=???, (default 4175)
-      -reseqtrack_db -pass=???, (default undefined)
+  Options that have defaults but you will often want to set them in your pipeline.cofig_options table/column:
 
       -root_output_dir, (default is your current directory)
       -type_bam, type of bam files to look for in the reseqtrack database, default BAM
@@ -55,6 +56,17 @@
       -transpose_exe, (default is to work it out from your environment variable $RESEQTRACK)
       -bgzip_exe, (default /nfs/1000g-work/G1K/work/bin/tabix/bgzip)
       -gatk_dir, (default /nfs/1000g-work/G1K/work/bin/gatk/dist/)
+
+  Options that are required, but will be passed in by reseqtrack/scripts/init_pipeline.pl:
+
+      -pipeline_db -host=???
+      -pipeline_db -port=???
+      -pipeline_db -user=???
+      -dipeline_db -dbname=???
+      -reseqtrack_db -host=???
+      -reseqtrack_db -user=???
+      -reseqtrack_db -port=???
+      -reseqtrack_db -pass=???
 
 =cut
 
@@ -94,8 +106,6 @@ sub default_options {
                 alleles => $self->o('indel_alleles'),
               },
 
-        callgroup => [],
-
         variant_recalibrator_snps_options => {mode => 'SNP'},
         variant_recalibrator_indels_options => {mode => 'INDEL'},
         apply_recalibration_snps_options => {mode => 'SNP'},
@@ -117,6 +127,7 @@ sub default_options {
         'vqsr_snps' => 1,
         'vqsr_indels' => 1,
 
+        'vcf_type' => undef,
 
     };
 }
@@ -156,16 +167,31 @@ sub pipeline_analyses {
 
     my @analyses;
     push(@analyses, {
-            -logic_name    => 'callgroups_factory',
-            -module        => 'ReseqTrack::Hive::Process::JobFactory',
+            -logic_name    => 'get_seeds',
+            -module        => 'ReseqTrack::Hive::Process::SeedFactory',
             -meadow_type => 'LOCAL',
             -parameters    => {
-                factory_value => '#callgroup#',
-                temp_param_sub => { 2 => [['callgroup','factory_value']]}, # temporary hack pending updates to hive code
+                seed_label => 'name',
+                output_columns => 'name',
+                temp_param_sub => { 2 => [['callgroup','name'], ['seed_time', 'undef']]}, # temporary hack pending updates to hive code
             },
-            -input_ids => [{callgroup => $self->o('callgroup')}],
             -flow_into => {
-                2 => [ 'find_source_bams' ],
+                2 => [ 'block_seed_complete' ],
+            },
+      });
+    push(@analyses, {
+          -logic_name => 'block_seed_complete',
+          -module        => 'ReseqTrack::Hive::Process::FlowDecider',
+          -meadow_type=> 'LOCAL',
+          -parameters => {
+              require_true => {
+                  1 => 1,
+                  2 => 1,
+              },
+          },
+            -flow_into => {
+                '2->A' => [ 'find_source_bams' ],
+                'A->1' => [ 'mark_seed_complete' ],
             },
       });
     push(@analyses, {
@@ -433,7 +459,9 @@ sub pipeline_analyses {
               reference => $self->o('reference'),
               gatk_dir => $self->o('gatk_dir'),
               options => $self->o('apply_recalibration_snps_options'),
+              temp_param_sub => { 1 => [['var_type', '"snps"']] },
           },
+          -flow_into => { '1' => [ 'rename_vcf' ], },
           -rc_name => '500Mb',
           -hive_capacity  =>  200,
       });
@@ -445,11 +473,43 @@ sub pipeline_analyses {
               reference => $self->o('reference'),
               gatk_dir => $self->o('gatk_dir'),
               options => $self->o('apply_recalibration_indels_options'),
+              temp_param_sub => { 1 => [['var_type', '"indels"']] },
           },
+          -flow_into => { '1' => [ 'rename_vcf' ], },
           -rc_name => '500Mb',
           -hive_capacity  =>  200,
       });
-
+    push(@analyses, {
+            -logic_name => 'rename_vcf',
+            -module        => 'ReseqTrack::Hive::Process::RenameFile',
+            -meadow_type => 'LOCAL',
+            -parameters => {
+                final_label => $self->o('final_label'),
+                analysis_label => '#expr(' . q($var_type.'.'.$final_label) . ')expr#',
+                suffix => 'vcf.gz',
+                file_param_name => 'vcf',
+            },
+            -flow_into => {
+                1 => ['store_vcf'],
+            },
+      });
+    push(@analyses, {
+            -logic_name    => 'store_vcf',
+            -module        => 'ReseqTrack::Hive::Process::LoadFile',
+            -meadow_type => 'LOCAL',
+            -parameters    => {
+              type => $self->o('vcf_type'),
+              file => '#vcf#',
+            },
+      });
+    push(@analyses, {
+            -logic_name    => 'mark_seed_complete',
+            -module        => 'ReseqTrack::Hive::Process::UpdateSeed',
+            -parameters    => {
+              is_complete  => 1,
+            },
+            -meadow_type => 'LOCAL',
+      });
     return \@analyses;
 }
 

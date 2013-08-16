@@ -6,7 +6,7 @@ use strict;
 use base ('ReseqTrack::Hive::Process::BaseProcess');
 use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::Exception qw(throw);
-use ReseqTrack::Tools::StatisticsUtils qw( create_statistic_for_object );
+use ReseqTrack::Tools::AttributeUtils qw( create_attribute_for_object );
 use ReseqTrack::Tools::QC::FastQC;
 
 
@@ -20,15 +20,15 @@ sub run {
     my $self = shift @_;
 
     $self->param_required('fastq');
-    my $store_statistics = $self->param_is_defined('store_statistics') && $self->param('store_statistics') ? 1 : 0;
-    my $db_params = $store_statistics ? $self->param_required('reseqtrack_db') : undef;
+    my $store_attributes = $self->param_is_defined('store_attributes') && $self->param('store_attributes') ? 1 : 0;
+    my $db_params = $store_attributes ? $self->param_required('reseqtrack_db') : undef;
 
     my $fastqs = $self->file_param_to_flat_array('fastq');
     throw("Expecting one fastq file") if scalar @$fastqs != 1;
     my $fastq = $fastqs->[0];
 
     my ($db, $fastq_object);
-    if ($store_statistics) {
+    if ($store_attributes) {
       $db = ReseqTrack::DBSQL::DBAdaptor->new(%{$db_params});
       $fastq_object = $db->get_FileAdaptor->fetch_by_name($fastq);
       throw("did not get file with name $fastq") if !$fastq_object;
@@ -57,19 +57,19 @@ sub run {
     throw("unexpected number of zip paths: " . scalar @zip_paths) if @zip_paths != 1;
     my ($summary_path, $report_path, $zip_path) = ($summary_paths[0], $report_paths[0], $zip_paths[0]);
 
-    if ($store_statistics) {
+    if ($store_attributes) {
       $db->dbc->disconnect_when_inactive(0);
-      my $statistics = $fastq_object->statistics;
+      my $attributes = $fastq_object->attributes;
       
       open (my $summary_fh, '<', $summary_path) or throw("Could not open $summary_path $!");
       while (<$summary_fh>){
           chomp;
           my ($value,$key,$name) = split /\t/;
-          push @$statistics, create_statistic_for_object($fastq_object,"FASTQC:$key",$value) if ($value && $key);
+          push @$attributes, create_attribute_for_object($fastq_object,"FASTQC:$key",$value) if ($value && $key);
       }
       
-      $fastq_object->uniquify_statistics($statistics);
-      $db->get_FileAdaptor->store_statistics($fastq_object);
+      $fastq_object->uniquify_attributes($attributes);
+      $db->get_FileAdaptor->store_attributes($fastq_object);
     }
 
     $self->output_param('fastqc_summary', $summary_path);

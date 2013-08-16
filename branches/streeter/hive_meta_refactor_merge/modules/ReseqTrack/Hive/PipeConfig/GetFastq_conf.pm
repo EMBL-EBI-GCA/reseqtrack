@@ -58,7 +58,11 @@ sub pipeline_analyses {
             -module        => 'ReseqTrack::Hive::Process::SeedFactory',
             -meadow_type => 'LOCAL',
             -parameters    => {
-              table_column => ['run_id', 'run_meta_info_id', 'sample_name'],
+              seed_label => 'source_id',
+              output_columns => 'source_id',
+              output_sample_columns => 'sample_alias',
+              output_sample_attributes => 'population',
+
             },
             -analysis_capacity  =>  1,  # use per-analysis limiter
             -flow_into => {
@@ -75,7 +79,7 @@ sub pipeline_analyses {
               era_dbuser => $self->o('era_dbuser'),
               era_dbpass => $self->o('era_dbpass'),
               fastq_output_dir => $self->o('fastq_output_dir'),
-              output_dir => q(#expr(join('/', $fastq_output_dir, $sample_name, 'sequence'))expr#),
+              output_dir => q(#expr(join('/', $fastq_output_dir, $population, $sample_alias, 'sequence'))expr#),
             },
             -flow_into => {
                 1 => [ 'store_fastq' ],
@@ -91,7 +95,7 @@ sub pipeline_analyses {
             -parameters    => {
               type => $self->o('fastq_type'),
               collect => 1,
-              collection_name => '#run_id#',
+              collection_name => '#source_id#',
               file => '#fastq#',
             },
             -flow_into => {
@@ -115,10 +119,10 @@ sub pipeline_analyses {
             -logic_name    => 'fastqc',
             -module        => 'ReseqTrack::Hive::Process::RunFastqc',
             -parameters    => {
-              store_statistics => 1,
+              store_attributes => 1,
               program_file => $self->o('fastqc_exe'),
               fastqc_output_dir => $self->o('fastqc_output_dir'),
-              output_dir => q(#expr(join('/', $fastqc_output_dir, $sample_name, 'sequence', 'fastqc'))expr#),
+              output_dir => q(#expr(join('/', $fastqc_output_dir, $population, $sample_alias, 'sequence', 'fastqc'))expr#),
             },
             -flow_into => {
                 1 => [ ':////accu?fastqc_summary=[]', ':////accu?fastqc_report=[]', ':////accu?fastqc_zip=[]']
@@ -134,7 +138,7 @@ sub pipeline_analyses {
             -parameters    => {
               type => $self->o('fastqc_summary_type'),
               collect => 1,
-              collection_name => '#run_id#',
+              collection_name => '#source_id#',
               file => '#fastqc_summary#',
             },
             -flow_into => {
@@ -148,7 +152,7 @@ sub pipeline_analyses {
             -parameters    => {
               type => $self->o('fastqc_report_type'),
               collect => 1,
-              collection_name => '#run_id#',
+              collection_name => '#source_id#',
               file => '#fastqc_report#',
             },
             -flow_into => {
@@ -162,7 +166,7 @@ sub pipeline_analyses {
             -parameters    => {
               type => $self->o('fastqc_zip_type'),
               collect => 1,
-              collection_name => '#run_id#',
+              collection_name => '#source_id#',
               file => '#fastqc_zip#',
             },
             -flow_into => {
@@ -171,7 +175,10 @@ sub pipeline_analyses {
       });
     push(@analyses, {
             -logic_name    => 'mark_seed_complete',
-            -module        => 'ReseqTrack::Hive::Process::SeedComplete',
+            -module        => 'ReseqTrack::Hive::Process::UpdateSeed',
+            -parameters    => {
+              is_complete  => 1,
+            },
             -meadow_type => 'LOCAL',
       });
 

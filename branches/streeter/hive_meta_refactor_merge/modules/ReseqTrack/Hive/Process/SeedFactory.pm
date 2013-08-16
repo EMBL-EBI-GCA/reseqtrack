@@ -7,6 +7,7 @@ use base ('ReseqTrack::Hive::Process::BaseProcess');
 use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::Exception qw(throw);
 use ReseqTrack::Tools::GeneralUtils qw(delete_lock_string is_locked create_lock_string);
+use Bio::EnsEMBL::Hive::Utils qw(destringify);
 
 
 =head2 run

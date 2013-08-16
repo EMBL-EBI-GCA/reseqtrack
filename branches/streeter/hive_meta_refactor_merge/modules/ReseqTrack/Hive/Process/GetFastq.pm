@@ -18,7 +18,7 @@ use ReseqTrack::Tools::ERAUtils qw(get_erapro_conn);
 sub run {
     my $self = shift @_;
 
-    my $run_meta_info_id = $self->param_required('run_meta_info_id');
+    my $run_id = $self->param_required('run_id');
     my $db_params = $self->param_required('reseqtrack_db');
     my $module = $self->param_is_defined('module') ? $self->param('module') : 'ReseqTrack::Tools::GetFastq';
     my $source_root_dir = $self->param_is_defined('source_root_dir') ? $self->param('source_root_dir') : undef;
@@ -29,8 +29,8 @@ sub run {
     eval "require $module" or throw "cannot load module $module $@";
 
     my $db = ReseqTrack::DBSQL::DBAdaptor->new(%{$db_params});
-    my $rmi = $db->get_RunMetaInfoAdaptor->fetch_by_dbID($run_meta_info_id);
-    throw("did not get run_meta_info with dbID $run_meta_info_id") if !$rmi;
+    my $run = $db->get_RunAdaptor->fetch_by_dbID($run_id);
+    throw("did not get run with dbID $run_id") if !$run;
 
     my $era_db = get_erapro_conn($era_dbuser, $era_dbpass);
     

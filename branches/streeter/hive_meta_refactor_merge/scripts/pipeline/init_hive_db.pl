@@ -54,6 +54,7 @@ push(@init_options, '-reseqtrack_db', "-user=$dbuser");
 push(@init_options, '-reseqtrack_db', "-port=$dbport");
 push(@init_options, '-reseqtrack_db', "-dbname=$dbname");
 push(@init_options, '-reseqtrack_db', "-pass=$dbpass") if $dbpass;
+push(@init_options, '-pipeline_name', $pipeline_name);
 
 my $run_hive = ReseqTrack::Tools::RunHive->new(
     -hive_dbname => $hive_name,

@@ -93,7 +93,7 @@ sub update{
       "UPDATE pipeline SET name   = ?, ".
       "table_name     = ?, ".
       "config_module = ?,  ".
-      "config_options = ?  ".
+      "config_options = ?,  ".
       "seeding_module = ?,  ".
       "seeding_options = ?  ".
       "WHERE pipeline_id  = ?";

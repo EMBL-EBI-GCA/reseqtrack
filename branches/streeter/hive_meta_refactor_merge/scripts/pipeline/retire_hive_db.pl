@@ -47,7 +47,7 @@ throw("did not find pipeline with name $pipeline_name") if !$pipeline;
 my $hive_dbs = $db->get_HiveDBAdaptor->fetch_by_pipeline($pipeline);
 my $ps_a = $db->get_PipelineSeedAdaptor;
 HIVEDB:
-foreach my $hive_db (@$hive_dbs) {
+foreach my $hive_db (grep {!$_->retired} @$hive_dbs) {
   my $pipeline_seeds = $db->get_PipelineSeedAdaptor->fetch_running_by_hive_db($hive_db);
   if (@$pipeline_seeds) {
     if (!$force) {

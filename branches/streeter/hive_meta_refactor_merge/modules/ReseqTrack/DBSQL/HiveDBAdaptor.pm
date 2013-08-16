@@ -127,9 +127,9 @@ sub retire{
   my ($self, $hive_db) = @_;
 
   my $existing = $self->fetch_by_dbID($hive_db->dbID);
-  throw('Does not exist in database: '. $hive_db->url)
+  throw('Does not exist in database: '. $hive_db->name)
       if !$existing;
-  throw(join(' ', 'Already retired:', $hive_db->url, $hive_db->retired))
+  throw(join(' ', 'Already retired:', $hive_db->name, $hive_db->retired))
       if defined $hive_db->retired;
 
   my $sql = "select now()";

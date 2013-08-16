@@ -61,9 +61,9 @@ sub run {
   }
 
   #TEMPORARY LINE FOR TESTING
-#  if (@child_slices > 10) {
-#    @child_slices = @child_slices[0..10];
-#  }
+  if (@child_slices > 10) {
+    @child_slices = @child_slices[0..10];
+  }
 
   foreach my $i (0..$#child_slices) {
     my $child = $child_slices[$i];
@@ -90,7 +90,6 @@ sub run {
             'bp_start' => $child->[0]->start,
             'SQ_end' => $child->[1]->SQ_name,
             'bp_end' => $child->[1]->end,
-            'label' => $label,
             'fan_index' => $i,
           });
   }

@@ -3,30 +3,39 @@
  ReseqTrack::Hive::PipeConfig::Alignment_conf
 
 =head1 SYNOPSIS
-  
-  Options you MUST specify on the command line:
+
+  This is a pipeline for aligning fastq reads to make a bam file.
+
+  Pipeline MUST be seeded by the sample table of a ReseqTrack database.
+  Bam/bai/bas files will be created for each sample and stored in the ReseqTrack database
+
+  Here is an example pipeline configuration to load using reseqtrack/scripts/pipeline/load_pipeline_from_conf.pl
+
+[alignment]
+table_name=sample
+seeding_module=ReseqTrack::Hive::PipeSeed::Default
+config_module=ReseqTrack::Hive::PipeConfig::Alignment_conf
+config_options=-root_output_dir /path/to/dir
+config_options=-reference /path/to/human.fa
+config_options=-known_indels_vcf /nfs/1000g-archive/vol1/ftp/technical/reference/phase2_mapping_resources/ALL.wgs.indels_mills_devine_hg19_leftAligned_collapsed_double_hit.indels.sites.vcf.gz
+config_options=-known_snps_vcf /nfs/1000g-archive/vol1/ftp/technical/reference/phase2_mapping_resources/ALL.wgs.dbsnp.build135.snps.sites.vcf.gz
+config_options=-realign_intervals_file /path/to/realigner.intervals
+config_options=-realign_knowns_only 1
+config_options=-recalibrate_level 1
+config_options=-allowed_strategy WGS
+
+  Options that MUST be specified in the pipeline.config_options table/column of your ReseqTrack database:
 
       -reference, fasta file of your reference genome.  Should be indexed for bwa and should have a .fai and .dict
-      -password, for accessing the hive database
-      -reseqtrack_db_name, (or -reseqtrack_db -db_name=??) your reseqtrack database
+      -allowed_strategy, e.g. WGS or WXS, taken from the experiment table.
 
-  Options that have defaults but you will often want to modify:
-
-      Connection to the hive database:
-      -pipeline_db -host=???, (default mysql-g1k)
-      -pipeline_db -port=???, (default 4175)
-      -pipeline_db -user=???, must have write access (default g1krw)
-      -dipeline_db -dbname=???, (default is a mixture of your unix user name + the pipeline name)
-
-      Connection to the reseqtrack database:
-      -reseqtrack_db -host=???, (default mysql-g1k)
-      -reseqtrack_db -user=???, read only access is OK (default g1kro)
-      -reseqtrack_db -port=???, (default 4175)
-      -reseqtrack_db -pass=???, (default undefined)
+  Options that have defaults but you will often want to set them in your pipeline.cofig_options table/column:
 
       -root_output_dir, (default is your current directory)
       -type_fastq, type of fastq files to look for in the reseqtrack database, default FILTERED_FASTQ
       -final_label, used to name your final output files (default is your pipeline name)
+      -sample_label, (default source_id), which column from the sample table should be used to name output files and directories
+      -sample_group_attribute, (default POPULATION), output bams will be grouped in directories using this attribute
 
       -chunk_max_reads, (default 5000000) controls how fastq files are split up into chunks for parallel alignment
 
@@ -52,6 +61,19 @@
       -squeeze_exe => (default /nfs/1000g-work/G1K/work/bin/bamUtil/bin/bam)
       -gatk_dir => (default /nfs/1000g-work/G1K/work/bin/gatk/dist/)
       -picard_dir => (default /nfs/1000g-work/G1K/work/bin/picard)
+
+  Options that are required, but will be passed in by reseqtrack/scripts/init_pipeline.pl:
+
+      -pipeline_db -host=???
+      -pipeline_db -port=???
+      -pipeline_db -user=???
+      -dipeline_db -dbname=???
+      -password
+      -reseqtrack_db -host=???
+      -reseqtrack_db -user=???
+      -reseqtrack_db -port=???
+      -reseqtrack_db -pass=???
+      -reseqtrack_db -dbname=???
 
 =cut
 

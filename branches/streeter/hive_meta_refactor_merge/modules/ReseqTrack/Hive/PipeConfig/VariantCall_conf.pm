@@ -3,26 +3,24 @@
  ReseqTrack::Hive::PipeConfig::VariantCall_conf
 
 =head1 SYNOPSIS
+
+  Pipeline MUST be seeded by the collection table of a ReseqTrack database (collection of bam files)
+  Multiple vcf files will be created for each collection, and stored in the ReseqTrack database
+
+  Here is an example pipeline configuration to load using reseqtrack/scripts/pipeline/load_pipeline_from_conf.pl
+
+[variant call]
+table_name=collection
+seeding_module=ReseqTrack::Hive::PipeSeed::Default
+config_module=ReseqTrack::Hive::PipeConfig::VariantCall_conf
+config_options=-root_output_dir /path/to/dir
+config_options=-reference /path/to/human.fa
   
-  Options you MUST specify on the command line:
+  Options that MUST be specified in the pipeline.config_options table/column of your ReseqTrack database:
 
       -reference, fasta file of your reference genome.  Should be indexed for bwa and should have a .fai and .dict
-      -password, for accessing the hive database
-      -reseqtrack_db_name, (or -reseqtrack_db -db_name=??) your reseqtrack database
 
-  Options that have defaults but you will often want to modify:
-
-      Connection to the hive database:
-      -pipeline_db -host=???, (default mysql-g1k)
-      -pipeline_db -port=???, (default 4175)
-      -pipeline_db -user=???, must have write access (default g1krw)
-      -dipeline_db -dbname=???, (default is a mixture of your unix user name + the pipeline name)
-
-      Connection to the reseqtrack database:
-      -reseqtrack_db -host=???, (default mysql-g1k)
-      -reseqtrack_db -user=???, read only access is OK (default g1kro)
-      -reseqtrack_db -port=???, (default 4175)
-      -reseqtrack_db -pass=???, (default undefined)
+  Options that have defaults but you will often want to set them in your pipeline.cofig_options table/column:
 
       -root_output_dir, (default is your current directory)
       -type_bam, type of bam files to look for in the reseqtrack database, default BAM
@@ -47,6 +45,17 @@
       -bgzip_exe, (default /nfs/1000g-work/G1K/work/bin/tabix/bgzip)
       -gatk_dir, (default /nfs/1000g-work/G1K/work/bin/gatk/dist/)
       -freebayes_exe, (default /nfs/1000g-work/G1K/work/bin/freebayes/bin/freebayes)
+
+  Options that are required, but will be passed in by reseqtrack/scripts/init_pipeline.pl:
+
+      -pipeline_db -host=???
+      -pipeline_db -port=???
+      -pipeline_db -user=???
+      -dipeline_db -dbname=???
+      -reseqtrack_db -host=???
+      -reseqtrack_db -user=???
+      -reseqtrack_db -port=???
+      -reseqtrack_db -pass=???
 
 =cut
 
@@ -142,7 +151,22 @@ sub pipeline_analyses {
                 temp_param_sub => { 2 => [['callgroup','name'], ['seed_time', 'undef']]}, # temporary hack pending updates to hive code
             },
             -flow_into => {
-                2 => [ 'find_source_bams' ],
+                2 => [ 'block_seed_complete' ],
+            },
+      });
+    push(@analyses, {
+          -logic_name => 'block_seed_complete',
+          -module        => 'ReseqTrack::Hive::Process::FlowDecider',
+          -meadow_type=> 'LOCAL',
+          -parameters => {
+              require_true => {
+                  1 => 1,
+                  2 => 1,
+              },
+          },
+            -flow_into => {
+                '2->A' => [ 'find_source_bams' ],
+                'A->1' => [ 'mark_seed_complete' ],
             },
       });
     push(@analyses, {
@@ -387,10 +411,12 @@ sub pipeline_analyses {
           -logic_name    => 'merge_vcf',
           -module        => 'ReseqTrack::Hive::Process::MergeVcf',
           -parameters    => {
-              analysis_label => '#expr($caller.'.'.$final_label)expr#',
+              final_label => $self->o('final_label'),
+              analysis_label => '#expr(' . q($caller.'.'.$final_label) . ')expr#',
               bgzip => $self->o('bgzip_exe'),
               delete_param => ['vcf'],
           },
+          -flow_into => { '1' => [ 'store_vcf' ], },
           -rc_name => '500Mb',
           -hive_capacity  =>  200,
       });
@@ -402,7 +428,6 @@ sub pipeline_analyses {
               type => $self->o('vcf_type'),
               file => '#vcf#',
             },
-            -flow_into => {1 => ['mark_seed_complete']},
       });
     push(@analyses, {
             -logic_name    => 'mark_seed_complete',
