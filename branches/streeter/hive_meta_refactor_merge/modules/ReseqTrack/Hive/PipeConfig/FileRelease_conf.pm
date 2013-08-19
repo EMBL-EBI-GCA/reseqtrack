@@ -1,3 +1,47 @@
+=head1 NAME
+
+ ReseqTrack::Hive::PipeConfig::Fileelease_conf
+
+=head1 SYNOPSIS
+
+  This is a pipeline for a file release pipeline
+
+  Pipeline MUST be seeded by the file table of a ReseqTrack database. (foreign files only)
+  i.e. use the seeding module ReseqTrack::Hive::PipeSeed::ForeignFiles or something very similar to it
+
+  Here is an example pipeline configuration to load using reseqtrack/scripts/pipeline/load_pipeline_from_conf.pl
+
+[alignment]
+table_name=file
+seeding_module=ReseqTrack::Hive::PipeSeed::ForeignFiles
+config_module=ReseqTrack::Hive::PipeConfig::FileRelease_conf
+config_options=-file_move_module MyProjectModules::MoveFile
+
+  Options that MUST be specified in the pipeline.config_options table/column of your ReseqTrack database:
+
+      -file_move_module, A module derived from ReseqTrack::Hive::Process::FileRelease::Move
+              This modules implements the derive_directory subrouine (i.e. a project-specific subroutine)
+
+  Options that have defaults but you will often want to set them in your pipeline.cofig_options table/column:
+
+      -checking_module, (default is ReseqTrack::Hive::Process::FileRelease::Checks)
+      -hostname, (default is 1000genomes.ebi.ac.uk)
+
+  Options that are required, but will be passed in by reseqtrack/scripts/init_pipeline.pl:
+
+      -pipeline_db -host=???
+      -pipeline_db -port=???
+      -pipeline_db -user=???
+      -dipeline_db -dbname=???
+      -password
+      -reseqtrack_db -host=???
+      -reseqtrack_db -user=???
+      -reseqtrack_db -port=???
+      -reseqtrack_db -pass=???
+      -reseqtrack_db -dbname=???
+
+=cut
+
 
 package ReseqTrack::Hive::PipeConfig::FileRelease_conf;
 
@@ -5,14 +49,6 @@ use strict;
 use warnings;
 
 use base ('ReseqTrack::Hive::PipeConfig::ReseqTrackGeneric_conf');
-
-
-=head2 default_options
-
-    Description : Implements default_options() interface method of Bio::EnsEMBL::Hive::PipeConfig::HiveGeneric_conf that is used to initialize default options.
-                  In addition to the standard things it defines two options, 'first_mult' and 'second_mult' that are supposed to contain the long numbers to be multiplied.
-
-=cut
 
 sub default_options {
     my ($self) = @_;
@@ -32,9 +68,6 @@ sub default_options {
     };
 }
 
-sub forbid_duplicate_file_id {return 1;}
-
-
 sub resource_classes {
     my ($self) = @_;
     return {
@@ -49,13 +82,11 @@ sub pipeline_analyses {
 
     my @analyses;
     push(@analyses, {
-            -logic_name    => 'foreign_files_factory',
-            -module        => 'ReseqTrack::Hive::Process::FileRelease::ForeignFilesFactory',
-            -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
-            -input_ids => [{}],
+            -logic_name    => 'get_seeds',
+            -module        => 'ReseqTrack::Hive::Process::SeedFactory',
+            -meadow_type => 'LOCAL',
             -flow_into => {
-                '2->A' => [ 'quick_checks' ],   # will create a semaphored fan of jobs
-                'A->1' => [ 'remove_lock' ],   # will create a semaphored fan of jobs
+                2 => [ 'quick_checks' ],
             },
       });
     push(@analyses, {
@@ -64,9 +95,11 @@ sub pipeline_analyses {
             -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
             -parameters    => {
               check_class => 'quick',
+              flow_fail => 9,
             },
             -flow_into => {
                 1 => [ 'slow_checks' ],
+                9 => [ 'mark_seed_fail' ],
             },
       });
     push(@analyses, {
@@ -88,12 +121,25 @@ sub pipeline_analyses {
             -parameters    => {
                 hostname => $self->o('hostname'),
             },
+            -flow_into => {1 => ['mark_seed_complete']},
             -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
       });
     push(@analyses, {
-            -logic_name    => 'remove_lock',
-            -module        => 'ReseqTrack::Hive::Process::FileRelease::RemoveLock',
-            -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
+            -logic_name    => 'mark_seed_complete',
+            -module        => 'ReseqTrack::Hive::Process::UpdateSeed',
+            -parameters    => {
+              is_complete  => 1,
+            },
+            -meadow_type => 'LOCAL',
+      });
+    push(@analyses, {
+            -logic_name    => 'mark_seed_fail',
+            -module        => 'ReseqTrack::Hive::Process::UpdateSeed',
+            -parameters    => {
+              is_failed  => 1,
+              is_futile  => '#is_reject#',
+            },
+            -meadow_type => 'LOCAL',
       });
 
     return \@analyses;

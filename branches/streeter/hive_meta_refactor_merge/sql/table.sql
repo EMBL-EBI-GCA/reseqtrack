@@ -415,7 +415,6 @@ CREATE TABLE pipeline_seed(
        created datetime NOT NULL,
        completed datetime,
        PRIMARY KEY(pipeline_seed_id),
-       UNIQUE(hive_db_id, seed_id)   
 ) ENGINE=MYISAM;
 
 CREATE TABLE pipeline_output(

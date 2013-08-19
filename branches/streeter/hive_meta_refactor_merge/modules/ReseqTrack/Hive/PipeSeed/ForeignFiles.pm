@@ -6,7 +6,7 @@ use warnings;
 
 use File::Find qw(find);
 use File::stat;
-use DateTime::Format::MySQL qw(parse_datetime);
+use DateTime::Format::MySQL;
 
 sub create_seed_params {
   my ($seed_factory, $pipeline, $select_options) = @_;
@@ -36,11 +36,11 @@ sub create_seed_params {
 
       my $st = stat($dropbox_files[0]) or throw("could not stat $dropbox_files[0]: $!");
       my $drop_box_ctime = $st->ctime;
-      my $updated = parse_datetime($file->updated)->epoch;
+      my $updated = DateTime::Format::MySQL->parse_datetime($file->updated)->set_time_zone('local')->epoch;
       if ($drop_box_ctime > $updated) {
         $updated = $drop_box_ctime;
       }
-      next FILE if grep {$_ > $updated} map {parse_datetime($_->created)->epoch} @$existing_ps;
+      next FILE if grep {$_ > $updated} map {DateTime::Format::MySQL->parse_datetime($_->created)->set_time_zone('local')->epoch} @$existing_ps;
 
       my %dropbox_details = ('path' =>$dropbox_files[0], 'ctime' => $drop_box_ctime);
       my %db_details = (dbID => $file->dbID, updated => $file->updated);
@@ -51,3 +51,4 @@ sub create_seed_params {
   return \@seed_params;
 }
 
+1;

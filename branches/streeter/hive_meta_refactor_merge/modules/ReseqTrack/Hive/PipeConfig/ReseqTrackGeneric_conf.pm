@@ -38,12 +38,9 @@ sub default_options {
 
         use_label_management => 1, # boolean.  Must be 1 if you want to have structured output directories and meaningful job names
         use_reseqtrack_file_table => 1, # boolean. File paths in job input ids will be converted to e.g. F1234F
-        forbid_duplicate_file_id => $self->forbid_duplicate_file_id, # boolean. If true then an index will be built on use_reseqtrack_file_table.  Table will be searched before file name is converted.
 
     };
 }
-
-sub forbid_duplicate_file_id {return 0;}
 
 
 =head2 pipeline_create_commands
@@ -63,10 +60,6 @@ sub pipeline_create_commands {
       name VARCHAR(64000) NOT NULL,
       PRIMARY KEY (file_id)
       )');
-
-    if ($self->forbid_duplicate_file_id) {
-      push(@sql, 'CREATE INDEX name_idx ON reseqtrack_file (name(256))');
-    }
 
     return [
         @{$self->SUPER::pipeline_create_commands},  # inheriting database and hive tables' creation
@@ -92,7 +85,6 @@ sub pipeline_wide_parameters {
         'root_output_dir' => $self->o('root_output_dir'),
         'use_label_management' => $self->o('use_label_management'),
         'use_reseqtrack_file_table' => $self->o('use_reseqtrack_file_table'),
-        'forbid_duplicate_file_id' => $self->o('forbid_duplicate_file_id'),
 
     };
 }

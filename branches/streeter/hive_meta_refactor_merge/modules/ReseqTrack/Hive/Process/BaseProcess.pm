@@ -289,7 +289,6 @@ sub fetch_input {
 
   $self->param_required('use_label_management');
   $self->param_required('use_reseqtrack_file_table');
-  $self->param_required('forbid_duplicate_file_id');
 
   $self->{'_BaseProcess_params'} = {};
 
@@ -453,12 +452,7 @@ sub _make_file_ids {
   my $sql_insert = "INSERT INTO reseqtrack_file (name) values (?)";
   my $sth_insert = $hive_dbc->prepare($sql_insert) or die "could not prepare $sql_insert: ".$hive_dbc->errstr;
 
-  my $sth_select;
-  if ($self->param('forbid_duplicate_file_id')) {
-    my $sql_select = "SELECT file_id FROM reseqtrack_file WHERE name=?";
-    $sth_select = $hive_dbc->prepare($sql_select) or die "could not prepare $sql_select: ".$hive_dbc->errstr;
-  }
-  return __structure_to_file_ids($data_structure, $sth_insert, $sth_select);
+  return __structure_to_file_ids($data_structure, $sth_insert);
 }
 
 # Note all references to temp_param_sub will be removed when new features to hive code are released.
@@ -486,34 +480,26 @@ sub _temp_param_sub {
 
 
 sub __structure_to_file_ids {
-  my ($data_structure, $sth_insert, $sth_select) = @_;
+  my ($data_structure, $sth_insert) = @_;
   if (ref($data_structure) eq 'ARRAY') {
     foreach my $i (0..$#{$data_structure}) {
-      $data_structure->[$i] = __structure_to_file_ids($data_structure->[$i], $sth_insert, $sth_select);
+      $data_structure->[$i] = __structure_to_file_ids($data_structure->[$i], $sth_insert);
     }
     return $data_structure;
   }
   elsif (ref($data_structure) eq 'HASH') {
     my %new_hash;
     while (my ($key, $value) = each %$data_structure) {
-      my $new_key = __structure_to_file_ids($key, $sth_insert, $sth_select);
-      my $new_value = __structure_to_file_ids($value, $sth_insert, $sth_select);
+      my $new_key = __structure_to_file_ids($key, $sth_insert);
+      my $new_value = __structure_to_file_ids($value, $sth_insert);
       $new_hash{$new_key} = $new_value;
     }
     return \%new_hash;
   }
   elsif ($data_structure =~ m{/\S}) {
-    my $file_id;
-    if (defined $sth_select) {
-      $sth_select->bind_param(1, $data_structure);
-      $sth_select->execute() or die 'could not execute '.$sth_select->statement .': '.$sth_select->errstr;
-      $file_id = $sth_select->fetchall_arrayref->[0]->[0];
-    }
-    if (!defined $file_id) {
-      $sth_insert->bind_param(1, $data_structure);
-      $sth_insert->execute() or die 'could not execute '.$sth_insert->statement .': '.$sth_insert->errstr;
-      $file_id = $sth_insert->{'mysql_insertid'};
-    }
+    $sth_insert->bind_param(1, $data_structure);
+    $sth_insert->execute() or die 'could not execute '.$sth_insert->statement .': '.$sth_insert->errstr;
+    my $file_id = $sth_insert->{'mysql_insertid'};
     return 'F'.$file_id.'F';
   }
   else {

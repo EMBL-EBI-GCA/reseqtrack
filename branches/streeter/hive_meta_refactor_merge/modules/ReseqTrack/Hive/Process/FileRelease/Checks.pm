@@ -83,13 +83,13 @@ sub is_reject {
   my ($self, $is_reject) = @_;
   if (defined $is_reject) {
     if (!$is_reject || $is_reject =~ /^n/i) {
-      $self->{'_is_reject'} = 'n';
+      $self->param('is_reject', 'n');
     }
     else {
-      $self->{'_is_reject'} = 'y';
+      $self->param('is_reject', 'y');
     }
   }
-  return $self->{'_is_reject'} // 'n';
+  return $self->param('is_reject');
 }
 
 sub reject_message {
@@ -107,6 +107,7 @@ sub run {
     my $file_details = $self->file_param('file');
     my $db_params = $self->param_required('reseqtrack_db');
     my $check_class = $self->param_required('check_class');
+    my $flow_fail = $self->param_is_defined('flow_fail') ? $self->param('flow_fail') : undef;
     
     throw("input_id not correctly formulated") if ! defined $file_details->{'dropbox'};
     throw("input_id not correctly formulated") if ! defined $file_details->{'db'};
@@ -134,7 +135,8 @@ sub run {
           -reject_reason => $self->reject_message,
           );
         $log_adaptor->store($reject_log, 1);
-        $self->flows_non_factory(undef);
+        $self->flows_non_factory($flow_fail);
+        $self->output_param('is_reject', $self->is_reject eq 'y' ? 1 : 0);
         last CHECK;
       }
     }
