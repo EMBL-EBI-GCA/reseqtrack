@@ -1,49 +1,44 @@
-#!/usr/bin/env perl
+#!/usr/bin/env perl -w
 
 use strict;
-use warnings;
 
-use ReseqTrack::Tools::Exception;
-use File::Basename;
-use File::Path;
+use ReseqTrack::Tools::Exception qw(throw);
 use Getopt::Long;
-use Time::Local;
+use ReseqTrack::Tools::QC::ChkIndelsBAM qw(run_program);
 
 my $bam;
 my $outdir;
+my $program;
 
 &GetOptions(
-  'bam=s'     		=> \$bam,
-  'outdir=s' 		=> \$outdir,	
+	'program=s'			=> \$program,
+  	'bam=s'     		=> \$bam,
+  	'outdir=s' 			=> \$outdir,	
 );
+
+$program = '/nfs/1000g-work/G1K/work/bin/samtools_dev/samtools/chk_indel_rg' if (!$program);
 
 if ($bam !~ /vol1/ ) {
 	throw("Cannot run $bam; only check BAMs that have been placed on the ftp site");
 }
+
+if ($bam =~ /\.mapped/i) {
 	
-unless (-e $bam) {
-	throw("Bam $bam does not exist");
-}
-
-if ($bam =~ /chrom|unmapped/i) {
-	goto END;
-}
-
-#if ($bam !~ /20111114/ ) {
-#	goto END;
-#}	
-
+	my $chk_indels = ReseqTrack::Tools::QC::ChkIndelsBAM->new (
+		-program 		=> $program,
+		-input_files 	=> [$bam],
+		-working_dir	=>	$outdir,
+	);	  
 	
-$outdir =~ s/\/$//;
-mkpath $outdir unless (-e $outdir);
-my $outfile = $outdir . "/" . basename($bam)  . ".out";
+	$chk_indels->run;
 
-`/nfs/1000g-work/G1K/work/bin/samtools_dev/samtools/chk_indel_rg $bam > $outfile`;
+	my $outfile = $chk_indels->output_files->[0];
+	print "out file is $outfile\n";
+}
+else {
+	print "Skip $bam; only check mapped BAMs\n";
+}	
 
-my $exit = $?>>8;
-throw("mv failed\n") if ($exit >=1);
-
-END:
 
 =pod
-perl $ZHENG_RT/scripts/qc/run_chk_indel_rg.pl -bam /nfs/1000g-archive/vol1/ftp/data/NA20757/alignment/NA20757.chrom20.ILLUMINA.bwa.TSI.low_coverage.20111114.bam -outdir /nfs/1000g-work/G1K/scratch/bam_release_20111114/chk_indel_rg_output
+perl $ZHENG_RT/scripts/qc/run_chk_indel_rg.v2.pl -bam /nfs/1000g-archive/vol1/ftp/data/NA20757/alignment/NA20757.mapped.ILLUMINA.bwa.TSI.low_coverage.20130422.bam -outdir /nfs/1000g-work/G1K/scratch/bam_release_20111114/chk_indel_rg_output
