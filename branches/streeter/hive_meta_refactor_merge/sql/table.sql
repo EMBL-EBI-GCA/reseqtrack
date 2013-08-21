@@ -247,13 +247,13 @@ CREATE TABLE meta (
 
 )  ENGINE=MYISAM;
 
-CREATE TABLE reject_log (
-    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    file_id INT NOT NULL,
-    is_reject enum("y", "n") NOT NULL DEFAULT "n",
-    reject_reason VARCHAR(500),
-    created TIMESTAMP
-    ) ENGINE=MYISAM;
+#CREATE TABLE reject_log (
+#    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+#    file_id INT NOT NULL,
+#    is_reject enum("y", "n") NOT NULL DEFAULT "n",
+#    reject_reason VARCHAR(500),
+#    created TIMESTAMP
+#    ) ENGINE=MYISAM;
 
 
 CREATE TABLE `genotype_results` (
@@ -414,7 +414,7 @@ CREATE TABLE pipeline_seed(
        is_futile tinyint NOT NULL default 0,
        created datetime NOT NULL,
        completed datetime,
-       PRIMARY KEY(pipeline_seed_id),
+       PRIMARY KEY(pipeline_seed_id)
 ) ENGINE=MYISAM;
 
 CREATE TABLE pipeline_output(

@@ -6,6 +6,7 @@ use strict;
 use base ('ReseqTrack::Hive::Process::BaseProcess');
 use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::Exception qw(throw);
+use ReseqTrack::Attribute;
 
 
 =head2 run
@@ -21,6 +22,7 @@ sub run {
     my $is_complete = ($self->param_is_defined('is_complete') && $self->param('is_complete')) ? 1 : 0;
     my $is_failed = ($self->param_is_defined('is_failed') && $self->param('is_failed')) ? 1 : 0;
     my $is_futile = ($self->param_is_defined('is_futile') && $self->param('is_futile')) ? 1 : 0;
+    my $attributes = $self->param_is_defined('ps_attributes') ? $self->param('ps_attributes') : {};
     $is_failed ||= $is_futile;
     throw('is_complete or is_failed must be set') if !$is_failed && !$is_complete;
 
@@ -34,6 +36,15 @@ sub run {
     my $self_dbname = $self->dbc->dbname;
     my $ps_dbname = $pipeline_seed->hive_db->name;
     throw("dbnames do not match $self_dbname $ps_dbname") if $self_dbname ne $ps_dbname;
+
+    while (my ($key, $value) = each %$attributes) {
+      my $attribute = ReseqTrack::Attribute->new(
+        -table_name => 'pipeline_seed', -other_id => $ps_id,
+        -attribute_name => $key,
+        -attribute_value => $value,
+        );
+      $pipeline_seed->attributes($attribute);
+    }
 
     if ($is_failed) {
       $psa->update_failed($pipeline_seed, $is_futile);

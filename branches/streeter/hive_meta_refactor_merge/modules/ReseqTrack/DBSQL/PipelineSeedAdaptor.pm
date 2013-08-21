@@ -157,6 +157,7 @@ sub store{
   $sth->finish();
   $pipeline_seed->dbID($dbID);
   $pipeline_seed->adaptor($self);
+  $self->store_attributes($pipeline_seed);
   $pipeline_seed->is_loaded(1);
 }
 #############
@@ -194,6 +195,7 @@ sub update{
  
   $sth->execute();
   $sth->finish();
+  $self->store_attributes($pipeline_seed, 1);
   return;
 }
 
@@ -219,6 +221,7 @@ sub update_completed {
  
   $sth->execute();
   $sth->finish();
+  $self->store_attributes($pipeline_seed, 1);
   return;
 }
 
@@ -246,6 +249,7 @@ sub update_failed {
  
   $sth->execute();
   $sth->finish();
+  $self->store_attributes($pipeline_seed, 1);
   return;
 }
 ############

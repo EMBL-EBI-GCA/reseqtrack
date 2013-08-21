@@ -99,7 +99,7 @@ sub pipeline_analyses {
             },
             -flow_into => {
                 1 => [ 'slow_checks' ],
-                9 => [ 'mark_seed_fail' ],
+                9 => [ 'mark_seed_failed' ],
             },
       });
     push(@analyses, {
@@ -107,9 +107,11 @@ sub pipeline_analyses {
             -module        => $self->o('checking_module'),
             -parameters    => {
               check_class => 'slow',
+              flow_fail => 9,
             },
             -flow_into => {
                 1 => [ 'move_to_staging' ],
+                9 => [ 'mark_seed_failed' ],
             },
             -rc_name => '200Mb',
             -analysis_capacity  =>  50,  # use per-analysis limiter
@@ -120,24 +122,28 @@ sub pipeline_analyses {
             -module        => $self->o('file_move_module'),
             -parameters    => {
                 hostname => $self->o('hostname'),
+                flow_fail => 9,
             },
-            -flow_into => {1 => ['mark_seed_complete']},
+            -flow_into => {
+                1 => ['mark_seed_complete'],
+                9 => [ 'mark_seed_failed' ],
+            },
             -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
+      });
+    push(@analyses, {
+            -logic_name    => 'mark_seed_failed',
+            -module        => 'ReseqTrack::Hive::Process::UpdateSeed',
+            -parameters    => {
+              is_failed  => 1,
+              is_futile  => '#is_reject#',
+            },
+            -meadow_type => 'LOCAL',
       });
     push(@analyses, {
             -logic_name    => 'mark_seed_complete',
             -module        => 'ReseqTrack::Hive::Process::UpdateSeed',
             -parameters    => {
               is_complete  => 1,
-            },
-            -meadow_type => 'LOCAL',
-      });
-    push(@analyses, {
-            -logic_name    => 'mark_seed_fail',
-            -module        => 'ReseqTrack::Hive::Process::UpdateSeed',
-            -parameters    => {
-              is_failed  => 1,
-              is_futile  => '#is_reject#',
             },
             -meadow_type => 'LOCAL',
       });

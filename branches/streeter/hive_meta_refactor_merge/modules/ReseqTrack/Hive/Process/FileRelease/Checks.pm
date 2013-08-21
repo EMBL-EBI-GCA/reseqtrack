@@ -5,7 +5,6 @@ use strict;
 
 use base ('ReseqTrack::Hive::Process::BaseProcess');
 use ReseqTrack::DBSQL::DBAdaptor;
-use ReseqTrack::RejectLog;
 use ReseqTrack::Tools::Exception qw(throw);
 use Digest::MD5::File qw(file_md5_hex);
 use File::stat;
@@ -83,10 +82,10 @@ sub is_reject {
   my ($self, $is_reject) = @_;
   if (defined $is_reject) {
     if (!$is_reject || $is_reject =~ /^n/i) {
-      $self->param('is_reject', 'n');
+      $self->param('is_reject', 0);
     }
     else {
-      $self->param('is_reject', 'y');
+      $self->param('is_reject', 1);
     }
   }
   return $self->param('is_reject');
@@ -95,9 +94,9 @@ sub is_reject {
 sub reject_message {
   my ($self, $reject_message) = @_;
   if (defined $reject_message) {
-    $self->{'_reject_message'} = $reject_message;
+    $self->param('reject_message', $reject_message);
   }
-  return $self->{'_reject_message'} // '';
+  return $self->param_is_defined('reject_message') ? $self->param('reject_message') : '';
 }
 
 sub run {
@@ -107,7 +106,9 @@ sub run {
     my $file_details = $self->file_param('file');
     my $db_params = $self->param_required('reseqtrack_db');
     my $check_class = $self->param_required('check_class');
-    my $flow_fail = $self->param_is_defined('flow_fail') ? $self->param('flow_fail') : undef;
+    my $flow_fail = $self->param_required('flow_fail');
+    my $ps_id = $self->param_required('ps_id');
+    my $ps_attributes = $self->param_is_defined('ps_attributes') ? $self->param('ps_attributes') : {};
     
     throw("input_id not correctly formulated") if ! defined $file_details->{'dropbox'};
     throw("input_id not correctly formulated") if ! defined $file_details->{'db'};
@@ -117,8 +118,15 @@ sub run {
     throw("input_id not correctly formulated") if ! defined $file_details->{'db'}->{'updated'};
 
     my $db = ReseqTrack::DBSQL::DBAdaptor->new(%{$db_params});
+    my $psa = $db->get_PipelineSeedAdaptor;
+    my $pipeline_seed = $psa->fetch_by_dbID($ps_id);
+    throw("did not get pipeline_seed for $ps_id") if !$pipeline_seed;
 
-    my $log_adaptor = $db->get_RejectLogAdaptor;
+    # sanity check:
+    my $self_dbname = $self->dbc->dbname;
+    my $ps_dbname = $pipeline_seed->hive_db->name;
+    throw("dbnames do not match $self_dbname $ps_dbname") if $self_dbname ne $ps_dbname;
+
     my $file_id = $file_details->{'db'}->{'dbID'};
     my $file_object = $db->get_FileAdaptor->fetch_by_dbID($file_id);
     throw("did not find file $file_id in database") if !$file_object;
@@ -129,14 +137,10 @@ sub run {
       $self->reject_message('');
       my $success = &$sub($self, $file_details->{'dropbox'}->{'path'}, $file_object);
       if (! $success) {
-        my $reject_log = ReseqTrack::RejectLog->new(
-          -file_id => $file_id,
-          -is_reject => $self->is_reject,
-          -reject_reason => $self->reject_message,
-          );
-        $log_adaptor->store($reject_log, 1);
+        $ps_attributes->{'reject message'} = $self->reject_message;
+        $self->output_param('ps_attributes', $ps_attributes);
+        $self->output_param('is_reject', $self->is_reject);
         $self->flows_non_factory($flow_fail);
-        $self->output_param('is_reject', $self->is_reject eq 'y' ? 1 : 0);
         last CHECK;
       }
     }

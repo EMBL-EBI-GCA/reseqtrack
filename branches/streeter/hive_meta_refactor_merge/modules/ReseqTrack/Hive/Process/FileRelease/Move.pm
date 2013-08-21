@@ -30,6 +30,8 @@ sub run {
     my $file_details = $self->file_param('file');
     my $db_params = $self->param_required('reseqtrack_db');
     my $hostname = $self->param_required('hostname');
+    my $flow_fail = $self->param_required('flow_fail');
+    my $ps_attributes = $self->param_is_defined('ps_attributes') ? $self->param('ps_attributes') : {};
 
     throw("input_id not correctly formulated") if ! defined $file_details->{'dropbox'};
     throw("input_id not correctly formulated") if ! defined $file_details->{'db'};
@@ -41,7 +43,6 @@ sub run {
     my $db = ReseqTrack::DBSQL::DBAdaptor->new(%{$db_params});
 
     my $fa = $db->get_FileAdaptor;
-    my $log_adaptor = $db->get_RejectLogAdaptor;
     my $file_id = $file_details->{'db'}->{'dbID'};
     my $file_object = $fa->fetch_by_dbID($file_id);
     throw("did not find file $file_id in database") if !$file_object;
@@ -51,25 +52,19 @@ sub run {
     my $new_path = $dir . '/' . $file_object->filename;
 
     if ($file_object->updated ne $file_details->{'db'}->{'updated'}) {
-      my $reject_log = ReseqTrack::RejectLog->new(
-        -file_id => $file_id,
-        -is_reject => 'n',
-        -reject_reason => "job is out of date with database",
-        );
-        $log_adaptor->store($reject_log, 1);
-        $self->flows_non_factory(undef);
+        $ps_attributes->{'reject message'} = 'job is out of date with database';
+        $self->output_param('ps_attributes', $ps_attributes);
+        $self->output_param('is_reject', 0);
+        $self->flows_non_factory($flow_fail);
         return;
     }
 
     my $st = stat($dropbox_path) or throw("could not stat $dropbox_path: $!");
     if ($st->ctime != $file_details->{'dropbox'}->{'ctime'}) {
-      my $reject_log = ReseqTrack::RejectLog->new(
-        -file_id => $file_id,
-        -is_reject => 'n',
-        -reject_reason => "file changed since pipeline started",
-        );
-        $log_adaptor->store($reject_log, 1);
-        $self->flows_non_factory(undef);
+        $ps_attributes->{'reject message'} = 'file changed since pipeline started';
+        $self->output_param('ps_attributes', $ps_attributes);
+        $self->output_param('is_reject', 0);
+        $self->flows_non_factory($flow_fail);
         return;
     }
 
@@ -82,7 +77,6 @@ sub run {
     $file_object->host($host);
     $file_object->history($history);
     $fa->update($file_object);
-    $log_adaptor->clear_table_by_file_id($file_id);
 }
 
 1;
