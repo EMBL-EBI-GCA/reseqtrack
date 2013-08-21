@@ -247,15 +247,6 @@ CREATE TABLE meta (
 
 )  ENGINE=MYISAM;
 
-#CREATE TABLE reject_log (
-#    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-#    file_id INT NOT NULL,
-#    is_reject enum("y", "n") NOT NULL DEFAULT "n",
-#    reject_reason VARCHAR(500),
-#    created TIMESTAMP
-#    ) ENGINE=MYISAM;
-
-
 CREATE TABLE `genotype_results` (
   `genotype_results_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `table_name` enum('file','collection','run_meta_info','input_string') DEFAULT NULL,

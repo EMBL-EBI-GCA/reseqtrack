@@ -27,6 +27,7 @@ sub create_seed_params {
       if (@$existing_ps) {
         next FILE if grep {$_->is_running} @$existing_ps;
         next FILE if grep {$_->is_complete} @$existing_ps;
+        next FILE if grep {$_->is_futile} @$existing_ps;
       }
       my $filename = $file->filename;
       my @dropbox_files;

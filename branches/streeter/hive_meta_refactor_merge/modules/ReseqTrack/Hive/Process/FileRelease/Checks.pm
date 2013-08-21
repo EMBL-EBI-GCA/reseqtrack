@@ -99,6 +99,13 @@ sub reject_message {
   return $self->param_is_defined('reject_message') ? $self->param('reject_message') : '';
 }
 
+sub param_defaults {
+  return {
+    'ps_attributes' => {},
+  };
+}
+
+
 sub run {
     my $self = shift @_;
 
@@ -108,7 +115,7 @@ sub run {
     my $check_class = $self->param_required('check_class');
     my $flow_fail = $self->param_required('flow_fail');
     my $ps_id = $self->param_required('ps_id');
-    my $ps_attributes = $self->param_is_defined('ps_attributes') ? $self->param('ps_attributes') : {};
+    my $ps_attributes = $self->param('ps_attributes');
     
     throw("input_id not correctly formulated") if ! defined $file_details->{'dropbox'};
     throw("input_id not correctly formulated") if ! defined $file_details->{'db'};
@@ -139,7 +146,6 @@ sub run {
       if (! $success) {
         $ps_attributes->{'reject message'} = $self->reject_message;
         $self->output_param('ps_attributes', $ps_attributes);
-        $self->output_param('is_reject', $self->is_reject);
         $self->flows_non_factory($flow_fail);
         last CHECK;
       }

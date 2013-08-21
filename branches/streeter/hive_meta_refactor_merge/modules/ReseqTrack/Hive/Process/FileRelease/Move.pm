@@ -23,6 +23,12 @@ sub derive_directory {
   throw("Project-specific class must implement the derive_directory subroutine");
 }
 
+sub param_defaults {
+  return {
+    'ps_attributes' => {},
+  };
+}
+
 sub run {
     my $self = shift @_;
 
@@ -31,7 +37,7 @@ sub run {
     my $db_params = $self->param_required('reseqtrack_db');
     my $hostname = $self->param_required('hostname');
     my $flow_fail = $self->param_required('flow_fail');
-    my $ps_attributes = $self->param_is_defined('ps_attributes') ? $self->param('ps_attributes') : {};
+    my $ps_attributes = $self->param('ps_attributes');
 
     throw("input_id not correctly formulated") if ! defined $file_details->{'dropbox'};
     throw("input_id not correctly formulated") if ! defined $file_details->{'db'};
@@ -52,9 +58,8 @@ sub run {
     my $new_path = $dir . '/' . $file_object->filename;
 
     if ($file_object->updated ne $file_details->{'db'}->{'updated'}) {
-        $ps_attributes->{'reject message'} = 'job is out of date with database';
+        $ps_attributes->{'reject message'} = 'file updated in db since pipeline started';
         $self->output_param('ps_attributes', $ps_attributes);
-        $self->output_param('is_reject', 0);
         $self->flows_non_factory($flow_fail);
         return;
     }
@@ -63,7 +68,6 @@ sub run {
     if ($st->ctime != $file_details->{'dropbox'}->{'ctime'}) {
         $ps_attributes->{'reject message'} = 'file changed since pipeline started';
         $self->output_param('ps_attributes', $ps_attributes);
-        $self->output_param('is_reject', 0);
         $self->flows_non_factory($flow_fail);
         return;
     }

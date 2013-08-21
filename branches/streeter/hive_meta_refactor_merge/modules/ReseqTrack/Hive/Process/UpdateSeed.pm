@@ -15,16 +15,28 @@ use ReseqTrack::Attribute;
 
 =cut
 
+sub param_defaults {
+  return {
+    is_complete => 0,
+    is_failed => 0,
+    is_futile => 0,
+    delete_seeds => 0,
+    ps_attributes => {}
+  };
+}
+
 sub run {
     my $self = shift @_;
 
     my $ps_id = $self->param_required('ps_id');
-    my $is_complete = ($self->param_is_defined('is_complete') && $self->param('is_complete')) ? 1 : 0;
-    my $is_failed = ($self->param_is_defined('is_failed') && $self->param('is_failed')) ? 1 : 0;
-    my $is_futile = ($self->param_is_defined('is_futile') && $self->param('is_futile')) ? 1 : 0;
-    my $attributes = $self->param_is_defined('ps_attributes') ? $self->param('ps_attributes') : {};
+    my $is_complete = $self->param('is_complete') ? 1 : 0;
+    my $is_failed = $self->param('is_failed') ? 1 : 0;
+    my $is_futile = $self->param('is_futile') ? 1 : 0;
+    my $delete_seeds = $self->param('delete_seeds') ? 1 : 0;
+    my $attributes = $self->param('ps_attributes');
     $is_failed ||= $is_futile;
-    throw('is_complete or is_failed must be set') if !$is_failed && !$is_complete;
+    throw('one of the following must be set: is_failed, is_complete, delete_seeds')
+        if !grep {$_} ($is_failed, $is_complete, $delete_seeds);
 
     my $db = ReseqTrack::DBSQL::DBAdaptor->new(%{$self->param('reseqtrack_db')});
 
@@ -36,6 +48,12 @@ sub run {
     my $self_dbname = $self->dbc->dbname;
     my $ps_dbname = $pipeline_seed->hive_db->name;
     throw("dbnames do not match $self_dbname $ps_dbname") if $self_dbname ne $ps_dbname;
+
+    if ($delete_seeds) {
+      my $all_seeds = $psa->fetch_by_seed_and_pipeline($pipeline_seed->seed, $pipeline_seed->pipeline);
+      $psa->delete($all_seeds);
+      return;
+    }
 
     while (my ($key, $value) = each %$attributes) {
       my $attribute = ReseqTrack::Attribute->new(

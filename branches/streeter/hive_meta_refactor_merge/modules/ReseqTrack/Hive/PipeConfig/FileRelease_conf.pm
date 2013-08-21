@@ -1,17 +1,20 @@
 =head1 NAME
 
- ReseqTrack::Hive::PipeConfig::Fileelease_conf
+ ReseqTrack::Hive::PipeConfig::Filerelease_conf
 
 =head1 SYNOPSIS
 
-  This is a pipeline for a file release pipeline
+  This is a pipeline for a file release pipeline.
+  Files with a foreign host_id are moved from a dropbox to the project's file system.
+  Messages from the pipeline get written to the attribute table of the ReseqTrack database.
+  Rejected files get retried if they are updated in the ReseqTrack database or if their unix timestamp changes
 
   Pipeline MUST be seeded by the file table of a ReseqTrack database. (foreign files only)
   i.e. use the seeding module ReseqTrack::Hive::PipeSeed::ForeignFiles or something very similar to it
 
   Here is an example pipeline configuration to load using reseqtrack/scripts/pipeline/load_pipeline_from_conf.pl
 
-[alignment]
+[file release]
 table_name=file
 seeding_module=ReseqTrack::Hive::PipeSeed::ForeignFiles
 config_module=ReseqTrack::Hive::PipeConfig::FileRelease_conf
@@ -125,7 +128,7 @@ sub pipeline_analyses {
                 flow_fail => 9,
             },
             -flow_into => {
-                1 => ['mark_seed_complete'],
+                1 => ['seed_complete'],
                 9 => [ 'mark_seed_failed' ],
             },
             -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
@@ -135,15 +138,15 @@ sub pipeline_analyses {
             -module        => 'ReseqTrack::Hive::Process::UpdateSeed',
             -parameters    => {
               is_failed  => 1,
-              is_futile  => '#is_reject#',
+              is_futile  => 0,
             },
             -meadow_type => 'LOCAL',
       });
     push(@analyses, {
-            -logic_name    => 'mark_seed_complete',
+            -logic_name    => 'seed_complete',
             -module        => 'ReseqTrack::Hive::Process::UpdateSeed',
             -parameters    => {
-              is_complete  => 1,
+              delete_seeds  => 1,
             },
             -meadow_type => 'LOCAL',
       });

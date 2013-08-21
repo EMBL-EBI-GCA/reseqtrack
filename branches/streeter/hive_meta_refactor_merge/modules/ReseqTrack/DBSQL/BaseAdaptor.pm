@@ -208,4 +208,14 @@ sub store_attributes{
   }
 }
 
+sub delete_attributes {
+  my ($self, $object) = @_;
+  throw("Can't delete attributes for ".$object." that isnt a ReseqTrack::HasHistory ")
+    if(!$object->isa("ReseqTrack::HasHistory"));
+  my $attr_a = $self->db->get_AttributeAdaptor();
+  foreach my $attribute (@{$object->attributes}){
+    $attr_a->delete($attribute);
+  }
+}
+
 1;

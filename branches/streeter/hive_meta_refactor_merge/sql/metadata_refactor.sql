@@ -8,7 +8,7 @@ drop table if exists attribute;
 
 CREATE TABLE attribute(
    attribute_id int(10) unsigned NOT  NULL AUTO_INCREMENT,
-   table_name  enum('file', 'event', 'run_meta_info', 'alignment_meta_info', 'collection','run','sample','experiment','study'),
+   table_name  enum('file', 'event', 'run_meta_info', 'alignment_meta_info', 'collection','run','sample','experiment','study', 'pipeline_seed'),
    other_id int(10) unsigned NOT  NULL,      
    attribute_name VARCHAR(100) NOT NULL,
    attribute_value VARCHAR(4000) NOT NULL,

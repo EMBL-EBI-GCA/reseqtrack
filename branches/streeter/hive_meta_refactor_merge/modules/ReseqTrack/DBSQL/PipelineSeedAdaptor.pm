@@ -222,6 +222,7 @@ sub update_completed {
   $sth->execute();
   $sth->finish();
   $self->store_attributes($pipeline_seed, 1);
+  $self->delete_predecessors($pipeline_seed);
   return;
 }
 
@@ -252,6 +253,19 @@ sub update_failed {
   $self->store_attributes($pipeline_seed, 1);
   return;
 }
+
+sub delete {
+  my ($self, $pipeline_seeds) = @_;
+  my $sql = 'DELETE FROM pipeline_seed'
+          . ' WHERE pipeline_seed_id = ?';
+  my $sth = $self->prepare($sql);
+  foreach my $pipeline_seed (ref($pipeline_seeds) eq 'ARRAY' ? @$pipeline_seeds : ($pipeline_seeds)) {
+    $self->delete_attributes($pipeline_seed);
+    $sth->bind_param(1, $pipeline_seed->dbID);
+    $sth->execute;
+  }
+}
+
 ############
 
 
