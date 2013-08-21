@@ -10,17 +10,19 @@ use ReseqTrack::Tools::AttributeUtils qw( create_attribute_for_object );
 use ReseqTrack::Tools::QC::FastQC;
 
 
-=head2 run
+sub param_defaults {
+  return {
+    store_attributes => 0,
+    program_file => undef,
+  };
+}
 
-    Description : Implements run() interface method of Bio::EnsEMBL::Hive::Process that is used to perform the main bulk of the job (minus input and output).
-
-=cut
 
 sub run {
     my $self = shift @_;
 
     $self->param_required('fastq');
-    my $store_attributes = $self->param_is_defined('store_attributes') && $self->param('store_attributes') ? 1 : 0;
+    my $store_attributes = $self->param('store_attributes') ? 1 : 0;
     my $db_params = $store_attributes ? $self->param_required('reseqtrack_db') : undef;
 
     my $fastqs = $self->file_param_to_flat_array('fastq');
@@ -38,7 +40,7 @@ sub run {
     my $output_dir = $self->output_dir;
     my $fastqc = ReseqTrack::Tools::QC::FastQC->new(
       -job_name => $self->job_name,
-      -program => $self->param_is_defined('program_file') ? $self->param('program_file') : undef,
+      -program => $self->param('program_file'),
       -keep_text => 1,
       -keep_summary => 1,
       -keep_zip => 1,

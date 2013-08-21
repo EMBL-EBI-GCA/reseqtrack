@@ -9,11 +9,14 @@ use ReseqTrack::Tools::FileSystemUtils qw(check_file_exists);
 use ReseqTrack::Tools::RunVariantCall::RunApplyRecalibration;
 
 
-=head2 run
-
-    Description : Implements run() interface method of Bio::EnsEMBL::Hive::Process that is used to perform the main bulk of the job (minus input and output).
-
-=cut
+sub param_defaults {
+  return {
+    java_exe => undef,
+    jvm_args => undef,
+    gatk_dir => undef,
+    options => undef,
+  };
+}
 
 sub run {
     my ($self) = @_;
@@ -38,10 +41,10 @@ sub run {
       -working_dir  => $self->output_dir,
       -reference    => $reference,
       -job_name     => $self->job_name,
-      -java_exe     => $self->param_is_defined('java_exe') ? $self->param('java_exe') : undef,
-      -jvm_args     => $self->param_is_defined('jvm_args') ? $self->param('jvm_args') : undef,
-      -gatk_path    => $self->param_is_defined('gatk_dir') ? $self->param('gatk_dir') : undef,
-      -options      => $self->param_is_defined('options') ? $self->param('options') : undef,
+      -java_exe     => $self->param('java_exe'),
+      -jvm_args     => $self->param('jvm_args'),
+      -gatk_path    => $self->param('gatk_dir'),
+      -options      => $self->param('options'),
     );
 
     $self->run_program($gatk_object);

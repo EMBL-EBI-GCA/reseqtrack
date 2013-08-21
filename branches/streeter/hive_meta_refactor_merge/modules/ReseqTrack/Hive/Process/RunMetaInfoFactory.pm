@@ -7,19 +7,19 @@ use base ('ReseqTrack::Hive::Process::BaseProcess');
 use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::Exception qw(throw);
 
+sub param_defaults {
+  return {
+    allowed_platform => ['ILLUMINA'],
+    allowed_status => ['public', 'private'],
+  };
+}
 
-=head2 run
-
-    Description : Implements run() interface method of Bio::EnsEMBL::Hive::Process that is used to perform the main bulk of the job (minus input and output).
-
-=cut
 
 sub libraries_factory {
     my ($self) = @_;
     my $sample_id = $self->param_required('sample_id');
     my $allowed_strategies = $self->param_to_flat_array('allowed_strategy');
-    my $allowed_platforms = $self->param_is_defined('allowed_platform') ? $self->param_to_flat_array('allowed_platform')
-                            : ['ILLUMINA'];
+    my $allowed_platforms = $self->param_to_flat_array('allowed_platform');
 
     my $db = ReseqTrack::DBSQL::DBAdaptor->new(%{$self->param('reseqtrack_db')});
     my %library_names;
@@ -40,8 +40,7 @@ sub runs_factory {
     my ($self) = @_;
     my $library_name = $self->param_required('library_name');
     my $sample_id = $self->param_required('sample_id');
-    my $allowed_statuses = $self->param_is_defined('allowed_status') ? $self->param_to_flat_array('allowed_status')
-                            : ['public', 'private'];
+    my $allowed_statuses = $self->param_to_flat_array('allowed_status');
 
     my $db = ReseqTrack::DBSQL::DBAdaptor->new(%{$self->param('reseqtrack_db')});
 

@@ -9,12 +9,12 @@ use ReseqTrack::Tools::FileSystemUtils qw(check_file_exists);
 use ReseqTrack::Tools::RunAlignment::BWA;
 use ReseqTrack::Tools::Exception qw(throw);
 
-
-=head2 run
-
-    Description : Implements run() interface method of Bio::EnsEMBL::Hive::Process that is used to perform the main bulk of the job (minus input and output).
-
-=cut
+sub param_defaults {
+  return {
+    program_file => undef,
+    samtools => undef,
+  };
+}
 
 sub run {
     my $self = shift @_;
@@ -57,8 +57,8 @@ sub run {
 
     my $run_alignment = ReseqTrack::Tools::RunAlignment::BWA->new(
           -input_files => $fastqs,
-          -program => $self->param_is_defined('program_file') ? $self->param('program_file') : undef,
-          -samtools => $self->param_is_defined('samtools') ? $self->param('samtools') : undef,
+          -program => $self->param('program_file'),
+          -samtools => $self->param('samtools'),
           -output_format => 'BAM',
           -working_dir => $self->output_dir,
           -reference => $reference,

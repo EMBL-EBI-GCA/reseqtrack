@@ -9,11 +9,15 @@ use ReseqTrack::Tools::ReheaderBam;
 use File::Basename qw(fileparse);
 
 
-=head2 run
-
-    Description : Implements run() interface method of Bio::EnsEMBL::Hive::Process that is used to perform the main bulk of the job (minus input and output).
-
-=cut
+sub param_defaults {
+  return {
+    samtools => undef,
+    header_lines_file => undef,
+    SQ_assembly => undef,
+    SQ_species => undef,
+    SQ_uri => undef,
+  };
+}
 
 sub run {
     my ($self) = @_;
@@ -42,16 +46,16 @@ sub run {
       -input_files  => $bams,
       -working_dir  => $self->output_dir,
       -job_name     => $self->job_name,
-      -program      => $self->param_is_defined('samtools') ? $self->param('samtools') : undef,
-      -header_lines_file => $self->param_is_defined('header_lines_file') ? $self->param('header_lines_file') : undef,
+      -program      => $self->param('samtools'),
+      -header_lines_file => $self->param('header_lines_file'),
       -dict_file => $dict_file,
       -extra_header_lines => \@extra_header_lines,
       -options      => {reuse_old_header => 1,
                         replace_PG => 1,
                         replace_CO => 1},
-      -SQ_fields_hash => {AS => $self->param_is_defined('SQ_assembly') ? $self->param('SQ_assembly') : undef,
-                          SP => $self->param_is_defined('SQ_species') ? $self->param('SQ_species') : undef,
-                          UR => $self->param_is_defined('SQ_uri') ? $self->param('SQ_uri') : undef},
+      -SQ_fields_hash => {AS => $self->param('SQ_assembly'),
+                          SP => $self->param('SQ_species'),
+                          UR => $self->param('SQ_uri')},
     );
 
     $self->run_program($reheader_object);

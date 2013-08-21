@@ -12,22 +12,26 @@ use ReseqTrack::Tools::FileSystemUtils qw(check_file_exists);
 use Digest::MD5::File qw(file_md5_hex);
 
 
-=head2 run
+sub param_defaults {
+  return {
+    type => undef,
+    md5 => {},
+    collect => 0,
+    host_name => '1000genomes.ebi.ac.uk',
+  };
+}
 
-    Description : Implements run() interface method of Bio::EnsEMBL::Hive::Process that is used to perform the main bulk of the job (minus input and output).
-
-=cut
 
 sub run {
     my $self = shift @_;
 
     $self->param_required('file');
     my $db_params = $self->param_required('reseqtrack_db');
-    my $type = $self->param_is_defined('type') ? $self->param('type') : undef;
-    my $md5_hash = $self->param_is_defined('md5') ? $self->file_param('md5') : {};
-    my $collect = $self->param_is_defined('collect') && $self->param('collect') ? 1 : 0;
+    my $type = $self->param('type');
+    my $md5_hash = $self->file_param('md5');
+    my $collect = $self->param('collect') ? 1 : 0;
     my $collection_name = $collect ? $self->param_required('collection_name') : undef;
-    my $host_name = $self->param_is_defined('host_name') ? $self->param->('host_name') : '1000genomes.ebi.ac.uk';
+    my $host_name = $self->param('host_name');
     my $pipeline_seed_id = $self->param_required('ps_id');
 
     my $file_paths = $self->file_param_to_flat_array('file');

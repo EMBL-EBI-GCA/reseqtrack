@@ -46,15 +46,22 @@ use base ('ReseqTrack::Hive::Process::BaseProcess');
 use ReseqTrack::Tools::Exception qw(throw);
 use List::Util qw(sum);
 
+sub param_defaults {
+  return {
+    require_true => {},
+    require_file_count => {},
+  };
+}
+
+
 sub run {
     my $self = shift @_;
 
 
-    my $require_true_hash = $self->param_is_defined('require_true') ? $self->param('require_true') : {};
-    my $require_count_hash = {};
+    my $require_true_hash = $self->param('require_true');
+    my $require_count_hash = $self->param('require_file_count');
     my $num_files;
-    if ($self->param_is_defined('require_file_count')) {
-      $require_count_hash = $self->param('require_file_count');
+    if (scalar keys %$require_count_hash) {
       $num_files = $self->count_param_values('files');
     }
 

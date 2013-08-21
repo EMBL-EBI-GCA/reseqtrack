@@ -10,22 +10,29 @@ use ReseqTrack::Hive::Utils::SequenceSliceUtils qw(fai_to_slices bed_to_slices);
 use POSIX qw(ceil);
 
 
-=head2 run
+sub param_defaults {
+  return {
+    bed => undef,
+    max_sequences => 0,
+    num_bases => 0,
+    SQ_start => undef,
+    SQ_end => undef,
+    bp_start => undef,
+    bp_end => undef,
+  };
+}
 
-    Description : Implements run() interface method of Bio::EnsEMBL::Hive::Process that is used to perform the main bulk of the job (minus input and output).
-
-=cut
 
 sub run {
   my ($self) = @_;
   my $fai = $self->param_required('fai');
-  my $bed = $self->param_is_defined('bed') ? $self->param('bed') : undef;
-  my $max_sequences = $self->param_is_defined('max_sequences') ? $self->param('max_sequences') : 0;
-  my $num_bases = $self->param_is_defined('num_bases') ? $self->param('num_bases') : 0;
-  my $SQ_start = $self->param_is_defined('SQ_start') ? $self->param('SQ_start') : undef;
-  my $SQ_end = $self->param_is_defined('SQ_end') ? $self->param('SQ_end') : undef;
-  my $bp_start = $self->param_is_defined('bp_start') ? $self->param('bp_start') : undef;
-  my $bp_end = $self->param_is_defined('bp_end') ? $self->param('bp_end') : undef;
+  my $bed = $self->param('bed');
+  my $max_sequences = $self->param('max_sequences');
+  my $num_bases = $self->param('num_bases');
+  my $SQ_start = $self->param('SQ_start');
+  my $SQ_end = $self->param('SQ_end');
+  my $bp_start = $self->param('bp_start');
+  my $bp_end = $self->param('bp_end');
 
   my $slices = fai_to_slices(
           fai => $fai,

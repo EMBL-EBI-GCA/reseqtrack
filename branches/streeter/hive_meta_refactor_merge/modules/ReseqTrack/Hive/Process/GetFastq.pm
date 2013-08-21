@@ -9,20 +9,24 @@ use ReseqTrack::Tools::Exception qw(throw);
 use ReseqTrack::Tools::ERAUtils qw(get_erapro_conn);
 
 
-=head2 run
+sub param_defaults {
+  return {
+    module => 'ReseqTrack::Tools::GetFastq',
+    source_root_dir => undef,
+    clobber => undef,
+    module_options => {},
+  };
+}
 
-    Description : Implements run() interface method of Bio::EnsEMBL::Hive::Process that is used to perform the main bulk of the job (minus input and output).
-
-=cut
 
 sub run {
     my $self = shift @_;
 
     my $run_id = $self->param_required('run_id');
     my $db_params = $self->param_required('reseqtrack_db');
-    my $module = $self->param_is_defined('module') ? $self->param('module') : 'ReseqTrack::Tools::GetFastq';
-    my $source_root_dir = $self->param_is_defined('source_root_dir') ? $self->param('source_root_dir') : undef;
-    my $clobber = $self->param_is_defined('clobber') ? $self->param('clobber') : undef;
+    my $module = $self->param_required('module');
+    my $source_root_dir = $self->param('source_root_dir');
+    my $clobber = $self->param('clobber');
     my $era_dbuser = $self->param_required('era_dbuser');
     my $era_dbpass = $self->param_required('era_dbpass');
 
@@ -35,10 +39,8 @@ sub run {
     my $era_db = get_erapro_conn($era_dbuser, $era_dbpass);
     
     my %constructor_hash;
-    if ($self->param_is_defined('module_options')) {
-      while (my ($key, $value) = each %{$self->param('module_options')}) {
-        $constructor_hash{'-'.$key} = $value;
-      }
+    while (my ($key, $value) = each %{$self->param('module_options')}) {
+      $constructor_hash{'-'.$key} = $value;
     }
     $constructor_hash{-output_dir} = $self->output_dir;
     $constructor_hash{-run_meta_info} = $rmi;

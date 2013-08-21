@@ -8,11 +8,11 @@ use ReseqTrack::Tools::Exception qw(throw);
 use ReseqTrack::Tools::RunValidateBam;
 
 
-=head2 run
-
-    Description : Implements run() interface method of Bio::EnsEMBL::Hive::Process that is used to perform the main bulk of the job (minus input and output).
-
-=cut
+sub param_defaults {
+  return {
+    program_file => undef,
+  };
+}
 
 sub run {
     my ($self) = @_;
@@ -23,7 +23,7 @@ sub run {
     my $bam_validator = ReseqTrack::Tools::RunValidateBam->new(
       -input_files  => $bams,
       -working_dir  => $self->output_dir,
-      -program      => $self->param_is_defined('program_file') ? $self->param('program_file') : undef,
+      -program      => $self->param('program_file'),
     );
 
     $self->run_program($bam_validator);

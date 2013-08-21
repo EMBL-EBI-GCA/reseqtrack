@@ -9,13 +9,6 @@ use ReseqTrack::Tools::Exception qw(throw);
 use ReseqTrack::Tools::GeneralUtils qw(delete_lock_string is_locked create_lock_string);
 use Bio::EnsEMBL::Hive::Utils qw(destringify);
 
-
-=head2 run
-
-    Description : Implements run() interface method of Bio::EnsEMBL::Hive::Process that is used to perform the main bulk of the job (minus input and output).
-
-=cut
-
 sub sql_existing {
   my ($self, $pipeline) = @_;
   my $table_name = $pipeline->table_name;

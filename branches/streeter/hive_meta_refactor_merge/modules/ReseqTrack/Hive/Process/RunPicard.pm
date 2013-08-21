@@ -8,12 +8,15 @@ use ReseqTrack::Tools::Exception qw(throw);
 use ReseqTrack::Tools::RunPicard;
 use ReseqTrack::Tools::FileSystemUtils qw(check_directory_exists check_file_exists);
 
+sub param_defaults {
+  return {
+    java_exe => undef,
+    jvm_args => undef,
+    picard_dir => undef,
+    create_index => undef,
+  };
+}
 
-=head2 run
-
-    Description : Implements run() interface method of Bio::EnsEMBL::Hive::Process that is used to perform the main bulk of the job (minus input and output).
-
-=cut
 
 sub run {
     my $self = shift @_;
@@ -30,11 +33,11 @@ sub run {
       -input_files  => $bams,
       -working_dir  => $self->output_dir,
       -job_name     => $self->job_name,
-      -java_exe     => $self->param_is_defined('java_exe') ? $self->param('java_exe') : undef,
-      -jvm_options  => $self->param_is_defined('jvm_args') ? $self->param('jvm_args') : undef,
-      -picard_dir     => $self->param_is_defined('picard_dir') ? $self->param('picard_dir') : undef,
+      -java_exe     => $self->param('java_exe'),
+      -jvm_options  => $self->param('jvm_args'),
+      -picard_dir     => $self->param('picard_dir'),
       -options      => {validation_stringency => 'SILENT'},
-      -create_index => $self->param_is_defined('create_index') ? $self->param('create_index') : undef,
+      -create_index => $self->param('create_index'),
       -keep_metrics => 0,
     );
 

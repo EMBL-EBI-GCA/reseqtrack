@@ -8,20 +8,23 @@ use ReseqTrack::Tools::Exception qw(throw);
 use ReseqTrack::Tools::FileSystemUtils qw(check_directory_exists check_executable check_file_exists);
 
 
-=head2 run
+sub param_defaults {
+  return {
+    bgzip => 'bgzip',
+    tabix => 'tabix',
+    run_tabix => 0,
+  };
+}
 
-    Description : Implements run() interface method of Bio::EnsEMBL::Hive::Process that is used to perform the main bulk of the job (minus input and output).
-
-=cut
 
 sub run {
     my $self = shift @_;
     $self->param_required('vcf');
     $self->param_required('bp_start');
     $self->param_required('bp_end');
-    my $bgzip = $self->param_is_defined('bgzip') ? $self->param('bgzip') : 'bgzip';
-    my $tabix = $self->param_is_defined('tabix') ? $self->param('tabix') : 'tabix';
-    my $run_tabix = $self->param_is_defined('run_tabix') && $self->param('run_tabix') ? 1 : 0;
+    my $bgzip = $self->param('bgzip');
+    my $tabix = $self->param('tabix');
+    my $run_tabix = $self->param('run_tabix');
 
     my $vcfs = $self->file_param_to_flat_array('vcf');
     my $bp_start = $self->param_to_flat_array('bp_start');

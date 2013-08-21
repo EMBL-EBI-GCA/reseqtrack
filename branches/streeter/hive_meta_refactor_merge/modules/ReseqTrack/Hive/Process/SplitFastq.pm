@@ -11,12 +11,13 @@ use ReseqTrack::Tools::RunSplit;
 use POSIX qw(ceil);
 use ReseqTrack::Tools::Exception qw(throw);
 
+sub param_defaults {
+  return {
+    program_file => undef,
+    samtools => undef,
+  };
+}
 
-=head2 run
-
-    Description : Implements run() interface method of Bio::EnsEMBL::Hive::Process that is used to perform the main bulk of the job (minus input and output).
-
-=cut
 
 sub run {
     my $self = shift @_;
@@ -24,7 +25,7 @@ sub run {
     my $max_reads = $self->param_required('max_reads');
     $self->param_required('fastq');
 
-    my $program_file = $self->param_is_defined('program_file') ? $self->param('program_file') : undef;
+    my $program_file = $self->param('program_file');
 
     my $output_dir = $self->output_dir;
 
