@@ -144,7 +144,12 @@ sub pipeline_wide_parameters {
     return {
         %{$self->SUPER::pipeline_wide_parameters},
 
-        labels => ['#'.$self->o('sample_label').'#', '#library_name#', '#run_source_id#', '#expr($chunk ? $run_source_id.\'.\'.$chunk : undef)expr#'],
+        labels => [
+              '#'.$self->o('sample_group_attribute').'#',
+              '#'.$self->o('sample_label').'#',
+              '#library_name#',
+              '#run_source_id#',
+              '#expr($chunk ? $run_source_id.\'.\'.$chunk : undef)expr#'],
         library_name => undef,
         run_source_id => undef,
         chunk => undef,
@@ -218,6 +223,8 @@ sub pipeline_analyses {
                 collection_type => $self->o('type_fastq'),
                 collection_name => '#run_source_id#',
                 output_param => 'fastq',
+                flows_file_count_param => 'fastq',
+                flows_file_count => { 1 => '1+', },
             },
             -flow_into => {
                 1 => [ 'split_fastq', ':////accu?fastq=[]' ],
@@ -271,27 +278,33 @@ sub pipeline_analyses {
       });
     push(@analyses, {
           -logic_name => 'decide_merge_chunks',
-          -module        => 'ReseqTrack::Hive::Process::FlowDecider',
+          -module        => 'ReseqTrack::Hive::Process::BaseProcess',
           -meadow_type=> 'LOCAL',
           -parameters => {
               realign_knowns_only => $self->o('realign_knowns_only'),
               recalibrate_level => $self->o('recalibrate_level'),
-              files => '#bam#',
-              require_file_count => {
+              flows_non_factory => {
+                  1 => '#realign_knowns_only#',
+                  2 => '#realign_knowns_only#',
+                  3 => '#expr($recalibrate_level==1 && !$realign_knowns_only)expr#',
+                  4 => '#expr($recalibrate_level==1 && !$realign_knowns_only)expr#',
+                  5 => '#expr(!$realign_knowns_only && $recalibrate_level!=1)expr#',
+              },
+              flows_file_count_param => 'bam',
+              flows_file_count => {
                         1 => '1+',
                         2 => '2+',
                         3 => '1+',
+                        4 => '2+',
+                        5 => '1+',
                       },
-              require_true => {
-                  1 => '#expr($realign_knowns_only || $recalibrate_level==1)expr#',
-                  2 => '#expr($realign_knowns_only || $recalibrate_level==1)expr#',
-                  3 => '#expr(!$realign_knowns_only && $recalibrate_level!=1)expr#',
-              }
           },
           -flow_into => {
                 '2->A' => [ 'merge_chunks' ],
-                'A->1' => [ 'decide_realign_run_level' ],
-                3 => [ ':////accu?bam=[]', ':////accu?bai=[]'],
+                'A->1' => [ 'realign_knowns_only' ],
+                '4->B' => [ 'merge_chunks' ],
+                'B->3' => [ 'recalibrate_run_level' ],
+                5 => { ':////accu?bam=[]' => {'bam' => '#bam#'}, ':////accu?bai=[]' => {'bai' => '#bai#'}},
           },
       });
     push(@analyses, {
@@ -310,19 +323,6 @@ sub pipeline_analyses {
               1 => [ ':////accu?bam=[]', ':////accu?bai=[]'],
           },
     });
-
-    push(@analyses, {
-            -logic_name => 'decide_realign_run_level',
-            -module        => 'ReseqTrack::Hive::Process::FlowDecider',
-            -meadow_type=> 'LOCAL',
-            -parameters => {
-                require_true => {2 => $self->o('realign_knowns_only'), 1 => 1},
-            },
-            -flow_into => {
-                '2->A' => [ 'realign_knowns_only'],
-                'A->1' => [ 'decide_recalibrate_run_level' ],
-            },
-      });
     push(@analyses, {
             -logic_name => 'realign_knowns_only',
             -module        => 'ReseqTrack::Hive::Process::RunBamImprovement',
@@ -350,43 +350,19 @@ sub pipeline_analyses {
                 reference => $self->o('reference'),
                 samtools_options => {input_sort_status => 'c'},
                 delete_param => ['bam'],
+                recalibrate_level => $self->o('recalibrate_level'),
+                flows_non_factory => {
+                    1 => '#expr($recalibrate_level==1)expr#',
+                    2 => '#expr($recalibrate_level==0)expr#',
+                    3 => '#expr($recalibrate_level==2)expr#',
+                }
             },
             -rc_name => '2Gb',
             -hive_capacity  =>  200,
             -flow_into => {
-                1 => [ ':////accu?bam=[]', ':////accu?bai=[]'],
-            },
-      });
-    push(@analyses, {
-            -logic_name => 'decide_recalibrate_run_level',
-            -module        => 'ReseqTrack::Hive::Process::FlowDecider',
-            -meadow_type=> 'LOCAL',
-            -parameters => {
-                recalibrate_level => $self->o('recalibrate_level'),
-                require_true => {2 => '#expr($recalibrate_level==1)expr#', 1 => 1},
-            },
-            -flow_into => {
-                '2->A' => [ 'decide_index_recalibrate_run_level'],
-                'A->1' => [ 'decide_tag_strip_run_level'],
-            },
-      });
-    push(@analyses, {
-          -logic_name => 'decide_index_recalibrate_run_level',
-          -module        => 'ReseqTrack::Hive::Process::FlowDecider',
-          -meadow_type=> 'LOCAL',
-          -parameters => {
-              count_files => 1,
-              files => '#bai#',
-              flows_if_no_files => 1,
-              flows_if_one_file => [1,2],
-              require_file_count => {
-                        1 => '0+',
-                        2 => '0',
-                      },
-          },
-            -flow_into => {
-                '2->A' => [ 'index_recalibrate_run_level' ],
-                'A->1' => [ 'recalibrate_run_level' ],
+                1 => [ 'index_recalibrate_run_level'],
+                2 => [ 'tag_strip_run_level'],
+                3 => [ ':////accu?bam=[]', ':////accu?bai=[]'],
             },
       });
     push(@analyses, {
@@ -399,7 +375,7 @@ sub pipeline_analyses {
           -rc_name => '200Mb',
           -hive_capacity  =>  200,
             -flow_into => {
-                1 => [':////accu?bai=[]'],
+                1 => ['recalibrate_run_level'],
             },
     });
     push(@analyses, {
@@ -412,28 +388,19 @@ sub pipeline_analyses {
               jvm_args => '-Xmx2g',
               known_sites_vcf => $self->o('known_snps_vcf'),
               delete_param => ['bam', 'bai'],
+              realign_knowns_only => $self->o('realign_knowns_only'),
+              flows_non_factory => {
+                  1 => '#realign_knowns_only#',
+                  2 => '#expr(!$realign_knowns_only)expr#',
+              }
           },
           -rc_name => '2Gb',
           -hive_capacity  =>  200,
           -flow_into => {
-              1 => [ ':////accu?bam=[]', ':////accu?bai=[]'],
+              1 => [ 'tag_strip_run_level'],
+              2 => [ ':////accu?bam=[]', ':////accu?bai=[]'],
           },
     });
-    push(@analyses, {
-            -logic_name => 'decide_tag_strip_run_level',
-            -module        => 'ReseqTrack::Hive::Process::FlowDecider',
-            -meadow_type=> 'LOCAL',
-            -parameters => {
-                recalibrate_level => $self->o('recalibrate_level'),
-                realign_knowns_only => $self->o('realign_knowns_only'),
-                require_true => {2 => '#expr($realign_knowns_only && $recalibrate_level<2)expr#',
-                                 1 => '#expr(!$realign_knowns_only || $recalibrate_level==2)expr#'},
-            },
-            -flow_into => {
-                2 => [ 'tag_strip_run_level'],
-                1 => [ ':////accu?bam=[]', ':////accu?bai=[]'],
-            },
-      });
     push(@analyses, {
             -logic_name => 'tag_strip_run_level',
             -module        => 'ReseqTrack::Hive::Process::RunSqueezeBam',
@@ -451,15 +418,15 @@ sub pipeline_analyses {
       });
     push(@analyses, {
           -logic_name => 'decide_mark_duplicates',
-          -module        => 'ReseqTrack::Hive::Process::FlowDecider',
+          -module        => 'ReseqTrack::Hive::Process::BaseProcess',
           -meadow_type=> 'LOCAL',
           -parameters => {
-              files => '#bam#',
-              require_file_count => { 1 => '1+'},
+              flows_file_count_param => 'bam',
+              flows_file_count => { 1 => '1+', },
           },
-            -flow_into => {
-                1 => [ 'mark_duplicates', ':////accu?fastq=[]'],
-            },
+          -flow_into => {
+              1 => { 'mark_duplicates' => undef, ':////accu?fastq=[]' => {'fastq' => '#fastq#'}},
+          },
       });
     push(@analyses, {
             -logic_name => 'mark_duplicates',
@@ -479,20 +446,39 @@ sub pipeline_analyses {
     });
     push(@analyses, {
           -logic_name => 'decide_merge_libraries',
-          -module        => 'ReseqTrack::Hive::Process::FlowDecider',
+          -module        => 'ReseqTrack::Hive::Process::BaseProcess',
           -meadow_type=> 'LOCAL',
           -parameters => {
-              files => '#bam#',
-              require_file_count => {
+              realign_knowns_only => $self->o('realign_knowns_only'),
+              recalibrate_level => $self->o('recalibrate_level'),
+              flows_non_factory => {
+                  1 => '#expr(!realign_knowns_only)expr#',
+                  2 => '#expr(!realign_knowns_only)expr#',
+                  3 => '#expr($recalibrate_level==2 && $realign_knowns_only)expr#',
+                  4 => '#expr($recalibrate_level==2 && $realign_knowns_only)expr#',
+                  5 => '#expr($recalibrate_level!=2 && $realign_knowns_only)expr#',
+                  6 => '#expr($recalibrate_level!=2 && $realign_knowns_only)expr#',
+                  7 => 1,
+              },
+              flows_file_count_param => 'bam',
+              flows_file_count => {
                         1 => '1+',
                         2 => '2+',
-                        3 => '0',
-                      }
+                        3 => '1+',
+                        4 => '2+',
+                        5 => '1+',
+                        6 => '2+',
+                        7 => '0',
+                      },
           },
             -flow_into => {
                 '2->A' => [ 'merge_libraries' ],
-                'A->1' => [ 'decide_realign_sample_level' ],
-                '3' => [ 'mark_seed_futile' ],
+                'A->1' => [ 'realign_full' ],
+                '4->B' => [ 'merge_libraries' ],
+                'B->3' => [ 'recalibrate_sample_level' ],
+                '6->C' => [ 'merge_libraries' ],
+                'C->5' => [ 'reheader' ],
+                '7' => [ 'mark_seed_futile' ],
             },
     });
     push(@analyses, {
@@ -511,19 +497,6 @@ sub pipeline_analyses {
               1 => [ ':////accu?bam=[]', ':////accu?bai=[]'],
           },
     });
-    push(@analyses, {
-            -logic_name => 'decide_realign_sample_level',
-            -module        => 'ReseqTrack::Hive::Process::FlowDecider',
-            -meadow_type=> 'LOCAL',
-            -parameters => {
-                realign_knowns_only => $self->o('realign_knowns_only'),
-                require_true => {2 => '#expr(!$realign_knowns_only)expr#', 1 => 1},
-            },
-            -flow_into => {
-                '2->A' => [ 'realign_full'],
-                'A->1' => [ 'decide_recalibrate_sample_level' ],
-            },
-      });
     push(@analyses, {
             -logic_name => 'realign_full',
             -module        => 'ReseqTrack::Hive::Process::RunBamImprovement',
@@ -550,40 +523,16 @@ sub pipeline_analyses {
                 reference => $self->o('reference'),
                 samtools_options => {input_sort_status => 'c'},
                 delete_param => ['bam'],
+                flows_non_factory => {
+                    1 => '#expr($recalibrate_level==2)expr#',
+                    2 => '#expr($recalibrate_level!=2)expr#',
+                }
             },
             -rc_name => '2Gb',
             -hive_capacity  =>  200,
             -flow_into => {
-                1 => [ ':////accu?bam=[]', ':////accu?bai=[]'],
-            },
-      });
-    push(@analyses, {
-            -logic_name => 'decide_recalibrate_sample_level',
-            -module        => 'ReseqTrack::Hive::Process::FlowDecider',
-            -meadow_type=> 'LOCAL',
-            -parameters => {
-                recalibrate_level => $self->o('recalibrate_level'),
-                require_true => {2 => '#expr($recalibrate_level==2)expr#', 1=>1},
-            },
-            -flow_into => {
-                '2->A' => [ 'decide_index_recalibrate_sample_level'],
-                'A->1' => [ 'decide_tag_strip_sample_level' ],
-            },
-      });
-    push(@analyses, {
-          -logic_name => 'decide_index_recalibrate_sample_level',
-          -module        => 'ReseqTrack::Hive::Process::FlowDecider',
-          -meadow_type=> 'LOCAL',
-          -parameters => {
-              files => '#bai#',
-              require_file_count => {
-                        1 => '0+',
-                        2 => '0',
-                      },
-          },
-            -flow_into => {
-                '2->A' => [ 'index_recalibrate_sample_level' ],
-                'A->1' => [ 'recalibrate_sample_level' ],
+                1 => [ 'index_recalibrate_sample_level'],
+                2 => [ 'tag_strip_sample_level'],
             },
       });
     push(@analyses, {
@@ -596,7 +545,7 @@ sub pipeline_analyses {
           -rc_name => '200Mb',
           -hive_capacity  =>  200,
             -flow_into => {
-                1 => [':////accu?bai=[]'],
+                1 => ['recalibrate_sample_level'],
             },
     });
     push(@analyses, {
@@ -613,23 +562,9 @@ sub pipeline_analyses {
           -rc_name => '2Gb',
           -hive_capacity  =>  200,
           -flow_into => {
-              1 => [ ':////accu?bam=[]', ':////accu?bai=[]'],
+              1 => [ 'tag_strip_sample_level'],
           },
     });
-    push(@analyses, {
-            -logic_name => 'decide_tag_strip_sample_level',
-            -module        => 'ReseqTrack::Hive::Process::FlowDecider',
-            -meadow_type=> 'LOCAL',
-            -parameters => {
-                recalibrate_level => $self->o('recalibrate_level'),
-                realign_knowns_only => $self->o('realign_knowns_only'),
-                require_true => {2 => '#expr(!$realign_knowns_only || $recalibrate_level==2)expr#', 1 => 1},
-            },
-            -flow_into => {
-                '2->A' => [ 'tag_strip_sample_level'],
-                'A->1' => [ 'reheader'],
-            },
-      });
     push(@analyses, {
             -logic_name => 'tag_strip_sample_level',
             -module        => 'ReseqTrack::Hive::Process::RunSqueezeBam',
@@ -642,7 +577,7 @@ sub pipeline_analyses {
             -rc_name => '1Gb',
             -hive_capacity  =>  200,
             -flow_into => {
-                1 => [ ':////accu?bam=[]'],
+                1 => [ 'reheader'],
             },
       });
     push(@analyses, {

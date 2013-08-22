@@ -158,13 +158,10 @@ sub pipeline_analyses {
       });
     push(@analyses, {
           -logic_name => 'block_seed_complete',
-          -module        => 'ReseqTrack::Hive::Process::FlowDecider',
+          -module        => 'ReseqTrack::Hive::Process::BaseProcess',
           -meadow_type=> 'LOCAL',
           -parameters => {
-              require_true => {
-                  1 => 1,
-                  2 => 1,
-              },
+              flows_non_factory => [1,2],
           },
             -flow_into => {
                 '2->A' => [ 'find_source_bams' ],
@@ -179,6 +176,8 @@ sub pipeline_analyses {
                 collection_type => $self->o('type_bam'),
                 collection_name=> '#callgroup#',
                 output_param => 'bam',
+                flows_file_count_param => 'bam',
+                flows_file_count => { 1 => '1+', },
             },
             -flow_into => {
                 1 => [ 'regions_factory_1' ],
@@ -223,46 +222,34 @@ sub pipeline_analyses {
                 num_bases => $self->o('call_window_size'),
                 max_sequences => 1,
                 bed => $self->o('target_bed_file'),
+                flows_factory => {
+                    1 => $self->o('call_by_samtools'),
+                    2 => $self->o('call_by_gatk'),
+                    3 => $self->o('call_by_freebayes'),
+                    4 => 1,
+                },
             },
             -rc_name => '200Mb',
             -analysis_capacity  =>  4,
             -hive_capacity  =>  200,
             -flow_into => {
-                '2' => [ 'decide_callers',
-                          ':////accu?bp_start=[fan_index]',
-                          ':////accu?bp_end=[fan_index]',
-                          ],
-            },
-      });
-    push(@analyses, {
-          -logic_name => 'decide_callers',
-          -module        => 'ReseqTrack::Hive::Process::FlowDecider',
-          -meadow_type=> 'LOCAL',
-          -parameters => {
-              require_true => {
-                  1 => $self->o('call_by_samtools'),
-                  2 => $self->o('call_by_gatk'),
-                  3 => $self->o('call_by_freebayes'),
-              },
-              region2 => '#expr(join(".",$callgroup,$SQ_start.$bp_start,$SQ_end,$bp_end))expr#)'
-          },
-            -flow_into => {
-                '1' => { 'call_by_samtools' => {'region2' => '#region2#'}},
-                '2' => { 'call_by_gatk' => {'region2' => '#region2#'}},
-                '3' => { 'call_by_freebayes' => {'region2' => '#region2#'}},
+                '1' => [ 'call_by_samtools' ],
+                '2' => [ 'call_by_gatk' ],
+                '3' => [ 'call_by_freebayes' ],
+                '4' => [ ':////accu?bp_start=[fan_index]', ':////accu?bp_end=[fan_index]', ],
             },
       });
     push(@analyses, {
             -logic_name    => 'collect_vcf',
-            -module        => 'ReseqTrack::Hive::Process::FlowDecider',
+            -module        => 'ReseqTrack::Hive::Process::BaseProcess',
             -meadow_type => 'LOCAL',
             -parameters    => {
-                require_true => {
-                  1 => $self->o('call_by_samtools'),
-                  2 => $self->o('call_by_gatk'),
-                  3 => $self->o('call_by_freebayes'),
-                  4 => 1,
-              },
+                flows_non_factory => {
+                    1 => $self->o('call_by_samtools'),
+                    2 => $self->o('call_by_gatk'),
+                    3 => $self->o('call_by_freebayes'),
+                    4 => 1,
+                },
               delete_param => ['bam','bai'],
             },
             -flow_into => {
@@ -278,6 +265,7 @@ sub pipeline_analyses {
           -logic_name    => 'call_by_samtools',
           -module        => 'ReseqTrack::Hive::Process::RunVariantCall',
           -parameters    => {
+              region2 => '#expr(join(".",$callgroup,$SQ_start.$bp_start,$SQ_end,$bp_end))expr#)',
               module_name => 'CallBySamtools',
               reference => $self->o('reference'),
               samtools => $self->o('samtools_exe'),
@@ -298,6 +286,7 @@ sub pipeline_analyses {
           -logic_name    => 'call_by_samtools_himem',
           -module        => 'ReseqTrack::Hive::Process::RunVariantCall',
           -parameters    => {
+              region2 => '#expr(join(".",$callgroup,$SQ_start.$bp_start,$SQ_end,$bp_end))expr#)',
               module_name => 'CallBySamtools',
               reference => $self->o('reference'),
               samtools => $self->o('samtools_exe'),
@@ -317,6 +306,7 @@ sub pipeline_analyses {
           -logic_name    => 'call_by_gatk',
           -module        => 'ReseqTrack::Hive::Process::RunVariantCall',
           -parameters    => {
+              region2 => '#expr(join(".",$callgroup,$SQ_start.$bp_start,$SQ_end,$bp_end))expr#)',
               module_name => 'CallByGATK',
               reference => $self->o('reference'),
               gatk_dir => $self->o('gatk_dir'),
@@ -334,6 +324,7 @@ sub pipeline_analyses {
           -logic_name    => 'call_by_gatk_himem',
           -module        => 'ReseqTrack::Hive::Process::RunVariantCall',
           -parameters    => {
+              region2 => '#expr(join(".",$callgroup,$SQ_start.$bp_start,$SQ_end,$bp_end))expr#)',
               module_name => 'CallByGATK',
               reference => $self->o('reference'),
               gatk_dir => $self->o('gatk_dir'),
@@ -350,6 +341,7 @@ sub pipeline_analyses {
           -logic_name    => 'call_by_freebayes',
           -module        => 'ReseqTrack::Hive::Process::RunVariantCall',
           -parameters    => {
+              region2 => '#expr(join(".",$callgroup,$SQ_start.$bp_start,$SQ_end,$bp_end))expr#)',
               module_name => 'CallByFreebayes',
               reference => $self->o('reference'),
               freebayes => $self->o('freebayes_exe'),
@@ -368,6 +360,7 @@ sub pipeline_analyses {
           -logic_name    => 'call_by_freebayes_himem',
           -module        => 'ReseqTrack::Hive::Process::RunVariantCall',
           -parameters    => {
+              region2 => '#expr(join(".",$callgroup,$SQ_start.$bp_start,$SQ_end,$bp_end))expr#)',
               module_name => 'CallByFreebayes',
               reference => $self->o('reference'),
               freebayes => $self->o('freebayes_exe'),
@@ -384,19 +377,19 @@ sub pipeline_analyses {
       });
     push(@analyses, {
           -logic_name => 'decide_mergers',
-          -module        => 'ReseqTrack::Hive::Process::FlowDecider',
+          -module        => 'ReseqTrack::Hive::Process::BaseProcess',
           -meadow_type=> 'LOCAL',
           -parameters => {
-              require_true => {
+              flows_non_factory => {
                   1 => $self->o('call_by_samtools'),
                   2 => $self->o('call_by_gatk'),
                   3 => $self->o('call_by_freebayes'),
               },
           },
             -flow_into => {
-                '1' => { 'merge_vcf' => {'caller' => 'samtools', 'vcf' => '#samtools_vcf'}},
+                '1' => { 'merge_vcf' => {'caller' => 'samtools', 'vcf' => '#samtools_vcf#'}},
                 '2' => { 'merge_vcf' => {'caller' => 'gatk', 'vcf' => '#gatk_vcf#'}},
-                '3' => { 'merge_vcf' => {'caller' => 'freebayes', 'vcf' => '#freebayes_vcf'}},
+                '3' => { 'merge_vcf' => {'caller' => 'freebayes', 'vcf' => '#freebayes_vcf#'}},
             },
       });
 

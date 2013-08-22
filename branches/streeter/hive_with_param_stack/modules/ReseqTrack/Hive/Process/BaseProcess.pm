@@ -87,29 +87,6 @@ sub prepare_factory_output_id {
 }
 
 
-=head2 flows_non_factory
-
-  Arg [1]   : integer of hashref, flow ids for output jobs (not factory jobs)
-  Function  : Output jobs are written later by the write_output subroutine.  This sets which flows have jobs sent down them.
-              The default flow for non-factory jobs is 1
-  Example   : $self->flows_non_factory([3,4,5])
-
-=cut
-
-
-sub flows_non_factory {
-  my ($self, $arg) = @_;
-  my $base_params = $self->param('_BaseProcess_params');
-  if (@_ >= 2) {
-    my $flows = ref($arg) eq 'ARRAY' ? $arg
-              : defined $arg ? [$arg]
-              : [];
-    $base_params->{'flows_non_factory'}  = $flows;
-  }
-  return $base_params->{'flows_non_factory'} // [1];
-}
-
-
 =head2 output_dir
 
   Arg [1]   : (optional) dir
@@ -296,6 +273,21 @@ sub fetch_input {
     $self->_params_to_delete([keys %delete_params]);
   }
 
+  my $flows_factory = $self->param_is_defined('flows_factory') ? $self->param('flows_factory') : 2;
+  $self->_flows_factory($flows_factory);
+
+  my $flows_non_factory = $self->param_is_defined('flows_non_factory') ? $self->param('flows_non_factory') : 1;
+  $self->_flows_non_factory($flows_non_factory);
+
+  my $flows_file_count = $self->param_is_defined('flows_file_count') ? $self->param('flows_file_count') : {};
+  $self->_flows_file_count($flows_file_count);
+
+  my $file_count_param = $self->param_is_defined('flows_file_count_param') ? $self->param('flows_file_count_param') : {};
+  $self->_flows_file_count_param($file_count_param);
+
+  throw("flows_file_count_param is not defined") if ! $file_count_param && scalar keys %$flows_file_count;
+
+
 }
 
 =head2 run
@@ -322,9 +314,10 @@ sub run {
 sub write_output {
   my ($self) = @_;
 
+  $self->input_job->autoflow(0);
+
   my %base_output;
   my $use_file_table = $self->param('use_reseqtrack_file_table');
-
 
   my $delete_params = $self->_params_to_delete;
   foreach my $param (@$delete_params) {
@@ -335,13 +328,57 @@ sub write_output {
     if ($use_file_table) {
       $val = $self->_make_file_ids($val);
     }
+    $self->param($key, $val);
     $base_output{$key} = $val;
   }
 
+  my $flows_factory = $self->_flows_factory();
+  my $flows_non_factory = $self->_flows_non_factory();
+  my $flows_file_count_hash = $self->_flows_file_count();
+  my $flows_file_count_param = $self->_flows_file_count_param();
+
+  my $num_files_base = $flows_file_count_param ? $self->count_param_values($flows_file_count_param) : 0;
+  my %flows_pass_count_base;
+  FLOW:
+  foreach my $flow (@$flows_non_factory, @$flows_factory) {
+    if ($flows_file_count_hash->{$flow}) {
+      my ($require_num, $modifier) = @{$flows_file_count_hash->{$flow}};
+      next FLOW if !$modifier && $require_num != $num_files_base;
+      next FLOW if $modifier eq '+' && $require_num > $num_files_base;
+      next FLOW if $modifier eq '-' && $require_num < $num_files_base;
+    }
+    $flows_pass_count_base{$flow} = 1;
+  }
+
+
   my $factory_outputs = $self->param('_BaseProcess_params')->{'factory_outputs'};
-  if (defined $factory_outputs && @$factory_outputs) {
-    my @factory_output_hashes;
+  if (defined $factory_outputs && @$factory_outputs && @$flows_factory) {
+    my %flows_outputs;
+    my @flows_for_count = grep {defined $flows_file_count_hash->{$_}} @$flows_factory;
+    my @flows_no_count = grep {! defined $flows_file_count_hash->{$_}} @$flows_factory;
+    OUTPUT:
     foreach my $extra_data_hash (@$factory_outputs) {
+      my @flows_for_output = @flows_no_count;
+      if (@flows_for_count) {
+        if (exists $extra_data_hash->{$flows_file_count_param}) {
+          my $flattened_values = [];
+          __add_to_flat_array($flattened_values, $extra_data_hash->{$flows_file_count_param});
+          my $num_files = scalar @$flattened_values;
+          FLOW:
+          foreach my $flow (@flows_for_count) {
+            my ($require_num, $modifier) = @{$flows_file_count_hash->{$flow}};
+            next FLOW if !$modifier && $require_num != $num_files;
+            next FLOW if $modifier eq '+' && $require_num > $num_files;
+            next FLOW if $modifier eq '-' && $require_num < $num_files;
+            push(@flows_for_output, $flow);
+          }
+        }
+        else {
+          push(@flows_for_output, grep {$flows_pass_count_base{$_}} @flows_for_count);
+        }
+      }
+      next OUTPUT if !@flows_for_output;
+
       my $new_factory_hash = {%base_output};
       while (my ($param_name, $param_value) = each %$extra_data_hash) {
         if ($use_file_table) {
@@ -349,13 +386,16 @@ sub write_output {
         }
         $new_factory_hash->{$param_name} = $param_value;
       }
-      push(@factory_output_hashes, $new_factory_hash);
+      foreach my $flow (@flows_for_output) {
+        push(@{$flows_outputs{$flow}}, $new_factory_hash);
+      }
     }
-    $self->dataflow_output_id(\@factory_output_hashes, 2);
+    while (my ($flow, $output_hashes) = each %flows_outputs) {
+      $self->dataflow_output_id($output_hashes, $flow);
+    }
   }
 
-  $self->input_job->autoflow(0);
-  foreach my $flow (sort {$b <=> $a} @{$self->flows_non_factory}) {
+  foreach my $flow (sort {$b <=> $a} grep {$flows_pass_count_base{$_}} @$flows_non_factory) {
     $self->dataflow_output_id(\%base_output, $flow);
   }
 
@@ -365,6 +405,79 @@ sub write_output {
 }
 
 # ########## private subroutines that should not be called by child class ###############
+sub _flows_non_factory {
+  my ($self, $arg) = @_;
+  my $base_params = $self->param('_BaseProcess_params');
+  if (@_ >= 2) {
+    if (!defined $arg) {
+      $base_params->{'flows_non_factory'} = [];
+    }
+    elsif (ref($arg) eq 'ARRAY') {
+      $base_params->{'flows_non_factory'} = $arg;
+    }
+    elsif (ref($arg) eq 'HASH') {
+      my @flows;
+      while (my ($flow, $is_true) = each %$arg) {
+        push(@flows, $flow) if $is_true;
+      }
+      $base_params->{'flows_non_factory'} = \@flows;
+    }
+    else {
+      $base_params->{'flows_non_factory'} = [$arg];
+    }
+  }
+  return $base_params->{'flows_non_factory'} // [];
+}
+
+sub _flows_factory {
+  my ($self, $arg) = @_;
+  my $base_params = $self->param('_BaseProcess_params');
+  if (@_ >= 2) {
+    if (!defined $arg) {
+      $base_params->{'flows_factory'} = [];
+    }
+    elsif (ref($arg) eq 'ARRAY') {
+      $base_params->{'flows_factory'} = $arg;
+    }
+    elsif (ref($arg) eq 'HASH') {
+      my @flows;
+      while (my ($flow, $is_true) = each %$arg) {
+        push(@flows, $flow) if $is_true;
+      }
+      $base_params->{'flows_factory'} = \@flows;
+    }
+    else {
+      $base_params->{'flows_factory'} = [$arg];
+    }
+  }
+  return $base_params->{'flows_factory'} // [];
+}
+
+sub _flows_file_count {
+  my ($self, $hash) = @_;
+  my $base_params = $self->param('_BaseProcess_params');
+  if (@_ >= 2) {
+    throw('not a hash') if ref($hash) ne 'HASH';
+    while (my ($flow, $condition) = each %$hash) {
+      my ($require_num, $modifier) = $condition =~ /(\d+)([+-]?)/;
+      throw("did not recognise condition for $flow") if !defined $require_num;
+      $base_params->{'flows_file_count'}->{$flow} = [$require_num, $modifier];
+    }
+  }
+  return $base_params->{'flows_file_count'} // {};
+}
+
+sub _flows_file_count_param {
+  my ($self, $param) = @_;
+  my $base_params = $self->param('_BaseProcess_params');
+  if (defined $param) {
+    $base_params->{'flows_file_count_param'} = $param;
+  }
+  return $base_params->{'flows_file_count_param'};
+}
+
+
+
 sub _labels {
   my ($self) = @_;
   my $base_params = $self->param('_BaseProcess_params');
@@ -498,19 +611,6 @@ sub __add_to_flat_array {
     push(@$flat_array, $value);
   }
 }
-
-sub __add_to_flat_array {
-  my ($flat_array, $value) = @_;
-  if (ref($value) eq 'ARRAY') {
-    foreach my $sub_value (@$value) {
-      __add_to_flat_array($flat_array, $sub_value);
-    }
-  }
-  elsif (defined $value) {
-    push(@$flat_array, $value);
-  }
-}
-
 
 1;
 

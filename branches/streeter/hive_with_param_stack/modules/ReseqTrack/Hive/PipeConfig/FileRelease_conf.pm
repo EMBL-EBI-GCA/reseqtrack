@@ -64,10 +64,6 @@ sub default_options {
         checking_module  => 'ReseqTrack::Hive::Process::FileRelease::Checks',
         hostname => '1000genomes.ebi.ac.uk',
 
-
-        use_label_management => 0,
-        use_reseqtrack_file_table => 1,
-
     };
 }
 
