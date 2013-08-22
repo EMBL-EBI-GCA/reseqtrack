@@ -26,11 +26,6 @@ sub sql_existing {
 
 sub run {
     my $self = shift @_;
-    my $seed_labels = $self->param_to_flat_array('seed_label');
-
-    if (!@$seed_labels) {
-      $seed_labels = ['ps_id'];
-    }
 
     my $db = ReseqTrack::DBSQL::DBAdaptor->new(%{$self->param('reseqtrack_db')});
 
@@ -73,12 +68,7 @@ sub run {
       );
       $psa->store($pipeline_seed);
       $output_hash->{'ps_id'} = $pipeline_seed->dbID;
-      my @label_values;
-      foreach my $seed_label (@$seed_labels) {
-        throw("output hash is missing label $seed_label") if ! defined $output_hash->{$seed_label};
-        push(@label_values, $output_hash->{$seed_label});
-      }
-      $self->prepare_factory_output_id(\@label_values, $output_hash);
+      $self->prepare_factory_output_id($output_hash);
     }
 
     delete_lock_string($lock_string, $meta_adaptor);

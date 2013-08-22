@@ -67,9 +67,10 @@ sub create_seed_params {
     }
 
     my %output_id;
-    foreach my $column_name (@$output_columns) {
+    foreach my $output_column (@$output_columns) {
+      my ($output_name, $column_name) = ref($output_column) eq 'HASH' ? %$output_column : ($output_column, $output_column);
       throw("$column_name is not a valid column name for $table_name") if !exists($rowHashref->{$column_name});
-      $output_id{$column_name} = $rowHashref->{$column_name};
+      $output_id{$output_name} = $rowHashref->{$column_name};
     }
     if (@$output_attributes) {
       my $seed_attributes = $seed->attributes;

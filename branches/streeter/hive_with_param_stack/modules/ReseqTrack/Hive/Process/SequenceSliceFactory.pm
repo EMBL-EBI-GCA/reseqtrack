@@ -74,25 +74,25 @@ sub run {
 
   foreach my $i (0..$#child_slices) {
     my $child = $child_slices[$i];
-    my $label;
     my $SQ_start = $child->[0]->SQ_name;
     my $SQ_end = $child->[1]->SQ_name;
     my $bp_start = $child->[0]->start;
     my $bp_end = $child->[1]->end;
-    if ($SQ_start eq $SQ_end) {
-      $label = $SQ_start;
-      if ($bp_start != 1 || $bp_end != $child->[1]->SQ_length) {
-        $label .= ".$bp_start-$bp_end";
-      }
-    }
-    else {
-      $label = $SQ_start;
-      $label .= ".$bp_start" if $bp_start !=1;
-      $label .= "-$SQ_end";
-      $label .= ".$bp_end" if $bp_end != $child->[1]->SQ_length;
-    }
+#    my $label;
+#    if ($SQ_start eq $SQ_end) {
+#      $label = $SQ_start;
+#      if ($bp_start != 1 || $bp_end != $child->[1]->SQ_length) {
+#        $label .= ".$bp_start-$bp_end";
+#      }
+#    }
+#    else {
+#      $label = $SQ_start;
+#      $label .= ".$bp_start" if $bp_start !=1;
+#      $label .= "-$SQ_end";
+#      $label .= ".$bp_end" if $bp_end != $child->[1]->SQ_length;
+#    }
 
-    $self->prepare_factory_output_id($label, {
+    $self->prepare_factory_output_id({
             'SQ_start' => $child->[0]->SQ_name,
             'bp_start' => $child->[0]->start,
             'SQ_end' => $child->[1]->SQ_name,

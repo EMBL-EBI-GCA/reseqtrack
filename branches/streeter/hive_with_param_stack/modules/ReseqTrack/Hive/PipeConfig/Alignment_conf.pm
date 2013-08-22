@@ -34,7 +34,7 @@ config_options=-allowed_strategy WGS
       -root_output_dir, (default is your current directory)
       -type_fastq, type of fastq files to look for in the reseqtrack database, default FILTERED_FASTQ
       -final_label, used to name your final output files (default is your pipeline name)
-      -sample_label, (default source_id), which column from the sample table should be used to name output files and directories
+      -sample_label_column, (default source_id), which column from the sample table should be used to name output files and directories
       -sample_group_attribute, (default POPULATION), output bams will be grouped in directories using this attribute
 
       -chunk_max_reads, (default 5000000) controls how fastq files are split up into chunks for parallel alignment
@@ -117,7 +117,7 @@ sub default_options {
 
         'final_label' => $self->o('pipeline_name'),
 
-        'sample_label' => 'source_id',
+        'sample_label_column' => 'source_id',
         'sample_group_attribute' => 'POPULATION',
 
         'realign_knowns_only' => 0,
@@ -143,6 +143,12 @@ sub pipeline_wide_parameters {
     my ($self) = @_;
     return {
         %{$self->SUPER::pipeline_wide_parameters},
+
+        labels => ['#sample_label#', '#library_name#', '#run_source_id#', '#expr($chunk ? $run_source_id.\'.\'.$chunk : undef)expr#'],
+        sample_label => undef,
+        library_name => undef,
+        run_source_id => undef,
+        chunk => undef,
     };
 }
 
@@ -171,12 +177,10 @@ sub pipeline_analyses {
             -module        => 'ReseqTrack::Hive::Process::SeedFactory',
             -meadow_type => 'LOCAL',
             -parameters    => {
-                sample_label => $self->o('sample_label'),
+                sample_label_column => $self->o('sample_label_column'),
                 sample_group_attribute => $self->o('sample_group_attribute'),
-                seed_label => ['#sample_group_attribute#', '#sample_label#'],
-                output_columns => ['sample_id', '#sample_label#'],
+                output_columns => ['sample_id', {'sample_label' => '#sample_label_column#'}],
                 output_attributes => '#sample_group_attribute#',
-                temp_param_sub => { 2 => [['#sample_label#','undef'], ['#sample_group_attribute#', 'undef'], ['seed_time', 'undef']]}, # temporary hack pending updates to hive code
             },
             -flow_into => {
                 2 => [ 'libraries_factory' ],
@@ -201,7 +205,6 @@ sub pipeline_analyses {
             -meadow_type => 'LOCAL',
             -parameters    => {
                 factory_type => 'run',
-                temp_param_sub => { 1 => [['run_source_id','undef']]}, # temporary hack pending updates to hive code
             },
             -flow_into => {
                 '2->A' => [ 'find_source_fastqs' ],
@@ -216,7 +219,6 @@ sub pipeline_analyses {
                 collection_type => $self->o('type_fastq'),
                 collection_name => '#run_source_id#',
                 output_param => 'fastq',
-              temp_param_sub => { 1 => [['run_source_id','undef']]}, # temporary hack pending updates to hive code
             },
             -flow_into => {
                 1 => [ 'split_fastq', ':////accu?fastq=[]' ],

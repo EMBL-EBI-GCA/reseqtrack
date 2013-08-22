@@ -32,7 +32,7 @@ sub libraries_factory {
       $library_names{$experiment->library_name} = 1;
     }
     foreach my $library_name (keys %library_names) {
-      $self->prepare_factory_output_id($library_name, {'library_name' => $library_name});
+      $self->prepare_factory_output_id({'library_name' => $library_name});
     }
 }
 
@@ -51,7 +51,7 @@ sub runs_factory {
       foreach my $run (@{$ra->fetch_by_experiment_id($experiment->dbID)}) {
         next RUN if $run->sample_id != $sample_id;
         next RUN if ! grep {$run->status eq $_} @$allowed_statuses;
-        $self->prepare_factory_output_id($run->source_id, {'run_id' => $run->dbID, 'run_source_id' => $run->source_id});
+        $self->prepare_factory_output_id({'run_id' => $run->dbID, 'run_source_id' => $run->source_id});
       }
     }
 }
