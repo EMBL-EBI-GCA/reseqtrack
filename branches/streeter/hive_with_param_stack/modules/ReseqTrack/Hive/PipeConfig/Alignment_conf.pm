@@ -34,7 +34,7 @@ config_options=-allowed_strategy WGS
       -root_output_dir, (default is your current directory)
       -type_fastq, type of fastq files to look for in the reseqtrack database, default FILTERED_FASTQ
       -final_label, used to name your final output files (default is your pipeline name)
-      -sample_label_column, (default source_id), which column from the sample table should be used to name output files and directories
+      -sample_label, (default source_id), which column from the sample table should be used to name output files and directories
       -sample_group_attribute, (default POPULATION), output bams will be grouped in directories using this attribute
 
       -chunk_max_reads, (default 5000000) controls how fastq files are split up into chunks for parallel alignment
@@ -117,7 +117,7 @@ sub default_options {
 
         'final_label' => $self->o('pipeline_name'),
 
-        'sample_label_column' => 'source_id',
+        'sample_label' => 'source_id',
         'sample_group_attribute' => 'POPULATION',
 
         'realign_knowns_only' => 0,
@@ -144,8 +144,7 @@ sub pipeline_wide_parameters {
     return {
         %{$self->SUPER::pipeline_wide_parameters},
 
-        labels => ['#sample_label#', '#library_name#', '#run_source_id#', '#expr($chunk ? $run_source_id.\'.\'.$chunk : undef)expr#'],
-        sample_label => undef,
+        labels => ['#'.$self->o('sample_label').'#', '#library_name#', '#run_source_id#', '#expr($chunk ? $run_source_id.\'.\'.$chunk : undef)expr#'],
         library_name => undef,
         run_source_id => undef,
         chunk => undef,
@@ -177,9 +176,9 @@ sub pipeline_analyses {
             -module        => 'ReseqTrack::Hive::Process::SeedFactory',
             -meadow_type => 'LOCAL',
             -parameters    => {
-                sample_label_column => $self->o('sample_label_column'),
+                sample_label => $self->o('sample_label'),
                 sample_group_attribute => $self->o('sample_group_attribute'),
-                output_columns => ['sample_id', {'sample_label' => '#sample_label_column#'}],
+                output_columns => ['sample_id', '#sample_label#'],
                 output_attributes => '#sample_group_attribute#',
             },
             -flow_into => {
