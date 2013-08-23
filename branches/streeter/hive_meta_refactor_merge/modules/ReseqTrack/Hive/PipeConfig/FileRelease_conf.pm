@@ -94,11 +94,16 @@ sub pipeline_analyses {
             -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
             -parameters    => {
               check_class => 'quick',
-              flow_fail => 9,
+              flows_non_factory => [1,2],
+              flows_do_count => {
+                1 => '0',
+                2 => '1+',
+              },
+              flows_do_count_param => 'is_failed',
             },
             -flow_into => {
                 1 => [ 'slow_checks' ],
-                9 => [ 'mark_seed_failed' ],
+                2 => [ 'seed_complete' ],
             },
       });
     push(@analyses, {
@@ -106,11 +111,16 @@ sub pipeline_analyses {
             -module        => $self->o('checking_module'),
             -parameters    => {
               check_class => 'slow',
-              flow_fail => 9,
+              flows_non_factory => [1,2],
+              flows_do_count => {
+                1 => '0',
+                2 => '1+',
+              },
+              flows_do_count_param => 'is_failed',
             },
             -flow_into => {
                 1 => [ 'move_to_staging' ],
-                9 => [ 'mark_seed_failed' ],
+                2 => [ 'seed_complete' ],
             },
             -rc_name => '200Mb',
             -analysis_capacity  =>  50,  # use per-analysis limiter
@@ -121,28 +131,17 @@ sub pipeline_analyses {
             -module        => $self->o('file_move_module'),
             -parameters    => {
                 hostname => $self->o('hostname'),
-                flow_fail => 9,
             },
             -flow_into => {
                 1 => ['seed_complete'],
-                9 => [ 'mark_seed_failed' ],
             },
             -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
-      });
-    push(@analyses, {
-            -logic_name    => 'mark_seed_failed',
-            -module        => 'ReseqTrack::Hive::Process::UpdateSeed',
-            -parameters    => {
-              is_failed  => 1,
-              is_futile  => 0,
-            },
-            -meadow_type => 'LOCAL',
       });
     push(@analyses, {
             -logic_name    => 'seed_complete',
             -module        => 'ReseqTrack::Hive::Process::UpdateSeed',
             -parameters    => {
-              delete_seeds  => 1,
+              delete_seeds  => '#expr($is_failed ? 0 : 1)expr#',
             },
             -meadow_type => 'LOCAL',
       });

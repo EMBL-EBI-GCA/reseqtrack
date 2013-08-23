@@ -36,7 +36,6 @@ sub run {
     my $file_details = $self->file_param('file');
     my $db_params = $self->param_required('reseqtrack_db');
     my $hostname = $self->param_required('hostname');
-    my $flow_fail = $self->param_required('flow_fail');
     my $ps_attributes = $self->param('ps_attributes');
 
     throw("input_id not correctly formulated") if ! defined $file_details->{'dropbox'};
@@ -58,17 +57,17 @@ sub run {
     my $new_path = $dir . '/' . $file_object->filename;
 
     if ($file_object->updated ne $file_details->{'db'}->{'updated'}) {
-        $ps_attributes->{'reject message'} = 'file updated in db since pipeline started';
+        $ps_attributes->{'message'} = 'file updated in db since pipeline started';
         $self->output_param('ps_attributes', $ps_attributes);
-        $self->flows_non_factory($flow_fail);
+        $self->output_param('is_failed', 1);
         return;
     }
 
     my $st = stat($dropbox_path) or throw("could not stat $dropbox_path: $!");
     if ($st->ctime != $file_details->{'dropbox'}->{'ctime'}) {
-        $ps_attributes->{'reject message'} = 'file changed since pipeline started';
+        $ps_attributes->{'message'} = 'file changed since pipeline started';
         $self->output_param('ps_attributes', $ps_attributes);
-        $self->flows_non_factory($flow_fail);
+        $self->output_param('is_failed', 1);
         return;
     }
 

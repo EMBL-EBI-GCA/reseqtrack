@@ -10,6 +10,7 @@ use DateTime::Format::MySQL;
 
 sub output_params {
   return [];
+}
 
 sub create_seed_params {
   my ($pipeline, $select_options, $output_params) = @_;

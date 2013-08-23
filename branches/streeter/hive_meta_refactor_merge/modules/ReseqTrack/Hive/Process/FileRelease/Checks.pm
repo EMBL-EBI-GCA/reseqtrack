@@ -107,6 +107,7 @@ sub reject_message {
 sub param_defaults {
   return {
     'ps_attributes' => {},
+    'is_failed' => undef,
   };
 }
 
@@ -118,7 +119,6 @@ sub run {
     my $file_details = $self->file_param('file');
     my $db_params = $self->param_required('reseqtrack_db');
     my $check_class = $self->param_required('check_class');
-    my $flow_fail = $self->param_required('flow_fail');
     my $ps_id = $self->param_required('ps_id');
     my $ps_attributes = $self->param('ps_attributes');
     
@@ -149,9 +149,10 @@ sub run {
       $self->reject_message('');
       my $success = &$sub($self, $file_details->{'dropbox'}->{'path'}, $file_object);
       if (! $success) {
-        $ps_attributes->{'reject message'} = $self->reject_message;
+        my $attribute_name = $self->is_reject ? 'reject message' : 'message';
+        $ps_attributes->{$attribute_name} = $self->reject_message;
         $self->output_param('ps_attributes', $ps_attributes);
-        $self->flows_non_factory($flow_fail);
+        $self->output_param('is_failed', 1);
         last CHECK;
       }
     }

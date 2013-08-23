@@ -59,7 +59,7 @@ sub run {
       my $existing_file = $fa->fetch_by_name($path);
       if ($existing_file) {
         $pipeline_seed //= $db->get_PipelineSeedAdaptor->fetch_by_dbID($pipeline_seed_id);
-        $file->dbID = $existing_file->dbID;
+        $file->dbID($existing_file->dbID);
         my $history = ReseqTrack::History->new(
           -other_id => $file->dbID, -table_name => 'file',
           -comment => 'updated by pipeline '.$pipeline_seed->pipeline->name,

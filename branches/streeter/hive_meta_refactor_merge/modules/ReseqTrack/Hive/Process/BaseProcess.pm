@@ -307,13 +307,13 @@ sub fetch_input {
                         : (grep {$_ == 1} @{$self->_flows_factory}) ? undef : 1;
   $self->_flows_non_factory($flows_non_factory);
 
-  my $flows_file_count = $self->param_is_defined('flows_file_count') ? $self->param('flows_file_count') : {};
-  $self->_flows_file_count($flows_file_count);
+  my $flows_do_count = $self->param_is_defined('flows_do_count') ? $self->param('flows_do_count') : {};
+  $self->_flows_do_count($flows_do_count);
 
-  my $file_count_param = $self->param_is_defined('flows_file_count_param') ? $self->param('flows_file_count_param') : {};
-  $self->_flows_file_count_param($file_count_param);
+  my $do_count_param = $self->param_is_defined('flows_do_count_param') ? $self->param('flows_do_count_param') : {};
+  $self->_flows_do_count_param($do_count_param);
 
-  throw("flows_file_count_param is not defined") if ! $file_count_param && scalar keys %$flows_file_count;
+  throw("flows_do_count_param is not defined") if ! $do_count_param && scalar keys %$flows_do_count;
 
 
 }
@@ -362,15 +362,15 @@ sub write_output {
 
   my $flows_factory = $self->_flows_factory();
   my $flows_non_factory = $self->_flows_non_factory();
-  my $flows_file_count_hash = $self->_flows_file_count();
-  my $flows_file_count_param = $self->_flows_file_count_param();
+  my $flows_do_count_hash = $self->_flows_do_count();
+  my $flows_do_count_param = $self->_flows_do_count_param();
 
-  my $num_files_base = $flows_file_count_param ? $self->count_param_values($flows_file_count_param) : 0;
+  my $num_files_base = $flows_do_count_param ? $self->count_param_values($flows_do_count_param) : 0;
   my %flows_pass_count_base;
   FLOW:
   foreach my $flow (@$flows_non_factory, @$flows_factory) {
-    if ($flows_file_count_hash->{$flow}) {
-      my ($require_num, $modifier) = @{$flows_file_count_hash->{$flow}};
+    if ($flows_do_count_hash->{$flow}) {
+      my ($require_num, $modifier) = @{$flows_do_count_hash->{$flow}};
       next FLOW if !$modifier && $require_num != $num_files_base;
       next FLOW if $modifier eq '+' && $require_num > $num_files_base;
       next FLOW if $modifier eq '-' && $require_num < $num_files_base;
@@ -382,19 +382,19 @@ sub write_output {
   my $factory_outputs = $self->param('_BaseProcess_params')->{'factory_outputs'};
   if (defined $factory_outputs && @$factory_outputs && @$flows_factory) {
     my %flows_outputs;
-    my @flows_for_count = grep {defined $flows_file_count_hash->{$_}} @$flows_factory;
-    my @flows_no_count = grep {! defined $flows_file_count_hash->{$_}} @$flows_factory;
+    my @flows_for_count = grep {defined $flows_do_count_hash->{$_}} @$flows_factory;
+    my @flows_no_count = grep {! defined $flows_do_count_hash->{$_}} @$flows_factory;
     OUTPUT:
     foreach my $extra_data_hash (@$factory_outputs) {
       my @flows_for_output = @flows_no_count;
       if (@flows_for_count) {
-        if (exists $extra_data_hash->{$flows_file_count_param}) {
+        if (exists $extra_data_hash->{$flows_do_count_param}) {
           my $flattened_values = [];
-          __add_to_flat_array($flattened_values, $extra_data_hash->{$flows_file_count_param});
+          __add_to_flat_array($flattened_values, $extra_data_hash->{$flows_do_count_param});
           my $num_files = scalar @$flattened_values;
           FLOW:
           foreach my $flow (@flows_for_count) {
-            my ($require_num, $modifier) = @{$flows_file_count_hash->{$flow}};
+            my ($require_num, $modifier) = @{$flows_do_count_hash->{$flow}};
             next FLOW if !$modifier && $require_num != $num_files;
             next FLOW if $modifier eq '+' && $require_num > $num_files;
             next FLOW if $modifier eq '-' && $require_num < $num_files;
@@ -481,7 +481,7 @@ sub _flows_factory {
   return $base_params->{'flows_factory'} // [];
 }
 
-sub _flows_file_count {
+sub _flows_do_count {
   my ($self, $hash) = @_;
   my $base_params = $self->param('_BaseProcess_params');
   if (@_ >= 2) {
@@ -489,19 +489,19 @@ sub _flows_file_count {
     while (my ($flow, $condition) = each %$hash) {
       my ($require_num, $modifier) = $condition =~ /(\d+)([+-]?)/;
       throw("did not recognise condition for $flow") if !defined $require_num;
-      $base_params->{'flows_file_count'}->{$flow} = [$require_num, $modifier];
+      $base_params->{'flows_do_count'}->{$flow} = [$require_num, $modifier];
     }
   }
-  return $base_params->{'flows_file_count'} // {};
+  return $base_params->{'flows_do_count'} // {};
 }
 
-sub _flows_file_count_param {
+sub _flows_do_count_param {
   my ($self, $param) = @_;
   my $base_params = $self->param('_BaseProcess_params');
   if (defined $param) {
-    $base_params->{'flows_file_count_param'} = $param;
+    $base_params->{'flows_do_count_param'} = $param;
   }
-  return $base_params->{'flows_file_count_param'};
+  return $base_params->{'flows_do_count_param'};
 }
 
 

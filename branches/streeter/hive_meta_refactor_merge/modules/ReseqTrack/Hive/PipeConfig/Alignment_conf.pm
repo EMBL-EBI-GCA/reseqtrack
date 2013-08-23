@@ -216,8 +216,8 @@ sub pipeline_analyses {
                 collection_type => $self->o('type_fastq'),
                 collection_name => '#run_source_id#',
                 output_param => 'fastq',
-                flows_file_count_param => 'fastq',
-                flows_file_count => { 1 => '1+', },
+                flows_do_count_param => 'fastq',
+                flows_do_count => { 1 => '1+', },
             },
             -flow_into => {
                 1 => [ 'split_fastq', ':////accu?fastq=[]' ],
@@ -283,8 +283,8 @@ sub pipeline_analyses {
                   4 => '#expr($recalibrate_level==1 && !$realign_knowns_only)expr#',
                   5 => '#expr(!$realign_knowns_only && $recalibrate_level!=1)expr#',
               },
-              flows_file_count_param => 'bam',
-              flows_file_count => {
+              flows_do_count_param => 'bam',
+              flows_do_count => {
                         1 => '1+',
                         2 => '2+',
                         3 => '1+',
@@ -414,8 +414,8 @@ sub pipeline_analyses {
           -module        => 'ReseqTrack::Hive::Process::BaseProcess',
           -meadow_type=> 'LOCAL',
           -parameters => {
-              flows_file_count_param => 'bam',
-              flows_file_count => { 1 => '1+', },
+              flows_do_count_param => 'bam',
+              flows_do_count => { 1 => '1+', },
           },
           -flow_into => {
               1 => [ 'mark_duplicates', ':////accu?fastq=[]'],
@@ -453,8 +453,8 @@ sub pipeline_analyses {
                   6 => '#expr($recalibrate_level!=2 && $realign_knowns_only)expr#',
                   7 => 1,
               },
-              flows_file_count_param => 'bam',
-              flows_file_count => {
+              flows_do_count_param => 'bam',
+              flows_do_count => {
                         1 => '1+',
                         2 => '2+',
                         3 => '1+',
