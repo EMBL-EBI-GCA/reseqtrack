@@ -33,6 +33,9 @@ sub run {
       check_file_exists($vcf_path);
     }
 
+    print scalar @$bp_start, "\n";
+    print scalar @$vcfs, "\n";
+
     my $output_dir = $self->output_dir;
     my $job_name = $self->job_name;
     my $output_file = "$output_dir/$job_name.vcf.gz";

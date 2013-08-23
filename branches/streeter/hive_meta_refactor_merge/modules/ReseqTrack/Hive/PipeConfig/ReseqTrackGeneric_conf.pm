@@ -36,7 +36,6 @@ sub default_options {
 
         root_output_dir => $self->o('ENV', 'PWD'), # Should be set to something more sensible
 
-        use_label_management => 1, # boolean.  Must be 1 if you want to have structured output directories and meaningful job names
         use_reseqtrack_file_table => 1, # boolean. File paths in job input ids will be converted to e.g. F1234F
 
     };
@@ -83,9 +82,19 @@ sub pipeline_wide_parameters {
 
         'reseqtrack_db' => $self->o('reseqtrack_db'),
         'root_output_dir' => $self->o('root_output_dir'),
-        'use_label_management' => $self->o('use_label_management'),
         'use_reseqtrack_file_table' => $self->o('use_reseqtrack_file_table'),
 
+        'dir_label_params' => [],
+        'file_label' => undef,
+
+    };
+}
+
+sub hive_meta_table {
+    my ($self) = @_;
+    return {
+        %{$self->SUPER::hive_meta_table},          # here we inherit anything from the base class
+        'hive_use_param_stack' => 1,
     };
 }
 

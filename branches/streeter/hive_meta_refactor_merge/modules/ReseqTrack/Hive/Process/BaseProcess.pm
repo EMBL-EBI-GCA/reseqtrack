@@ -47,7 +47,6 @@ use ReseqTrack::Tools::FileSystemUtils qw(delete_file);
 use Bio::EnsEMBL::Hive::Utils qw(destringify);
 
 
-
 =head2 output_param
 
   Arg [1]   : param_name, string
@@ -60,55 +59,35 @@ use Bio::EnsEMBL::Hive::Utils qw(destringify);
 
 sub output_param {
   my ($self, $param_name, $arg) = @_;
+  my $base_params = $self->param('_BaseProcess_params');
   if (@_ >=3 ) {
-    $self->{'_BaseProcess_params'}->{'output_hash'}->{$param_name} = $arg;
+    $base_params->{'output_hash'}->{$param_name} = $arg;
   }
   if (@_ >=2) {
-    return $self->{'_BaseProcess_params'}->{'output_hash'}->{$param_name};
+    return $base_params->{'output_hash'}->{$param_name};
   }
-  return $self->{'_BaseProcess_params'}->{'output_hash'} // {};
+  return $base_params->{'output_hash'} // {};
 }
 
 =head2 prepare_factory_output_id
 
-  Arg [1]   : label, a string that will be used to name the child branch in this pipeline
-  Arg [2]   : hashref, any data unique to the child branch
+  Arg [1]   : hashref, any data unique to the child branch
   Function  : A factory module should create jobs by using this subroutine
               It should be called once for each child branch.  Each branch should have a different label and data hashref
               The jobs will be created later by the write_output subroutine
-  Example   : $self->prepare_factory_output_id('ERR000001', {run_id => 'ERR000001'});
+  Example   : $self->prepare_factory_output_id({run_id => 'ERR000001'});
 
 =cut
 
 sub prepare_factory_output_id {
-  my ($self, $label, $data_hash) = @_;
-  push(@{$self->{'_BaseProcess_params'}->{'factory_outputs'}}, [$label, $data_hash || {}]);
-}
-
-=head2 flows_non_factory
-
-  Arg [1]   : integer of hashref, flow ids for output jobs (not factory jobs)
-  Function  : Output jobs are written later by the write_output subroutine.  This sets which flows have jobs sent down them.
-              The default flow for non-factory jobs is 1
-  Example   : $self->flows_non_factory([3,4,5])
-
-=cut
-
-
-sub flows_non_factory {
-  my ($self, $arg) = @_;
-  if (@_ >= 2) {
-    my $flows = ref($arg) eq 'ARRAY' ? $arg
-              : defined $arg ? [$arg]
-              : [];
-    $self->{'_BaseProcess_params'}->{'flows_non_factory'} = $flows;
-  }
-  return $self->{'_BaseProcess_params'}->{'flows_non_factory'} || [1];
+  my ($self, $data_hash) = @_;
+  throw('prepare_factory_output_id needs a data hash') if ref($data_hash) ne 'HASH';
+  my $base_params = $self->param('_BaseProcess_params');
+  push(@{$base_params->{'factory_outputs'}}, $data_hash);
 }
 
 
-
-=head2 label
+=head2 output_dir
 
   Arg [1]   : (optional) dir
   Function  : Returns a sensible location to write all output for this job.
@@ -120,28 +99,27 @@ sub flows_non_factory {
 
 sub output_dir {
   my ($self, $dir) = @_;
+  my $base_params = $self->param('_BaseProcess_params');
   if (defined $dir) {
-    $self->{'_BaseProcess_params'}->{'output_dir'} = $dir;
+    $base_params->{'output_dir'} = $dir;
   }
-  return $self->{'_BaseProcess_params'}->{'output_dir'};
-}
-
-=head2 label
-
-  Arg [1]   : (optional) label
-  Function  : Returns the 'label' name of the current branch of the pipeline.
-              Each time the pipeline branches, a new label is created which is used for naming output files and directories
-  Example   : my $child_label = $self.label . '_child1';
-  Returntype: string
-
-=cut
-
-sub label {
-  my ($self, $label) = @_;
-  if (defined $label) {
-    $self->{'_BaseProcess_params'}->{'label'} = $label;
+  elsif($self->param_is_defined('root_output_dir')) {
+    if ($self->param_is_defined('dir_label_params')) {
+      $base_params->{'output_dir'} = join('/', $self->param('root_output_dir'),
+              grep {length($_)}
+              map {$self->param($_)}
+              grep {$self->param_is_defined($_)}
+              grep {length($_)}
+              @{$self->param('dir_label_params')});
+    }
+    else {
+      $base_params->{'output_dir'} = $self->param('root_output_dir');
+    }
+    $base_params->{'output_dir'} =~ s/\s+//g;
+    $base_params->{'output_dir'} =~ s{//+}{/}g;
   }
-  return $self->{'_BaseProcess_params'}->{'label'};
+  throw('cannot make a sensible output directory') if ! $base_params->{'output_dir'};
+  return $base_params->{'output_dir'};
 }
 
 =head2 job_name
@@ -154,11 +132,31 @@ sub label {
 =cut
 
 sub job_name {
-  my ($self, $job_name) = @_;
-  if (defined $job_name) {
-    $self->{'_BaseProcess_params'}->{'job_name'} = $job_name;
+  my ($self) = @_;
+  my $base_params = $self->param('_BaseProcess_params');
+  if (!$base_params->{'job_name'}) {
+    my $analysis_label = $self->param_is_defined('analysis_label') ?
+              $self->param('analysis_label') : $self->analysis->logic_name;
+
+    my $job_label;
+    if ($self->param_is_defined('file_label')) {
+      $job_label = $self->param('file_label');
+    }
+    if (!length($job_label) && $self->param_is_defined('dir_label_params')) {
+      $job_label = ( grep {length($_)}
+            map {$self->param($_)}
+            grep {$self->param_is_defined($_)}
+            grep {length($_)}
+            @{$self->param('dir_label_params')})[-1];
+    }
+    if (!length($job_label)) {
+      $job_label = $self->input_job->dbID;
+    }
+    $job_label =~ s/\s+//g;
+
+    $base_params->{'job_name'} = join('.', $job_label, $analysis_label);
   }
-  return $self->{'_BaseProcess_params'}->{'job_name'};
+  return $base_params->{'job_name'};
 }
 
 
@@ -257,11 +255,9 @@ sub file_param_to_flat_array {
 sub run_program {
   my ($self, $run_program_object, @args) = @_;
 
-  #$self->data_dbc->disconnect_when_inactive(1);
   $self->dbc->disconnect_when_inactive(1);
   my $return = eval{$run_program_object->run(@args);};
   my $msg_thrown = $@;
-  #$self->data_dbc->disconnect_when_inactive(0);
   $self->dbc->disconnect_when_inactive(0);
   return $return if !$msg_thrown;
   print "term_sig is ".$run_program_object->term_sig . "\n";
@@ -287,34 +283,12 @@ sub run_program {
 sub fetch_input {
   my ($self) = @_;
 
-  $self->param_required('use_label_management');
   $self->param_required('use_reseqtrack_file_table');
 
-  $self->{'_BaseProcess_params'} = {};
+  $self->param('_BaseProcess_params', {});
 
-  my $root_output_dir = $self->param_required('root_output_dir');
-  my $output_dir = $self->param_is_defined('output_dir') ? $self->param('output_dir') : undef;
-
-  my $analysis_label = $self->param_is_defined('analysis_label') ?
-            $self->param('analysis_label') : $self->analysis->logic_name;
-  if ($self->param_is_defined('labels')) {
-    my $labels = $self->param('labels');
-    throw("labels is defined but empty") if !@$labels;
-    $output_dir //= join('/', $root_output_dir, @$labels);
-    $output_dir =~ s{//}{/}g;
-    $self->output_dir($output_dir);
-    my $current_label = $labels->[-1];
-    my $job_name = join('.', $current_label, $analysis_label);
-    $self->label($current_label);
-    $self->job_name($job_name);
-  }
-  else {
-    $self->output_dir($output_dir // $root_output_dir);
-    my $job_name = join('.', $self->input_job->dbID, $analysis_label);
-    $self->job_name($job_name);
-  }
-
-  if ($self->param_is_defined('delete_param')) {
+  if ($self->param_is_defined('delete_param') && $self->param_is_defined('root_output_dir')) {
+    my $root_output_dir = $self->param('root_output_dir');
     my %delete_params;
     my @delete_files;
     PARAM:
@@ -325,6 +299,22 @@ sub fetch_input {
     $self->_files_to_delete([grep { /^$root_output_dir/ } @delete_files]);
     $self->_params_to_delete([keys %delete_params]);
   }
+
+  my $flows_factory = $self->param_is_defined('flows_factory') ? $self->param('flows_factory') : 2;
+  $self->_flows_factory($flows_factory);
+
+  my $flows_non_factory = $self->param_is_defined('flows_non_factory') ? $self->param('flows_non_factory')
+                        : (grep {$_ == 1} @{$self->_flows_factory}) ? undef : 1;
+  $self->_flows_non_factory($flows_non_factory);
+
+  my $flows_file_count = $self->param_is_defined('flows_file_count') ? $self->param('flows_file_count') : {};
+  $self->_flows_file_count($flows_file_count);
+
+  my $file_count_param = $self->param_is_defined('flows_file_count_param') ? $self->param('flows_file_count_param') : {};
+  $self->_flows_file_count_param($file_count_param);
+
+  throw("flows_file_count_param is not defined") if ! $file_count_param && scalar keys %$flows_file_count;
+
 
 }
 
@@ -350,68 +340,91 @@ sub run {
 
 
 sub write_output {
-    my ($self) = @_;
+  my ($self) = @_;
 
-  my @input_keys = keys %{destringify($self->input_id)};
-  my $accu_keys = $self->_accu_keys;
+  $self->input_job->autoflow(0);
+
+  my %base_output;
+  my $use_file_table = $self->param('use_reseqtrack_file_table');
 
   my $delete_params = $self->_params_to_delete;
-  my $output_param_hash = $self->output_param;
-
   foreach my $param (@$delete_params) {
-    $self->param($param, undef);
+    $base_output{$param} = undef;
   }
 
-  foreach my $param (keys %$output_param_hash) {
-    my $param_value = $output_param_hash->{$param};
-    if ($self->param('use_reseqtrack_file_table')) {
-      $param_value = $self->_make_file_ids($param_value);
+  while (my ($key, $val) = each %{$self->output_param}) {
+    if ($use_file_table) {
+      $val = $self->_make_file_ids($val);
     }
-    $self->param($param, $param_value);
+    $self->param($key, $val);
+    $base_output{$key} = $val;
   }
 
-  my %base_output_keys;
-  map {$base_output_keys{$_} = 1} @input_keys, @$accu_keys, keys %$output_param_hash;
-  my %base_output;
-  PARAM:
-  foreach my $param_name (keys %base_output_keys) {
-    #next PARAM if !$self->param_is_defined($param_name);
-    next PARAM if !$self->count_param_values($param_name);
-    $base_output{$param_name} = $self->param($param_name);
+  my $flows_factory = $self->_flows_factory();
+  my $flows_non_factory = $self->_flows_non_factory();
+  my $flows_file_count_hash = $self->_flows_file_count();
+  my $flows_file_count_param = $self->_flows_file_count_param();
+
+  my $num_files_base = $flows_file_count_param ? $self->count_param_values($flows_file_count_param) : 0;
+  my %flows_pass_count_base;
+  FLOW:
+  foreach my $flow (@$flows_non_factory, @$flows_factory) {
+    if ($flows_file_count_hash->{$flow}) {
+      my ($require_num, $modifier) = @{$flows_file_count_hash->{$flow}};
+      next FLOW if !$modifier && $require_num != $num_files_base;
+      next FLOW if $modifier eq '+' && $require_num > $num_files_base;
+      next FLOW if $modifier eq '-' && $require_num < $num_files_base;
+    }
+    $flows_pass_count_base{$flow} = 1;
   }
 
 
-  my $factory_outputs = $self->{'_BaseProcess_params'}->{'factory_outputs'};
-  if (defined $factory_outputs && @$factory_outputs) {
-    my @factory_output_hashes;
-    foreach my $factory_output (@$factory_outputs) {
-      my ($extra_labels, $extra_data_hash) = @$factory_output;
+  my $factory_outputs = $self->param('_BaseProcess_params')->{'factory_outputs'};
+  if (defined $factory_outputs && @$factory_outputs && @$flows_factory) {
+    my %flows_outputs;
+    my @flows_for_count = grep {defined $flows_file_count_hash->{$_}} @$flows_factory;
+    my @flows_no_count = grep {! defined $flows_file_count_hash->{$_}} @$flows_factory;
+    OUTPUT:
+    foreach my $extra_data_hash (@$factory_outputs) {
+      my @flows_for_output = @flows_no_count;
+      if (@flows_for_count) {
+        if (exists $extra_data_hash->{$flows_file_count_param}) {
+          my $flattened_values = [];
+          __add_to_flat_array($flattened_values, $extra_data_hash->{$flows_file_count_param});
+          my $num_files = scalar @$flattened_values;
+          FLOW:
+          foreach my $flow (@flows_for_count) {
+            my ($require_num, $modifier) = @{$flows_file_count_hash->{$flow}};
+            next FLOW if !$modifier && $require_num != $num_files;
+            next FLOW if $modifier eq '+' && $require_num > $num_files;
+            next FLOW if $modifier eq '-' && $require_num < $num_files;
+            push(@flows_for_output, $flow);
+          }
+        }
+        else {
+          push(@flows_for_output, grep {$flows_pass_count_base{$_}} @flows_for_count);
+        }
+      }
+      next OUTPUT if !@flows_for_output;
+
       my $new_factory_hash = {%base_output};
       while (my ($param_name, $param_value) = each %$extra_data_hash) {
-        if ($self->param('use_reseqtrack_file_table')) {
+        if ($use_file_table) {
           $param_value = $self->_make_file_ids($param_value);
         }
         $new_factory_hash->{$param_name} = $param_value;
       }
-      if ($self->param('use_label_management')) {
-        if (defined $new_factory_hash->{'labels'}) {
-          $new_factory_hash->{'labels'} = [@{$new_factory_hash->{'labels'}}];
-        }
-        $extra_labels = ref($extra_labels) eq 'ARRAY' ? $extra_labels : [$extra_labels];
-        push(@{$new_factory_hash->{'labels'}}, @$extra_labels);
+      foreach my $flow (@flows_for_output) {
+        push(@{$flows_outputs{$flow}}, $new_factory_hash);
       }
-      $new_factory_hash = $self->_temp_param_sub(2, $new_factory_hash);
-      push(@factory_output_hashes, $new_factory_hash);
     }
-    $self->dataflow_output_id(\@factory_output_hashes, 2);
+    while (my ($flow, $output_hashes) = each %flows_outputs) {
+      $self->dataflow_output_id($output_hashes, $flow);
+    }
   }
 
-  $self->input_job->autoflow(0);
-  foreach my $flow (sort {$b <=> $a} @{$self->flows_non_factory}) {
-    #$self->dataflow_output_id(\%base_output, $flow);
-    my $temp_hash = {%base_output};
-    $temp_hash = $self->_temp_param_sub($flow, $temp_hash);
-    $self->dataflow_output_id($temp_hash, $flow);
+  foreach my $flow (sort {$b <=> $a} grep {$flows_pass_count_base{$_}} @$flows_non_factory) {
+    $self->dataflow_output_id(\%base_output, $flow);
   }
 
   foreach my $file (@{$self->_files_to_delete}) {
@@ -420,21 +433,78 @@ sub write_output {
 }
 
 # ########## private subroutines that should not be called by child class ###############
-
-sub _accu_keys {
-  my ($self,) = @_;
-  my $sql = "SELECT DISTINCT struct_name FROM accu WHERE receiving_job_id=?";
-  #my $hive_dbc = $self->data_dbc();
-  my $hive_dbc = $self->dbc();
-  my $sth = $hive_dbc->prepare($sql) or die "could not prepare $sql: ".$hive_dbc->errstr;
-  $sth->bind_param(1, $self->input_job->dbID);
-  $sth->execute() or die 'could not execute '.$sth->statement .': '.$sth->errstr;
-  my @param_names;
-  while (my ($param_name) = $sth->fetchrow()) {
-    push(@param_names, $param_name);
+sub _flows_non_factory {
+  my ($self, $arg) = @_;
+  my $base_params = $self->param('_BaseProcess_params');
+  if (@_ >= 2) {
+    if (!defined $arg) {
+      $base_params->{'flows_non_factory'} = [];
+    }
+    elsif (ref($arg) eq 'ARRAY') {
+      $base_params->{'flows_non_factory'} = $arg;
+    }
+    elsif (ref($arg) eq 'HASH') {
+      my @flows;
+      while (my ($flow, $is_true) = each %$arg) {
+        push(@flows, $flow) if $is_true;
+      }
+      $base_params->{'flows_non_factory'} = \@flows;
+    }
+    else {
+      $base_params->{'flows_non_factory'} = [$arg];
+    }
   }
-  return \@param_names;
+  return $base_params->{'flows_non_factory'} // [];
 }
+
+sub _flows_factory {
+  my ($self, $arg) = @_;
+  my $base_params = $self->param('_BaseProcess_params');
+  if (@_ >= 2) {
+    if (!defined $arg) {
+      $base_params->{'flows_factory'} = [];
+    }
+    elsif (ref($arg) eq 'ARRAY') {
+      $base_params->{'flows_factory'} = $arg;
+    }
+    elsif (ref($arg) eq 'HASH') {
+      my @flows;
+      while (my ($flow, $is_true) = each %$arg) {
+        push(@flows, $flow) if $is_true;
+      }
+      $base_params->{'flows_factory'} = \@flows;
+    }
+    else {
+      $base_params->{'flows_factory'} = [$arg];
+    }
+  }
+  return $base_params->{'flows_factory'} // [];
+}
+
+sub _flows_file_count {
+  my ($self, $hash) = @_;
+  my $base_params = $self->param('_BaseProcess_params');
+  if (@_ >= 2) {
+    throw('not a hash') if ref($hash) ne 'HASH';
+    while (my ($flow, $condition) = each %$hash) {
+      my ($require_num, $modifier) = $condition =~ /(\d+)([+-]?)/;
+      throw("did not recognise condition for $flow") if !defined $require_num;
+      $base_params->{'flows_file_count'}->{$flow} = [$require_num, $modifier];
+    }
+  }
+  return $base_params->{'flows_file_count'} // {};
+}
+
+sub _flows_file_count_param {
+  my ($self, $param) = @_;
+  my $base_params = $self->param('_BaseProcess_params');
+  if (defined $param) {
+    $base_params->{'flows_file_count_param'} = $param;
+  }
+  return $base_params->{'flows_file_count_param'};
+}
+
+
 
 sub _get_files {
   my ($self, $data_structure) = @_;
@@ -453,29 +523,6 @@ sub _make_file_ids {
   my $sth_insert = $hive_dbc->prepare($sql_insert) or die "could not prepare $sql_insert: ".$hive_dbc->errstr;
 
   return __structure_to_file_ids($data_structure, $sth_insert);
-}
-
-# Note all references to temp_param_sub will be removed when new features to hive code are released.
-sub _temp_param_sub {
-  my ($self, $flow, $hash) = @_;
-  my $temp_param_subs = $self->{'_BaseProcess_params'}->{'temp_param_sub'};
-  if (! defined $temp_param_subs) {
-    $temp_param_subs = $self->param_is_defined('temp_param_sub') ? $self->param('temp_param_sub') : {};
-    $self->{'_BaseProcess_params'}->{'temp_param_sub'} = $temp_param_subs
-  }
-  return $hash if !defined $temp_param_subs->{$flow};
-  SUB:
-  foreach my $sub_pair (@{$temp_param_subs->{$flow}}) {
-    my ($new_name, $old_name) = @$sub_pair;
-    if ($old_name =~ /^"(.*)"$/) {
-      $hash->{$new_name} = $1;
-      next SUB;
-    }
-    $hash->{$new_name} = $hash->{$old_name};
-    delete $hash->{$old_name};
-    delete $hash->{$new_name} if !defined $hash->{$new_name};
-  }
-  return $hash;
 }
 
 
@@ -545,28 +592,30 @@ sub __structure_to_file_paths {
 
 sub _params_to_delete {
   my ($self, $arg) = @_;
+  my $base_params = $self->param('_BaseProcess_params');
   if (@_ >=2) {
-    $self->{'_BaseProcess_params'}->{'params_to_delete'} = $arg;
+    $base_params->{'params_to_delete'} = $arg;
   }
-  return $self->{'_BaseProcess_params'}->{'params_to_delete'} // [];
+  return $base_params->{'params_to_delete'} // [];
 }
 
 sub _files_to_delete {
   my ($self, $arg) = @_;
-  if ($arg) {
-    $self->{'_BaseProcess_params'}->{'files_to_delete'} = $self->_files_to_delete;
+  my $base_params = $self->param('_BaseProcess_params');
+  if (@_ >=2) {
     my $files = ref($arg) eq 'ARRAY' ? $arg : [$arg];
-    push(@{$self->{'_BaseProcess_params'}->{'files_to_delete'}}, @$files);
+    push(@{$base_params->{'files_to_delete'}}, @$files);
   }
-  return $self->{'_BaseProcess_params'}->{'files_to_delete'} || [];
+  return $base_params->{'files_to_delete'} // [];
 }
 
 sub _file_cache {
   my ($self, $dbID, $name) = @_;
+  my $base_params = $self->param('_BaseProcess_params');
   if (defined $name) {
-    $self->{'_BaseProcess_params'}->{'file_cache'}->{$dbID} = $name;
+    $base_params->{'file_cache'}->{$dbID} = $name;
   }
-  return $self->{'_BaseProcess_params'}->{'file_cache'}->{$dbID};
+  return $base_params->{'file_cache'}->{$dbID};
 }
 
 sub __add_to_flat_array {
@@ -576,25 +625,10 @@ sub __add_to_flat_array {
       __add_to_flat_array($flat_array, $sub_value);
     }
   }
-  #elsif (defined $value && $value ne 'undef') {
   elsif (defined $value) {
     push(@$flat_array, $value);
   }
 }
-
-sub __add_to_flat_array {
-  my ($flat_array, $value) = @_;
-  if (ref($value) eq 'ARRAY') {
-    foreach my $sub_value (@$value) {
-      __add_to_flat_array($flat_array, $sub_value);
-    }
-  }
-  #elsif (defined $value && $value ne 'undef') {
-  elsif (defined $value) {
-    push(@$flat_array, $value);
-  }
-}
-
 
 1;
 

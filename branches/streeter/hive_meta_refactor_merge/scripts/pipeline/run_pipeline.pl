@@ -68,7 +68,7 @@ else {
   }
 
   # preferentially take the newest hive_db:
-  ($hive_db) = sort {parse_datetime($a->created)->epoch <=> parse_datetime($b->created)->epoch} @$hive_dbs;
+  ($hive_db) = sort {DateTime::Format::MySQL->parse_datetime($b->created)->epoch <=> DateTime::Format::MySQL->parse_datetime($a->created)->epoch} @$hive_dbs;
 }
 
 my $hive_dbname = $hive_db->name;

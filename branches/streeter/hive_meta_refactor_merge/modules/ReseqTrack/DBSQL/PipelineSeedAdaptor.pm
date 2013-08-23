@@ -222,7 +222,6 @@ sub update_completed {
   $sth->execute();
   $sth->finish();
   $self->store_attributes($pipeline_seed, 1);
-  $self->delete_predecessors($pipeline_seed);
   return;
 }
 

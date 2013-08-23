@@ -25,13 +25,8 @@ sub run {
     my $ca = $db->get_CollectionAdaptor;
     my $collection = $ca->fetch_by_name_and_type($self->param('collection_name'), $self->param('collection_type'));
 
-    if (!$collection) {
-      $self->flows_non_factory(undef);
-      return;
-    }
-
     my $output_name_param = $self->param('output_param');
-    my $output_values = [map {$_->name} @{$collection->others}];
+    my $output_values = $collection ? [map {$_->name} @{$collection->others}] : [];
     $self->output_param($output_name_param, $output_values);
 }
 

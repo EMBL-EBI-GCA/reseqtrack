@@ -52,6 +52,7 @@ sub run {
       $output_bais = $output_bais->[0];
     }
 
+
     $self->output_param('bam', $output_bams);
     $self->output_param('bai', $output_bais);
 

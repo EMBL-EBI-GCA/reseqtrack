@@ -9,28 +9,8 @@ use ReseqTrack::Tools::Exception qw(throw);
 use ReseqTrack::Tools::GeneralUtils qw(delete_lock_string is_locked create_lock_string);
 use Bio::EnsEMBL::Hive::Utils qw(destringify);
 
-sub sql_existing {
-  my ($self, $pipeline) = @_;
-  my $table_name = $pipeline->table_name;
-  my $dbID_name = $table_name . '_id';
-  my $pipeline_id = $pipeline->dbID;
-  my $sql_existing =
-        "SELECT $table_name.$dbID_name FROM $table_name, pipeline_seed, hive_db"
-      . " WHERE pipeline_seed.hive_db_id = hive_db.hive_db_id"
-      . " AND hive_db.pipeline_id = $pipeline_id"
-      . " AND (pipeline_seed.is_running = 1"
-      .      " OR pipeline_seed.is_complete = 1"
-      .      " OR pipeline_seed.is_futile = 1)";
-  return $sql_existing;
-}
-
 sub run {
     my $self = shift @_;
-    my $seed_labels = $self->param_to_flat_array('seed_label');
-
-    if (!@$seed_labels) {
-      $seed_labels = ['ps_id'];
-    }
 
     my $db = ReseqTrack::DBSQL::DBAdaptor->new(%{$self->param('reseqtrack_db')});
 
@@ -59,9 +39,14 @@ sub run {
     my $seeding_options = $pipeline->seeding_options 
                         ? destringify($pipeline->seeding_options)
                         : {};
+    my %output_params;
+    foreach my $param_name (@{$seeding_module->output_params}) {
+      next if ! $self->param_is_defined($param_name);
+      $output_params{$param_name} = $self->param($param_name);
+    }
 
     my $psa = $db->get_PipelineSeedAdaptor;
-    foreach my $seed_params (@{&$seeding_sub($self, $pipeline, $seeding_options)}) {
+    foreach my $seed_params (@{&$seeding_sub($pipeline, $seeding_options, \%output_params)}) {
       my ($seed, $output_hash) = @$seed_params;
       throw('seeding module has returned an object of the wrong type')
           if $seed->adaptor->table_name ne $pipeline->table_name;
@@ -73,12 +58,7 @@ sub run {
       );
       $psa->store($pipeline_seed);
       $output_hash->{'ps_id'} = $pipeline_seed->dbID;
-      my @label_values;
-      foreach my $seed_label (@$seed_labels) {
-        throw("output hash is missing label $seed_label") if ! defined $output_hash->{$seed_label};
-        push(@label_values, $output_hash->{$seed_label});
-      }
-      $self->prepare_factory_output_id(\@label_values, $output_hash);
+      $self->prepare_factory_output_id($output_hash);
     }
 
     delete_lock_string($lock_string, $meta_adaptor);

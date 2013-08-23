@@ -44,19 +44,18 @@ sub run {
     $self->run_program($run_split);
     my $output_file_hash = $run_split->output_file_hash;
 
-    my $input_label = $self->label;
     if ($mate1 && $mate2) {
       my @labels_mate1 = keys %{$output_file_hash->{$mate1}};
       foreach my $label (sort {$a <=> $b} @labels_mate1) {
         throw("no matching mate2 file with label $label") if (!$output_file_hash->{$mate2}->{$label});
         my @files = map {$output_file_hash->{$_}->{$label}} ($mate1, $mate2);
-        $self->prepare_factory_output_id("$input_label.mate_chunk$label", {'fastq' => \@files});
+        $self->prepare_factory_output_id({'fastq' => \@files, 'chunk' => "mate_chunk$label"});
       }
     }
     if ($frag) {
       foreach my $label (sort {$a <=> $b} keys %{$output_file_hash->{$frag}}) {
         my $file_path = $output_file_hash->{$frag}{$label};
-        $self->prepare_factory_output_id("$input_label.frag_chunk$label", {'fastq' => $file_path});
+        $self->prepare_factory_output_id({'fastq' => $file_path, 'chunk' => "frag_chunk$label"});
       }
     }
 

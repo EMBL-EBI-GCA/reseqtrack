@@ -8,8 +8,11 @@ use File::Find qw(find);
 use File::stat;
 use DateTime::Format::MySQL;
 
+sub output_params {
+  return [];
+
 sub create_seed_params {
-  my ($seed_factory, $pipeline, $select_options) = @_;
+  my ($pipeline, $select_options, $output_params) = @_;
 
   throw('this module will only accept pipelines that work on the file table')
       if $pipeline->table_name ne 'file';
