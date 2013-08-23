@@ -9,21 +9,6 @@ use ReseqTrack::Tools::Exception qw(throw);
 use ReseqTrack::Tools::GeneralUtils qw(delete_lock_string is_locked create_lock_string);
 use Bio::EnsEMBL::Hive::Utils qw(destringify);
 
-sub sql_existing {
-  my ($self, $pipeline) = @_;
-  my $table_name = $pipeline->table_name;
-  my $dbID_name = $table_name . '_id';
-  my $pipeline_id = $pipeline->dbID;
-  my $sql_existing =
-        "SELECT $table_name.$dbID_name FROM $table_name, pipeline_seed, hive_db"
-      . " WHERE pipeline_seed.hive_db_id = hive_db.hive_db_id"
-      . " AND hive_db.pipeline_id = $pipeline_id"
-      . " AND (pipeline_seed.is_running = 1"
-      .      " OR pipeline_seed.is_complete = 1"
-      .      " OR pipeline_seed.is_futile = 1)";
-  return $sql_existing;
-}
-
 sub run {
     my $self = shift @_;
 
@@ -54,9 +39,14 @@ sub run {
     my $seeding_options = $pipeline->seeding_options 
                         ? destringify($pipeline->seeding_options)
                         : {};
+    my %output_params;
+    foreach my $param_name (@{$seeding_module->output_params}) {
+      next if ! $self->param_is_defined($param_name);
+      $output_params{$param_name} = $self->param($param_name);
+    }
 
     my $psa = $db->get_PipelineSeedAdaptor;
-    foreach my $seed_params (@{&$seeding_sub($self, $pipeline, $seeding_options)}) {
+    foreach my $seed_params (@{&$seeding_sub($pipeline, $seeding_options, \%output_params)}) {
       my ($seed, $output_hash) = @$seed_params;
       throw('seeding module has returned an object of the wrong type')
           if $seed->adaptor->table_name ne $pipeline->table_name;

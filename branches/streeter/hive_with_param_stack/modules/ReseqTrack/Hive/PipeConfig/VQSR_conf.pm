@@ -146,6 +146,8 @@ sub pipeline_wide_parameters {
         %{$self->SUPER::pipeline_wide_parameters},          # here we inherit anything from the base class
 
         fai => $self->o('fai'),
+
+        dir_label_params => ['callgroup', 'region1', 'region2'],
     };
 }
 
@@ -171,23 +173,18 @@ sub pipeline_analyses {
             -module        => 'ReseqTrack::Hive::Process::SeedFactory',
             -meadow_type => 'LOCAL',
             -parameters    => {
-                seed_label => 'name',
                 output_columns => 'name',
-                temp_param_sub => { 2 => [['callgroup','name'], ['seed_time', 'undef']]}, # temporary hack pending updates to hive code
             },
             -flow_into => {
-                2 => [ 'block_seed_complete' ],
+                2 => { 'block_seed_complete' => {'callgroup' => '#name#', 'ps_id' => '#ps_id#'} },
             },
       });
     push(@analyses, {
           -logic_name => 'block_seed_complete',
-          -module        => 'ReseqTrack::Hive::Process::FlowDecider',
+          -module        => 'ReseqTrack::Hive::Process::BaseProcess',
           -meadow_type=> 'LOCAL',
           -parameters => {
-              require_true => {
-                  1 => 1,
-                  2 => 1,
-              },
+              flows_non_factory => [1,2],
           },
             -flow_into => {
                 '2->A' => [ 'find_source_bams' ],
@@ -202,6 +199,8 @@ sub pipeline_analyses {
                 collection_type => $self->o('type_bam'),
                 collection_name=> '#callgroup#',
                 output_param => 'bam',
+                flows_file_count_param => 'bam',
+                flows_file_count => { 1 => '1+', },
             },
             -flow_into => {
                 1 => [ 'regions_factory_1' ],
@@ -215,10 +214,11 @@ sub pipeline_analyses {
                 num_bases => $self->o('transpose_window_size'),
                 max_sequences => 2000,
                 bed => $self->o('target_bed_file'),
-                temp_param_sub => { 1 => [['bam','undef']]}, # temporary hack pending updates to hive code
             },
             -flow_into => {
-                '2->A' => [ 'transpose_bam' ],
+                '2->A' => { 'transpose_bam' => {'region1' => '#expr(join(".",$callgroup,$SQ_start,$bp_start,$SQ_end,$bp_end))expr#',
+                                                'SQ_start' => '#SQ_start#', 'bp_start' => '#bp_start#', 'SQ_end' => '#SQ_end#', 'bp_end' => '#bp_end#', 'fan_index' => '#fan_index#',
+                                                }},
                 'A->1' => [ 'decide_mergers'],
             },
       });
@@ -246,38 +246,31 @@ sub pipeline_analyses {
                 num_bases => $self->o('call_window_size'),
                 max_sequences => 1,
                 bed => $self->o('target_bed_file'),
+                flows_factory => {
+                    1 => $self->o('vqsr_snps'),
+                    2 => $self->o('vqsr_indels'),
+                    3 => 1,
+                },
             },
             -rc_name => '200Mb',
             -analysis_capacity  =>  4,
             -hive_capacity  =>  200,
             -flow_into => {
-                '2' => [ 'decide_callers',
-                          ':////accu?bp_start=[fan_index]',
-                          ':////accu?bp_end=[fan_index]',
-                          ],
-            },
-      });
-    push(@analyses, {
-          -logic_name => 'decide_callers',
-          -module        => 'ReseqTrack::Hive::Process::FlowDecider',
-          -meadow_type=> 'LOCAL',
-          -parameters => {
-              require_true => {
-                  1 => $self->o('vqsr_snps'),
-                  2 => $self->o('vqsr_indels'),
-              }
-          },
-            -flow_into => {
-                '1' => [ 'call_by_gatk_snps' ],
-                '2' => [ 'call_by_gatk_indels' ],
+                '2' => { 'call_by_gatk_snps' => {'region2' => '#expr(join(".",$callgroup,$SQ_start,$bp_start,$SQ_end,$bp_end))expr#',
+                                                'SQ_start' => '#SQ_start#', 'bp_start' => '#bp_start#', 'SQ_end' => '#SQ_end#', 'bp_end' => '#bp_end#', 'fan_index' => '#fan_index#',
+                                                }},
+                '2' => { 'call_by_gatk_indels' => {'region2' => '#expr(join(".",$callgroup,$SQ_start,$bp_start,$SQ_end,$bp_end))expr#',
+                                                'SQ_start' => '#SQ_start#', 'bp_start' => '#bp_start#', 'SQ_end' => '#SQ_end#', 'bp_end' => '#bp_end#', 'fan_index' => '#fan_index#',
+                                                }},
+                '3' => [ ':////accu?bp_start=[fan_index]', ':////accu?bp_end=[fan_index]'],
             },
       });
     push(@analyses, {
             -logic_name    => 'collect_vcf',
-            -module        => 'ReseqTrack::Hive::Process::FlowDecider',
+            -module        => 'ReseqTrack::Hive::Process::BaseProcess',
             -meadow_type => 'LOCAL',
             -parameters    => {
-                require_true => {
+                flows_non_factory => {
                   1 => $self->o('vqsr_snps'),
                   2 => $self->o('vqsr_indels'),
                   3 => 1,
@@ -287,9 +280,7 @@ sub pipeline_analyses {
             -flow_into => {
                 1 => [ ':////accu?gatk_snps_vcf=[fan_index]'],
                 2 => [ ':////accu?gatk_indels_vcf=[fan_index]'],
-                3 => [ ':////accu?bp_start=[fan_index]',
-                       ':////accu?bp_end=[fan_index]',
-                    ],
+                3 => [ ':////accu?bp_start=[fan_index]', ':////accu?bp_end=[fan_index]', ],
             },
       });
     push(@analyses, {
@@ -301,12 +292,11 @@ sub pipeline_analyses {
               gatk_dir => $self->o('gatk_dir'),
               options => $self->o('call_by_gatk_snps_options'),
               region_overlap => 100,
-              temp_param_sub => { 1 => [['gatk_snps_vcf','vcf']]}, # temporary hack pending updates to hive code
           },
           -rc_name => '2Gb',
           -hive_capacity  =>  200,
           -flow_into => {
-              1 => [ ':////accu?gatk_snps_vcf=[fan_index]' ],
+              1 => { ':////accu?gatk_snps_vcf=[fan_index]' => {'gatk_snps_vcf' => '#vcf#', 'fan_index' => '#fan_index#'}},
               -1 => [ 'call_by_gatk_snps_himem' ],
           },
       });
@@ -319,12 +309,11 @@ sub pipeline_analyses {
               gatk_dir => $self->o('gatk_dir'),
               options => $self->o('call_by_gatk_snps_options'),
               region_overlap => 100,
-              temp_param_sub => { 1 => [['gatk_snps_vcf','vcf']]}, # temporary hack pending updates to hive code
           },
           -rc_name => '4Gb',
           -hive_capacity  =>  100,
           -flow_into => {
-              1 => [ ':////accu?gatk_snps_vcf=[fan_index]' ],
+              1 => { ':////accu?gatk_snps_vcf=[fan_index]' => {'gatk_snps_vcf' => '#vcf#', 'fan_index' => '#fan_index#'}},
           },
       });
     push(@analyses, {
@@ -336,12 +325,11 @@ sub pipeline_analyses {
               gatk_dir => $self->o('gatk_dir'),
               options => $self->o('call_by_gatk_indels_options'),
               region_overlap => 100,
-              temp_param_sub => { 1 => [['gatk_indels_vcf','vcf']]}, # temporary hack pending updates to hive code
           },
           -rc_name => '2Gb',
           -hive_capacity  =>  200,
           -flow_into => {
-              1 => [ ':////accu?gatk_indels_vcf=[fan_index]' ],
+              1 => { ':////accu?gatk_indels_vcf=[fan_index]' => {'gatk_indels_vcf' => '#vcf#', 'fan_index' => '#fan_index#'}},
               -1 => [ 'call_by_gatk_indels_himem' ],
           },
       });
@@ -352,35 +340,29 @@ sub pipeline_analyses {
               module_name => 'CallByGATK',
               reference => $self->o('reference'),
               gatk_dir => $self->o('gatk_dir'),
-              extra_options => $self->o('call_by_gatk_indels_options'),
               alleles_file => $self->o('indel_alleles'),
-              options => '#expr({%$extra_options, glm => "INDEL", gt_mode => "GENOTYPE_GIVEN_ALLELES", out_mode => "EMIT_ALL_SITES", alleles => $alleles_file})expr#',
+              options => $self->o('call_by_gatk_indels_options'),
               region_overlap => 100,
-              temp_param_sub => { 1 => [['gatk_indels_vcf','vcf']]}, # temporary hack pending updates to hive code
           },
           -rc_name => '4Gb',
           -hive_capacity  =>  100,
           -flow_into => {
-              1 => [ ':////accu?gatk_indels_vcf=[fan_index]' ],
+              1 => { ':////accu?gatk_indels_vcf=[fan_index]' => {'gatk_indels_vcf' => '#vcf#', 'fan_index' => '#fan_index#'}},
           },
       });
     push(@analyses, {
           -logic_name => 'decide_mergers',
-          -module        => 'ReseqTrack::Hive::Process::FlowDecider',
+          -module        => 'ReseqTrack::Hive::Process::BaseProcess',
           -meadow_type=> 'LOCAL',
           -parameters => {
-              require_true => {
+              flows_non_factory => {
                   1 => $self->o('vqsr_snps'),
                   2 => $self->o('vqsr_indels'),
               },
-              temp_param_sub => {
-                1 => [['vcf','gatk_snps_vcf'],['gatk_indels_vcf', 'undef']],
-                2 => [['vcf','gatk_indels_vcf'],['gatk_snps_vcf', 'undef']],
-              }, # temporary hack pending updates to hive code
           },
             -flow_into => {
-                '1' => [ 'merge_vcf_snps' ],
-                '2' => [ 'merge_vcf_indels' ],
+                '1' => { 'merge_vcf_snps' => {'var_type' => 'snps'}},
+                '2' => { 'merge_vcf_indels' => {'var_type' => 'indels'}},
             },
       });
 
@@ -390,8 +372,8 @@ sub pipeline_analyses {
           -module        => 'ReseqTrack::Hive::Process::MergeVcf',
           -parameters    => {
               bgzip => $self->o('bgzip_exe'),
+              vcf => '#gatk_snps_vcf#',
               delete_param => ['vcf'],
-              temp_param_sub => { 1 => [['bp_start','undef'],['bp_end','undef']]}, # temporary hack pending updates to hive code
               run_tabix => 1,
           },
           -rc_name => '500Mb',
@@ -405,8 +387,8 @@ sub pipeline_analyses {
           -module        => 'ReseqTrack::Hive::Process::MergeVcf',
           -parameters    => {
               bgzip => $self->o('bgzip_exe'),
+              vcf => '#gatk_indels_vcf#',
               delete_param => ['vcf'],
-              temp_param_sub => { 1 => [['bp_start','undef'],['bp_end','undef']]}, # temporary hack pending updates to hive code
               run_tabix => 1,
           },
           -rc_name => '500Mb',
@@ -459,9 +441,8 @@ sub pipeline_analyses {
               reference => $self->o('reference'),
               gatk_dir => $self->o('gatk_dir'),
               options => $self->o('apply_recalibration_snps_options'),
-              temp_param_sub => { 1 => [['var_type', '"snps"']] },
           },
-          -flow_into => { '1' => [ 'rename_vcf' ], },
+          -flow_into => { '1' => [ 'rename_vcf' ] },
           -rc_name => '500Mb',
           -hive_capacity  =>  200,
       });
@@ -473,9 +454,8 @@ sub pipeline_analyses {
               reference => $self->o('reference'),
               gatk_dir => $self->o('gatk_dir'),
               options => $self->o('apply_recalibration_indels_options'),
-              temp_param_sub => { 1 => [['var_type', '"indels"']] },
           },
-          -flow_into => { '1' => [ 'rename_vcf' ], },
+          -flow_into => { '1' => [ 'rename_vcf' ] },
           -rc_name => '500Mb',
           -hive_capacity  =>  200,
       });

@@ -9,6 +9,8 @@ use ReseqTrack::Tools::Exception qw(throw);
 use ReseqTrack::Tools::HostUtils qw(get_host_object);
 use ReseqTrack::Tools::FileUtils qw(create_object_from_path assign_type assign_type_by_filename);
 use ReseqTrack::Tools::FileSystemUtils qw(check_file_exists);
+use ReseqTrack::Collection;
+use ReseqTrack::History;
 use Digest::MD5::File qw(file_md5_hex);
 
 
@@ -42,6 +44,8 @@ sub run {
     my $poa = $db->get_PipelineOutputAdaptor;
     my $host = get_host_object($host_name, $db);
 
+    my $pipeline_seed;
+
     my @files;
     my $file_type_rules = defined $type ? undef : $db->get_FileTypeRuleAdaptor->fetch_all_in_order;
     foreach my $path (@$file_paths) {
@@ -51,7 +55,22 @@ sub run {
       my $file = create_object_from_path($path, $type, $host);
       my $md5 = $md5_hash->{$file} // file_md5_hex($path);
       $file->md5($md5);
-      $fa->store($file);
+      
+      my $existing_file = $fa->fetch_by_name($path);
+      if ($existing_file) {
+        $pipeline_seed //= $db->get_PipelineSeedAdaptor->fetch_by_dbID($pipeline_seed_id);
+        $file->dbID = $existing_file->dbID;
+        my $history = ReseqTrack::History->new(
+          -other_id => $file->dbID, -table_name => 'file',
+          -comment => 'updated by pipeline '.$pipeline_seed->pipeline->name,
+        );
+        $file->history($history);
+        $fa->update($file);
+      }
+      else {
+        $fa->store($file);
+      }
+
       my $pipeline_output = ReseqTrack::PipelineOutput->new(
         -pipeline_seed_id => $pipeline_seed_id,
         -table_name => 'file', -output => $file,

@@ -103,8 +103,20 @@ sub output_dir {
   if (defined $dir) {
     $base_params->{'output_dir'} = $dir;
   }
-  if (! defined $dir && $self->param_is_defined('root_output_dir')) {
-    $base_params->{'output_dir'} = join('/', $self->param('root_output_dir'), @{$self->_labels});
+  elsif($self->param_is_defined('root_output_dir')) {
+    if ($self->param_is_defined('dir_label_params')) {
+      $base_params->{'output_dir'} = join('/', $self->param('root_output_dir'),
+              grep {length($_)}
+              map {$self->param($_)}
+              grep {$self->param_is_defined($_)}
+              grep {length($_)}
+              @{$self->param('dir_label_params')});
+    }
+    else {
+      $base_params->{'output_dir'} = $self->param('root_output_dir');
+    }
+    $base_params->{'output_dir'} =~ s/\s+//g;
+    $base_params->{'output_dir'} =~ s{//+}{/}g;
   }
   throw('cannot make a sensible output directory') if ! $base_params->{'output_dir'};
   return $base_params->{'output_dir'};
@@ -125,9 +137,24 @@ sub job_name {
   if (!$base_params->{'job_name'}) {
     my $analysis_label = $self->param_is_defined('analysis_label') ?
               $self->param('analysis_label') : $self->analysis->logic_name;
-    my $labels = $self->_labels;
-    my $primary_label = @$labels ? $labels->[-1] : $self->input_job->dbID;
-    $base_params->{'job_name'} = join('.', $primary_label, $analysis_label);
+
+    my $job_label;
+    if ($self->param_is_defined('file_label')) {
+      $job_label = $self->param('file_label');
+    }
+    if (!length($job_label) && $self->param_is_defined('dir_label_params')) {
+      $job_label = ( grep {length($_)}
+            map {$self->param($_)}
+            grep {$self->param_is_defined($_)}
+            grep {length($_)}
+            @{$self->param('dir_label_params')})[-1];
+    }
+    if (!length($job_label)) {
+      $job_label = $self->input_job->dbID;
+    }
+    $job_label =~ s/\s+//g;
+
+    $base_params->{'job_name'} = join('.', $job_label, $analysis_label);
   }
   return $base_params->{'job_name'};
 }
@@ -276,7 +303,8 @@ sub fetch_input {
   my $flows_factory = $self->param_is_defined('flows_factory') ? $self->param('flows_factory') : 2;
   $self->_flows_factory($flows_factory);
 
-  my $flows_non_factory = $self->param_is_defined('flows_non_factory') ? $self->param('flows_non_factory') : 1;
+  my $flows_non_factory = $self->param_is_defined('flows_non_factory') ? $self->param('flows_non_factory')
+                        : (grep {$_ == 1} @{$self->_flows_factory}) ? undef : 1;
   $self->_flows_non_factory($flows_non_factory);
 
   my $flows_file_count = $self->param_is_defined('flows_file_count') ? $self->param('flows_file_count') : {};
@@ -476,16 +504,6 @@ sub _flows_file_count_param {
   return $base_params->{'flows_file_count_param'};
 }
 
-
-
-sub _labels {
-  my ($self) = @_;
-  my $base_params = $self->param('_BaseProcess_params');
-  if (! defined $base_params->{'labels'} && $self->param_is_defined('labels')) {
-    $base_params->{'labels'} = [grep {length($_)} @{$self->param('labels')}];
-  }
-  return $base_params->{'labels'} // [];
-}
 
 
 sub _get_files {

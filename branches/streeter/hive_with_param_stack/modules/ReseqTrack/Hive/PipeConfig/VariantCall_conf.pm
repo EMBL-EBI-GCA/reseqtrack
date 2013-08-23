@@ -119,10 +119,7 @@ sub pipeline_wide_parameters {
 
         fai => $self->o('fai'),
 
-        labels => ['#callgroup#',
-                   '#expr($region1 ? $callgroup.\'.\'.$region1 : undef)expr',
-                   '#expr($region2 ? $callgroup.\'.\'.$region2 : undef)expr',
-                   ],
+        dir_label_params => ['callgroup', 'region1', 'region2'],
 
     };
 }
@@ -153,7 +150,7 @@ sub pipeline_analyses {
                 output_columns => 'name',
             },
             -flow_into => {
-                2 => { 'block_seed_complete' => {'callgroup' => '#name#'} },
+                2 => { 'block_seed_complete' => {'callgroup' => '#name#', 'ps_id' => '#ps_id#'} },
             },
       });
     push(@analyses, {
@@ -193,7 +190,9 @@ sub pipeline_analyses {
                 bed => $self->o('target_bed_file'),
             },
             -flow_into => {
-                '2->A' => [ 'transpose_bam' ],
+                '2->A' => { 'transpose_bam' => {'region1' => '#expr(join(".",$callgroup,$SQ_start,$bp_start,$SQ_end,$bp_end))expr#',
+                                                'SQ_start' => '#SQ_start#', 'bp_start' => '#bp_start#', 'SQ_end' => '#SQ_end#', 'bp_end' => '#bp_end#', 'fan_index' => '#fan_index#',
+                                                }},
                 'A->1' => [ 'decide_mergers'],
             },
       });
@@ -205,13 +204,12 @@ sub pipeline_analyses {
                 create_index => 1,
                 bed => $self->o('target_bed_file'),
                 region_overlap => 100,
-                region1 => '#expr(join(".",$callgroup,$SQ_start.$bp_start,$SQ_end,$bp_end))expr#)'
             },
             -rc_name => '2Gb',
             -analysis_capacity  =>  4,
             -hive_capacity  =>  200,
             -flow_into => {
-                '1->A' => { 'regions_factory_2' => {'region1' => '#region1#'}},
+                '1->A' => [ 'regions_factory_2' ],
                 'A->1' => [ 'collect_vcf' ],
             },
       });
@@ -233,10 +231,16 @@ sub pipeline_analyses {
             -analysis_capacity  =>  4,
             -hive_capacity  =>  200,
             -flow_into => {
-                '1' => [ 'call_by_samtools' ],
-                '2' => [ 'call_by_gatk' ],
-                '3' => [ 'call_by_freebayes' ],
-                '4' => [ ':////accu?bp_start=[fan_index]', ':////accu?bp_end=[fan_index]', ],
+                '1' => { 'call_by_samtools' => {'region2' => '#expr(join(".",$callgroup,$SQ_start,$bp_start,$SQ_end,$bp_end))expr#',
+                                                'SQ_start' => '#SQ_start#', 'bp_start' => '#bp_start#', 'SQ_end' => '#SQ_end#', 'bp_end' => '#bp_end#', 'fan_index' => '#fan_index#',
+                                                }},
+                '2' => { 'call_by_gatk' => {'region2' => '#expr(join(".",$callgroup,$SQ_start,$bp_start,$SQ_end,$bp_end))expr#',
+                                                'SQ_start' => '#SQ_start#', 'bp_start' => '#bp_start#', 'SQ_end' => '#SQ_end#', 'bp_end' => '#bp_end#', 'fan_index' => '#fan_index#',
+                                                }},
+                '3' => { 'call_by_freebayes' => {'region2' => '#expr(join(".",$callgroup,$SQ_start,$bp_start,$SQ_end,$bp_end))expr#',
+                                                'SQ_start' => '#SQ_start#', 'bp_start' => '#bp_start#', 'SQ_end' => '#SQ_end#', 'bp_end' => '#bp_end#', 'fan_index' => '#fan_index#',
+                                                }},
+                '4' => [ ':////accu?bp_start=[fan_index]', ':////accu?bp_end=[fan_index]'],
             },
       });
     push(@analyses, {
@@ -253,19 +257,16 @@ sub pipeline_analyses {
               delete_param => ['bam','bai'],
             },
             -flow_into => {
-                1 => [ ':////accu?samtools_vcf=[fan_index]'],
-                2 => [ ':////accu?gatk_vcf=[fan_index]'],
-                3 => [ ':////accu?freebayes_vcf=[fan_index]'],
-                4 => [ ':////accu?bp_start=[fan_index]',
-                       ':////accu?bp_end=[fan_index]',
-                    ],
+                1 => [ ':////accu?samtools_vcf=[fan_index]' ],
+                2 => [ ':////accu?gatk_vcf=[fan_index]' ],
+                3 => [ ':////accu?freebayes_vcf=[fan_index]' ],
+                4 => [ ':////accu?bp_start=[fan_index]', ':////accu?bp_end=[fan_index]' ],
             },
       });
     push(@analyses, {
           -logic_name    => 'call_by_samtools',
           -module        => 'ReseqTrack::Hive::Process::RunVariantCall',
           -parameters    => {
-              region2 => '#expr(join(".",$callgroup,$SQ_start.$bp_start,$SQ_end,$bp_end))expr#)',
               module_name => 'CallBySamtools',
               reference => $self->o('reference'),
               samtools => $self->o('samtools_exe'),
@@ -278,7 +279,7 @@ sub pipeline_analyses {
           -rc_name => '500Mb',
           -hive_capacity  =>  200,
           -flow_into => {
-              1 => { ':////accu?samtools_vcf=[fan_index]' => {'samtools_vcf' => '#vcf#'}},
+              1 => { ':////accu?samtools_vcf=[fan_index]' => {'samtools_vcf' => '#vcf#', 'fan_index' => '#fan_index#'}},
               -1 => [ 'call_by_samtools_himem' ],
           },
       });
@@ -286,7 +287,6 @@ sub pipeline_analyses {
           -logic_name    => 'call_by_samtools_himem',
           -module        => 'ReseqTrack::Hive::Process::RunVariantCall',
           -parameters    => {
-              region2 => '#expr(join(".",$callgroup,$SQ_start.$bp_start,$SQ_end,$bp_end))expr#)',
               module_name => 'CallBySamtools',
               reference => $self->o('reference'),
               samtools => $self->o('samtools_exe'),
@@ -299,14 +299,13 @@ sub pipeline_analyses {
           -rc_name => '1Gb',
           -hive_capacity  =>  200,
           -flow_into => {
-              1 => { ':////accu?samtools_vcf=[fan_index]' => {'samtools_vcf' => '#vcf#'}},
+              1 => { ':////accu?samtools_vcf=[fan_index]' => {'samtools_vcf' => '#vcf#', 'fan_index' => '#fan_index#'}},
           },
       });
     push(@analyses, {
           -logic_name    => 'call_by_gatk',
           -module        => 'ReseqTrack::Hive::Process::RunVariantCall',
           -parameters    => {
-              region2 => '#expr(join(".",$callgroup,$SQ_start.$bp_start,$SQ_end,$bp_end))expr#)',
               module_name => 'CallByGATK',
               reference => $self->o('reference'),
               gatk_dir => $self->o('gatk_dir'),
@@ -316,7 +315,7 @@ sub pipeline_analyses {
           -rc_name => '2Gb',
           -hive_capacity  =>  200,
           -flow_into => {
-              1 => { ':////accu?gatk_vcf=[fan_index]' => {'gatk_vcf' => '#vcf#'}},
+              1 => { ':////accu?gatk_vcf=[fan_index]' => {'gatk_vcf' => '#vcf#', 'fan_index' => '#fan_index#'}},
               -1 => [ 'call_by_gatk_himem' ],
           },
       });
@@ -324,7 +323,6 @@ sub pipeline_analyses {
           -logic_name    => 'call_by_gatk_himem',
           -module        => 'ReseqTrack::Hive::Process::RunVariantCall',
           -parameters    => {
-              region2 => '#expr(join(".",$callgroup,$SQ_start.$bp_start,$SQ_end,$bp_end))expr#)',
               module_name => 'CallByGATK',
               reference => $self->o('reference'),
               gatk_dir => $self->o('gatk_dir'),
@@ -334,14 +332,13 @@ sub pipeline_analyses {
           -rc_name => '4Gb',
           -hive_capacity  =>  100,
           -flow_into => {
-              1 => { ':////accu?gatk_vcf=[fan_index]' => {'gatk_vcf' => '#vcf#'}},
+              1 => { ':////accu?gatk_vcf=[fan_index]' => {'gatk_vcf' => '#vcf#', 'fan_index' => '#fan_index#'}},
           },
       });
     push(@analyses, {
           -logic_name    => 'call_by_freebayes',
           -module        => 'ReseqTrack::Hive::Process::RunVariantCall',
           -parameters    => {
-              region2 => '#expr(join(".",$callgroup,$SQ_start.$bp_start,$SQ_end,$bp_end))expr#)',
               module_name => 'CallByFreebayes',
               reference => $self->o('reference'),
               freebayes => $self->o('freebayes_exe'),
@@ -352,7 +349,7 @@ sub pipeline_analyses {
           -rc_name => '2Gb',
           -hive_capacity  =>  200,
           -flow_into => {
-              1 => { ':////accu?freebayes_vcf=[fan_index]' => {'freebayes_vcf' => '#vcf#'}},
+              1 => { ':////accu?freebayes_vcf=[fan_index]' => {'freebayes_vcf' => '#vcf#', 'fan_index' => '#fan_index#'}},
               -1 => [ 'call_by_freebayes_himem' ],
           },
       });
@@ -360,19 +357,17 @@ sub pipeline_analyses {
           -logic_name    => 'call_by_freebayes_himem',
           -module        => 'ReseqTrack::Hive::Process::RunVariantCall',
           -parameters    => {
-              region2 => '#expr(join(".",$callgroup,$SQ_start.$bp_start,$SQ_end,$bp_end))expr#)',
               module_name => 'CallByFreebayes',
               reference => $self->o('reference'),
               freebayes => $self->o('freebayes_exe'),
               bgzip => $self->o('bgzip_exe'),
               options => $self->o('call_by_freebayes_options'),
               region_overlap => 100,
-              temp_param_sub => { 1 => [['freebayes_vcf','vcf']]}, # temporary hack pending updates to hive code
           },
           -rc_name => '4Gb',
           -hive_capacity  =>  100,
           -flow_into => {
-              1 => { ':////accu?freebayes_vcf=[fan_index]' => {'freebayes_vcf' => '#vcf#'}},
+              1 => { ':////accu?freebayes_vcf=[fan_index]' => {'freebayes_vcf' => '#vcf#', 'fan_index' => '#fan_index#'}},
           },
       });
     push(@analyses, {

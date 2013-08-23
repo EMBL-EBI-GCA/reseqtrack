@@ -84,6 +84,9 @@ sub pipeline_wide_parameters {
         'root_output_dir' => $self->o('root_output_dir'),
         'use_reseqtrack_file_table' => $self->o('use_reseqtrack_file_table'),
 
+        'dir_label_params' => [],
+        'file_label' => undef,
+
     };
 }
 

@@ -118,7 +118,7 @@ sub default_options {
         'final_label' => $self->o('pipeline_name'),
 
         'sample_label' => 'source_id',
-        'sample_group_attribute' => 'POPULATION',
+        'sample_group_attribute' => [],
 
         'realign_knowns_only' => 0,
         'recalibrate_level' => 2,
@@ -144,15 +144,10 @@ sub pipeline_wide_parameters {
     return {
         %{$self->SUPER::pipeline_wide_parameters},
 
-        labels => [
-              '#'.$self->o('sample_group_attribute').'#',
-              '#'.$self->o('sample_label').'#',
-              '#library_name#',
-              '#run_source_id#',
-              '#expr($chunk ? $run_source_id.\'.\'.$chunk : undef)expr#'],
-        library_name => undef,
-        run_source_id => undef,
-        chunk => undef,
+        sample_group_attributes => $self->o('sample_group_attribute'),
+        sample_label => $self->o('sample_label'),
+
+        dir_label_params => '#expr([@{$sample_group_attributes}, $sample_label, "library_name", "run_source_id", "chunk_label"])expr#',
     };
 }
 
@@ -181,10 +176,8 @@ sub pipeline_analyses {
             -module        => 'ReseqTrack::Hive::Process::SeedFactory',
             -meadow_type => 'LOCAL',
             -parameters    => {
-                sample_label => $self->o('sample_label'),
-                sample_group_attribute => $self->o('sample_group_attribute'),
                 output_columns => ['sample_id', '#sample_label#'],
-                output_attributes => '#sample_group_attribute#',
+                output_attributes => '#sample_group_attributes#',
             },
             -flow_into => {
                 2 => [ 'libraries_factory' ],
@@ -241,7 +234,7 @@ sub pipeline_analyses {
             -analysis_capacity  =>  4,
             -hive_capacity  =>  200,
             -flow_into => {
-              '2->A' => ['bwa'],
+              '2->A' => {'bwa' => {'chunk_label' => '#expr($run_source_id.".".$chunk)expr#'}},
               'A->1' => ['decide_merge_chunks'],
             }
       });
@@ -304,7 +297,7 @@ sub pipeline_analyses {
                 'A->1' => [ 'realign_knowns_only' ],
                 '4->B' => [ 'merge_chunks' ],
                 'B->3' => [ 'recalibrate_run_level' ],
-                5 => { ':////accu?bam=[]' => {'bam' => '#bam#'}, ':////accu?bai=[]' => {'bai' => '#bai#'}},
+                5 => [ ':////accu?bam=[]', ':////accu?bai=[]'],
           },
       });
     push(@analyses, {
@@ -425,7 +418,7 @@ sub pipeline_analyses {
               flows_file_count => { 1 => '1+', },
           },
           -flow_into => {
-              1 => { 'mark_duplicates' => undef, ':////accu?fastq=[]' => {'fastq' => '#fastq#'}},
+              1 => [ 'mark_duplicates', ':////accu?fastq=[]'],
           },
       });
     push(@analyses, {
