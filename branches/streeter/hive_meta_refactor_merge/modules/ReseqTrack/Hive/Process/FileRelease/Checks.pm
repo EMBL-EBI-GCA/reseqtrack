@@ -26,9 +26,14 @@ sub check_size {
   my ($self, $dropbox_path, $file_object) = @_;
   my $db_size = $file_object->size;
   my $file_size = -s $dropbox_path;
-  if ($db_size != $file_size) {
+  if ($db_size < $file_size) {
     $self->is_reject(0);
     $self->reject_message("sizes do not match: $db_size $file_size");
+    return 0;
+  }
+  if ($db_size > $file_size) {
+    $self->is_reject(1);
+    $self->reject_message("file size is greater than expected: $db_size $file_size");
     return 0;
   }
   return 1;
