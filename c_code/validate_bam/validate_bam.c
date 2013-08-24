@@ -423,7 +423,7 @@ void calc_md5(char* filename, char* md5_string) {
   }
 
   MD5_Init(&md_context);
-  while (bytes = fread (file_buffer, 1, 1024, inFile) != 0)
+  while ((bytes = fread (file_buffer, 1, 1024, inFile)) != 0)
     MD5_Update (&md_context, file_buffer, bytes);
   MD5_Final (md5, &md_context);
   if (fclose(inFile) != 0) {
