@@ -22,6 +22,7 @@ use ReseqTrack::Tools::FileSystemUtils
     delete_file check_file_does_not_exist check_executable create_tmp_process_dir);
 use ReseqTrack::Tools::Exception qw(throw warning stack_trace_dump);
 use ReseqTrack::Tools::Argument qw(rearrange);
+use File::Basename qw(fileparse);
 use Env qw( @PATH );
 use POSIX;
 
@@ -461,7 +462,6 @@ sub input_files {
   return \@files;
 }
 
-
 =head2 created_files
 
   Arg [1]   : ReseqTrack::Tools::RunProgram
@@ -567,7 +567,6 @@ sub _running {
   Arg [1]   : ReseqTrack::Tools::RunProgram
   Function  : Gets a temp directory for use by the child class.
               Adds the temp directory to list of created files.
-              (in test mode, the temp directory is allowed to be an existing directory)
   Returntype: String, path of temp directory
   Exceptions: Throws if there is an error making the temp directory.
   Example   : my $dir = $self->get_temp_dir;
@@ -575,7 +574,7 @@ sub _running {
 =cut
 
 sub get_temp_dir {
-    my ($self, $allow_test_mode) = @_;
+    my ($self) = @_;
     my $temp_dir = $self->{'_temp_dir'};
     if (! $temp_dir) {
       $temp_dir = create_tmp_process_dir($self->working_dir, $self->job_name, 0);
@@ -584,6 +583,32 @@ sub get_temp_dir {
     }
     return $temp_dir;
 }
+
+=head2 get_short_input_names
+
+  Arg [1]   : ReseqTrack::Tools::RunProgram
+  Function  : Uses symbolic links to allow the conversion of long file names into something shorter
+              Symbolic links are created within a temporary directory
+  Returntype: hash, key is the long file name, value is the short file name
+  Exceptions: Throws if there is an error linking the files
+  Example   : my $short_name = $self->get_short_input_names->{'/long/file/name'};
+
+=cut
+
+
+sub get_short_input_names {
+    my ($self) = @_;
+    my $temp_dir = $self->get_temp_dir;
+    my $temp_dir_basename = fileparse($temp_dir);
+    $self->{'_short_inputs'} ||= {};
+    foreach my $long_name (grep {!$self->{'_short_inputs'}->{$_}} @{$self->input_files}) {
+      my $short_name = $temp_dir_basename . '/' . fileparse($long_name);
+      $self->{'_short_inputs'}->{$long_name} = $short_name;
+      symlink($long_name, $short_name) or throw("could not symlink $long_name to $short_name");
+    }
+    return $self->{'_short_inputs'};
+}
+
 
 =head2 options
 
