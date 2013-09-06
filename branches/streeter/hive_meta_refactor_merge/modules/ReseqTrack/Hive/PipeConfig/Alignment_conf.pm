@@ -119,6 +119,7 @@ sub default_options {
 
         'sample_label' => 'source_id',
         'sample_group_attribute' => [],
+        'sample_group_column' => [],
 
         'realign_knowns_only' => 0,
         'recalibrate_level' => 2,
@@ -126,6 +127,8 @@ sub default_options {
         'bam_type' => undef,
         'bai_type' => undef,
         'bas_type' => undef,
+
+        'bwa_options' => {},
 
     };
 }
@@ -145,9 +148,10 @@ sub pipeline_wide_parameters {
         %{$self->SUPER::pipeline_wide_parameters},
 
         sample_group_attributes => $self->o('sample_group_attribute'),
+        sample_group_columns => $self->o('sample_group_column'),
         sample_label => $self->o('sample_label'),
 
-        dir_label_params => '#expr([@{$sample_group_attributes}, $sample_label, "library_name", "run_source_id", "chunk_label"])expr#',
+        dir_label_params => '#expr([@{$sample_group_columns},@{$sample_group_attributes}, $sample_label, "library_name", "run_source_id", "chunk_label"])expr#',
     };
 }
 
@@ -176,7 +180,8 @@ sub pipeline_analyses {
             -module        => 'ReseqTrack::Hive::Process::SeedFactory',
             -meadow_type => 'LOCAL',
             -parameters    => {
-                output_columns => ['sample_id', '#sample_label#'],
+                #output_columns => ['sample_id', '#sample_label#'],
+                output_columns => '#expr(["sample_id", $sample_label, @{$sample_group_columns}])expr#',
                 output_attributes => '#sample_group_attributes#',
             },
             -flow_into => {
@@ -234,7 +239,7 @@ sub pipeline_analyses {
             -analysis_capacity  =>  4,
             -hive_capacity  =>  200,
             -flow_into => {
-              '2->A' => {'bwa' => {'chunk_label' => '#expr($run_source_id.".".$chunk)expr#'}},
+              '2->A' => {'bwa' => {'chunk_label' => '#expr($run_source_id.".".$chunk)expr#', 'fastq' => '#fastq#'}},
               'A->1' => ['decide_merge_chunks'],
             }
       });
@@ -245,6 +250,7 @@ sub pipeline_analyses {
                 program_file => $self->o('bwa_exe'),
                 samtools => $self->o('samtools_exe'),
                 reference => $self->o('reference'),
+                options => $self->o('bwa_options'),
                 delete_param => 'fastq',
             },
             -rc_name => '8Gb', # Note the 'hardened' version of BWA may need 8Gb RAM or more
@@ -258,7 +264,7 @@ sub pipeline_analyses {
             -module        => 'ReseqTrack::Hive::Process::RunPicard',
             -parameters => {
                 picard_dir => $self->o('picard_dir'),
-                command => 'sort',
+                command => 'fix_mate',
                 create_index => 1,
                 jvm_args => '-Xmx2g',
                 delete_param => 'bam',
@@ -428,6 +434,7 @@ sub pipeline_analyses {
                 picard_dir => $self->o('picard_dir'),
                 jvm_args => '-Xmx4g',
                 command => 'mark_duplicates',
+                options => {'shorten_input_names' => 1},
                 create_index => 1,
                 delete_param => ['bam', 'bai'],
             },
@@ -445,8 +452,8 @@ sub pipeline_analyses {
               realign_knowns_only => $self->o('realign_knowns_only'),
               recalibrate_level => $self->o('recalibrate_level'),
               flows_non_factory => {
-                  1 => '#expr(!realign_knowns_only)expr#',
-                  2 => '#expr(!realign_knowns_only)expr#',
+                  1 => '#expr(!$realign_knowns_only)expr#',
+                  2 => '#expr(!$realign_knowns_only)expr#',
                   3 => '#expr($recalibrate_level==2 && $realign_knowns_only)expr#',
                   4 => '#expr($recalibrate_level==2 && $realign_knowns_only)expr#',
                   5 => '#expr($recalibrate_level!=2 && $realign_knowns_only)expr#',
@@ -629,11 +636,12 @@ sub pipeline_analyses {
     push(@analyses, {
             -logic_name    => 'store_bam',
             -module        => 'ReseqTrack::Hive::Process::LoadFile',
-            -meadow_type => 'LOCAL',
             -parameters    => {
               type => $self->o('bam_type'),
               file => '#bam#',
             },
+            -rc_name => '200Mb',
+            -hive_capacity  =>  200,
             -flow_into => {1 => ['store_bas']},
       });
     push(@analyses, {
@@ -649,11 +657,12 @@ sub pipeline_analyses {
     push(@analyses, {
             -logic_name    => 'store_bai',
             -module        => 'ReseqTrack::Hive::Process::LoadFile',
-            -meadow_type => 'LOCAL',
             -parameters    => {
               type => $self->o('bai_type'),
               file => '#bai#',
             },
+            -rc_name => '200Mb',
+            -hive_capacity  =>  200,
             -flow_into => {1 => ['mark_seed_complete']},
       });
     push(@analyses, {

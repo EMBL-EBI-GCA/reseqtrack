@@ -13,6 +13,7 @@ sub param_defaults {
   return {
     program_file => undef,
     samtools => undef,
+    options => {},
   };
 }
 
@@ -65,6 +66,7 @@ sub run {
           -job_name => $self->job_name,
           -paired_length => $experiment->paired_nominal_length,
           -read_group_fields => \%read_group_fields,
+          -options => $self->param('options'),
           );
 
     $self->run_program($run_alignment);

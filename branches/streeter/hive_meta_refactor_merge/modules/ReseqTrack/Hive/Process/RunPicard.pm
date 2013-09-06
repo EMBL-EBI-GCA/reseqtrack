@@ -14,6 +14,7 @@ sub param_defaults {
     jvm_args => undef,
     picard_dir => undef,
     create_index => undef,
+    options => {},
   };
 }
 
@@ -28,7 +29,6 @@ sub run {
     throw( "Don't recognise command $command. Acceptable commands are: @allowed_cmds")
       if ( !grep { $command eq $_ } @allowed_cmds );
 
-
     my $picard_object = ReseqTrack::Tools::RunPicard->new(
       -input_files  => $bams,
       -working_dir  => $self->output_dir,
@@ -36,7 +36,7 @@ sub run {
       -java_exe     => $self->param('java_exe'),
       -jvm_options  => $self->param('jvm_args'),
       -picard_dir     => $self->param('picard_dir'),
-      -options      => {validation_stringency => 'SILENT'},
+      -options      => {validation_stringency => 'SILENT', %{$self->param('options')}},
       -create_index => $self->param('create_index'),
       -keep_metrics => 0,
     );

@@ -163,7 +163,8 @@ void update_stats(rg_stats_t *rg_stats, bam1_t *bam_line) {
     if (bam_line->core.flag & BAM_FPAIRED)
       rg_stats->num_mapped_reads_paired_in_sequencing ++;
 
-    if (bam_line->core.flag & BAM_FPROPER_PAIR) {
+    //if (bam_line->core.flag & BAM_FPROPER_PAIR) {
+    if ((bam_line->core.flag & BAM_FPROPER_PAIR) && ! (bam_line->core.flag & 2048)) {
       rg_stats->num_mapped_reads_properly_paired ++;
       if (bam_line->core.qual > 0 && bam_line->core.isize > 0) {
         int ret;
@@ -348,7 +349,8 @@ void output_rg_stats(void *_rg_stats_hash, char* out_fname, char* bam_basename, 
       fprintf(fp, "\t%s", (rg_stats->sample ? rg_stats->sample : "-"));
       fprintf(fp, "\t%s", (rg_stats->platform ? rg_stats->platform : "-"));
       fprintf(fp, "\t%s", (rg_stats->library ? rg_stats->library : "-"));
-      fprintf(fp, "\t%s", (rg_stats->platform_unit ? rg_stats->platform_unit : kh_key(rg_stats_hash, k)));
+      fprintf(fp, "\t%s", kh_key(rg_stats_hash, k));
+      //fprintf(fp, "\t%s", (rg_stats->platform_unit ? rg_stats->platform_unit : kh_key(rg_stats_hash, k)));
       fprintf(fp, "\t%llu", rg_stats->num_total_bases);
       fprintf(fp, "\t%llu", rg_stats->num_mapped_bases);
       fprintf(fp, "\t%llu", rg_stats->num_total_reads);
@@ -412,7 +414,7 @@ void md5_to_str(unsigned char* md5, char* md5_string) {
 /* Reads a file and creates md5
 Writes md5 as a string to md5_string */
 void calc_md5(char* filename, char* md5_string) {
-  unsigned char md5[MD5_DIGEST_LENGTH], file_buffer[1024];
+  unsigned char md5[MD5_DIGEST_LENGTH], file_buffer[8192];
   MD5_CTX md_context;
   int bytes;
 
@@ -423,7 +425,7 @@ void calc_md5(char* filename, char* md5_string) {
   }
 
   MD5_Init(&md_context);
-  while (bytes = fread (file_buffer, 1, 1024, inFile) != 0)
+  while ((bytes = fread (file_buffer, 1, 8192, inFile)) != 0)
     MD5_Update (&md_context, file_buffer, bytes);
   MD5_Final (md5, &md_context);
   if (fclose(inFile) != 0) {

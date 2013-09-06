@@ -17,9 +17,10 @@ sub sql_existing {
   my $dbID_name = $table_name . '_id';
   my $pipeline_id = $pipeline->dbID;
   my $sql_existing =
-        "SELECT $table_name.$dbID_name FROM $table_name, pipeline_seed, hive_db"
+        "SELECT pipeline_seed.seed_id FROM $table_name, pipeline_seed, hive_db"
       . " WHERE pipeline_seed.hive_db_id = hive_db.hive_db_id"
       . " AND hive_db.pipeline_id = $pipeline_id"
+      . " AND $table_name.$dbID_name = pipeline_seed.seed_id"
       . " AND (pipeline_seed.is_running = 1"
       .      " OR pipeline_seed.is_complete = 1"
       .      " OR pipeline_seed.is_futile = 1)";

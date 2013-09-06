@@ -48,8 +48,7 @@ sub DEFAULT_OPTIONS { return {
         'disable_smith_waterman' => 0,
         'algorithm' => 'mem', # to run bwa-mem or bwa-backtrack
 
-        # old line needed when picard didn't support the 0x800 flag:
-        #'mark_secondary_hits' => 1, # for picard compatibility (temporary until picard update)
+        'mark_secondary_hits' => 1, # for compatibility with gatk indel realigner
 
         };
 }
@@ -243,8 +242,7 @@ sub run_bwa_mem {
       push(@cmd_words, '-E', $self->options('gap_extension_penalty'))
               if ($self->options('gap_extension_penalty'));
 
-      # old line needed when picard didn't support the 0x800 flag
-      #push(@cmd_words, '-M') if $self->options('mark_secondary_hits');
+      push(@cmd_words, '-M') if $self->options('mark_secondary_hits');
 
       if ($self->read_group_fields->{'ID'}) {
         my $rg_string = q("@RG\tID:) . $self->read_group_fields->{'ID'};

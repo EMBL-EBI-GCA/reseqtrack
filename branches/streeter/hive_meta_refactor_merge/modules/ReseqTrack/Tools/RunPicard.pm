@@ -48,6 +48,7 @@ sub DEFAULT_OPTIONS {
         'use_threading'         => 0,        # used by merge
         'validation_stringency' => undef,
         'max_file_handles' => 1000, # should be slightly less than 'ulimit -n'
+        'shorten_input_names' => 0, # should be used by merge and mark_duplicates when the number of input files is very large
         'ref_flat' =>
           undef
         , # gene annotations file in ref flat format, used by CollectRnaSeqMetrics
@@ -171,7 +172,7 @@ sub run_mark_duplicates {
 
     my $jar = $self->_jar_path('MarkDuplicates.jar');
     my @metrics_data;
-    my $suffix = $self->options('remove_duplicates') ? '.rmdup' : '.mrkdup';
+    my $suffix = $self->options('remove_duplicates') ? 'rmdup' : 'mrkdup';
     my $prefix = $self->working_dir . '/' . $self->job_name . ".$suffix";
     $prefix =~ s{//}{/}g;
     my $bam     = $prefix . '.bam';
@@ -181,9 +182,10 @@ sub run_mark_duplicates {
     push( @cmd_words, $self->jvm_options ) if ( $self->jvm_options );
     push( @cmd_words, '-jar', $jar );
     push( @cmd_words, $self->_get_standard_options );
-    foreach my $input ( @{ $self->input_files } ) {
-      push( @cmd_words, 'INPUT=' . $input );
-    }
+
+    my $input_files = $self->options('shorten_input_names') ? [values %{$self->get_short_input_names}]
+                    : $self->input_files;
+    push( @cmd_words, map { "INPUT=$_" } @$input_files );
     push( @cmd_words, 'OUTPUT=' . $bam );
     push( @cmd_words, 'METRICS_FILE=' . $metrics );
     push( @cmd_words,
@@ -346,7 +348,8 @@ sub run_rna_alignment_metrics {
 sub run_merge {
     my ($self) = @_;
 
-    my $input_bam_list = $self->input_files;
+    my $input_bam_list = $self->options('shorten_input_names') ? [values %{$self->get_short_input_names}]
+                    : $self->input_files;
     throw("need more than two or more files to merge")
       if ( @$input_bam_list < 2 );
 
