@@ -44,6 +44,8 @@ sub DEFAULT_OPTIONS { return {
 sub CMD_MAPPINGS { return {
     'merge'    => \&run_merge,
     'concat'   => \&run_concat,
+    'sort'     => \&run_sort,
+    'vcftools' => \&run_vcftools,
     };    
 }
 
@@ -75,10 +77,10 @@ sub new {
   my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
 
-  my ( $vcftools_dir, $create_index, $reference_index, $bgzip, $tabix,
+  my ( $vcftools_dir, $create_index, $reference_index, $bgzip, $tabix, $get_snps, $get_indels
         )
     = rearrange( [
-         qw( VCFTOOLS_DIR CREATE_INDEX REFERENCE_INDEX BGZIP TABIX
+         qw( VCFTOOLS_DIR CREATE_INDEX REFERENCE_INDEX BGZIP TABIX GET_SNPS GET_INDELS
                 ) ], @args);
 
   #setting defaults
@@ -91,6 +93,8 @@ sub new {
   $self->reference_index( $reference_index );
   $self->bgzip($bgzip || 'bgzip');
   $self->tabix($tabix || 'tabix');
+  $self->get_snps( $get_snps );
+  $self->get_indels( $get_indels );
 
   return $self;
 }
@@ -148,13 +152,107 @@ sub run_concat {
 
 }
 
+sub run_sort {
+    my $self = shift;
+    
+    my $executable = $self->vcftools_dir . '/vcf-sort';
+    check_executable($executable);
+    
+    foreach my $input_vcf(@{$self->input_files})
+    {   
+        if($input_vcf=~ /(\S+)\.vcf/)
+        {
+            my $vcf_name=$1;
+            $vcf_name= $' if($vcf_name=~ /\S+\//);
+            $vcf_name.=".sorted.vcf.gz";
+            
+            my $output_vcf = $self->working_dir . '/' .$vcf_name ;
+            $output_vcf =~ s{//}{/}g;
+           
+	my @cmd_words;
+ 
+            if($input_vcf=~ /\.gz$/)
+            {   
+                push(@cmd_words,'zcat',$input_vcf);
+            }
+            else
+            {
+                push(@cmd_words,'cat',$input_vcf);
+            }
+           	     
+        push(@cmd_words,'|',$executable);
+        push(@cmd_words, '|', $self->bgzip, '-c');
+        push(@cmd_words, '>', $output_vcf);
+        
+        my $cmd = join(' ', @cmd_words);
+
+        $self->output_files($output_vcf);
+        $self->execute_command_line($cmd);
+       
+	}
+    }
+}
+
+sub run_vcftools {
+	my $self = shift;
+	
+	throw("expecting single vcf") if (@{$self->input_files} >1);
+
+	my $output_vcf = $self->working_dir . '/' . $self->job_name . '.vcf.gz';
+    	$output_vcf =~ s{//}{/}g;
+    
+	my $executable = $self->vcftools_dir . '/vcftools';
+    	check_executable($executable);
+   
+     	my @cmd_words = ($executable); 
+    	foreach my $input_vcf(@{$self->input_files})
+    	{
+        	if($input_vcf=~ /\.gz$/)
+        	{   
+            		push(@cmd_words,'--gzvcf',$input_vcf);
+        	}
+        	else
+        	{
+            		push(@cmd_words,'--vcf',$input_vcf);
+        	}
+    	}
+	
+	
+    	push(@cmd_words,'--minQ 0'); ## to filter negative qualities in freebayes vcf
+	
+
+	throw "can't get SNPs and INDELs sametime" if(($self->get_snps) && ($self->get_indels));
+	
+	if($self->get_snps)
+	{
+		push(@cmd_words,'--remove-indels');
+	}
+	
+	if($self->get_indels)
+	{	
+		push(@cmd_words,'--keep-only-indels');		
+	}
+	
+	push(@cmd_words,'--recode-INFO-all');
+	push(@cmd_words,'--recode-to-stream');
+
+	push(@cmd_words, '|', $self->bgzip, '-c');
+    	push(@cmd_words, '>', $output_vcf);
+
+    	my $cmd = join(' ', @cmd_words);
+
+    	$self->output_files($output_vcf);
+    	$self->execute_command_line($cmd);
+		
+}
+
 sub run_tabix {
   my $self = shift;
   foreach my $vcf (@{$self->output_files}) {
     my $tbi_file = $vcf . '.tbi';
-    my @cmd_words = ($self->tabix, '-p vcf', $vcf);
+    my @cmd_words = ($self->tabix, '-p vcf', $vcf) unless(-e $tbi_file);
     my $cmd = join(' ', @cmd_words);
-    $self->output_files($tbi_file);
+  # $self->output_files($tbi_file);
     $self->execute_command_line($cmd);
   }
 }
@@ -183,10 +281,13 @@ sub run_program {
 
     throw("Did not recognise command $command") if (!defined $subs->{$command});
 
-    print("Checking that tabix and bgzip are in your PATH (requirement of vcftools)\n");
-    if (check_executable('tabix') && check_executable('bgzip')) {
-      print "PATH verified\n";
-    }
+    #print("Checking that tabix and bgzip are in your PATH (requirement of vcftools)\n");
+    #if (check_executable('tabix') && check_executable('bgzip')) {
+    #  print "PATH verified\n";
+    #}
+
+    check_executable($self->bgzip);
+    check_executable($self->tabix);
 
     &{$subs->{$command}}($self);
 
@@ -269,6 +370,23 @@ sub bgzip {
     }
     return $self->{'bgzip'};
 }
+
+sub get_snps {
+  my $self = shift;
+  if (@_) {
+    $self->{'get_snps'} = (shift) ? 1 : 0;
+  }
+  return $self->{'get_snps'};
+}
+
+sub get_indels {
+  my $self = shift;
+  if (@_) {
+    $self->{'get_indels'} = (shift) ? 1 : 0;
+  }
+  return $self->{'get_indels'};
+}
+
 
 sub tabix {
     my ($self, $arg) = @_;
