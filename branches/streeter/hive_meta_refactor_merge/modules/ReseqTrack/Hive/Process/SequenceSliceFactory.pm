@@ -68,9 +68,9 @@ sub run {
   }
 
   #TEMPORARY LINE FOR TESTING
-  if (@child_slices > 10) {
-    @child_slices = @child_slices[0..10];
-  }
+#  if (@child_slices > 10) {
+#    @child_slices = @child_slices[0..10];
+#  }
 
   foreach my $i (0..$#child_slices) {
     my $child = $child_slices[$i];

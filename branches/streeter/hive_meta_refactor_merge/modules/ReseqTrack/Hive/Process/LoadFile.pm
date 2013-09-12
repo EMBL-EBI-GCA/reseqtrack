@@ -53,7 +53,12 @@ sub run {
       $type //= assign_type_by_filename($path, $file_type_rules);
       throw("could not assign a type for $path") if !defined $type || $type eq '';
       my $file = create_object_from_path($path, $type, $host);
-      my $md5 = $md5_hash->{$file} // file_md5_hex($path);
+      my $md5 = $md5_hash->{$file};
+      if (! defined $md5) {
+        $db->dbc->disconnect_when_inactive(1);
+        $md5 = file_md5_hex($path);
+        $db->dbc->disconnect_when_inactive(0);
+      }
       $file->md5($md5);
       
       my $existing_file = $fa->fetch_by_name($path);
