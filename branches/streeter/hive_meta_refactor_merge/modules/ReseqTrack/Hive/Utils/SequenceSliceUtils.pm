@@ -86,7 +86,7 @@ sub bed_to_slices {
     push(@{$bed_slices[$parent_index[0]]}, $bed_slice);
   }
   close $BED;
-  my @sorted_bed_slices = map {sort {$a->start <=> $b->start} @$_} @bed_slices;
+  my @sorted_bed_slices = map {sort {$a->start <=> $b->start} @$_} grep {defined $_} @bed_slices;
   return \@sorted_bed_slices;
 }
 
