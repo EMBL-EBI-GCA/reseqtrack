@@ -24,7 +24,7 @@ use ReseqTrack::Tools::Argument qw(rearrange);
 use ReseqTrack::Tools::FileSystemUtils qw(check_executable);
 use File::Basename qw(fileparse);
 use File::Copy qw (move);
-
+use IPC::System::Simple qw( capture );
 use base qw(ReseqTrack::Tools::RunProgram);
 
 =head2 DEFAULT_OPTIONS
@@ -59,6 +59,11 @@ sub DEFAULT_OPTIONS {
         ,    # Location of reference fasta file, used by CollectRnaSeqMetrics
         'strand_specificity' => 'NONE'
         ,    #For strand-specific library prep,  used by CollectRnaSeqMetrics
+	'restore_quality' => 1, # restore original quality value, for revert_sam
+	'remove_duplicate_info' => 1, # remove markduplicate info, for revert_sam
+	'remove_alignment_info' => 1, # remove alignment info, for revert_sam
+	'paired_end' => 1, #sam_to_fastq, treat reads in BAM as paired end
+	'output_per_rg' => 1, # samtofastq, always output fastq per @RG
     };
 }
 
@@ -70,6 +75,8 @@ sub CMD_MAPPINGS { return {
     'sort'              => \&run_sort,
     'alignment_metrics' => \&run_alignment_metrics,
     'rna_seq_metrics'   => \&run_rna_alignment_metrics,
+    'revert_sam'	=> \&run_revertsam,
+    'sam_to_fastq'	=> \&run_samtofastq
     };    
 }
 
@@ -155,6 +162,205 @@ sub get_valid_commands {
     my $subs = CMD_MAPPINGS();
     return keys %$subs;
 }
+=head2 run_samtofastq
+
+  Arg [1]   : ReseqTrack::Tools::RunPicard
+  Arg [2]   : String, sort order, defaults to coordinate
+  Function  : uses SamToFastq.jar to convert BAM to Fastq
+  Returntype: 
+  Exceptions: 
+  Example   : $self->run_samtofastq
+
+=cut
+
+
+sub run_samtofastq {
+    my $self = shift;
+    my @fastq_file;
+    
+    my $jar = $self->_jar_path('SamToFastq.jar');
+    my $paired_end=$self->options('paired_end'); ## method to get paired_end status from db
+    my $output_dir = '';
+    my $output_per_rg=$self->options('output_per_rg'); 
+
+    foreach my $input ( @{ $self->input_files } ) {
+        my $name = fileparse( $input, qr/\.[sb]am/ );
+        $name =~ s{#}{_}g;
+        #my $prefix_dir = $self->working_dir . '/' . $name .'/';
+        my $prefix_dir = $self->working_dir .'/';
+        $prefix_dir =~ s{//}{/}g;
+                
+        if($output_per_rg)
+        {
+            $output_dir = $prefix_dir;
+        }
+	system("mkdir -p $output_dir"); ## method to create dir
+               
+        my @cmd_words = ( $self->java_exe );
+        push( @cmd_words, $self->jvm_options ) if ( $self->jvm_options );
+        push( @cmd_words, '-jar', $jar );
+        push( @cmd_words, $self->_get_standard_options );
+        push( @cmd_words, 'INPUT=' . $input );
+        push( @cmd_words,
+            'OUTPUT_PER_RG='. ( $self->options('output_per_rg') ? 'true' : 'false' ) );
+              
+        if($output_per_rg)
+        {
+            push( @cmd_words, 'OUTPUT_DIR='.$output_dir );
+            
+            my $rg_id_array=get_rg_name($input);
+            
+            
+            foreach my $rg_id(@{$rg_id_array})
+            {
+                if($paired_end)
+                {
+                    push(@fastq_file,$output_dir.$rg_id."_1.fastq");
+                    push(@fastq_file,$output_dir.$rg_id."_2.fastq");
+                }
+                else
+                {
+                     push(@fastq_file,$output_dir.$rg_id.".fastq");               
+                }
+            }
+        }
+        
+        my $cmd = join( ' ', @cmd_words );
+        $self->execute_command_line($cmd);
+           
+      }
+	my @gz_fastq_file;
+
+	foreach my $fastq(@fastq_file)
+	{
+		my $gz_fastq=compress_file($fastq);	
+		push @gz_fastq_file, $gz_fastq;
+	}  
+    	return \@gz_fastq_file;
+}
+
+sub get_rg_name {
+        my $bam=shift;
+        my $samtools_cmd="samtools view -H $bam|grep ^\@RG";
+        my @rg_line=capture($samtools_cmd);
+        my $rg_id=get_rg_id(\@rg_line);
+
+        return $rg_id;
+}
+
+sub get_rg_id {
+        my $rg_array=shift;
+        my @rg_id;
+
+        foreach my $rg_line(@{$rg_array})
+        {
+                chomp($rg_line);
+                if($rg_line=~ /PU\:(\S+)\s/)
+                {
+                        push @rg_id,$1;
+                        next;
+                }
+                elsif($rg_line=~ /ID:(\S+)\s/)
+                {
+                        push @rg_id,$1;
+                }
+        }
+	@rg_id=map {s/#/_/g;$_} @rg_id;
+        return \@rg_id;
+}
+
+sub compress_file{
+  my $file = shift;
+  my $cmd = "gzip ".$file;
+  my $new_file = $file.".gz";
+  if(-e $new_file){
+    unlink $new_file;
+  }
+  my $exit = system($cmd);
+  if($exit >= 1){
+    throw("There is a problem with ".$cmd." non zero exit code ".$exit);
+  }
+  unless(-e $new_file){
+    throw("Failed to produce ".$new_file." from ".$file." using ".$cmd);
+  }
+  return $new_file;
+}
+
+=head2 run_revertsam
+
+  Arg [1]   : ReseqTrack::Tools::RunPicard
+  Arg [2]   : String, sort order, defaults to coordinate
+  Function  : uses RevertSam.jar to remove all mapping information in BAM
+  Returntype: 
+  Exceptions: 
+  Example   : $self->run_revertsam
+
+=cut
+
+sub run_revertsam {
+    my $self = shift;
+    
+    my $sort_order = $self->options('sort_order');
+    my $restore_qual = $self->options('restore_quality');
+    my $remove_dup_info = $self->options('remove_duplicate_info');
+    my $remove_aln_info = $self->options('remove_alignment_info');
+    
+    
+    if ( $sort_order ne 'coordinate' && $sort_order ne 'queryname' ) {
+        $sort_order = 'null';
+    }
+    
+    my $jar = $self->_jar_path('RevertSam.jar');
+    
+   my $revert_bam;
+ 
+    foreach my $input ( @{ $self->input_files } ) {
+        my $name = fileparse( $input, qr/\.[sb]am/ );
+        my $prefix = $self->working_dir . '/' . $name . '_revert';
+        $prefix =~ s{//}{/}g;
+        my $output = $prefix . '.bam';
+   	$revert_bam=$output; 
+    
+    my @cmd_words = ( $self->java_exe );
+        push( @cmd_words, $self->jvm_options ) if ( $self->jvm_options );
+        push( @cmd_words, '-jar', $jar );
+        push( @cmd_words, $self->_get_standard_options );
+        push( @cmd_words, 'SORT_ORDER=' . $sort_order );
+        push( @cmd_words, 'INPUT=' . $input );
+        push( @cmd_words, 'OUTPUT=' . $output );
+	push( @cmd_words,
+            'RESTORE_ORIGINAL_QUALITIES='
+              . ( $self->options('restore_quality') ? 'true' : 'false' ) );
+        push( @cmd_words,
+            'REMOVE_DUPLICATE_INFORMATION='
+              . ( $self->options('remove_duplicate_info') ? 'true' : 'false' ) );
+        push( @cmd_words,
+            'REMOVE_ALIGNMENT_INFORMATION='
+              . ( $self->options('remove_alignment_info') ? 'true' : 'false' ) );
+        push( @cmd_words,
+            'CREATE_INDEX=' . ( $self->create_index ? 'true' : 'false' ) );
+
+        my $cmd = join( ' ', @cmd_words );
+
+        $self->output_files($output);
+        $self->created_files("$prefix.bai") if $self->create_index;
+
+        $self->execute_command_line($cmd);
+
+        	if ( $self->create_index ) {
+            	my $bai       = "$prefix.bai";
+            	my $index_ext = $self->options('index_ext');
+            		if ( $index_ext && $index_ext ne '.bai' ) {
+                	my $corrected_bai = "$prefix" . $index_ext;
+                	move( $bai, $corrected_bai )
+                  	or throw "move failed: $!";
+                	$bai = $corrected_bai;
+            		}
+            	$self->output_files($bai);
+        	}
+	}
+	return $revert_bam;
+}
 
 =head2 run_mark_duplicates
 
@@ -171,59 +377,60 @@ sub run_mark_duplicates {
 
     my $jar = $self->_jar_path('MarkDuplicates.jar');
     my @metrics_data;
-    my $suffix = $self->options('remove_duplicates') ? '.rmdup' : '.mrkdup';
-    my $prefix = $self->working_dir . '/' . $self->job_name . ".$suffix";
-    $prefix =~ s{//}{/}g;
-    my $bam     = $prefix . '.bam';
-    my $metrics = $prefix . '.dup_metrics';
-
-    my @cmd_words = ( $self->java_exe );
-    push( @cmd_words, $self->jvm_options ) if ( $self->jvm_options );
-    push( @cmd_words, '-jar', $jar );
-    push( @cmd_words, $self->_get_standard_options );
     foreach my $input ( @{ $self->input_files } ) {
-      push( @cmd_words, 'INPUT=' . $input );
-    }
-    push( @cmd_words, 'OUTPUT=' . $bam );
-    push( @cmd_words, 'METRICS_FILE=' . $metrics );
-    push( @cmd_words,
-        'REMOVE_DUPLICATES='
-          . ( $self->options('remove_duplicates') ? 'true' : 'false' ) );
-    push( @cmd_words,
-        'ASSUME_SORTED='
-          . ( $self->options('assume_sorted') ? 'true' : 'false' ) )
-      if defined $self->options('assume_sorted');
-    push( @cmd_words,
-        'CREATE_INDEX=' . ( $self->create_index ? 'true' : 'false' ) );
-    push( @cmd_words, 'MAX_FILE_HANDLES_FOR_READ_ENDS_MAP=' . $self->options('max_file_handles'))
-      if $self->options('max_file_handles');
+        my $suffix = $self->options('remove_duplicates') ? '.rmdup' : '.mrkdup';
+        my $name = fileparse( $input, qr/\.[sb]am/ );
+        my $prefix = $self->working_dir . '/' . $name . $suffix;
+        $prefix =~ s{//}{/}g;
+        my $bam     = $prefix . '.bam';
+        my $metrics = $prefix . '.dup_metrics';
 
-    my $cmd = join( ' ', @cmd_words );
+        my @cmd_words = ( $self->java_exe );
+        push( @cmd_words, $self->jvm_options ) if ( $self->jvm_options );
+        push( @cmd_words, '-jar', $jar );
+        push( @cmd_words, $self->_get_standard_options );
+        push( @cmd_words, 'INPUT=' . $input );
+        push( @cmd_words, 'OUTPUT=' . $bam );
+        push( @cmd_words, 'METRICS_FILE=' . $metrics );
+        push( @cmd_words,
+            'REMOVE_DUPLICATES='
+              . ( $self->options('remove_duplicates') ? 'true' : 'false' ) );
+        push( @cmd_words,
+            'ASSUME_SORTED='
+              . ( $self->options('assume_sorted') ? 'true' : 'false' ) )
+          if defined $self->options('assume_sorted');
+        push( @cmd_words,
+            'CREATE_INDEX=' . ( $self->create_index ? 'true' : 'false' ) );
+        push( @cmd_words, 'MAX_FILE_HANDLES_FOR_READ_ENDS_MAP=' . $self->options('max_file_handles'))
+          if $self->options('max_file_handles');
 
-    $self->output_files($bam);
+        my $cmd = join( ' ', @cmd_words );
 
-    if ( $self->keep_metrics ) {
-        $self->output_files($metrics);
-    }
-    else {
-        $self->created_files($metrics);
-    }
+        $self->output_files($bam);
 
-    $self->created_files("$prefix.bai") if $self->create_index;
-    $self->execute_command_line($cmd);
-
-    push @metrics_data, $self->parse_metrics_file($metrics);
-
-    if ( $self->create_index ) {
-        my $bai       = "$prefix.bai";
-        my $index_ext = $self->options('index_ext');
-        if ( $index_ext && $index_ext ne '.bai' ) {
-            my $corrected_bai = "$prefix" . $index_ext;
-            move( $bai, $corrected_bai )
-              or throw "move failed: $!";
-            $bai = $corrected_bai;
+        if ( $self->keep_metrics ) {
+            $self->output_files($metrics);
         }
-        $self->output_files($bai);
+        else {
+            $self->created_files($metrics);
+        }
+
+        $self->created_files("$prefix.bai") if $self->create_index;
+        $self->execute_command_line($cmd);
+
+        push @metrics_data, $self->parse_metrics_file($metrics);
+
+        if ( $self->create_index ) {
+            my $bai       = "$prefix.bai";
+            my $index_ext = $self->options('index_ext');
+            if ( $index_ext && $index_ext ne '.bai' ) {
+                my $corrected_bai = "$prefix" . $index_ext;
+                move( $bai, $corrected_bai )
+                  or throw "move failed: $!";
+                $bai = $corrected_bai;
+            }
+            $self->output_files($bai);
+        }
 
     }
 
