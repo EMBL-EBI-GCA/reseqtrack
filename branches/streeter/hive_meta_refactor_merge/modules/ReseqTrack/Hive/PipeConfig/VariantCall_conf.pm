@@ -23,7 +23,6 @@ config_options=-reference /path/to/human.fa
   Options that have defaults but you will often want to set them in your pipeline.cofig_options table/column:
 
       -root_output_dir, (default is your current directory)
-      -type_bam, type of bam files to look for in the reseqtrack database, default BAM
       -final_label, used to name your final output files (default is your pipeline name)
       -target_bed_file, for if you want to do exome calling (default undefined)
       -transpose_window_size, (default 50000000) Controls the size of the region convered by a single transposed bam
@@ -75,7 +74,6 @@ sub default_options {
 
         'pipeline_name' => 'vc',
 
-        'type_bam'    => 'BAM',
         'transpose_exe' => $self->o('ENV', 'RESEQTRACK').'/c_code/transpose_bam/transpose_bam',
         'samtools_exe' => '/nfs/1000g-work/G1K/work/bin/samtools/samtools',
         'bcftools_exe' => '/nfs/1000g-work/G1K/work/bin/samtools/bcftools/bcftools',
@@ -147,10 +145,10 @@ sub pipeline_analyses {
             -module        => 'ReseqTrack::Hive::Process::SeedFactory',
             -meadow_type => 'LOCAL',
             -parameters    => {
-                output_columns => 'name',
+                output_columns => ['name','collection_id'],
             },
             -flow_into => {
-                2 => { 'block_seed_complete' => {'callgroup' => '#name#', 'ps_id' => '#ps_id#'} },
+                2 => { 'block_seed_complete' => {'callgroup' => '#name#', 'bam_collection_id' => '#collection_id#', 'ps_id' => '#ps_id#'} },
             },
       });
     push(@analyses, {
@@ -170,8 +168,7 @@ sub pipeline_analyses {
             -module        => 'ReseqTrack::Hive::Process::ImportCollection',
             -meadow_type => 'LOCAL',
             -parameters    => {
-                collection_type => $self->o('type_bam'),
-                collection_name=> '#callgroup#',
+                collection_id=> '#bam_collection_id#',
                 output_param => 'bam',
                 flows_file_count_param => 'bam',
                 flows_file_count => { 1 => '1+', },

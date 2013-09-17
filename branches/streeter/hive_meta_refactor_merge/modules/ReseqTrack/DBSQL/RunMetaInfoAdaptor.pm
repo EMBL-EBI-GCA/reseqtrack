@@ -25,17 +25,15 @@ sub new {
 
 
 sub columns{
-  return "run_meta_info.run_meta_info_id, run_meta_info.run_id, ".
-      "run_meta_info.study_id, run_meta_info.study_name, run_meta_info.center_name, ".
-      "run_meta_info.submission_id, run_meta_info.submission_date, ".
-      "run_meta_info.sample_id, run_meta_info.sample_name, run_meta_info.population,".
-      " run_meta_info.experiment_id, run_meta_info.instrument_platform, ".
-      "run_meta_info.instrument_model, run_meta_info.library_name, ".
-      "run_meta_info.run_name, run_meta_info.run_block_name, ".
-      "run_meta_info.paired_length, run_meta_info.library_layout, ".
-      "run_meta_info.status, run_meta_info.archive_base_count, ".
-      "run_meta_info.archive_read_count, ".
-	  "run_meta_info.library_strategy";
+  my ($self) = @_;
+  my $table_name = $self->table_name;
+    return join(', ', map {"$table_name.$_"}
+      qw(run_meta_info_id run_id study_id study_name center_name submission_id
+      submission_date sample_id sample_name population experiment_id
+      instrument_platform instrument_model library_name run_name run_block_name
+      paired_length library_layout status archive_base_count archive_read_count
+      library_strategy)
+      );
 }
 
 sub table_name{
