@@ -15,7 +15,7 @@ use vars qw (@ISA  @EXPORT);
 =head2 create_directory_path
 
   Arg [1]   : A metadata object (ReseqTrack::Run,Experiment,Sample or Study)
-  Arg [2]   : string, directory layout e.g. 'sample_name/archive_sequence', tokens matching method or attribute names in the meta data will be substituted with that method/attributes value. Search order is method, then attribute, then related objects (run -> experiment, experiment -> sample (study if no match in sample). 
+  Arg [2]   : string, directory layout e.g. 'sample_name/archive_sequence', tokens matching method or attribute names in the meta data will be substituted with that method/attributes value. Search order is method, then attribute, then related objects (run -> (experiment,sample), experiment -> study if no match in sample). 
   Arg [3]   : string, base directory
   Function  : Creates a directory path, combining the base directory path and run_meta_info values
   Returntype: string
@@ -60,13 +60,14 @@ sub _lookup_property {
 	return $attributes->{$property}->attribute_value() if $attributes->{$property};
 	
 	if ($meta_data->isa('ReseqTrack::Run')){
-		return _lookup_property($meta_data->experiment(),$property);
+		my $v = _lookup_property($meta_data->experiment(),$property);
+		if (!defined $v){
+			$v = _lookup_property($meta_data->sample());
+		}
+		return $v;
 	}
 	if ($meta_data->isa('ReseqTrack::Experiment')){
-		my $v = _lookup_property($meta_data->sample(),$property);
-		if (!defined $v){
-			$v = _lookup_property($meta_data->study());
-		}
+		return _lookup_property($meta_data->study());
 	}
 	if ($meta_data->isa('ReseqTrack::Sample')){
 		return undef;
