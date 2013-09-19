@@ -35,7 +35,7 @@ sub column_mappings {
     library_selection     => sub { $e->library_selection(@_) },
     paired_nominal_length => sub { $e->paired_nominal_length(@_) },
     paired_nominal_sdev   => sub { $e->paired_nominal_sdev(@_) },
-    source_id             => sub { $e->source_id(@_) },
+    experiment_source_id             => sub { $e->experiment_source_id(@_) },
     submission_id         => sub { $e->submission_id(@_) },
     submission_date       => sub { $e->submission_date(@_) },
   };
@@ -51,7 +51,7 @@ sub table_name {
 
 sub fetch_by_source_id {
   my ( $self, $source_id ) = @_;
-  return pop @{ $self->fetch_by_column_name( "source_id", $source_id ) };
+  return pop @{ $self->fetch_by_column_name( "experiment_source_id", $source_id ) };
 }
 
 sub fetch_by_sample_id {

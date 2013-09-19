@@ -60,14 +60,20 @@ sub name {
   return $self->source_id();
 }
 
-sub source_id{
-  my ($self, $arg) = @_; 
-  
-  if($arg){
-    $self->{source_id} = $arg;
-  }
-  return $self->{source_id};
+sub source_id {
+  my ( $self, $arg ) = @_;
+  return $self->experiment_source_id($arg);
 }
+
+sub experiment_source_id {
+	my ($self,$arg) =@_;
+	
+	if ($arg) {
+    $self->{experiment_source_id} = $arg;
+  }
+  return $self->{experiment_source_id};
+}
+
 
 sub study_id{
   my ($self, $arg) = @_;

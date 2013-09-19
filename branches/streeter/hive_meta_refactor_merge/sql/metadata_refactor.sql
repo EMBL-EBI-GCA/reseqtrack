@@ -24,7 +24,7 @@ select statistics_id,table_name,other_id,attribute_name,attribute_value from sta
 
 create table study(
     study_id int(10) unsigned primary key auto_increment, 
-    source_id  varchar(15) not null,
+    study_source_id  varchar(15) not null,
     status varchar(50) not null ,
     md5     varchar(32),
     type      varchar(100) not null ,
@@ -34,11 +34,11 @@ create table study(
     study_alias varchar(500)
 ) ENGINE=MYISAM;
 
-create unique index study_src_idx on study(source_id);
+create unique index study_src_idx on study(study_source_id);
 
 create table experiment (
     experiment_id int(10) unsigned primary key auto_increment,
-    source_id varchar(15) not null,
+    experiment_source_id varchar(15) not null,
     study_id  int(10) unsigned not null ,
     status varchar(50) not null ,
     md5     varchar(32),
@@ -58,13 +58,13 @@ create table experiment (
     constraint foreign key (study_id) references study(study_id)
 ) ENGINE=MYISAM;
 
-create unique index experiment_src_idx on experiment(source_id);
+create unique index experiment_src_idx on experiment(experiment_source_id);
 create index experiment_fk1 on experiment(study_id);
 
 create table sample
 (
     sample_id int(10) unsigned primary key auto_increment,
-    source_id varchar(15) not null,
+    sample_source_id varchar(15) not null,
     status varchar(50),
     md5     varchar(32),
     center_name     varchar(100) ,
@@ -80,12 +80,12 @@ create table sample
 ) ENGINE=MYISAM;
 
 
-create unique index sample_src_idx on sample(source_id);
+create unique index sample_src_idx on sample(sample_source_id);
 
 create table run
 (
     run_id        int(10) unsigned primary key auto_increment,
-    source_id	varchar(15) not null,
+    run_source_id	varchar(15) not null,
     experiment_id  int(10) unsigned not null,
     sample_id  int(10) unsigned not null,
     run_alias varchar(500) not null ,
@@ -103,21 +103,21 @@ create table run
 
 create index run_fk1 on run(sample_id);
 create index run_fk2 on run(experiment_id);
-create unique index run_src_idx on run(source_id);
+create unique index run_src_idx on run(run_source_id);
 
 create or replace view run_meta_info_vw as
 select
 r.run_id as run_meta_info_id,
-r.source_id as run_id,
-st.source_id as study_id,
+r.run_source_id as run_id,
+st.study_source_id as study_id,
 st.study_alias as study_name,
 r.center_name,
 r.submission_id,
 r.submission_date,
-s.source_id as sample_id,
+s.sample_source_id as sample_id,
 s.sample_alias as sample_name,
 pop.attribute_value as population,
-e.source_id as experiment_id,
+e.experiment_source_id as experiment_id,
 e.instrument_platform,
 e.instrument_model,
 e.library_name,

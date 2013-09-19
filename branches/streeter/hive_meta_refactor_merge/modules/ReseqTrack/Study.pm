@@ -39,12 +39,18 @@ sub name {
 
 sub source_id {
   my ( $self, $arg ) = @_;
-
-  if ($arg) {
-    $self->{source_id} = $arg;
-  }
-  return $self->{source_id};
+  return $self->study_source_id($arg);
 }
+
+sub study_source_id {
+	my ($self,$arg) =@_;
+	
+	if ($arg) {
+    $self->{study_source_id} = $arg;
+  }
+  return $self->{study_source_id};
+}
+
 
 sub status {
   my ( $self, $arg ) = @_;

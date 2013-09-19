@@ -30,7 +30,7 @@ sub column_mappings {
     anonymized_name => sub { $s->anonymized_name(@_) },
     individual_name => sub { $s->individual_name(@_) },
     sample_title    => sub { $s->sample_title(@_) },
-    source_id       => sub { $s->source_id(@_) },
+    sample_source_id       => sub { $s->sample_source_id(@_) },
     submission_id   => sub { $s->submission_id(@_) },
     submission_date => sub { $s->submission_date(@_) },
   };
@@ -46,7 +46,7 @@ sub table_name {
 
 sub fetch_by_source_id {
   my ( $self, $source_id ) = @_;
-  return pop @{ $self->fetch_by_column_name( "source_id", $source_id ) };
+  return pop @{ $self->fetch_by_column_name( "sample_source_id", $source_id ) };
 }
 
 sub store {

@@ -81,11 +81,16 @@ sub name {
 
 sub source_id {
   my ( $self, $arg ) = @_;
+  return $self->run_source_id($arg);
+}
 
-  if ($arg) {
-    $self->{source_id} = $arg;
+sub run_source_id {
+	my ($self,$arg) =@_;
+	
+	if ($arg) {
+    $self->{run_source_id} = $arg;
   }
-  return $self->{source_id};
+  return $self->{run_source_id};
 }
 
 sub submission_id{
