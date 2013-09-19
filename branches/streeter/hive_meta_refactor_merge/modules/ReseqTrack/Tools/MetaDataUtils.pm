@@ -52,7 +52,8 @@ sub create_directory_path{
 
 sub _lookup_property {
 	my ($meta_data,$property) = @_;
-	
+	throw("no property given") unless $property;
+	throw("no meta data given") unless $meta_data;
 	my $method = $meta_data->can($property);
 	return &$method($meta_data) if ($method);
 	
@@ -62,12 +63,12 @@ sub _lookup_property {
 	if ($meta_data->isa('ReseqTrack::Run')){
 		my $v = _lookup_property($meta_data->experiment(),$property);
 		if (!defined $v){
-			$v = _lookup_property($meta_data->sample());
+			$v = _lookup_property($meta_data->sample(),$property);
 		}
 		return $v;
 	}
 	if ($meta_data->isa('ReseqTrack::Experiment')){
-		return _lookup_property($meta_data->study());
+		return _lookup_property($meta_data->study(),$property);
 	}
 	if ($meta_data->isa('ReseqTrack::Sample')){
 		return undef;

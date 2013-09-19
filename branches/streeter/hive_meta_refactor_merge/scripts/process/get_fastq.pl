@@ -72,10 +72,11 @@ my $db = ReseqTrack::DBSQL::DBAdaptor->new(
 my $era_db = get_erapro_conn($era_dbuser, $era_dbpass);
 
 my $run = $db->get_RunAdaptor->fetch_by_source_id($run_id);
+
 throw("Failed to find a run object for ".$run_id." from ".$dbname)
     unless($run);
 
-if($run->instrument_platform eq 'COMPLETE_GENOMICS'){
+if($run->instrument_platform && $run->instrument_platform eq 'COMPLETE_GENOMICS'){
   exit(0);
 }
 
@@ -90,7 +91,7 @@ while (my ($key, $value) = each %module_options) {
   $constructor_hash{'-'.$key} = $value;
 }
 $constructor_hash{-output_dir} = $output_dir;
-$constructor_hash{-run_meta_info} = $run;
+$constructor_hash{-run_info} = $run;
 $constructor_hash{-source_root_dir} = $source_root_location;
 $constructor_hash{-clobber} = $clobber;
 $constructor_hash{-db} = $era_db;

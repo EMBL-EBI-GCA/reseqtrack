@@ -69,7 +69,7 @@ sub run {
   my $self = shift;
 
   throw("do not have output_dir") if !$self->output_dir;
-  throw("do not have Run object") if !$self->meta_info;
+  throw("do not have Run object") if !$self->run_info;
   throw("do not have a DB adaptor") if !$self->db;
   throw("do not have a source root directory") if !$self->source_root_dir;
 
