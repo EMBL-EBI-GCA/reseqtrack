@@ -19,7 +19,7 @@ use vars qw (@ISA  @EXPORT);
   Arg [3]   : string, base directory
   Function  : Creates a directory path, combining the base directory path and run_meta_info values
   Returntype: string
-  Exceptions: none
+  Exceptions: throws if no matches are made 
   Example   : $dir = create_directory_path($run, 'population/sample_name', '/path/to/dir')
 
 =cut
@@ -46,7 +46,8 @@ sub create_directory_path{
   throw "Directory layout ($directory_layout) did not call any meta data methods or match any attributes"
     if (@layout_chunks && ! $method_matches);
 
-  $dir_path =~ s/\/\//\//;
+  $dir_path =~ s/\/\//\//g;
+  $dir_path =~ s/\s+/_/g;
   return $dir_path;
 }
 
