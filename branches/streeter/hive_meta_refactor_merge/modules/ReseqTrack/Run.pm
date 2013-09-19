@@ -7,6 +7,7 @@ use vars qw(@ISA);
 use ReseqTrack::Tools::Exception qw(throw warning);
 use ReseqTrack::Tools::Argument qw(rearrange);
 use ReseqTrack::Base;
+use ReseqTrack::HasHistory;
 
 @ISA = qw(ReseqTrack::HasHistory);
 

@@ -43,7 +43,7 @@ sub run {
       $constructor_hash{'-'.$key} = $value;
     }
     $constructor_hash{-output_dir} = $self->output_dir;
-    $constructor_hash{-run_meta_info} = $rmi;
+    $constructor_hash{-run_info} = $run;
     $constructor_hash{-source_root_dir} = $source_root_dir;
     $constructor_hash{-clobber} = $clobber;
     $constructor_hash{-db} = $era_db;
