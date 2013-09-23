@@ -39,6 +39,8 @@ Case 3: No check, PHASE without reference panel
 
     Hints: use -no_check and -phase_without_ref or do not provide a -reference_config
 
+Case 4: For ChrX, use -input_from,-input_to, -output_from and -output_to to phase PAR1, PAR2 or nonPAR regions separately, or phase without ref
+
 Note:
 	Reference file format: chrom <tab> map <tab> haps <tab> legend <tab> samples
 
@@ -65,6 +67,10 @@ Note:
 		-phase_without_ref	 =>1, ## no ref will be used for phasing
 		-exclude_only_strand	 =>1, ## only strand flip snps will be removed
                 -no_check                => 1  ## only perform phase, not strand check with ref
+                -input_from => 150118, # required for ChrX
+                -input_to => 2695340, # required for ChrX
+                -output_from => 150118, # required for ChrX
+                -output_to => 2695340, # required for ChrX
                 );
 
 =cut
@@ -79,13 +85,17 @@ sub new {
 	my ( $class, @args ) = @_;
 	my $self = $class->SUPER::new(@args);
 	
-    my ( $input_samples, $no_check, $phase_without_ref, $exclude_only_strand )= rearrange([ qw( INPUT_SAMPLES NO_CHECK PHASE_WITHOUT_REF EXCLUDE_ONLY_STRAND )], @args); ### ?
+    my ( $input_samples, $no_check, $phase_without_ref, $exclude_only_strand, $input_from, $input_to, $output_from, $output_to )= rearrange([ qw( INPUT_SAMPLES NO_CHECK PHASE_WITHOUT_REF EXCLUDE_ONLY_STRAND INPUT_FROM INPUT_TO OUTPUT_FROM OUTPUT_TO)], @args); ### ?
     
     
     $self->input_samples($input_samples);
     $self->no_check($no_check);
     $self->phase_without_ref($phase_without_ref);
     $self->exclude_only_strand($exclude_only_strand);
+    $self->input_from($input_from);
+    $self->input_to($input_to);
+    $self->output_from($output_from);
+    $self->output_to($output_to);
     
     unless($self->reference_config)
     {
@@ -124,6 +134,8 @@ sub run_program {
     check_executable($self->program);
     check_file_exists($self->reference_config) if $self->reference_config; # ref is optional, only required for check
   
+    throw("samples input file required") if(!$self->input_samples);
+    
     check_file_exists($self->input_samples);
 
     throw "Can't accept multiple input files" if(scalar @{$self->input_files} >1);   ### ?
@@ -169,9 +181,16 @@ sub run_check {
     
     $self->exclude_snp_list($exclude_snp_list);
         
-    push(@cmd_words, $self->options->{'check'});
+    push(@cmd_words, $self->options->{'check'}) if($self->options->{'check'});
     
-    push(@cmd_words,"--chrX") if($self->chrom eq 'X' || $self->chrom eq "chrX");
+    if($self->chrom eq 'X' || $self->chrom eq "chrX")  ### check cannot be performed without ref
+    {
+        push(@cmd_words,"--chrX");
+        
+        $self->output_from=$self->input_from if(($self->input_from) && !($self->output_from));
+    	        
+    	        $self->output_to=$self->input_to if(($self->input_to) && !($self->output_to));
+    }
 
     $self->get_ref;
 	   
@@ -181,6 +200,11 @@ sub run_check {
     my $ref_files_line=$self->ref_hap." ".$self->ref_legend." ".$self->ref_samples;
     
     push(@cmd_words, "-R", $ref_files_line);
+    
+    push(@cmd_words, "--input-from", $self->input_from ) if($self->input_from);
+    push(@cmd_words, "--input-to", $self->input_to ) if($self->input_to);
+    push(@cmd_words, "--output-from", $self->output_from ) if($self->output_from);
+    push(@cmd_words, "--output-to", $self->output_to ) if($self->output_to);
    
     my $cmd = join(' ', @cmd_words);
     
@@ -234,12 +258,20 @@ sub run_shapeit {
 
     	if($self->reference_config)
     	{
+    	   if($self->chrom eq 'X' || $self->chrom eq "chrX")
+    	   {
+    	        $self->output_from=$self->input_from if(($self->input_from) && !($self->output_from));
+    	        
+    	        $self->output_to=$self->input_to if(($self->input_to) && !($self->output_to));
+    	   }
+    	   
         	$self->get_ref;
         	push(@cmd_words, "-M", $self->ref_map);
 	
 		my $ref_files_line=$self->ref_hap." ".$self->ref_legend." ".$self->ref_samples;
 		push(@cmd_words, "-R", $ref_files_line);
-    	}
+		}
+    	
     }
 
     if($self->exclude_snp_list)
@@ -247,6 +279,10 @@ sub run_shapeit {
         push(@cmd_words,"--exclude-snp",$self->exclude_snp_list);
     }
     
+    push(@cmd_words, "--input-from",$self->input_from ) if($self->input_from);
+    push(@cmd_words, "--input-to",$self->input_to ) if($self->input_to);
+    push(@cmd_words, "--output-from",$self->output_from ) if($self->output_from);
+    push(@cmd_words, "--output-to",$self->output_to ) if($self->output_to);
        
     my $cmd = join(' ', @cmd_words);
     
@@ -262,10 +298,24 @@ sub get_ref {
    
     if($chrom eq 'X' || $chrom eq 'chrX')
     {
-     	throw("No support for ChrX yet");
-    }
-    else
-    {
+        throw("coordinate range required for Chr X") if(!($self->input_to) or !($self->input_from));
+        
+     	if(($self->input_to) < 2695500) ## PAR1
+     	{
+     	    $chrom="X_PAR1";
+     	}
+     	elsif((($self->input_from) > 2696000) && (($self->input_to) < 154950000))## nonPAR
+     	{
+     	    $chrom="X_nonPAR";
+     	}
+     	elsif(($self->input_from) > 154955000) ##PAR2
+     	{
+     	    $chrom="X_PAR2";
+     	}
+     	     	
+     }
+  # else
+  # {
     	open(FH,$reference_config)||throw("can't read $reference_config\n");
     	while(my $ref_line=<FH>)
     	{
@@ -274,15 +324,15 @@ sub get_ref {
         
         	my @field=split(/\t/,$ref_line);
         
-        	if($field[0]==$chrom)
+        	if($field[0] eq $chrom)
         	{
            		$self->ref_map($field[1]);
            		$self->ref_hap($field[2]);
            		$self->ref_legend($field[3]);
            		$self->ref_samples($field[4]);
         	}
-	}
-    }
+	#}
+   }
     return $self->{get_ref};
 }
 
@@ -331,6 +381,8 @@ sub exclude_snp_list {
   return $self->{exclude_snp_list};
 }
 
+
+
 sub no_check {
     my $self = shift;
     if (@_) {
@@ -362,6 +414,41 @@ sub input_samples {
     $self->{input_samples} = $arg;
   }
   return $self->{input_samples};
+}
+
+sub input_from {
+  my ( $self, $arg ) = @_;
+
+  if ($arg) {
+    $self->{input_from} = $arg;
+  }
+  return $self->{input_from};
+}
+
+sub input_to {
+  my ( $self, $arg ) = @_;
+
+  if ($arg) {
+    $self->{input_to} = $arg;
+  }
+  return $self->{input_to};
+}
+sub output_from {
+  my ( $self, $arg ) = @_;
+
+  if ($arg) {
+    $self->{output_from} = $arg;
+  }
+  return $self->{output_from};
+}
+
+sub output_to {
+  my ( $self, $arg ) = @_;
+
+  if ($arg) {
+    $self->{output_to} = $arg;
+  }
+  return $self->{output_to};
 }
 
 1;
