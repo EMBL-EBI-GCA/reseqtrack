@@ -1,5 +1,9 @@
 package ReseqTrack::Tools::Metadata::BaseMetaDataClashCheck;
 
+use strict;
+use warnings;
+use base qw(ReseqTrack::Tools::Metadata::BaseMetadataAddIn);
+
 sub report {
 	my ($self) = @_;
 	my $dbc = $self->reseq_db()->dbc();
@@ -20,14 +24,14 @@ sub report_attribute_clashes {
 	my $printed_header = undef;
 	my $clashes_count = 0;
 	while ( my $rs = $sth->fetchrow_arrayref ) {
-		my ( my $attribute_name, @table_names ) = @$rs;
+		my ( $attribute_name, @table_names ) = @$rs;
 
 		my $is_clash =
-			( !exists $white_list->{$attribute_name}->{ $table_name[0] }
-				->{ $table_name[1] }
+			( !exists $white_list->{$attribute_name}->{ $table_names[0] }
+				->{ $table_names[1] }
 				&& !
-				exists $white_list->{$attribute_name}->{ $table_name[1] }
-				->{ $table_name[0] } );
+				exists $white_list->{$attribute_name}->{ $table_names[1] }
+				->{ $table_names[0] } );
 
 		if ( $is_clash && !$printed_header ) {
 			print 'Potential attribute naming clash' . $/;
@@ -57,7 +61,7 @@ sub report_attribute_column_clashes {
 	my $clashes_count;
 	
 	while ( my $rs = $sth->fetchrow_arrayref ) {
-		my ( my $column_name, $col_table_name, $attribute_name, $attr_table_name )
+		my ( $column_name, $col_table_name, $attribute_name, $attr_table_name )
 			= @$rs;
 
 		my $is_clash =
