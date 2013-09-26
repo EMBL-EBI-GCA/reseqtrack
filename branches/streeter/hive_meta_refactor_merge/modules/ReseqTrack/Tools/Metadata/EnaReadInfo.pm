@@ -1,10 +1,10 @@
 package ReseqTrack::Tools::Metadata::EnaReadInfo;
 
-use base qw(ReseqTrack::Tools::Metadata::BaseMetadataManipulator);
+use base qw(ReseqTrack::Tools::Metadata::BaseMetadataAddIn);
 use ReseqTrack::Tools::AttributeUtils qw(create_attribute_for_object);
 use Data::Dumper;
 
-sub manipulate_run {
+sub check_run {
   my ( $self, $run, $current_copy ) = @_;
   my $run_adaptor = $self->era_db->get_RunAdaptor();
 

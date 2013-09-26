@@ -27,26 +27,26 @@ sub new {
   my $self = {};
   bless $self, $class;
   my (
-    $era_db,               $dcc_db,         $manipulators,
+    $era_db,               $dcc_db,         $add_ins,
     $verbose,              $load_new,       $update_existing,
     $target_types,         $target_studies, $use_rsm,
-    $run_stat_manipulator, $log_fh
+    $run_stat_add_in, $log_fh
     )
     = rearrange(
     [
-      qw(ERA_DB DCC_DB MANIPULATORS VERBOSE LOAD_NEW UPDATE_EXISTING TARGET_TYPES TARGET_STUDIES USE_DEFAULT_RSM RUN_STAT_MANIPULATOR LOG_FH )
+      qw(ERA_DB DCC_DB ADD_INS VERBOSE LOAD_NEW UPDATE_EXISTING TARGET_TYPES TARGET_STUDIES USE_DEFAULT_RSM RUN_STAT_ADD_IN LOG_FH )
     ],
     @args
     );
 
   $self->era_db($era_db);
   $self->dcc_db($dcc_db);
-  $self->manipulators($manipulators);
+  $self->add_ins($add_ins);
   $self->verbose($verbose);
   $self->target_types($target_types);
   $self->target_studies($target_studies);
   $self->use_default_rsm($use_rsm);
-  $self->run_stat_manipulator($run_stat_manipulator);
+  $self->run_stat_add_in($run_stat_add_in);
   $self->log_fh($log_fh);
 
   return $self;
@@ -89,13 +89,13 @@ sub load_type_by_study_id {
   my $era_db       = $self->era_db;
   my $reseq_db     = $self->dcc_db;
   my $verbose      = $self->verbose;
-  my $manipulators = $self->manipulators;
+  my $add_ins = $self->add_ins;
 
   my $era_adaptor   = adaptors( $era_db,   $type );
   my $reseq_adaptor = adaptors( $reseq_db, $type );
   my $fk_handler_sub       = fk_handlers($type);
   my $allow_attributes     = have_attributes($type);
-  my $run_stat_manipulator = $self->run_stat_manipulator;
+  my $run_stat_add_in = $self->run_stat_add_in;
 
   my $objects = $era_adaptor->fetch_by_study_id($study_id);
 
@@ -108,9 +108,9 @@ sub load_type_by_study_id {
 
     $fk_handler_sub->( $object, $reseq_db );
     my $run_stat_update;
-    if ($run_stat_manipulator) {
+    if ($run_stat_add_in) {
       $run_stat_update =
-        $run_stat_manipulator->manipulate( $object, $current_record );
+        $run_stat_add_in->check( $object, $current_record );
     }
 
     my $do_update = (
@@ -123,8 +123,8 @@ sub load_type_by_study_id {
 
     if ( $do_load || $do_update || $run_stat_update ) {
       $era_adaptor->attach_attributes($object) if ($allow_attributes);
-      for (@$manipulators) {
-        $_->manipulate( $object, $current_record );
+      for (@$add_ins) {
+        $_->check( $object, $current_record );
       }
       $self->log( "Storing $type " . $object->source_id() );
 
@@ -168,12 +168,12 @@ sub log_fh {
   return $self->{log_fh};
 }
 
-sub manipulators {
+sub add_ins {
   my ( $self, $arg ) = @_;
   if ($arg) {
-    $self->{manipulators} = $arg;
+    $self->{add_ins} = $arg;
   }
-  return $self->{manipulators};
+  return $self->{add_ins};
 }
 
 sub verbose {
@@ -192,7 +192,7 @@ sub use_default_rsm {
   return $self->{use_rsm};
 }
 
-sub run_stat_manipulator {
+sub run_stat_add_in {
   my ( $self, $arg ) = @_;
 
   if ($arg) {
@@ -325,7 +325,11 @@ sub log {
   if ($log_fh) {
     print $log_fh $message . $/;
   }
+}
 
+sub report {
+	my ($self) = @_;
+	map {$_->report()} @{$self->add_ins};
 }
 
 1;

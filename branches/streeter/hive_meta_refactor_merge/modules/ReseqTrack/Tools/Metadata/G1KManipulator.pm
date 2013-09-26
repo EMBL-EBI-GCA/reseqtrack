@@ -3,7 +3,7 @@ package ReseqTrack::Tools::Metadata::G1KManipulator;
 use strict;
 use warnings;
 use ReseqTrack::Tools::Exception qw(throw);
-use base qw(ReseqTrack::Tools::Metadata::BaseMetadataManipulator);
+use base qw(ReseqTrack::Tools::Metadata::BaseMetadataAddIn);
 use ReseqTrack::Tools::AttributeUtils
   qw(remove_outdated_attributes create_attribute_for_object);
   
@@ -24,7 +24,7 @@ sub update_sample_name {
   $sample->sample_alias($sample_name);
 }
 
-sub manipulate_sample {
+sub check_sample {
   my ( $self, $sample, $current_copy ) = @_;
   $self->update_sample_name($sample);
   $self->validate_sample_name($sample);
