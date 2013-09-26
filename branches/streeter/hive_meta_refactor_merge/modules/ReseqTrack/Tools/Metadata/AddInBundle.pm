@@ -51,6 +51,8 @@ sub new {
 	}
 	
 	$self->add_ins(\@add_ins);
+	
+	return $self;
 }
 
 sub check {
