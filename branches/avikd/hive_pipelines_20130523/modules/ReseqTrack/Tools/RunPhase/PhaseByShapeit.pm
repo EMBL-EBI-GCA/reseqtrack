@@ -39,7 +39,7 @@ Case 3: No check, PHASE without reference panel
 
     Hints: use -no_check and -phase_without_ref or do not provide a -reference_config
 
-Case 4: For ChrX, use -input_from,-input_to, -output_from and -output_to to phase PAR1, PAR2 or nonPAR regions separately, or phase without ref
+Case 4: For ChrX, use -chrX ,-run_from and -run_to,  to phase PAR1, PAR2 or nonPAR regions separately, or phase without ref
 
 Note:
 	Reference file format: chrom <tab> map <tab> haps <tab> legend <tab> samples
@@ -63,57 +63,38 @@ Note:
                 -working_dir             => '/path/to/dir/',  ## this is working dir and output dir
                 -reference_config               => '/path/to/ref_config', ###format:chrom\tmap\thaps\tlegend\tsamples
                 -options              => {	phase => "--states 100 --window 0.5", }, 
-                -chrom                   => '1',
+                -chrom                   => '1', # or ‘X_PAR1’, required for fetching reference files
 		-phase_without_ref	 =>1, ## no ref will be used for phasing
-		-exclude_only_strand	 =>1, ## only strand flip snps will be removed
+		-exclude_strand_flip	 =>1, ## only strand flip snps will be removed
                 -no_check                => 1  ## only perform phase, not strand check with ref
-                -input_from => 150118, # required for ChrX
-                -input_to => 2695340, # required for ChrX
-                -output_from => 150118, # required for ChrX
-                -output_to => 2695340, # required for ChrX
+                -chrX =>1, # required for ChrX
+                -run_from => 150118, # required for ChrX
+                -run_to => 2695340, # required for ChrX
                 );
 
 =cut
 
 # This is to set default parameters
 sub DEFAULT_OPTIONS { return {
-       phase=>'--window 0.5 --states 100',
+  phase=>'--window 0.5 --states 100',
         };
 }
 
 sub new {
-	my ( $class, @args ) = @_;
-	my $self = $class->SUPER::new(@args);
+  my ( $class, @args ) = @_;
+  my $self = $class->SUPER::new(@args);
 	
-    my ( $input_samples, $no_check, $phase_without_ref, $exclude_only_strand, $input_from, $input_to, $output_from, $output_to )= rearrange([ qw( INPUT_SAMPLES NO_CHECK PHASE_WITHOUT_REF EXCLUDE_ONLY_STRAND INPUT_FROM INPUT_TO OUTPUT_FROM OUTPUT_TO)], @args); ### ?
+  my ( $input_samples, $no_check, $phase_without_ref, $exclude_strand_flip, $run_from, $run_to, $chrX )= rearrange([ qw( INPUT_SAMPLES NO_CHECK PHASE_WITHOUT_REF EXCLUDE_STRAND_FLIP RUN_FROM RUN_TO CHRX)], @args); ### ?
     
-    
-    $self->input_samples($input_samples);
-    $self->no_check($no_check);
-    $self->phase_without_ref($phase_without_ref);
-    $self->exclude_only_strand($exclude_only_strand);
-    $self->input_from($input_from);
-    $self->input_to($input_to);
-    $self->output_from($output_from);
-    $self->output_to($output_to);
-    
-    unless($self->reference_config)
-    {
-        $self->no_check(1);
-        $self->phase_without_ref(1);
-    }
-    
-    if($self->exclude_only_strand)
-    {
-        $self->phase_without_ref(1);
-    }
-
-    if($self->no_check)
-    {
-        $self->phase_without_ref(1);
-    }
-
-    return $self;
+  $self->input_samples($input_samples);
+  $self->no_check($no_check);
+  $self->phase_without_ref($phase_without_ref);
+  $self->exclude_strand_flip($exclude_strand_flip);
+  $self->run_from($run_from);
+  $self->run_to($run_to);
+  $self->chrX($chrX);
+  
+  return $self;
 }
 
 =head2 run_program
@@ -131,7 +112,6 @@ sub new {
 sub run_program {
 	my $self = shift;
     
-    check_executable($self->program);
     check_file_exists($self->reference_config) if $self->reference_config; # ref is optional, only required for check
   
     throw("samples input file required") if(!$self->input_samples);
@@ -140,30 +120,63 @@ sub run_program {
 
     throw "Can't accept multiple input files" if(scalar @{$self->input_files} >1);   ### ?
     
+    if($self->chrX)
+    {
+      throw("Coordinate range required for ChrX") unless($self->run_from && $self->run_to);
+    }
+    
+   ###Check options
+    unless($self->reference_config)
+    {
+      $self->no_check(1);
+      $self->phase_without_ref(1);
+    }
+    
+    if($self->exclude_strand_flip)
+    {
+      $self->phase_without_ref(1);
+    }
+
     if($self->no_check)
     {
-        $self->run_shapeit();
+      $self->phase_without_ref(1);
     }
-    else
+    
+    ###run
+    if(!$self->reference_config && $self->no_check)
     {
-
-        if($self->reference_config)
-        {
-            $self->run_check();
-
-	   if($self->exclude_only_strand){
-            	$self->make_exclude_list();
-	   }
-
-            $self->run_shapeit();
-        }
-        else
-        {
-            throw "Reference required to preform alignment check";
-        }
-    }        
+      $self->run_shapeit();
+    }
+    elsif($self->reference_config && !$self->no_check)
+    {
+      $self->run_check();
+      
+      $self->make_exclude_list() if($self->exclude_strand_flip);
+      
+      $self->run_shapeit();
+      
+    } 
+    elsif(!$self->reference_config && !$self->no_check)
+    {
+      throw "Reference required to preform alignment check";
+    }
+           
     return;
 }
+
+=head2 run_check
+
+  Arg [1]   : ReseqTrack::Tools::RunPhase::PhaseByShapeit
+  Function  :uses Shapeit2 to check variants in $self->input_files.
+             Output is files are stored in $self->created_files and 
+             $self->exclude_snp_list
+            
+              
+  Returntype: 
+  Exceptions: 
+  Example   : $self->run_check()
+
+=cut
 
 sub run_check {
     my $self = shift;
@@ -177,36 +190,33 @@ sub run_check {
     $output_check =~ s{//}{/};
     push(@cmd_words, "--output-log", $output_check);
     
+    my $check_snp_list=$output_check.".snp.strand";
     my $exclude_snp_list=$output_check.".snp.strand.exclude";
     
     $self->exclude_snp_list($exclude_snp_list);
         
     push(@cmd_words, $self->options->{'check'}) if($self->options->{'check'});
     
-    if($self->chrom eq 'X' || $self->chrom eq "chrX")  ### check cannot be performed without ref
-    {
-        push(@cmd_words,"--chrX");
-        
-        $self->output_from=$self->input_from if(($self->input_from) && !($self->output_from));
-    	        
-    	        $self->output_to=$self->input_to if(($self->input_to) && !($self->output_to));
-    }
-
+    push(@cmd_words,"--chrX") if($self->chrX);  ### check cannot be performed without ref
+    
     $self->get_ref;
 	   
- 
     push(@cmd_words, "-M", $self->ref_map);
    
     my $ref_files_line=$self->ref_hap." ".$self->ref_legend." ".$self->ref_samples;
     
     push(@cmd_words, "-R", $ref_files_line);
     
-    push(@cmd_words, "--input-from", $self->input_from ) if($self->input_from);
-    push(@cmd_words, "--input-to", $self->input_to ) if($self->input_to);
-    push(@cmd_words, "--output-from", $self->output_from ) if($self->output_from);
-    push(@cmd_words, "--output-to", $self->output_to ) if($self->output_to);
+    push(@cmd_words, "--input-from", $self->run_from ) if($self->run_from);
+    push(@cmd_words, "--input-to", $self->run_to ) if($self->run_to);
+    push(@cmd_words, "--output-from", $self->run_from ) if($self->run_from);
+    push(@cmd_words, "--output-to", $self->run_to ) if($self->run_to);
    
     my $cmd = join(' ', @cmd_words);
+    
+    $self->created_files($exclude_snp_list);
+    $self->created_files($check_snp_list);
+    $self->created_files($output_check.".log");
     
     $self->execute_command_line ($cmd,\&allow_exit_code_1);
     
@@ -218,12 +228,24 @@ sub allow_exit_code_1 {
   throw("unexpected exit code $exit $command_line") if $exit != 1;
 }
 
+=head2 make_exclude_list
+
+  Arg [1]   : ReseqTrack::Tools::RunPhase::PhaseByShapeit
+  Function  : Create a list of variants with strand flip error 
+            
+              
+  Returntype: 
+  Exceptions: 
+  Example   : $self->make_exclude_list()
+
+=cut
+
 sub make_exclude_list {
     my $self = shift;
     
     my $check_snp_list=$self->working_dir .'/'. $self->job_name.".alignments.snp.strand";
     
-    my $exclude_snp_list=$self->working_dir .'/'. $self->job_name.".alignments.snp.strand_only.exclude";
+    my $exclude_snp_list=$self->exclude_snp_list.".strand_only";
     
     my @cmd_words = ("cat",$check_snp_list,"|grep strand|cut -f2 >",$exclude_snp_list);
     
@@ -231,10 +253,25 @@ sub make_exclude_list {
     
     my $cmd = join(' ', @cmd_words);
     
+    $self->created_files($exclude_snp_list);
+    
     $self->execute_command_line ($cmd);
     
     return;
 }
+
+
+=head2 run_shapeit
+
+  Arg [1]   : ReseqTrack::Tools::RunPhase::PhaseByShapeit
+  Function  :
+            
+              
+  Returntype: 
+  Exceptions: 
+  Example   :  $self->run_shapeit();
+
+=cut
 
 sub run_shapeit {
     my $self = shift;
@@ -249,40 +286,30 @@ sub run_shapeit {
     my $output_haps=$output_phase.".haps";
     my $output_samples=$output_phase.".samples";
     $self->output_files($output_haps);
+    $self->output_files($output_samples);
     
-    push(@cmd_words,"--chrX") if($self->chrom eq 'X' || $self->chrom eq "chrX");
+    push(@cmd_words,"--chrX") if($self->chrX);
 
     push(@cmd_words, $self->options->{'phase'});
 
-    unless($self->phase_without_ref){
-
-    	if($self->reference_config)
-    	{
-    	   if($self->chrom eq 'X' || $self->chrom eq "chrX")
-    	   {
-    	        $self->output_from=$self->input_from if(($self->input_from) && !($self->output_from));
-    	        
-    	        $self->output_to=$self->input_to if(($self->input_to) && !($self->output_to));
-    	   }
-    	   
-        	$self->get_ref;
-        	push(@cmd_words, "-M", $self->ref_map);
-	
-		my $ref_files_line=$self->ref_hap." ".$self->ref_legend." ".$self->ref_samples;
-		push(@cmd_words, "-R", $ref_files_line);
-		}
-    	
-    }
-
-    if($self->exclude_snp_list)
+    unless($self->phase_without_ref)
     {
-        push(@cmd_words,"--exclude-snp",$self->exclude_snp_list);
+      if($self->reference_config)
+      {   	   
+        $self->get_ref;
+        push(@cmd_words, "-M", $self->ref_map);
+	  
+	    my $ref_files_line=$self->ref_hap." ".$self->ref_legend." ".$self->ref_samples;
+	    push(@cmd_words, "-R", $ref_files_line);
+	  }
     }
-    
-    push(@cmd_words, "--input-from",$self->input_from ) if($self->input_from);
-    push(@cmd_words, "--input-to",$self->input_to ) if($self->input_to);
-    push(@cmd_words, "--output-from",$self->output_from ) if($self->output_from);
-    push(@cmd_words, "--output-to",$self->output_to ) if($self->output_to);
+
+    push(@cmd_words,"--exclude-snp",$self->exclude_snp_list) if($self->exclude_snp_list);
+        
+    push(@cmd_words, "--input-from",$self->run_from ) if($self->run_from);
+    push(@cmd_words, "--input-to",$self->run_to ) if($self->run_to);
+    push(@cmd_words, "--output-from",$self->run_from ) if($self->run_from);
+    push(@cmd_words, "--output-to",$self->run_to ) if($self->run_to);
        
     my $cmd = join(' ', @cmd_words);
     
@@ -291,54 +318,53 @@ sub run_shapeit {
     return;
 }
 
+=head2 run_shapeit
+
+  Arg [1]   : ReseqTrack::Tools::RunPhase::PhaseByShapeit
+  Function  :
+            
+              
+  Returntype: 
+  Exceptions: 
+  Example   : $self->get_ref
+
+=cut
+
 sub get_ref {
-    my ( $self, $arg ) = @_;
-    my $reference_config = $self->reference_config; ###format:chrom\tmap\thaps\tlegend\tsamples
-    my $chrom= $self->chrom;
+  my ( $self, $arg ) = @_;
+  my $reference_config = $self->reference_config; ###format:chrom\tmap\thaps\tlegend\tsamples
+  my $chrom= $self->chrom;
+  my $chr_flag=0;
    
-    if($chrom eq 'X' || $chrom eq 'chrX')
+  open(FH,$reference_config)||throw("can't read $reference_config\n");
+  while(my $ref_line=<FH>)
+  {
+    chomp($ref_line);
+    next if($ref_line=~ /^#/);
+    
+    
+     
+    my @field=split(/\t/,$ref_line);
+        
+    if($field[0] eq $chrom)
     {
-        throw("coordinate range required for Chr X") if(!($self->input_to) or !($self->input_from));
-        
-     	if(($self->input_to) < 2695500) ## PAR1
-     	{
-     	    $chrom="X_PAR1";
-     	}
-     	elsif((($self->input_from) > 2696000) && (($self->input_to) < 154950000))## nonPAR
-     	{
-     	    $chrom="X_nonPAR";
-     	}
-     	elsif(($self->input_from) > 154955000) ##PAR2
-     	{
-     	    $chrom="X_PAR2";
-     	}
-     	     	
-     }
-  # else
-  # {
-    	open(FH,$reference_config)||throw("can't read $reference_config\n");
-    	while(my $ref_line=<FH>)
-    	{
-        	chomp($ref_line);
-        	next if($ref_line=~ /^#/);
-        
-        	my @field=split(/\t/,$ref_line);
-        
-        	if($field[0] eq $chrom)
-        	{
-           		$self->ref_map($field[1]);
-           		$self->ref_hap($field[2]);
-           		$self->ref_legend($field[3]);
-           		$self->ref_samples($field[4]);
-        	}
-	#}
-   }
-    return $self->{get_ref};
+      $self->ref_map($field[1]);
+      $self->ref_hap($field[2]);
+      $self->ref_legend($field[3]);
+      $self->ref_samples($field[4]);
+      $chr_flag++;
+    }
+       
+  }
+  
+  throw("Chromosome name not present in Reference Config file") unless($chr_flag >0);
+  
+  return $self->{get_ref};
 }
 
 sub ref_map {
-   my ( $self, $arg ) = @_;
-
+  my ( $self, $arg ) = @_;
+  
   if ($arg) {
     $self->{ref_map} = $arg;
   }
@@ -346,7 +372,7 @@ sub ref_map {
 }
 
 sub ref_hap {
-   my ( $self, $arg ) = @_;
+  my ( $self, $arg ) = @_;
 
   if ($arg) {
     $self->{ref_hap} = $arg;
@@ -355,7 +381,7 @@ sub ref_hap {
 }
 
 sub ref_legend {
-   my ( $self, $arg ) = @_;
+  my ( $self, $arg ) = @_;
 
   if ($arg) {
     $self->{ref_legend} = $arg;
@@ -364,7 +390,7 @@ sub ref_legend {
 }
 
 sub ref_samples {
-   my ( $self, $arg ) = @_;
+  my ( $self, $arg ) = @_;
 
   if ($arg) {
     $self->{ref_samples} = $arg;
@@ -382,29 +408,36 @@ sub exclude_snp_list {
 }
 
 
-
 sub no_check {
-    my $self = shift;
-    if (@_) {
-        $self->{'no_check'} = (shift) ? 1 : 0;
-    }
-    return $self->{'no_check'};
+  my $self = shift;
+  if (@_) {
+    $self->{'no_check'} = (shift) ? 1 : 0;
+  }
+  return $self->{'no_check'};
 }
 
 sub phase_without_ref {
-    my $self = shift;
-    if (@_) {
-        $self->{'phase_without_ref'} = (shift) ? 1 : 0;
-    }
-    return $self->{'phase_without_ref'};
+  my $self = shift;
+  if (@_) {
+    $self->{'phase_without_ref'} = (shift) ? 1 : 0;
+  }
+  return $self->{'phase_without_ref'};
 }
 
-sub exclude_only_strand {
-	my $self = shift;
-    if (@_) {
-        $self->{'exclude_only_strand'} = (shift) ? 1 : 0;
-    }
-    return $self->{'exclude_only_strand'};
+sub exclude_strand_flip {
+  my $self = shift;
+  if (@_) {
+    $self->{'exclude_strand_flip'} = (shift) ? 1 : 0;
+  }
+  return $self->{'exclude_strand_flip'};
+}
+
+sub chrX {
+  my $self = shift;
+  if (@_) {
+    $self->{'chrX'} = (shift) ? 1 : 0;
+  }
+  return $self->{'chrX'};
 }
 
 sub input_samples {
@@ -416,7 +449,7 @@ sub input_samples {
   return $self->{input_samples};
 }
 
-sub input_from {
+sub run_from {
   my ( $self, $arg ) = @_;
 
   if ($arg) {
@@ -425,30 +458,13 @@ sub input_from {
   return $self->{input_from};
 }
 
-sub input_to {
+sub run_to {
   my ( $self, $arg ) = @_;
 
   if ($arg) {
     $self->{input_to} = $arg;
   }
   return $self->{input_to};
-}
-sub output_from {
-  my ( $self, $arg ) = @_;
-
-  if ($arg) {
-    $self->{output_from} = $arg;
-  }
-  return $self->{output_from};
-}
-
-sub output_to {
-  my ( $self, $arg ) = @_;
-
-  if ($arg) {
-    $self->{output_to} = $arg;
-  }
-  return $self->{output_to};
 }
 
 1;
