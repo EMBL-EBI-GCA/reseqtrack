@@ -35,7 +35,7 @@ sub report_attribute_clashes {
 
 		if ( $is_clash && !$printed_header ) {
 			print 'Potential attribute naming clash' . $/;
-			print join( "\n", "Attribute name", "Table name 1", "Table name 2" ) . $/;
+			print join( "\t", "Attribute name", "Table name 1", "Table name 2" ) . $/;
 			$printed_header = 1;
 		}
 		if ($is_clash) {
@@ -69,7 +69,7 @@ sub report_attribute_column_clashes {
 
 		if ( $is_clash && !$printed_header ) {
 			print 'Potential attribute/column naming clash' . $/;
-			print join( "\n", "Table name (column)", "Column name", "Table name (attribute)", "Attribute name" ) . $/;
+			print join( "\t", "Table name (column)", "Column name", "Table name (attribute)", "Attribute name" ) . $/;
 			$printed_header = 1;
 		}
 		if ($is_clash) {
@@ -81,13 +81,23 @@ sub report_attribute_column_clashes {
 }
 
 sub attribute_2_attribute_whitelist {
-	return { 'attribute_name' => { 'table_name_1' => { 'table_name_2' => 1 } } };
+	return {
+		'attribute_name' => {
+			'table_name_1' => {
+				'table_name_2' => 1
+			}
+		}
+	};
 }
 
 sub attribute_2_column_whitelist {
 	return {
 		'col_table_name' => {
-			'column_name' => { 'attribute_table_name' => {'attribute_name'} => 1 }
+			'column_name' => {
+				'attribute_table_name' => {
+					'attribute_name' => 1 
+				}
+			}
 		}
 	};		
 }
