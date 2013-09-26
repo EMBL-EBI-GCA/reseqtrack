@@ -13,3 +13,4 @@ sub addins_to_load {
 		ReseqTrack::Tools::Metadata::G1KCheckSampleNameInFile
 	);
 }
+1;
