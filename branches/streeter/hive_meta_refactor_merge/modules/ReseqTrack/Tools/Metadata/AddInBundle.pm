@@ -17,6 +17,15 @@ sub addins_to_load {
 	throw("Implement me!");
 }
 
+sub add_ins {
+	my ($self, $arg) = @_;
+	
+	if ($arg) {
+		$self->{add_ins} = $arg;
+	}
+	return $self->{add_ins};
+}
+
 sub new {
 	my ( $class, @args ) = @_;
 
