@@ -24,10 +24,10 @@ sub attribute_2_column_whitelist {
       { 'center_name' => { 'experiment' => { 'CENTER_NAME' => 1 } } },
     'run' => {
       'center_name' => { 'experiment' => { 'CENTER_NAME' => 1 } },
-      'sample_id' => { 
-        'experiment' => { 'SAMPLE_ID' => 1 }, 
-        'run' => { 'SAMPLE_ID' => 1 } 
-        }
+      'sample_id'   => {
+        'experiment' => { 'SAMPLE_ID' => 1 },
+        'run'        => { 'SAMPLE_ID' => 1 }
+      }
     },
     'sample' => {
       'center_name' => { 'experiment' => { 'CENTER_NAME' => 1 } },

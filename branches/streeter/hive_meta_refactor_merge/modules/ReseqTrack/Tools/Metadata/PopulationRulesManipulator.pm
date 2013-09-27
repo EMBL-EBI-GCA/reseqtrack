@@ -21,7 +21,6 @@ sub new {
   return $self;
 }
 
-
 sub convert_population {
   my ( $self, $sample ) = @_;
   my $attributes = $sample->attributes_hash;
@@ -44,7 +43,7 @@ sub convert_population {
   }
 
   my $attr = create_attribute_for_object( $sample, 'POPULATION', $population );
-  $sample->statistics( [$attr] );
+  $sample->attributes( [$attr] );
 }
 
 sub check_sample {

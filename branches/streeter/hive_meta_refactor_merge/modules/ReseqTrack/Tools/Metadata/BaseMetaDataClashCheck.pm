@@ -63,10 +63,10 @@ sub report_attribute_column_clashes {
   while ( my $rs = $sth->fetchrow_arrayref ) {
     my ( $column_name, $col_table_name, $attribute_name, $attr_table_name ) =
       @$rs;
-      
-    $attribute_name =~ s/^\s+|\s+$//g;      
 
-    #print Dumper([$column_name, $col_table_name, $attribute_name, $attr_table_name]);
+    $attribute_name =~ s/^\s+|\s+$//g;
+
+#print Dumper([$column_name, $col_table_name, $attribute_name, $attr_table_name]);
 
     my $is_clash =
       ( !exists $white_list->{$col_table_name}->{$column_name}

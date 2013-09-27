@@ -6,21 +6,23 @@ use ReseqTrack::Tools::Exception qw(throw);
 use base qw(ReseqTrack::Tools::Metadata::BaseMetadataAddIn);
 use ReseqTrack::Tools::AttributeUtils
   qw(remove_outdated_attributes create_attribute_for_object);
-  
+
 sub validate_sample_name {
-  my ($self,$sample) = @_;
-  if (! $sample->sample_alias =~ m/^[A-Z]{2}\d{5}$/){
-    throw("Sample alias does not match expected format ".$sample->source_id." ".$sample->sample_alias);
+  my ( $self, $sample ) = @_;
+  if ( !$sample->sample_alias =~ m/^[A-Z]{2}\d{5}$/ ) {
+    throw("Sample alias does not match expected format "
+        . $sample->source_id . " "
+        . $sample->sample_alias );
   }
 }
 
 sub update_sample_name {
-  my ($self,$sample) = @_;
-  
+  my ( $self, $sample ) = @_;
+
   my $sample_name = $sample->sample_alias;
   $sample_name =~ s/^GM/NA/;
   $sample_name = uc($sample_name);
-  
+
   $sample->sample_alias($sample_name);
 }
 

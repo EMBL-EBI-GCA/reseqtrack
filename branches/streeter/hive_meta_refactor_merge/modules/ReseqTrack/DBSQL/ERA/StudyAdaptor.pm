@@ -45,7 +45,11 @@ sub internal_id_column {
 
 sub fetch_by_study_id {
   my ( $self, $study_id ) = @_;
-  return [ $self->fetch_by_dbID($study_id) ];
+  
+  my $study = $self->fetch_by_dbID($study_id);
+  
+  return [$study] if ($study);
+  return undef;
 }
 
 sub fetch_by_sample_id {

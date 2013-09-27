@@ -61,7 +61,7 @@ sub load_new_studies {
 }
 
 sub update_from_era {
-  my ( $self, $load_new, $update_existing, ) = @_;
+  my ( $self, $load_new, $update_existing, $force_update) = @_;
 
   my $studies        = $self->dcc_db->get_StudyAdaptor()->fetch_all();
   my $target_studies = $self->target_studies;
@@ -77,7 +77,7 @@ STUDY: for my $study (@$studies) {
     $self->log( "Checking " . $study->source_id );
   TYPE: for my $type (@$types) {
       $self->load_type_by_study_id( $type, $study->source_id(),
-        $update_existing, $load_new );
+        $update_existing, $load_new, $force_update );
     }
   }
 }
@@ -98,7 +98,8 @@ sub load_type_by_study_id {
   my $run_stat_add_in = $self->run_stat_add_in;
 
   my $objects = $era_adaptor->fetch_by_study_id($study_id);
-
+  die ("Undef returned when fetching by study_id - check study ID is valid") if (!defined $objects);
+  
   my $stored_count  = 0;
   my $checked_count = scalar(@$objects);
 
@@ -224,15 +225,17 @@ sub target_types {
   if ( !$self->{target_types} ) {
     $self->{target_types} = \@types;
   }
-
+ 
   return $self->{target_types};
 }
 
 sub target_studies {
   my ( $self, $target_studies ) = @_;
   if ($target_studies) {
-    @$target_studies = sort { $a cmp $b } @$target_studies;
-    $self->{target_studies} = $target_studies;
+    my @ts =sort { $a cmp $b } @$target_studies;
+    $self->{target_studies} = \@ts;
+    
+    print 
   }
   return $self->{target_studies};
 }
