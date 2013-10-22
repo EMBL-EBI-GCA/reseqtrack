@@ -231,8 +231,9 @@ sub allow_exit_code_1 {
 =head2 make_exclude_list
 
   Arg [1]   : ReseqTrack::Tools::RunPhase::PhaseByShapeit
-  Function  : Create a list of variants with strand flip error 
-            
+  Function  : Create a list of variants with strand flip error
+              Output is files are stored in $self->exclude_snp_list
+                             
               
   Returntype: 
   Exceptions: 
@@ -264,8 +265,8 @@ sub make_exclude_list {
 =head2 run_shapeit
 
   Arg [1]   : ReseqTrack::Tools::RunPhase::PhaseByShapeit
-  Function  :
-            
+  Function  : uses Shapeit2 to check variants in $self->input_files.
+              Output is files are stored $self->output_files
               
   Returntype: 
   Exceptions: 
@@ -318,11 +319,12 @@ sub run_shapeit {
     return;
 }
 
-=head2 run_shapeit
+=head2 get_ref
 
   Arg [1]   : ReseqTrack::Tools::RunPhase::PhaseByShapeit
-  Function  :
-            
+  Function  : Get reference files from $self->reference_config for $self->chrom
+              Reference config file format:chrom\tmap\thaps\tlegend\tsamples
+              Output stored in $self->ref_map, $self->ref_hap, $self->ref_legend and ref_samples
               
   Returntype: 
   Exceptions: 

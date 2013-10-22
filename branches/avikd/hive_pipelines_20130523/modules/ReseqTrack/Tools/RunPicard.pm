@@ -62,7 +62,6 @@ sub DEFAULT_OPTIONS {
 	'restore_quality' => 1, # restore original quality value, for revert_sam
 	'remove_duplicate_info' => 1, # remove markduplicate info, for revert_sam
 	'remove_alignment_info' => 1, # remove alignment info, for revert_sam
-	'paired_end' => 1, #sam_to_fastq, treat reads in BAM as paired end
 	'output_per_rg' => 1, # samtofastq, always output fastq per @RG
     };
 }
@@ -109,10 +108,10 @@ sub new {
     my ( $class, @args ) = @_;
     my $self = $class->SUPER::new(@args);
 
-    my ( $java_exe, $picard_dir, $jvm_options, $create_index, $keep_metrics, )
+    my ( $java_exe, $picard_dir, $jvm_options, $create_index, $keep_metrics, $library_layout, )
       = rearrange(
         [
-            qw( JAVA_EXE PICARD_DIR JVM_OPTIONS CREATE_INDEX KEEP_METRICS
+            qw( JAVA_EXE PICARD_DIR JVM_OPTIONS CREATE_INDEX KEEP_METRICS LIBRARY_LAYOUT
               )
         ],
         @args
@@ -124,7 +123,8 @@ sub new {
 
     $self->jvm_options( defined $jvm_options ? $jvm_options : '-Xmx4g' );
     $self->create_index($create_index);
-
+    $self->library_layout($library_layout); ## no default library_layout
+    
     return $self;
 }
 
@@ -179,22 +179,27 @@ sub run_samtofastq {
     my @fastq_file;
     
     my $jar = $self->_jar_path('SamToFastq.jar');
-    my $paired_end=$self->options('paired_end'); ## method to get paired_end status from db
-    my $output_dir = '';
+    
+    throw("need a library_layout") if !$self->library_layout;
+    
+   # my $output_dir = '';
     my $output_per_rg=$self->options('output_per_rg'); 
 
+    throw("expecting single input BAM") if((scalar @{ $self->input_files }) >1 );
+    
     foreach my $input ( @{ $self->input_files } ) {
         my $name = fileparse( $input, qr/\.[sb]am/ );
         $name =~ s{#}{_}g;
         #my $prefix_dir = $self->working_dir . '/' . $name .'/';
         my $prefix_dir = $self->working_dir .'/';
         $prefix_dir =~ s{//}{/}g;
-                
-        if($output_per_rg)
-        {
-            $output_dir = $prefix_dir;
-        }
-	system("mkdir -p $output_dir"); ## method to create dir
+        
+              
+       # if($output_per_rg)
+       # {
+       #     $output_dir = $prefix_dir;
+       # }
+	#system("mkdir -p $output_dir"); ## method to create dir
                
         my @cmd_words = ( $self->java_exe );
         push( @cmd_words, $self->jvm_options ) if ( $self->jvm_options );
@@ -203,25 +208,52 @@ sub run_samtofastq {
         push( @cmd_words, 'INPUT=' . $input );
         push( @cmd_words,
             'OUTPUT_PER_RG='. ( $self->options('output_per_rg') ? 'true' : 'false' ) );
+         
+        
               
         if($output_per_rg)
         {
-            push( @cmd_words, 'OUTPUT_DIR='.$output_dir );
+            push( @cmd_words, 'OUTPUT_DIR='.$prefix_dir );
             
-            my $rg_id_array=get_rg_name($input);
-            
+           
+            my $rg_id_array=_get_rg_name($input);
             
             foreach my $rg_id(@{$rg_id_array})
             {
-                if($paired_end)
+                if(uc($self->library_layout) eq "PAIRED")
                 {
-                    push(@fastq_file,$output_dir.$rg_id."_1.fastq");
-                    push(@fastq_file,$output_dir.$rg_id."_2.fastq");
+                    push(@fastq_file,$prefix_dir.$rg_id."_1.fastq");
+                    push(@fastq_file,$prefix_dir.$rg_id."_2.fastq");
+                }
+                elsif(uc($self->library_layout) eq "SINGLE")
+                {
+                     push(@fastq_file,$prefix_dir.$rg_id.".fastq");               
                 }
                 else
                 {
-                     push(@fastq_file,$output_dir.$rg_id.".fastq");               
+                    throw("Did not recognise library_layout:", $self->library_layout);
                 }
+            }
+        }
+        else
+        {
+            if(uc($self->library_layout) eq "PAIRED")
+            {
+                  push(@cmd_words,"FASTQ=",$prefix_dir.$name."_1.fastq");
+                  push(@cmd_words,"SECOND_END_FASTQ=",$prefix_dir.$name."_2.fastq");
+                  
+                  push(@fastq_file,$prefix_dir.$name."_1.fastq");
+                  push(@fastq_file,$prefix_dir.$name."_2.fastq");
+            }
+            elsif(uc($self->library_layout) eq "SINGLE")
+            {
+               push(@cmd_words,"FASTQ=",$prefix_dir.$name.".fastq");
+               
+               push(@fastq_file,$prefix_dir.$name.".fastq");
+            }
+            else
+            {
+                    throw("Did not recognise library_layout:", $self->library_layout);
             }
         }
         
@@ -233,22 +265,25 @@ sub run_samtofastq {
 
 	foreach my $fastq(@fastq_file)
 	{
-		my $gz_fastq=compress_file($fastq);	
+		my ($gz_fastq,$cmd)=_compress_file($fastq);	
 		push @gz_fastq_file, $gz_fastq;
+		
+		$self->execute_command_line($cmd);
+		$self->output_files($gz_fastq);
 	}  
-    	return \@gz_fastq_file;
+    	return;
 }
 
-sub get_rg_name {
+sub _get_rg_name {
         my $bam=shift;
         my $samtools_cmd="samtools view -H $bam|grep ^\@RG";
         my @rg_line=capture($samtools_cmd);
-        my $rg_id=get_rg_id(\@rg_line);
+        my $rg_id=_get_rg_id(\@rg_line);
 
         return $rg_id;
 }
 
-sub get_rg_id {
+sub _get_rg_id {
         my $rg_array=shift;
         my @rg_id;
 
@@ -269,21 +304,24 @@ sub get_rg_id {
         return \@rg_id;
 }
 
-sub compress_file{
+sub _compress_file{
   my $file = shift;
   my $cmd = "gzip ".$file;
   my $new_file = $file.".gz";
   if(-e $new_file){
     unlink $new_file;
   }
-  my $exit = system($cmd);
-  if($exit >= 1){
-    throw("There is a problem with ".$cmd." non zero exit code ".$exit);
-  }
-  unless(-e $new_file){
-    throw("Failed to produce ".$new_file." from ".$file." using ".$cmd);
-  }
-  return $new_file;
+  
+  
+  #my $exit = system($cmd);
+  #if($exit >= 1){
+  #  throw("There is a problem with ".$cmd." non zero exit code ".$exit);
+  #}
+  #unless(-e $new_file){
+  #  throw("Failed to produce ".$new_file." from ".$file." using ".$cmd);
+  #}
+  
+  return ($new_file,$cmd);
 }
 
 =head2 run_revertsam
@@ -313,7 +351,9 @@ sub run_revertsam {
     my $jar = $self->_jar_path('RevertSam.jar');
     
    my $revert_bam;
- 
+    
+    throw("expecting single input BAM") if((scalar @{ $self->input_files }) >1 );
+    
     foreach my $input ( @{ $self->input_files } ) {
         my $name = fileparse( $input, qr/\.[sb]am/ );
         my $prefix = $self->working_dir . '/' . $name . '_revert';
@@ -359,7 +399,7 @@ sub run_revertsam {
             	$self->output_files($bai);
         	}
 	}
-	return $revert_bam;
+	return;
 }
 
 =head2 run_mark_duplicates
@@ -829,6 +869,20 @@ sub output_bam_files {
     my $self = shift;
     my @files = grep { /\.bam$/ } @{ $self->output_files };
     return \@files;
+}
+
+sub output_fastq_files {
+    my $self = shift;
+    my @files = grep { /\.fastq$/ } @{ $self->output_files };
+    return \@files;
+}
+
+sub library_layout {
+    my ( $self, $arg ) = @_;
+    if ($arg) {
+        $self->{'library_layout'} = $arg;
+    }
+    return $self->{'library_layout'};
 }
 
 sub output_metrics_files {

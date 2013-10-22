@@ -1,5 +1,5 @@
 
-package ReseqTrack::Hive::Process::SequenceSliceFactory;
+package ReseqTrack::Hive::Process::BedSliceFactory;
 
 use strict;
 
@@ -19,7 +19,12 @@ use POSIX qw(ceil);
 sub run {
   my ($self) = @_;
   my $fai = $self->param_required('fai');
-  my $bed = $self->param_is_defined('bed') ? $self->param('bed') : undef;
+  $self->param_required('bed');
+  
+  my $beds = $self->file_param_to_flat_array('bed');
+  my $bed = $$beds[0];
+  
+  
   my $max_sequences = $self->param_is_defined('max_sequences') ? $self->param('max_sequences') : 0;
   my $num_bases = $self->param_is_defined('num_bases') ? $self->param('num_bases') : 0;
   my $SQ_start = $self->param_is_defined('SQ_start') ? $self->param('SQ_start') : undef;
@@ -27,14 +32,18 @@ sub run {
   my $bp_start = $self->param_is_defined('bp_start') ? $self->param('bp_start') : undef;
   my $bp_end = $self->param_is_defined('bp_end') ? $self->param('bp_end') : undef;
 
+  
+  
+  
   my $slices = fai_to_slices(
-          SQ_start => $SQ_start
-          fai => $fai,, SQ_end => $SQ_end,
+          fai => $fai,
+          SQ_start => $SQ_start, SQ_end => $SQ_end,
           bp_start => $bp_start, bp_end => $bp_end,
           );
 
   if (defined $bed) {
     $slices = bed_to_slices(bed => $bed, parent_slices => $slices);
+    
   }
 
   if ($num_bases) {
@@ -76,7 +85,6 @@ sub run {
       $label = $SQ_start;
       if ($bp_start != 1 || $bp_end != $child->[1]->SQ_length) {
         $label .= ".$bp_start-$bp_end";
-        
       }
     }
     else {

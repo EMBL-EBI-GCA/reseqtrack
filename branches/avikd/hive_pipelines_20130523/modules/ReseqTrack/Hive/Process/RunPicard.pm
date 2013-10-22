@@ -36,21 +36,30 @@ sub run {
       -options      => {validation_stringency => 'SILENT'},
       -create_index => $self->param_is_defined('create_index') ? $self->param('create_index') : undef,
       -keep_metrics => 0,
+      -library_layout => $self->param_is_defined('library_layout') ? $self->param('library_layout') : undef,
     );
 
     $self->run_program($picard_object, $command);
 
-    my $output_bams = $picard_object->output_bam_files;
-    my $output_bais = $picard_object->output_bai_files;
+    my $output_bams = $picard_object->output_bam_files unless($command eq 'sam_to_fastq');
+    my $output_bais = $picard_object->output_bai_files unless($command eq 'sam_to_fastq');
+    
+    my $output_fastqs = $picard_object->output_fastq_files if($command eq 'sam_to_fastq');
+    
+    unless($command eq 'sam_to_fastq') {
     if (@$output_bams ==1) {
       $output_bams = $output_bams->[0];
     }
     if (@$output_bais ==1) {
       $output_bais = $output_bais->[0];
     }
+   }
+   
+    $self->output_param('bam', $output_bams) unless($command eq 'sam_to_fastq');
+    $self->output_param('bai', $output_bais) unless($command eq 'sam_to_fastq');
+    
+    $self->output_param('fastq', $output_fastqs) if($command eq 'sam_to_fastq');
 
-    $self->output_param('bam', $output_bams);
-    $self->output_param('bai', $output_bais);
 
 }
 

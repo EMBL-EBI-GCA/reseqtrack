@@ -89,6 +89,19 @@ sub run {
         $self->prepare_factory_output_id($run_id, {'run_id' => $run_id});
       }
     }
+    elsif(lc($type_branch) eq 'library_layout') {
+        my $sql = 'SELECT library_layout FROM run_meta_info where 1';
+        
+        my @bind_values;
+        if ($self->param_is_defined('run_id')) {
+        $sql .= ' AND run_id = ?';
+        push(@bind_values, $self->param('run_id'));
+      }
+      my $sth = $db->dbc->prepare($sql) or die "could not prepare $sql: ".$db->dbc->errstr;;
+      $sth->execute(@bind_values) or die "could not execute $sql: ".$sth->errstr;
+      foreach my $library_layout (map {$_->[0]} @{$sth->fetchall_arrayref()}) {
+        $self->prepare_factory_output_id($library_layout, {'library_layout' => $library_layout});
+     }
 
 }
 

@@ -1,3 +1,22 @@
+=pod
+
+=head1 NAME
+
+ReseqTrack::Tools::RunPhase::PhaseByBeagle
+
+=head1 SYNOPSIS
+
+This is a class for running Beagle4 Phasing (and Imputation)
+It is a sub class of a ReseqTrack::Tools::RunPhase
+
+It generates and run command to phase variants from multiple diploid individuals
+
+>java -Xmx4000m -jar /path/b4.jar gtgl=in.vcf.gz chrom=22:16051249-16344141 impute=false out=/path/22.16051249-16344141  
+
+Reference file format: chrom<tab>vcf<tab>map (map is optional)
+
+=cut
+
 package ReseqTrack::Tools::RunPhase::PhaseByBeagle;
 
 use strict;
@@ -191,19 +210,3 @@ sub ref_vcf {
 
 1;
 
-=pod
-
-=head1 NAME
-
-ReseqTrack::Tools::RunPhase::PhaseByBeagle
-
-=head1 SYNOPSIS
-
-This is a class for running Beagle4 Phasing (and Imputation)
-It is a sub class of a ReseqTrack::Tools::RunPhase
-
-It generates and run command to phase variants from multiple diploid individuals
-
->java -Xmx4000m -jar /path/b4.jar gtgl=in.vcf.gz chrom=22:16051249-16344141 impute=false out=/path/22.16051249-16344141  
-
-Reference file format: chrom<tab>vcf<tab>map (map is optional)
