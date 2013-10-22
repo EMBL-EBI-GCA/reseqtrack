@@ -37,6 +37,8 @@ sub run {
     
     
     my $output_file;
+    my $SQ_start;
+    my $SQ_end;
     
     
     my $first_vcf = 1;
@@ -84,6 +86,8 @@ sub run {
           $start_chrom = $line_array[0];
           $start_pos = $line_array[1];
           $end_pos = $line_array[1];
+          
+          push @{$SQ_start}, $start_chrom;
              
         }
              
@@ -120,6 +124,8 @@ sub run {
       
       print $OUT "$chrom\t$start_pos\t$pos\t.\t1\t+\n";
       
+      push @{$SQ_end}, $chrom;
+      
       $first_vcf = 0;
       
       close $OUT;
@@ -129,7 +135,8 @@ sub run {
     $self->dbc->disconnect_when_inactive(0);
 
     $self->output_param('bed' , $$output_file[0]);
-    print $$output_file[0],"\n";
+    $self->output_param('SQ_start' , $$SQ_start[0]);
+    $self->output_param('SQ_end' , $$SQ_end[0]);
 
 }
 

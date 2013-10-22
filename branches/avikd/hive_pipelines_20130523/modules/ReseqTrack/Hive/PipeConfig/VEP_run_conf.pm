@@ -174,6 +174,8 @@ sub pipeline_analyses {
                 num_bases => $self->o('transpose_window_size'),
                 max_sequences => 1,
                 bed => '#bed#',
+                SQ_start => '#SQ_start#',
+                SQ_end => '#SQ_end#',
             },
 		    -flow_into => {
                 '2->A' => [ 'vep',],
