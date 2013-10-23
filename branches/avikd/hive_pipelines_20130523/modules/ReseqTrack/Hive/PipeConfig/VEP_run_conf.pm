@@ -72,10 +72,20 @@ sub default_options {
                         check_existing => "",
                         force_overwrite => '',
                         symbol => "", 
+                        sift => "b",
+                        polyphen => "b",
                         },
        'vep_call' => 1,
        'max_variants' => 10000,
        };
+}
+
+sub hive_meta_table {
+  my ($self) = @_;
+  return {
+    %{$self->SUPER::hive_meta_table},
+    'hive_use_param_stack' => 1,
+  };
 }
 
 sub pipeline_create_commands {
@@ -139,11 +149,10 @@ sub pipeline_analyses {
       });
       push(@analyses, {
             -logic_name    => 'vcf_factory',  
-            -module        => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
+            -module        => 'ReseqTrack::Hive::Process::VcfFactory',
             -meadow_type => 'LOCAL',
             -parameters    => {
-              inputlist => '#g1k_vcf#', 
-              'column_names' => [ 'vcf' ],
+              vcf_list => '#g1k_vcf#',               
           },
           -flow_into => {
                 2 => [ 'generate_bed' ],
@@ -154,7 +163,6 @@ sub pipeline_analyses {
           -module        => 'ReseqTrack::Hive::Process::VcfToBed',
           -parameters    => {
               bgzip => $self->o('bgzip_exe'), 
-              vcf => 'vcf',
               max_variants => $self->o('max_variants'),
               output_param => 'bed',
              
@@ -253,6 +261,7 @@ sub pipeline_analyses {
               
               temp_param_sub => { 1 => [['bp_start','undef'],['bp_end','undef']]}, # temporary hack pending updates to hive code
               run_tabix => 1,
+              delete_param => ['vcf'],
           },
           -rc_name => '1Gb',
           -hive_capacity  =>  200,
