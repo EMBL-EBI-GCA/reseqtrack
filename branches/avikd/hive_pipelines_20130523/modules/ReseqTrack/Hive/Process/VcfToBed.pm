@@ -98,6 +98,8 @@ sub run {
         {
           if($count > $max_variants)
           {
+            next if($pos == $end_pos);
+            
             print $OUT "$chrom\t$start_pos\t$end_pos\t.\t1\t+\n";
             $count = 1;
             
