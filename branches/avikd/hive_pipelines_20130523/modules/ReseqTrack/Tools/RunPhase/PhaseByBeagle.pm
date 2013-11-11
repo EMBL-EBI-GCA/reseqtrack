@@ -1,3 +1,14 @@
+package ReseqTrack::Tools::RunPhase::PhaseByBeagle;
+
+use strict;
+use warnings;
+
+use ReseqTrack::Tools::Exception qw(throw);
+use ReseqTrack::Tools::Argument qw(rearrange);
+use ReseqTrack::Tools::FileSystemUtils qw(check_file_exists check_executable);
+
+use base qw(ReseqTrack::Tools::RunPhase);
+
 =pod
 
 =head1 NAME
@@ -17,17 +28,6 @@ Reference file format: chrom<tab>vcf<tab>map (map is optional)
 
 =cut
 
-package ReseqTrack::Tools::RunPhase::PhaseByBeagle;
-
-use strict;
-use warnings;
-
-use ReseqTrack::Tools::Exception qw(throw);
-use ReseqTrack::Tools::Argument qw(rearrange);
-use ReseqTrack::Tools::FileSystemUtils qw(check_file_exists check_executable);
-
-use base qw(ReseqTrack::Tools::RunPhase);
-
 =head2 new
 
   Arg [-parameters]   :
@@ -46,14 +46,17 @@ use base qw(ReseqTrack::Tools::RunPhase);
                 -working_dir             => '/path/to/dir/',  ## this is working dir and output dir
                 -reference_config               => '/path/to/ref_config',
                 -options              => {	‘window‘=>24000, 
-                								‘overlap‘=>3000, 
-                								‘gprobs‘=>’true’ }
+                							‘overlap‘=>3000, 
+                							‘gprobs‘=>’true’ },
                 -chrom                   => '1',
-                -region                  => '1-1000000',
-                -gl                      => 1
+                -region_start            => '1',
+                -region_end              => ‘100000’,   
+                -gl                      => 1,
+                
                 );
 
 =cut
+
 
 # This is to set default parameters
 sub DEFAULT_OPTIONS { return {
@@ -89,7 +92,7 @@ sub new {
 sub run_program {
     my ($self) = @_;
     
-    check_file_exists($self->reference_config) if $self->reference_config; # ref is optional
+    check_file_exists($self->reference_config) if($self->reference_config); # ref is optional
     check_executable($self->java_exe);
 
     my $output_vcf = $self->working_dir .'/'. $self->job_name;
@@ -98,7 +101,7 @@ sub run_program {
     my @cmd_words = ($self->java_exe, $self->jvm_args, '-jar');
     push(@cmd_words,$self->program);
 	   	
-    throw "Can't accept multiple input files" if(scalar @{$self->input_files} >1);   ### ?
+    throw "Can't accept multiple input files" if(scalar @{$self->input_files} >1);  
 		
     if($self->gl == 1)
     {	
@@ -110,7 +113,11 @@ sub run_program {
     }
     
     if (my $region = $self->chrom) {
-      $region .= ":".$self->region if ($self->region);
+      $region .= ":" if ($self->region_start or $self->region_end);
+      $region .= $self->region_start if ($self->region_start);
+      $region .= "-" if ($self->region_start or $self->region_end);
+      $region .= $self->region_end if ($self->region_end);
+      
       push(@cmd_words, 'chrom='.$region);
     }
     
@@ -209,4 +216,5 @@ sub ref_vcf {
 }
 
 1;
+
 

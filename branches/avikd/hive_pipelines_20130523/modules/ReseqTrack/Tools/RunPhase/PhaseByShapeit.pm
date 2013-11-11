@@ -68,8 +68,8 @@ Note:
 		-exclude_strand_flip	 =>1, ## only strand flip snps will be removed
                 -no_check                => 1  ## only perform phase, not strand check with ref
                 -chrX =>1, # required for ChrX
-                -run_from => 150118, # required for ChrX
-                -run_to => 2695340, # required for ChrX
+                -region_start => 150118, # required for ChrX
+                -region_end => 2695340, # required for ChrX
                 );
 
 =cut
@@ -84,14 +84,12 @@ sub new {
   my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
 	
-  my ( $input_samples, $no_check, $phase_without_ref, $exclude_strand_flip, $run_from, $run_to, $chrX )= rearrange([ qw( INPUT_SAMPLES NO_CHECK PHASE_WITHOUT_REF EXCLUDE_STRAND_FLIP RUN_FROM RUN_TO CHRX)], @args); ### ?
+  my ( $input_samples, $no_check, $phase_without_ref, $exclude_strand_flip, $chrX )= rearrange([ qw( INPUT_SAMPLES NO_CHECK PHASE_WITHOUT_REF EXCLUDE_STRAND_FLIP CHRX)], @args); ### ?
     
   $self->input_samples($input_samples);
   $self->no_check($no_check);
   $self->phase_without_ref($phase_without_ref);
   $self->exclude_strand_flip($exclude_strand_flip);
-  $self->run_from($run_from);
-  $self->run_to($run_to);
   $self->chrX($chrX);
   
   return $self;
@@ -114,15 +112,19 @@ sub run_program {
     
     check_file_exists($self->reference_config) if $self->reference_config; # ref is optional, only required for check
   
+    throw "Can't accept multiple input files" if(scalar @{$self->input_files} >1);   
+    throw "expecting single samples file" if(scalar @{$self->input_samples} >1);
     throw("samples input file required") if(!$self->input_samples);
     
-    check_file_exists($self->input_samples);
+    foreach my $sample(@{$self->input_samples}){
+      check_file_exists($sample);
+    }
 
-    throw "Can't accept multiple input files" if(scalar @{$self->input_files} >1);   ### ?
+    
     
     if($self->chrX)
     {
-      throw("Coordinate range required for ChrX") unless($self->run_from && $self->run_to);
+      throw("Coordinate range required for ChrX") unless($self->region_start && $self->region_end);
     }
     
    ###Check options
@@ -184,7 +186,7 @@ sub run_check {
 
     my @cmd_words = ($self->program, "-check");
     
-    push(@cmd_words, "-G", ${$self->input_files}[0], $self->input_samples);
+    push(@cmd_words, "-G", ${$self->input_files}[0], ${$self->input_samples}[0]);
     
     my $output_check = $self->working_dir .'/'. $self->job_name.".alignments";
     $output_check =~ s{//}{/};
@@ -197,7 +199,7 @@ sub run_check {
         
     push(@cmd_words, $self->options->{'check'}) if($self->options->{'check'});
     
-    push(@cmd_words,"--chrX") if($self->chrX);  ### check cannot be performed without ref
+    push(@cmd_words,"--chrX") if($self->chrX eq 1);  ### check cannot be performed without ref
     
     $self->get_ref;
 	   
@@ -207,10 +209,10 @@ sub run_check {
     
     push(@cmd_words, "-R", $ref_files_line);
     
-    push(@cmd_words, "--input-from", $self->run_from ) if($self->run_from);
-    push(@cmd_words, "--input-to", $self->run_to ) if($self->run_to);
-    push(@cmd_words, "--output-from", $self->run_from ) if($self->run_from);
-    push(@cmd_words, "--output-to", $self->run_to ) if($self->run_to);
+    push(@cmd_words, "--input-from", $self->region_start ) if($self->region_start);
+    push(@cmd_words, "--input-to", $self->region_end ) if($self->region_end);
+    push(@cmd_words, "--output-from", $self->region_start ) if($self->region_start);
+    push(@cmd_words, "--output-to", $self->region_end ) if($self->region_end);
    
     my $cmd = join(' ', @cmd_words);
     
@@ -231,9 +233,8 @@ sub allow_exit_code_1 {
 =head2 make_exclude_list
 
   Arg [1]   : ReseqTrack::Tools::RunPhase::PhaseByShapeit
-  Function  : Create a list of variants with strand flip error
+  Function  : Create a list of variants with strand flip error 
               Output is files are stored in $self->exclude_snp_list
-                             
               
   Returntype: 
   Exceptions: 
@@ -246,17 +247,20 @@ sub make_exclude_list {
     
     my $check_snp_list=$self->working_dir .'/'. $self->job_name.".alignments.snp.strand";
     
-    my $exclude_snp_list=$self->exclude_snp_list.".strand_only";
+    #if( -e $check_snp_list ) {
     
-    my @cmd_words = ("cat",$check_snp_list,"|grep strand|cut -f2 >",$exclude_snp_list);
+        my $exclude_snp_list=$self->exclude_snp_list.".strand_only";
     
-    $self->exclude_snp_list($exclude_snp_list);
+        my @cmd_words = ("cat",$check_snp_list,"|grep strand|cut -f2 >", $exclude_snp_list);
     
-    my $cmd = join(' ', @cmd_words);
+        $self->exclude_snp_list($exclude_snp_list) ;
     
-    $self->created_files($exclude_snp_list);
+        my $cmd = join(' ', @cmd_words);
     
-    $self->execute_command_line ($cmd);
+        $self->created_files($exclude_snp_list);
+    
+        $self->execute_command_line ($cmd);
+   # }
     
     return;
 }
@@ -267,6 +271,7 @@ sub make_exclude_list {
   Arg [1]   : ReseqTrack::Tools::RunPhase::PhaseByShapeit
   Function  : uses Shapeit2 to check variants in $self->input_files.
               Output is files are stored $self->output_files
+            
               
   Returntype: 
   Exceptions: 
@@ -278,18 +283,18 @@ sub run_shapeit {
     my $self = shift;
     
     my @cmd_words = ($self->program);
-    push(@cmd_words, "-G", ${$self->input_files}[0]." ".$self->input_samples);
+    push(@cmd_words, "-G", ${$self->input_files}[0]." ".${$self->input_samples}[0]);
     
     my $output_phase = $self->working_dir .'/'. $self->job_name;
     $output_phase =~ s{//}{/};
     push(@cmd_words, "--output-max", $output_phase);
     
     my $output_haps=$output_phase.".haps";
-    my $output_samples=$output_phase.".samples";
+    my $output_samples=$output_phase.".sample";
     $self->output_files($output_haps);
     $self->output_files($output_samples);
     
-    push(@cmd_words,"--chrX") if($self->chrX);
+    push(@cmd_words,"--chrX") if($self->chrX eq 1);
 
     push(@cmd_words, $self->options->{'phase'});
 
@@ -305,12 +310,14 @@ sub run_shapeit {
 	  }
     }
 
-    push(@cmd_words,"--exclude-snp",$self->exclude_snp_list) if($self->exclude_snp_list);
+    if($self->exclude_snp_list) {
+        push(@cmd_words,"--exclude-snp",$self->exclude_snp_list) if( -e $self->exclude_snp_list);
+    }
         
-    push(@cmd_words, "--input-from",$self->run_from ) if($self->run_from);
-    push(@cmd_words, "--input-to",$self->run_to ) if($self->run_to);
-    push(@cmd_words, "--output-from",$self->run_from ) if($self->run_from);
-    push(@cmd_words, "--output-to",$self->run_to ) if($self->run_to);
+    push(@cmd_words, "--input-from",$self->region_start ) if($self->region_start);
+    push(@cmd_words, "--input-to",$self->region_end ) if($self->region_end);
+    push(@cmd_words, "--output-from",$self->region_start ) if($self->region_start);
+    push(@cmd_words, "--output-to",$self->region_end ) if($self->region_end);
        
     my $cmd = join(' ', @cmd_words);
     
@@ -325,7 +332,7 @@ sub run_shapeit {
   Function  : Get reference files from $self->reference_config for $self->chrom
               Reference config file format:chrom\tmap\thaps\tlegend\tsamples
               Output stored in $self->ref_map, $self->ref_hap, $self->ref_legend and ref_samples
-              
+                          
   Returntype: 
   Exceptions: 
   Example   : $self->get_ref
@@ -337,7 +344,7 @@ sub get_ref {
   my $reference_config = $self->reference_config; ###format:chrom\tmap\thaps\tlegend\tsamples
   my $chrom= $self->chrom;
   my $chr_flag=0;
-   
+
   open(FH,$reference_config)||throw("can't read $reference_config\n");
   while(my $ref_line=<FH>)
   {
@@ -346,7 +353,7 @@ sub get_ref {
     
     
      
-    my @field=split(/\t/,$ref_line);
+    my @field=split(/\s+/,$ref_line);
         
     if($field[0] eq $chrom)
     {
@@ -434,6 +441,17 @@ sub exclude_strand_flip {
   return $self->{'exclude_strand_flip'};
 }
 
+=head2 chrX
+
+  Arg [1]   : ReseqTrack::Tools::RunPhase
+  Arg [2]   : Boolean (0 or 1)
+  Function  : 
+  Returntype: Boolean
+  Exceptions: n/a
+  Example   : 
+
+=cut
+
 sub chrX {
   my $self = shift;
   if (@_) {
@@ -446,27 +464,26 @@ sub input_samples {
   my ( $self, $arg ) = @_;
 
   if ($arg) {
-    $self->{input_samples} = $arg;
+    foreach my $file (@{ref($arg) eq 'ARRAY' ? $arg : [$arg]}) {
+      $file =~ s{//}{/}g;
+      $self->{'input_samples'}->{$file} = 1;
+    }
   }
-  return $self->{input_samples};
+
+  my @files = keys %{$self->{'input_samples'}};
+  return \@files;
 }
 
-sub run_from {
-  my ( $self, $arg ) = @_;
-
-  if ($arg) {
-    $self->{input_from} = $arg;
-  }
-  return $self->{input_from};
+sub output_haps_files {
+    my $self = shift;
+    my @files = grep { /\.haps$/ } @{ $self->output_files };
+    return \@files;
 }
 
-sub run_to {
-  my ( $self, $arg ) = @_;
-
-  if ($arg) {
-    $self->{input_to} = $arg;
-  }
-  return $self->{input_to};
+sub output_samples_files {
+    my $self = shift;
+    my @files = grep { /\.sample$/ } @{ $self->output_files };
+    return \@files;
 }
 
 1;
