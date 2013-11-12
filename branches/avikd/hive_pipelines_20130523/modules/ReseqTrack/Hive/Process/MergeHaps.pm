@@ -17,6 +17,7 @@ use ReseqTrack::Tools::FileSystemUtils qw(check_directory_exists check_executabl
 sub run {
     my $self = shift @_;
     $self->param_required('hap');
+    $self->param_required('samples');
     $self->param_required('bp_start');
     $self->param_required('bp_end');
     my $zcat = $self->param_is_defined('zcat') ? $self->param('zcat') : 'zcat';
@@ -28,14 +29,16 @@ sub run {
     foreach my $hap_path (grep {defined $_} @$haps) {
       check_file_exists($hap_path);
     }
-
+    
+    
+    
     my $output_dir = $self->output_dir;
     my $job_name = $self->job_name;
-    my $output_file = "$output_dir/$job_name.haps";
+    my $output_haps = "$output_dir/$job_name.haps";
     check_directory_exists($output_dir);
     check_executable($zcat);
     
-    open my $OUT, " > $output_file";
+    open my $OUT, " > $output_haps" || throw("can't write $output_haps: $!") ;
     my $first_hap = 1;
     $self->dbc->disconnect_when_inactive(1);
     HAPS:
@@ -56,7 +59,7 @@ sub run {
           print $OUT $line if $first_hap;
           next LINE;
         }
-        my ($pos) = $line =~ /\S+\s+(\d+)/; 
+        my ($pos) = $line =~ /^\S+\s+\S+\s+(\d+)/; 
         next LINE if $pos < $bp_start->[$i];
         next LINE if $pos > $bp_end->[$i];
         print $OUT $line;
@@ -65,13 +68,82 @@ sub run {
       $first_hap = 0;
     }
     close $OUT;
-
+    
+    my $output_impute = "$output_dir/$job_name.impute";
+     
+    if($self->param_is_defined('impute')) {
+      my $imputes = $self->file_param_to_flat_array('impute');
+      
+      foreach my $impute_path (grep {defined $_} @$imputes) {
+        check_file_exists($impute_path);
+      }
+     
+      open my $OUT_IMPUTE, " > $output_impute" || throw("can't write $output_impute: $!");
+      my $first_impute = 1;
+      
+      IMPUTE:
+      foreach my $i (0..$#{$imputes}) {
+        my $impute_path = $imputes->[$i];
+        next IMPUTE if ! defined $impute_path;
+      
+        throw("missing bp_start for $impute_path") if ! defined $bp_start->[$i];
+        throw("missing bp_end for $impute_path") if ! defined $bp_end->[$i];
+      
+        my $IN_impute;
+        open $IN_impute, '<', $impute_path or throw("cannot open $impute_path: $!");
+      
+        IMPUTE_LINE:
+        while (my $impute_line = <$IN_impute>) {
+          if ($impute_line =~ /^#/) {
+            print $OUT_IMPUTE $impute_line if $first_impute;
+            next IMPUTE_LINE;
+          }
+          my ($pos) = $impute_line =~ /^\S+\s+\S+\s+(\d+)/; 
+          next IMPUTE_LINE if $pos < $bp_start->[$i];
+          next IMPUTE_LINE if $pos > $bp_end->[$i];
+          print $OUT_IMPUTE $impute_line;
+        }
+        close $IN_impute;
+        $first_impute = 0; 
+      }
+      close $OUT_IMPUTE;
+   }  
+   
+   
+    my $samples = $self->file_param_to_flat_array('samples');
+    foreach my $sample_path (grep {defined $_} @$samples) {
+      check_file_exists($sample_path);
+    }
+    
+    my $output_sample = "$output_dir/$job_name.samples";
+    open my $OUT_SAMPLE, " > $output_sample" || throw("can't write $output_sample: $!");
+    my $first_sample = 1;
+    SAMPLE:
+    foreach my $i (0..$#{$samples}) {
+      my $sample_path = $samples->[$i];
+      next SAMPLE if ! defined $sample_path;
+      
+      throw("missing bp_start for $sample_path") if ! defined $bp_start->[$i];
+      throw("missing bp_end for $sample_path") if ! defined $bp_end->[$i];
+      
+      my $IN_sample;
+      open $IN_sample, '<', $sample_path or throw("cannot open $sample_path: $!");
+      
+      SAMPLE_LINE:
+      while (my $sample_line = <$IN_sample>) {
+        print $OUT_SAMPLE $sample_line if $first_sample;
+      }
+      close $IN_sample;
+      $first_sample = 0;
+    }
+    close $OUT_SAMPLE;
+    
     $self->dbc->disconnect_when_inactive(0);
 
-    $self->output_param('hap' => $output_file);
+    $self->output_param('haps' => $output_haps);
+    $self->output_param('impute' => $output_impute) if($self->param_is_defined('impute'));
+    $self->output_param('samples' => $output_sample);
 
 }
-
-
 1;
 

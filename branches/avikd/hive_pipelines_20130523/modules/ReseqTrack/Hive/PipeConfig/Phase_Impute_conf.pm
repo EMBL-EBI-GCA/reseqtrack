@@ -50,7 +50,7 @@
     SHAPEIT:
       -shapeit_phase, boolean, default 1, turn on/off phase by Shapeit
       -phase_by_shapeit_options, Shapeit options
-      -exclude_strand_flip, boolean, default 0, turn on/off excluding strand flip
+      -exclude_strand_flip, boolean, default 0, turn on/off excluding strand flip only SNPs
       -samples_gender_info, text file with gender info for each sample, required for chrom X phasing
       
     IMPUTE:
@@ -95,7 +95,7 @@ sub default_options {
         'samples_gender_info'=> '/nfs/1000g-work/G1K/work/avikd/test_hive/phase_pipe/export.txt',
         'reference_config' => '/nfs/1000g-work/G1K/work/avikd/test_phase_module/impute_ref_config',
         
-        'chrom_start' => 22,
+        'chrom_start' => 1,
         'chrom_end' => 22,
         
         'transpose_window_size' => undef,
@@ -109,7 +109,7 @@ sub default_options {
 
         ##beagle
         'gl' => 1,
-        'beagle_phase' => 0,
+        'beagle_phase' => 1,
         'overlap' => undef,
         'phase_by_beagle_options' => {	'window'=>24000, 
                 						'overlap'=>3000, 
@@ -118,7 +118,7 @@ sub default_options {
         'exclude_strand_flip' => 0,
         'transpose_window_size' => 0,
         'shapeit_phase' => 1,
-        #'phase_by_shapeit_options' => { phase => "--states 10 --window 0.5 --burn 1 --prune 1 --main 1", },
+        #'phase_by_shapeit_options' => { phase => "--states 10 --window 0.5 --burn 7 --prune 8 --main 20", },
         'phase_by_shapeit_options' => { phase => "--no-mcmc", },
         
         ##impute
@@ -389,7 +389,7 @@ sub pipeline_analyses {
                 reference_config => $self->o('reference_config'),
                 max_base =>  $self->o('max_base'),
                 remove_haps_missing => $self->o('remove_haps_missing'),
-                delete_param => [ 'gen', 'mod_samples' ],
+                delete_param => [ 'gen', 'samples' ],
             },
             -rc_name => '1Gb',
             -flow_into => {
@@ -420,14 +420,16 @@ sub pipeline_analyses {
               reference_config => $self->o('reference_config'),
               use_phased => 1,
               phase_result => 1,
-              temp_param_sub => { 1 => [['impute2_out','impute_haps']]}, # temporary hack pending updates to hive code                           
+              temp_param_sub => { 1 => [['impute2_haps_out','impute_haps'],['impute2_impute_out','impute'],['impute2_samples_out','impute_samples']]}, # temporary hack pending updates to hive code                           
           },
           -rc_name => '4Gb',
           -hive_capacity  =>  200,
           -flow_into => {
-                1 => [ ':////accu?impute2_out=[fan_index]',
-                      ':////accu?bp_start=[fan_index]',
-                      ':////accu?bp_end=[fan_index]',
+                1 => [ ':////accu?impute2_haps_out=[fan_index]',
+                       ':////accu?impute2_impute_out=[fan_index]',
+                       ':////accu?impute2_samples_out=[fan_index]',
+                       ':////accu?bp_start=[fan_index]',
+                       ':////accu?bp_end=[fan_index]',
                      ],
                 -1 => [ 'impute2_himem'],
             },
@@ -444,14 +446,16 @@ sub pipeline_analyses {
               reference_config => $self->o('reference_config'),
               use_phased => 1,
               phase_result => 1,   
-              temp_param_sub => { 1 => [['impute2_out','impute_haps']]}, # temporary hack pending updates to hive code                           
+              temp_param_sub => { 1 => [['impute2_haps_out','impute_haps'],['impute2_impute_out','impute'],['impute2_samples_out','impute_samples']]}, # temporary hack pending updates to hive code                           
           },
           -rc_name => '6Gb',
           -hive_capacity  =>  200,
            -flow_into => {
-                1 => [ ':////accu?impute2_out=[fan_index]',
-                      ':////accu?bp_start=[fan_index]',
-                      ':////accu?bp_end=[fan_index]',
+                1 => [ ':////accu?impute2_haps_out=[fan_index]',
+                       ':////accu?impute2_impute_out=[fan_index]',
+                       ':////accu?impute2_samples_out=[fan_index]',
+                       ':////accu?bp_start=[fan_index]',
+                       ':////accu?bp_end=[fan_index]',
                      ],
             },
                            
@@ -466,7 +470,7 @@ sub pipeline_analyses {
                   
               },
               temp_param_sub => {
-                1 => [['impute_haps','impute2_out'],],
+                1 => [['impute_haps','impute2_haps_out'],['impute','impute2_impute_out'],['impute_samples','impute2_samples_out']],
                
               }, # temporary hack pending updates to hive code
           },
@@ -479,11 +483,12 @@ sub pipeline_analyses {
           -module        => 'ReseqTrack::Hive::Process::MergeHaps',
           -parameters    => {
               delete_param => ['shapeit_haps', 'shapeit_samples','legends_bed', 
-                               'impute', 'impute_haps', 'impute_allele_probs', 
-                               'impute_info', 'impute_diplotype_ordering', 'impute_info_by_sample', 
-                               'impute_samples', 'impute_summary', 'impute_warnings'],
+                               'impute', 'impute_haps', 'impute_samples', 
+                               'impute_allele_probs', 'impute_info', 'impute_diplotype_ordering',
+                               'impute_info_by_sample', 'impute_summary', 'impute_warnings'],
               temp_param_sub => { 1 => [['bp_start','undef'],['bp_end','undef']]}, # temporary hack pending updates to hive code
               hap => '#impute_haps#',
+              samples => '#impute_samples#',
           },
           -rc_name => '1Gb',
           -hive_capacity  =>  200,
