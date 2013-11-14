@@ -234,8 +234,6 @@ sub target_studies {
   if ($target_studies) {
     my @ts =sort { $a cmp $b } @$target_studies;
     $self->{target_studies} = \@ts;
-    
-    print 
   }
   return $self->{target_studies};
 }
