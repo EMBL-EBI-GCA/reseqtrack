@@ -216,7 +216,7 @@ sub target_types {
 # the order of types matters - e.g. experiments reference studies, runs reference samples and experiments
   my @types = qw(study sample experiment run);
 
-  if ($target_types) {
+  if ($target_types && @$target_types) {
     my %valid_targets;
     map { $valid_targets{$_} = 1 } @$target_types;
     @types = grep { $valid_targets{$_} } @types;
