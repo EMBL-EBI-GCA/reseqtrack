@@ -76,6 +76,7 @@ STUDY: for my $study (@$studies) {
 
     $self->log( "Checking " . $study->source_id );
   TYPE: for my $type (@$types) {
+  		$self->log("...for $type") if $self->verbose();
       $self->load_type_by_study_id( $type, $study->source_id(),
         $update_existing, $load_new, $force_update );
     }
@@ -320,9 +321,7 @@ sub have_attributes {
 sub log {
   my ( $self, $message ) = @_;
   my $log_fh = $self->log_fh;
-  if ( $self->verbose ) {
-    print STDOUT $message . $/;
-  }
+
   if ($log_fh) {
     print $log_fh $message . $/;
   }
