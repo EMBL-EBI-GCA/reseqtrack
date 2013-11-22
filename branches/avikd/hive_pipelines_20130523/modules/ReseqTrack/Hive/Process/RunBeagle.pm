@@ -39,12 +39,7 @@ sub run {
           bp_start => $bp_start, bp_end => $bp_end,
           );
     
-    my $bed = $self->param_is_defined('bed') ? $self->param('bed') : undef;
-         
-    if (defined $bed) {
-      $slices = bed_to_slices(bed => $bed, parent_slices => $slices);
-    }
-    
+      
     throw("expected exactly one slice, not ". scalar @$slices) if scalar @$slices != 1;
 
     $slices->[0]->extend($overlap);
@@ -71,6 +66,7 @@ sub run {
     $self->run_program($run_phase);
 
     $self->output_param('beagle_vcf', $run_phase->output_files->[0]);
+    
 
 }
 

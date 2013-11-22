@@ -19,6 +19,7 @@ sub run {
     $self->param_required('vcf');
     my $bgzip = $self->param_is_defined('bgzip') ? $self->param('bgzip') : 'bgzip';
     my $max_variants = $self->param_is_defined('max_variants') ? $self->param('max_variants') : 5000 ;
+    my $overlap_variants = $self->param_is_defined('overlap_variants') ? $self->param('overlap_variants') : 0 ;
         
     my $vcfs = $self->file_param_to_flat_array('vcf');
     
@@ -48,6 +49,8 @@ sub run {
       my $vcf_path = $vcfs->[$i];
       
       my $filename = fileparse($vcf_path, qw( .vcf .vcf.gz ));
+      
+              
       my $output_bed = "$output_dir/$filename.bed";
                
       push @{$output_file}, $output_bed;
@@ -70,7 +73,8 @@ sub run {
       my $chrom;
       my $pos;
       my $count = 0;
-
+      my $overlap_pos;
+      
       LINE:
       while (my $line = <$IN>) {
         if ($line =~ /^#/) {
@@ -81,8 +85,7 @@ sub run {
            
         $count++;
         
-        if($count == 1)
-        {
+        if($count == 1) {
           $start_chrom = $line_array[0];
           $start_pos = $line_array[1];
           $end_pos = $line_array[1];
@@ -94,26 +97,26 @@ sub run {
         $chrom = $line_array[0];
         $pos = $line_array[1];
         
-        if($chrom eq $start_chrom)
-        {
-          if($count > $max_variants)
-          {
+        if($overlap_variants == $max_variants-$count+1) {
+          $overlap_pos = $pos;
+        }
+        
+        if($chrom eq $start_chrom) {
+          if($count > $max_variants) {
             next if($pos == $end_pos);
-            
+          
             print $OUT "$chrom\t$start_pos\t$end_pos\t.\t1\t+\n";
-            $count = 1;
+            $count = $overlap_variants+1;
             
             $start_chrom = $chrom;
-            $start_pos = $pos;
+            $start_pos = $overlap_pos;
             $end_pos = $pos;
           }         
-          else
-          {
+          else {
             $end_pos = $pos;
           }
         }
-        else
-        {
+        else {
           print $OUT "$start_chrom\t$start_pos\t$end_pos\t.\t1\t+\n";
           $count = 1;
           
@@ -136,9 +139,9 @@ sub run {
 
     $self->dbc->disconnect_when_inactive(0);
 
-    $self->output_param('bed' , $$output_file[0]);
-    $self->output_param('SQ_start' , $$SQ_start[0]);
-    $self->output_param('SQ_end' , $$SQ_end[0]);
+    $self->output_param('vcf_bed', $$output_file[0]);
+    #$self->output_param('SQ_start' , $$SQ_start[0]);
+    #$self->output_param('SQ_end' , $$SQ_end[0]);
 
 }
 

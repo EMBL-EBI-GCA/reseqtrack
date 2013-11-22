@@ -252,7 +252,7 @@ sub run_tabix {
     my $tbi_file = $vcf . '.tbi';
     my @cmd_words = ($self->tabix, '-p vcf', $vcf) unless(-e $tbi_file);
     my $cmd = join(' ', @cmd_words);
-  # $self->output_files($tbi_file);
+    $self->output_files($tbi_file);
     $self->execute_command_line($cmd);
   }
 }

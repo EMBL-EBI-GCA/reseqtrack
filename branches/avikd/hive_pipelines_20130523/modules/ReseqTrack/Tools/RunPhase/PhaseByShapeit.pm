@@ -5,6 +5,7 @@ use warnings;
 
 use ReseqTrack::Tools::Exception qw(throw);
 use ReseqTrack::Tools::Argument qw(rearrange);
+use File::Copy qw(move);
 use ReseqTrack::Tools::FileSystemUtils qw(check_file_exists check_executable);
 
 use base qw(ReseqTrack::Tools::RunPhase);
@@ -190,12 +191,19 @@ sub run_check {
     
     my $output_check = $self->working_dir .'/'. $self->job_name.".alignments";
     $output_check =~ s{//}{/};
-    push(@cmd_words, "--output-log", $output_check);
     
-    my $check_snp_list=$output_check.".snp.strand";
-    my $exclude_snp_list=$output_check.".snp.strand.exclude";
+    my $temp_dir = $self->get_temp_dir;
+    $self->change_dir($temp_dir);
+    $temp_dir .= '/'. $self->job_name.".alignments";
+    
+    push(@cmd_words, "--output-log", $temp_dir);
+    
+    my $check_snp_list = $output_check.".snp.strand";
+    my $exclude_snp_list = $output_check.".snp.strand.exclude";
     
     $self->exclude_snp_list($exclude_snp_list);
+    
+    
         
     push(@cmd_words, $self->options->{'check'}) if($self->options->{'check'});
     
@@ -216,11 +224,15 @@ sub run_check {
    
     my $cmd = join(' ', @cmd_words);
     
+    $self->execute_command_line ($cmd,\&allow_exit_code_1);
+    
+    $self->change_dir($self->working_dir);
+    
+    move($temp_dir.".snp.strand", $check_snp_list) or throw("couldn't move $temp_dir.snp.strand to $check_snp_list");
+    move($temp_dir.".snp.strand.exclude", $exclude_snp_list) or throw("couldn't move $temp_dir.snp.strand.exclude to $exclude_snp_list");
+    
     $self->created_files($exclude_snp_list);
     $self->created_files($check_snp_list);
-    $self->created_files($output_check.".log");
-    
-    $self->execute_command_line ($cmd,\&allow_exit_code_1);
     
     return;
 }
@@ -287,12 +299,15 @@ sub run_shapeit {
     
     my $output_phase = $self->working_dir .'/'. $self->job_name;
     $output_phase =~ s{//}{/};
-    push(@cmd_words, "--output-max", $output_phase);
     
-    my $output_haps=$output_phase.".haps";
-    my $output_samples=$output_phase.".sample";
-    $self->output_files($output_haps);
-    $self->output_files($output_samples);
+    my $temp_dir = $self->get_temp_dir;
+    $self->change_dir($temp_dir);
+    $temp_dir .= '/'. $self->job_name;
+    
+    push(@cmd_words, "--output-max", $temp_dir);
+    
+    my $output_haps = $output_phase.".haps";
+    my $output_samples = $output_phase.".sample";
     
     push(@cmd_words,"--chrX") if($self->chrX eq 1);
 
@@ -322,6 +337,15 @@ sub run_shapeit {
     my $cmd = join(' ', @cmd_words);
     
     $self->execute_command_line ($cmd);
+    
+    $self->change_dir($self->working_dir);
+    
+    move($temp_dir.".haps", $output_haps) or throw("couldn't move $temp_dir.haps to $output_haps");
+    move($temp_dir.".sample", $output_samples) or throw("couldn't move $temp_dir.sample to $output_samples");
+    
+    $self->output_files($output_haps);
+    $self->output_files($output_samples);
+    
     
     return;
 }

@@ -5,6 +5,7 @@ use strict;
 
 use base ('ReseqTrack::Hive::Process::BaseProcess');
 use ReseqTrack::Tools::Exception qw(throw);
+use File::Basename qw(fileparse);
 
 
 =head2 run
@@ -16,10 +17,18 @@ use ReseqTrack::Tools::Exception qw(throw);
 sub run {
     my $self = shift @_;
 
-    my $values = $self->param_required('factory_value');
+   # my $values = $self->param_required('factory_value');
+    my $values = $self->file_param_to_flat_array('factory_value');
 
     foreach my $value (@$values) {
-      $self->prepare_factory_output_id($value, {'factory_value' => $value});
+      if($value=~ /^\//) {
+        my $label = fileparse($value); 
+        $self->prepare_factory_output_id($label, {'factory_value' => $value});
+        
+      }
+      else {       
+        $self->prepare_factory_output_id($value, {'factory_value' => $value});
+      }
     }
 
 }

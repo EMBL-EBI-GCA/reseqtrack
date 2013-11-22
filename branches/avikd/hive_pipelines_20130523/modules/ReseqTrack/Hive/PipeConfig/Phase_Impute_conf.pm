@@ -82,18 +82,22 @@ sub default_options {
         'final_label' => $self->o('pipeline_name'),
         'type_vcf'    => 'VCF',
         
+        'java_exe' => '/usr/bin/java',
         'bgzip_exe' => '/nfs/1000g-work/G1K/work/bin/tabix/bgzip',
         'tabix_exe' => '/nfs/1000g-work/G1K/work/bin/tabix/tabix',
         'beagle_exe' => '/nfs/1000g-work/G1K/work/avikd/test_phase_module/b4.r1099.jar',
         'shapeit_exe' => '/nfs/1000g-work/G1K/work/avikd/PUR_run/variant_WGS/impute2_test/scripts/bin/shapeit',
         'vcfToImpute_exe'=>'/nfs/1000g-work/G1K/work/avikd/test_phase_module/vcf2impute_gen.pl',
         'impute2_exe' => "/nfs/1000g-work/G1K/work/avikd/PUR_run/variant_WGS/impute2_test/scripts/bin/impute2",
-          
+        'mergevcf_jar' => '/nfs/1000g-work/G1K/work/avikd/test_hive/phase_pipe/mergevcf.jar',
+        'vcftools_dir' => '/nfs/1000g-work/G1K/work/avikd/tools/vcftools_0.1.11/bin',
+                  
         'reference' => '/nfs/1000g-work/G1K/work/REFERENCE/aligners_reference/bwa/grc37/human_g1k_v37.fa',
         'fai' => $self->o('reference') . '.fai',
         'phase_region_bed' => '/nfs/1000g-work/G1K/work/avikd/test_hive/phase_pipe/phase_run.bed',
         'samples_gender_info'=> '/nfs/1000g-work/G1K/work/avikd/test_hive/phase_pipe/export.txt',
-        'reference_config' => '/nfs/1000g-work/G1K/work/avikd/test_phase_module/impute_ref_config',
+        'impute_reference_config' => '/nfs/1000g-work/G1K/work/avikd/test_phase_module/impute_ref_config',
+        'beagle_reference_config' =>  '/nfs/1000g-work/G1K/work/avikd/test_phase_module/bgl_ref_list',
         
         'chrom_start' => 1,
         'chrom_end' => 22,
@@ -108,6 +112,8 @@ sub default_options {
         
 
         ##beagle
+        'max_variants' => 50000,
+        'overlap_variants' => 5000,
         'gl' => 1,
         'beagle_phase' => 1,
         'overlap' => undef,
@@ -126,6 +132,16 @@ sub default_options {
         'remove_haps_missing' => 1,
         'impute_call' => 1,
         'impute2_options' => { 'Ne'=> 20000, 'allow_large_regions' => "", },
+        'keep_impute' => 1,
+        'keep_samples' => 1,
+        'keep_haps' => 1,
+        'keep_summary' => 1,
+        'keep_info' => 1,
+        'keep_info_by_sample' => undef,
+        'keep_allele_probs' => undef,
+        'keep_diplotype_ordering' => undef,
+        'keep_warnings' => undef,
+        
        };
 }
 
@@ -197,10 +213,11 @@ sub pipeline_analyses {
       });
       push(@analyses, {
             -logic_name    => 'vcf_factory',  
-            -module        => 'ReseqTrack::Hive::Process::VcfFactory',
+            -module        => 'ReseqTrack::Hive::Process::JobFactory',
             -meadow_type => 'LOCAL',
             -parameters    => {
-              vcf_list => '#unphased_vcf#',               
+              factory_value => '#unphased_vcf#',
+              temp_param_sub => { 2 => [['unphased_vcf', 'factory_value']]}, # temporary hack pending updates to hive code                
           },
           -flow_into => {
                 2 => [ 'decide_callers' ],
@@ -217,33 +234,68 @@ sub pipeline_analyses {
               }
           },
             -flow_into => {
-                '1' => [ 'regions_factory_beagle' ],
+                '1' => [ 'generate_bed_beagle' ],
                 '2' => [ 'regions_factory_shapeit' ],
             },
       });
-     push(@analyses, {
-            -logic_name    => 'regions_factory_beagle',
+      push(@analyses, {
+          -logic_name    => 'generate_bed_beagle',
+          -module        => 'ReseqTrack::Hive::Process::VcfToBed',
+          -parameters    => {
+              bgzip => $self->o('bgzip_exe'), 
+              vcf =>   '#unphased_vcf#',
+              max_variants => $self->o('max_variants'),
+              overlap_variants => $self->o('overlap_variants'),
+                
+          },
+          -rc_name => '1Gb',
+          -hive_capacity  =>  200,
+          -flow_into => {
+                  1 =>  [ 'regions_factory_beagle_1' ],
+
+            },
+      });
+      push(@analyses, {
+            -logic_name    => 'regions_factory_beagle_1',
             -module        => 'ReseqTrack::Hive::Process::SequenceSliceFactory',
             -meadow_type => 'LOCAL',
             -parameters    => {
                 num_bases => $self->o('transpose_window_size'),
                 max_sequences => 0,
                 SQ_start => $self->o('chrom_start'),
-                SQ_end => $self->o('chrom_end'),                
+                SQ_end => $self->o('chrom_end'),             
+            },
+            -flow_into => {
+                '2->A' => [ 'regions_factory_beagle_2' ],
+                'A->1' => [ 'decide_beagle_impute' ],
+                
+            },       
+      });
+      push(@analyses, {
+            -logic_name    => 'regions_factory_beagle_2',
+            -module        => 'ReseqTrack::Hive::Process::SequenceSliceFactory',
+            -meadow_type => 'LOCAL',
+            -parameters    => {
+                num_bases => $self->o('transpose_window_size'),
+                max_sequences => 0,
+                SQ_start => '#SQ_start#',
+                SQ_end => '#SQ_end#',  
+                bed => '#vcf_bed#',              
             },
             -flow_into => {
                 '2->A' => [ 'beagle_phase',],
                 'A->1' => [ 'decide_vcf_mergers',],
             },       
       });
-
       push(@analyses, {
           -logic_name    => 'beagle_phase',
           -module        => 'ReseqTrack::Hive::Process::RunBeagle',
           -parameters    => { 
               program_file => $self->o('beagle_exe'),   
               jvm_args  => '-Xmx2g',
+              vcf => '#unphased_vcf#',
               beagle_options =>  $self->o('phase_by_beagle_options'), 
+              reference_config => $self->o('beagle_reference_config'),
               gl => $self->o('gl'), 
               overlap => $self->o('overlap'),             
           },
@@ -251,8 +303,8 @@ sub pipeline_analyses {
           -hive_capacity  =>  200,
           -flow_into => {
               1 => [ ':////accu?beagle_vcf=[fan_index]',
-                      ':////accu?bp_start=[fan_index]',
-                      ':////accu?bp_end=[fan_index]',
+                      ':////accu?SQ_start=[fan_index]',
+                      ':////accu?SQ_end=[fan_index]',
                       ],
               -1 => [ 'beagle_phase_himem' ], 
          },          
@@ -263,7 +315,9 @@ sub pipeline_analyses {
           -parameters    => { 
               program_file => $self->o('beagle_exe'),   
               jvm_args  => '-Xmx4g',
-              beagle_options =>  $self->o('phase_by_beagle_options'), 
+              vcf => '#unphased_vcf#',
+              beagle_options =>  $self->o('phase_by_beagle_options'),
+              reference_config => $self->o('beagle_reference_config'), 
               gl => $self->o('gl'),   
               overlap => $self->o('overlap'),    
           },
@@ -271,8 +325,8 @@ sub pipeline_analyses {
           -hive_capacity  =>  200,
           -flow_into => {
               1 => [ ':////accu?beagle_vcf=[fan_index]',
-                      ':////accu?bp_start=[fan_index]',
-                      ':////accu?bp_end=[fan_index]',
+                      ':////accu?SQ_start=[fan_index]',
+                      ':////accu?SQ_end=[fan_index]',
                       ],
             },                
       });
@@ -291,20 +345,52 @@ sub pipeline_analyses {
               }, # temporary hack pending updates to hive code
           },
             -flow_into => {
-                '1' => [ 'merge_vcf' ],
-                
-                
+                '1' => [ 'merge_chrom_vcf' ], 
             },
       });
       push(@analyses, {
-          -logic_name    => 'merge_vcf',
-          -module        => 'ReseqTrack::Hive::Process::MergeVcf',
+          -logic_name    => 'merge_chrom_vcf',
+          -module        => 'ReseqTrack::Hive::Process::RunMergePhasedVcf',
           -parameters    => {
               bgzip => $self->o('bgzip_exe'),
-              
-              temp_param_sub => { 1 => [['bp_start','undef'],['bp_end','undef']]}, # temporary hack pending updates to hive code
+              java_exe => $self->o('java_exe'),
+              tabix => $self->o('tabix_exe'),
+              program_file => $self->o('mergevcf_jar'),
+              analysis_label => '#expr("beagle_phased")expr#',
+              temp_param_sub => { 1 => [['SQ_start','undef'],['SQ_end','undef']]}, # temporary hack pending updates to hive code
               run_tabix => 1,
-              delete_param => ['vcf'],
+#             delete_param => ['vcf'],
+          },
+          -rc_name => '1Gb',
+          -hive_capacity  =>  200,
+          -flow_into => {
+              1 => [ ':////accu?vcf=[fan_index]',
+                      ],
+            },
+      });
+      push(@analyses, {
+          -logic_name => 'decide_beagle_impute',
+          -module        => 'ReseqTrack::Hive::Process::FlowDecider',
+          -meadow_type=> 'LOCAL',
+          -parameters => {
+              require_true => {
+                  1 => '#expr(!$impute_call && $beagle_phase)expr#',
+              },
+          },
+            -flow_into => {
+                '1' => [ 'concat_vcf' ],
+            },
+      });
+      push(@analyses, {
+          -logic_name    => 'concat_vcf',
+          -module        => 'ReseqTrack::Hive::Process::RunVcfTools',
+          -parameters    => {
+              bgzip => $self->o('bgzip_exe'),
+              tabix => $self->o('tabix_exe'),
+              command => 'concat',
+              vcftools_dir => $self->o('vcftools_dir'), 
+              create_index => 1,
+              reference_index => $self->o('fai'),
           },
           -rc_name => '1Gb',
           -hive_capacity  =>  200,
@@ -330,7 +416,8 @@ sub pipeline_analyses {
           -logic_name    => 'vcfToImpute',
           -module        => 'ReseqTrack::Hive::Process::RunVcfToImpute',
           -parameters    => { 
-              program_file => $self->o('vcfToImpute_exe'),                    
+              program_file => $self->o('vcfToImpute_exe'),
+              vcf =>   '#unphased_vcf#',                    
           },
           -rc_name => '1Gb',
           -hive_capacity  =>  200,
@@ -358,7 +445,7 @@ sub pipeline_analyses {
           -parameters    => { 
               program_file => $self->o('shapeit_exe'),   
               shapeit_options =>  $self->o('phase_by_shapeit_options'), 
-              reference_config => $self->o('reference_config'),
+              reference_config => $self->o('impute_reference_config'),
               samples => '#mod_samples#',
               exclude_strand_flip => $self->o('exclude_strand_flip'),
                                      
@@ -386,20 +473,20 @@ sub pipeline_analyses {
             -logic_name    => 'legends_to_bed',
             -module        => 'ReseqTrack::Hive::Process::LegendsToBed',
             -parameters    => {
-                reference_config => $self->o('reference_config'),
+                reference_config => $self->o('impute_reference_config'),
                 max_base =>  $self->o('max_base'),
                 remove_haps_missing => $self->o('remove_haps_missing'),
                 delete_param => [ 'gen', 'samples' ],
             },
             -rc_name => '1Gb',
             -flow_into => {
-                '1' => [ 'regions_factory_2' ],
+                '1' => [ 'regions_factory_impute' ],
             },       
       });
       
        push(@analyses, {
-            -logic_name    => 'regions_factory_2',
-            -module        => 'ReseqTrack::Hive::Process::BedSliceFactory',
+            -logic_name    => 'regions_factory_impute',
+            -module        => 'ReseqTrack::Hive::Process::SequenceSliceFactory',
             -meadow_type => 'LOCAL',
             -parameters    => {
                 bed =>  '#legends_bed#',
@@ -417,10 +504,19 @@ sub pipeline_analyses {
               haps => '#shapeit_haps#',
               samples => '#shapeit_samples#', 
               impute2_options =>  $self->o('impute2_options'), 
-              reference_config => $self->o('reference_config'),
+              reference_config => $self->o('impute_reference_config'),
               use_phased => 1,
               phase_result => 1,
-              temp_param_sub => { 1 => [['impute2_haps_out','impute_haps'],['impute2_impute_out','impute'],['impute2_samples_out','impute_samples']]}, # temporary hack pending updates to hive code                           
+              keep_impute => $self->o('keep_impute'),
+              keep_samples => $self->o('keep_samples'),
+              keep_haps => $self->o('keep_haps'),
+              keep_summary => $self->o('keep_summary'),
+              keep_info => $self->o('keep_info'),
+              keep_info_by_sample => $self->o('keep_info_by_sample'),
+              keep_allele_probs => $self->o('keep_allele_probs'),
+              keep_diplotype_ordering => $self->o('keep_diplotype_ordering'),
+              keep_warnings => $self->o('keep_warnings'),
+              temp_param_sub => { 1 => [['impute2_haps_out','impute_haps'],['impute2_impute_out','impute'],['impute2_samples_out','impute_samples'],['impute2_info_out','impute_info'],['impute2_summary_out','impute_summary']]}, # temporary hack pending updates to hive code                           
           },
           -rc_name => '4Gb',
           -hive_capacity  =>  200,
@@ -428,6 +524,8 @@ sub pipeline_analyses {
                 1 => [ ':////accu?impute2_haps_out=[fan_index]',
                        ':////accu?impute2_impute_out=[fan_index]',
                        ':////accu?impute2_samples_out=[fan_index]',
+                       ':////accu?impute2_info_out=[fan_index]',
+                       ':////accu?impute2_summary_out=[fan_index]',
                        ':////accu?bp_start=[fan_index]',
                        ':////accu?bp_end=[fan_index]',
                      ],
@@ -443,10 +541,19 @@ sub pipeline_analyses {
               haps => '#shapeit_haps#',
               samples => '#shapeit_samples#', 
               shapeit_options =>  $self->o('impute2_options'), 
-              reference_config => $self->o('reference_config'),
+              reference_config => $self->o('impute_reference_config'),
               use_phased => 1,
-              phase_result => 1,   
-              temp_param_sub => { 1 => [['impute2_haps_out','impute_haps'],['impute2_impute_out','impute'],['impute2_samples_out','impute_samples']]}, # temporary hack pending updates to hive code                           
+              phase_result => 1, 
+              keep_impute => $self->o('keep_impute'),
+              keep_samples => $self->o('keep_samples'),
+              keep_haps => $self->o('keep_haps'),
+              keep_summary => $self->o('keep_summary'),
+              keep_info => $self->o('keep_info'),
+              keep_info_by_sample => $self->o('keep_info_by_sample'),
+              keep_allele_probs => $self->o('keep_allele_probs'),
+              keep_diplotype_ordering => $self->o('keep_diplotype_ordering'),
+              keep_warnings => $self->o('keep_warnings'),  
+              temp_param_sub => { 1 => [['impute2_haps_out','impute_haps'],['impute2_impute_out','impute'],['impute2_samples_out','impute_samples'],['impute2_info_out','impute_info'],['impute2_summary_out','impute_summary']]}, # temporary hack pending updates to hive code                           
           },
           -rc_name => '6Gb',
           -hive_capacity  =>  200,
@@ -454,6 +561,8 @@ sub pipeline_analyses {
                 1 => [ ':////accu?impute2_haps_out=[fan_index]',
                        ':////accu?impute2_impute_out=[fan_index]',
                        ':////accu?impute2_samples_out=[fan_index]',
+                       ':////accu?impute2_info_out=[fan_index]',
+                       ':////accu?impute2_summary_out=[fan_index]',
                        ':////accu?bp_start=[fan_index]',
                        ':////accu?bp_end=[fan_index]',
                      ],
@@ -470,7 +579,7 @@ sub pipeline_analyses {
                   
               },
               temp_param_sub => {
-                1 => [['impute_haps','impute2_haps_out'],['impute','impute2_impute_out'],['impute_samples','impute2_samples_out']],
+                1 => [['impute_haps','impute2_haps_out'],['impute','impute2_impute_out'],['impute_samples','impute2_samples_out'],['impute_info','impute2_info_out'],['impute_summary','impute2_summary_out']],
                
               }, # temporary hack pending updates to hive code
           },
@@ -482,10 +591,10 @@ sub pipeline_analyses {
           -logic_name    => 'merge_impute',
           -module        => 'ReseqTrack::Hive::Process::MergeHaps',
           -parameters    => {
+              analysis_label => '#expr("impute2_out")expr#',
               delete_param => ['shapeit_haps', 'shapeit_samples','legends_bed', 
                                'impute', 'impute_haps', 'impute_samples', 
-                               'impute_allele_probs', 'impute_info', 'impute_diplotype_ordering',
-                               'impute_info_by_sample', 'impute_summary', 'impute_warnings'],
+                               'impute_info', 'impute_summary'],
               temp_param_sub => { 1 => [['bp_start','undef'],['bp_end','undef']]}, # temporary hack pending updates to hive code
               hap => '#impute_haps#',
               samples => '#impute_samples#',

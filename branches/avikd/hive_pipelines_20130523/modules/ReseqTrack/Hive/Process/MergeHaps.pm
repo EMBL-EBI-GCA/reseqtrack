@@ -38,6 +38,7 @@ sub run {
     check_directory_exists($output_dir);
     check_executable($zcat);
     
+    ### HAPS
     open my $OUT, " > $output_haps" || throw("can't write $output_haps: $!") ;
     my $first_hap = 1;
     $self->dbc->disconnect_when_inactive(1);
@@ -67,10 +68,40 @@ sub run {
       close $IN;
       $first_hap = 0;
     }
-    close $OUT;
+    close $OUT;  
+      
+    ### SAMPLES  
+    my $samples = $self->file_param_to_flat_array('samples');
+    foreach my $sample_path (grep {defined $_} @$samples) {
+      check_file_exists($sample_path);
+    }
     
+    my $output_sample = "$output_dir/$job_name.samples";
+    open my $OUT_SAMPLE, " > $output_sample" || throw("can't write $output_sample: $!");
+    my $first_sample = 1;
+    SAMPLE:
+    foreach my $i (0..$#{$samples}) {
+      my $sample_path = $samples->[$i];
+      next SAMPLE if ! defined $sample_path;
+      
+      throw("missing bp_start for $sample_path") if ! defined $bp_start->[$i];
+      throw("missing bp_end for $sample_path") if ! defined $bp_end->[$i];
+      
+      my $IN_sample;
+      open $IN_sample, '<', $sample_path or throw("cannot open $sample_path: $!");
+      
+      SAMPLE_LINE:
+      while (my $sample_line = <$IN_sample>) {
+        print $OUT_SAMPLE $sample_line if $first_sample;
+      }
+      close $IN_sample;
+      $first_sample = 0;
+    }
+    close $OUT_SAMPLE;
+    
+    #### IMPUTE
     my $output_impute = "$output_dir/$job_name.impute";
-     
+    
     if($self->param_is_defined('impute')) {
       my $imputes = $self->file_param_to_flat_array('impute');
       
@@ -107,42 +138,93 @@ sub run {
         $first_impute = 0; 
       }
       close $OUT_IMPUTE;
-   }  
+   }
    
+   ### SUMMARY
+   my $output_summary = "$output_dir/$job_name.summary";
    
-    my $samples = $self->file_param_to_flat_array('samples');
-    foreach my $sample_path (grep {defined $_} @$samples) {
-      check_file_exists($sample_path);
-    }
-    
-    my $output_sample = "$output_dir/$job_name.samples";
-    open my $OUT_SAMPLE, " > $output_sample" || throw("can't write $output_sample: $!");
-    my $first_sample = 1;
-    SAMPLE:
-    foreach my $i (0..$#{$samples}) {
-      my $sample_path = $samples->[$i];
-      next SAMPLE if ! defined $sample_path;
+   if($self->param_is_defined('impute_summary')) {
+      my $impute_summarys = $self->file_param_to_flat_array('impute_summary');
       
-      throw("missing bp_start for $sample_path") if ! defined $bp_start->[$i];
-      throw("missing bp_end for $sample_path") if ! defined $bp_end->[$i];
-      
-      my $IN_sample;
-      open $IN_sample, '<', $sample_path or throw("cannot open $sample_path: $!");
-      
-      SAMPLE_LINE:
-      while (my $sample_line = <$IN_sample>) {
-        print $OUT_SAMPLE $sample_line if $first_sample;
+      foreach my $impute_summary_path (grep {defined $_} @$impute_summarys) {
+        check_file_exists($impute_summary_path);
       }
-      close $IN_sample;
-      $first_sample = 0;
-    }
-    close $OUT_SAMPLE;
+      
+      open my $OUT_SUMMARY, " > $output_summary" || throw("can't write $output_summary: $!");
+      
+      SUMMARY:
+      foreach my $i (0..$#{$impute_summarys}) {
+        my $impute_summary_path = $impute_summarys->[$i];
+        next SUMMARY if ! defined $impute_summary_path;
+        
+        throw("missing bp_start for $impute_summary_path") if ! defined $bp_start->[$i];
+        throw("missing bp_end for $impute_summary_path") if ! defined $bp_end->[$i];
+        
+        my $IN_summary;
+        open $IN_summary, '<', $impute_summary_path or throw("cannot open $impute_summary_path: $!");
+        
+        print $OUT_SUMMARY "Summary for region:",$bp_start->[$i],"-",$bp_end->[$i],"\n\n";
+        
+        SUMMARY_LINE:
+        while (my $summary_line = <$IN_summary>) {
+           print $OUT_SUMMARY $summary_line;
+        }
+        close $IN_summary;
+        print $OUT_SUMMARY "\n\n";
+        
+      }
+      close $OUT_SUMMARY;
+   }
+   
+   ### INFO
+   my $output_info = "$output_dir/$job_name.info";
     
+    if($self->param_is_defined('impute_info')) {
+      my $impute_infos = $self->file_param_to_flat_array('impute_info');
+      
+      foreach my $info_path (grep {defined $_} @$impute_infos) {
+        check_file_exists($info_path);
+      }
+     
+      open my $OUT_INFO, " > $output_info" || throw("can't write $output_info: $!");
+      my $first_impute = 1;
+      
+      INFO:
+      foreach my $i (0..$#{$impute_infos}) {
+        my $info_path = $impute_infos->[$i];
+        next INFO if ! defined $info_path;
+      
+        throw("missing bp_start for $info_path") if ! defined $bp_start->[$i];
+        throw("missing bp_end for $info_path") if ! defined $bp_end->[$i];
+      
+        my $IN_info;
+        open $IN_info, '<', $info_path or throw("cannot open $info_path: $!");
+        
+        my $info_line = <$IN_info>; 
+        print $OUT_INFO $info_line if $first_impute;      
+      
+        INFO_LINE:        
+        while ($info_line = <$IN_info>) {
+          my ($pos) = $info_line =~ /^\S+\s+\S+\s+(\d+)/; 
+          next INFO_LINE if $pos < $bp_start->[$i];
+          next INFO_LINE if $pos > $bp_end->[$i];
+          print $OUT_INFO $info_line;
+        }
+        close $IN_info;
+        $first_impute = 0; 
+      }
+      close $OUT_INFO;
+   }
+   
+   ####
     $self->dbc->disconnect_when_inactive(0);
 
-    $self->output_param('haps' => $output_haps);
-    $self->output_param('impute' => $output_impute) if($self->param_is_defined('impute'));
-    $self->output_param('samples' => $output_sample);
+    $self->output_param('haps', $output_haps);
+    $self->output_param('samples',  $output_sample);
+    $self->output_param('impute', $output_impute) if $self->param_is_defined('impute');
+    $self->output_param('impute_summary', $output_summary) if $self->param_is_defined('impute_summary');
+    $self->output_param('impute_info', $output_info) if $self->param_is_defined('impute_info');
+    
 
 }
 1;

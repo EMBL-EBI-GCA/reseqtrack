@@ -116,7 +116,16 @@ sub run {
           -phase_result => $phase_result,
           -chrX => $chrX, 
           -region_start => $bp_start,
-          -region_end => $bp_end,       
+          -region_end => $bp_end,
+          -keep_impute => $self->param_is_defined('keep_impute') ? $self->param('keep_impute') : undef,
+          -keep_samples => $self->param_is_defined('keep_samples') ? $self->param('keep_samples') : undef,
+          -keep_haps => $self->param_is_defined('keep_haps') ? $self->param('keep_haps') : undef,
+          -keep_info => $self->param_is_defined('keep_info') ? $self->param('keep_info') : undef,
+          -keep_allele_probs => $self->param_is_defined('keep_allele_probs') ? $self->param('keep_allele_probs') : undef,
+          -keep_diplotype_ordering => $self->param_is_defined('keep_diplotype_ordering') ? $self->param('keep_diplotype_ordering') : undef,
+          -keep_info_by_sample => $self->param_is_defined('keep_info_by_sample') ? $self->param('keep_info_by_sample') : undef,
+          -keep_warnings => $self->param_is_defined('keep_warnings') ? $self->param('keep_warnings') : undef,
+          -keep_summary => $self->param_is_defined('keep_summary') ? $self->param('keep_summary') : undef,
           );
           
     
@@ -124,15 +133,15 @@ sub run {
     $self->run_program($run_impute);
 
 
-    $self->output_param('impute',$run_impute->output_impute_files);
-    $self->output_param('impute_haps',$run_impute->output_haps_files) if($phase_result == 1);
-    $self->output_param('impute_allele_probs',$run_impute->output_allele_probs_files);
-    $self->output_param('impute_info',$run_impute->output_info_files);
-    $self->output_param('impute_diplotype_ordering',$run_impute->output_diplotype_ordering_files);
-    $self->output_param('impute_info_by_sample',$run_impute->output_info_by_sample_files);
-    $self->output_param('impute_samples',$run_impute->output_samples_files);
-    $self->output_param('impute_summary',$run_impute->output_summary_files);
-    $self->output_param('impute_warnings',$run_impute->output_warnings_files);
+    $self->output_param('impute',$run_impute->output_impute_files) if $self->param('keep_impute');
+    $self->output_param('impute_haps',$run_impute->output_haps_files) if $phase_result && $self->param('keep_haps');
+    $self->output_param('impute_allele_probs',$run_impute->output_allele_probs_files) if $self->param('keep_allele_probs') ;
+    $self->output_param('impute_info',$run_impute->output_info_files) if $self->param('keep_info');
+    $self->output_param('impute_diplotype_ordering',$run_impute->output_diplotype_ordering_files) if $self->param('keep_diplotype_ordering');
+    $self->output_param('impute_info_by_sample',$run_impute->output_info_by_sample_files) if $self->param('keep_info_by_sample');
+    $self->output_param('impute_samples',$run_impute->output_samples_files) if $self->param('keep_samples');
+    $self->output_param('impute_summary',$run_impute->output_summary_files) if $self->param('keep_summary');
+    $self->output_param('impute_warnings',$run_impute->output_warnings_files) if $self->param('keep_warnings');
 
 }
 
