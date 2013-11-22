@@ -27,7 +27,8 @@ use base qw(ReseqTrack::Tools::RunProgram);
                 -working_dir     => '/path/to/dir/',
                 -reference_config        => '/path/to/ref_config',
                 -chrom            => 20,
-                -region            => 1000000-2000000 );
+                 -region_start            => 1000000,
+                -region_end		     => 2000000, );
 
 =cut
 
@@ -35,12 +36,13 @@ sub new {
   my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
 
-  my ( $reference_config, $chrom, $region)
-        = rearrange( [ qw( REFERENCE_CONFIG CHROM REGION ) ], @args);
+  my ( $reference_config, $chrom, $region_start, $region_end)
+        = rearrange( [ qw( REFERENCE_CONFIG CHROM REGION_START REGION_END ) ], @args);
 
   $self->reference_config($reference_config);
   $self->chrom($chrom);
-  $self->region($region);
+  $self->region_start($region_start);
+  $self->region_end($region_end);
 
   return $self;
 }
@@ -48,7 +50,7 @@ sub new {
 sub generate_job_name {
     my $self = shift;
     my $job_name = $self->chrom;
-    $job_name.='.'. $self->region;
+    $job_name.='.'. $self->region_start .'-'. $self->region_end if($self->region_start && $self->region_end) ;
     return $self->job_name($job_name);
 }
 =head2
@@ -89,24 +91,46 @@ sub chrom {
 }
 
 
-=head2 region
+=head2 region_start
 
   Arg [1]   : ReseqTrack::Tools::RunImpute
-  Arg [2]   : string, chromosomal region in the format of start-end
+  Arg [2]   : string, chromosomal region start
   Function  : accessor method for chromosome region
   Returntype: string
   Exceptions: n/a
-  Example   : my $region = $self->region;
+  Example   : my $region_start = $self->region_start;
 
 =cut
 
-sub region {
-    my ($self, $region) = @_;
-    if ($region) {
-        $self->{'region'} = $region;
-    }
-    return $self->{'region'};
+sub region_start {
+  my ( $self, $arg ) = @_;
+
+  if ($arg) {
+    $self->{region_start} = $arg;
+  }
+  return $self->{region_start};
 }
+
+=head2 region_end
+
+  Arg [1]   : ReseqTrack::Tools::RunImpute
+  Arg [2]   : string, chromosomal region end
+  Function  : accessor method for chromosome region
+  Returntype: string
+  Exceptions: n/a
+  Example   : my $region_end = $self->region_end;
+
+=cut
+
+sub region_end {
+  my ( $self, $arg ) = @_;
+
+  if ($arg) {
+    $self->{region_end} = $arg;
+  }
+  return $self->{region_end};
+}
+
 
 =head2 run_program
 

@@ -62,6 +62,7 @@ sub default_options {
         'bgzip_exe' => '/nfs/1000g-work/G1K/work/bin/tabix/bgzip',
         'tabix_exe' => '/nfs/1000g-work/G1K/work/bin/tabix/tabix',
         'vep_exe'  => '/nfs/1000g-work/G1K/work/avikd/test_hive/vep_hive/variant_effect_predictor/variant_effect_predictor.pl',
+        'reference' => '/nfs/1000g-work/G1K/work/REFERENCE/aligners_reference/bwa/grc37/human_g1k_v37.fa',
         'fai' => $self->o('reference') . '.fai',
         'vep_options' => {
                         plugin => 'AncestralAlleles,/nfs/1000g-work/G1K/work/avikd/test_hive/ancesteral_alleles_for_vep/',
@@ -140,7 +141,7 @@ sub pipeline_analyses {
             -parameters    => {
                 collection_type => $self->o('type_vcf'),
                 collection_name=> '#callgroup#',
-                output_param => 'g1k_vcf',
+                output_param => 'input_vcf',
             },
             -flow_into => {
                 1 => [ 'vcf_factory' ],
@@ -149,10 +150,11 @@ sub pipeline_analyses {
       });
       push(@analyses, {
             -logic_name    => 'vcf_factory',  
-            -module        => 'ReseqTrack::Hive::Process::VcfFactory',
+            -module        => 'ReseqTrack::Hive::Process::JobFactory',
             -meadow_type => 'LOCAL',
             -parameters    => {
-              vcf_list => '#g1k_vcf#',               
+              factory_value => '#input_vcf#',
+              temp_param_sub => { 2 => [['input_vcf', 'factory_value']]}, # temporary hack pending updates to hive code             
           },
           -flow_into => {
                 2 => [ 'generate_bed' ],
@@ -164,7 +166,7 @@ sub pipeline_analyses {
           -parameters    => {
               bgzip => $self->o('bgzip_exe'), 
               max_variants => $self->o('max_variants'),
-              output_param => 'bed',
+              vcf =>   '#input_vcf#',
              
           },
           -rc_name => '1Gb',
@@ -175,21 +177,38 @@ sub pipeline_analyses {
       });
       push(@analyses, {
             -logic_name    => 'regions_factory_1',
-            -module        => 'ReseqTrack::Hive::Process::BedSliceFactory',
+            -module        => 'ReseqTrack::Hive::Process::SequenceSliceFactory',
             -meadow_type => 'LOCAL',
             -parameters    => {
-                
                 num_bases => $self->o('transpose_window_size'),
                 max_sequences => 1,
-                bed => '#bed#',
-                SQ_start => '#SQ_start#',
-                SQ_end => '#SQ_end#',
+                bed => '#vcf_bed#',
+                SQ_start => '#CHROM_start#',
+                SQ_end => '#CHROM_end#',
+
             },
 		    -flow_into => {
-                '2->A' => [ 'vep',],
-                'A->1' => [ 'decide_mergers',],
+                '2->A' => [ 'vep'],
+                'A->1' => [ 'decide_mergers'],
             },
       });
+#       push(@analyses, {
+#             -logic_name    => 'regions_factory_2',
+#             -module        => 'ReseqTrack::Hive::Process::SequenceSliceFactory',
+#             -meadow_type => 'LOCAL',
+#             -parameters    => {
+#                 
+#                 num_bases => $self->o('transpose_window_size'),
+#                 max_sequences => 1,
+#                 bed => '#vcf_bed#',
+#                 SQ_start => '#SQ_start#',
+#                 SQ_end => '#SQ_end#',
+#             },
+# 		    -flow_into => {
+#                 '2' => [ 'vep',],
+#                 
+#             },
+#       });
      push(@analyses, {
             -logic_name    => 'vep',
             -module        => 'ReseqTrack::Hive::Process::RunVep',
@@ -198,7 +217,8 @@ sub pipeline_analyses {
             -parameters    => {
                 region_overlap => 0,
                 tabix_exe => $self->o('tabix_exe'),
-                bed => '#bed#',
+                vcf => '#input_vcf#',
+#                 bed => '#bed#',
                 program_file => $self->o('vep_exe'),
                 options => $self->o('vep_options'),
                 temp_param_sub => { 1 => [['vep_vcf','vcf']]}, # temporary hack pending updates to hive code
@@ -220,7 +240,8 @@ sub pipeline_analyses {
             -parameters    => {
                 region_overlap => 0,
                 tabix_exe => $self->o('tabix_exe'),
-                bed => '#bed#',
+                vcf => '#input_vcf#',
+#                 bed => '#bed#',
                 program_file => $self->o('vep_exe'),
                 options => $self->o('vep_options'),
                 temp_param_sub => { 1 => [['vep_vcf','vcf']]}, # temporary hack pending updates to hive code

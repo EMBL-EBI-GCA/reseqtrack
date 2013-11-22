@@ -56,13 +56,16 @@ sub bed_to_slices {
     @args{qw(bed parent_slices)};
   throw("no parent slices") if ! @$parent_slices;
   check_file_exists($bed);
-
+  
   my $num_slices = scalar @$parent_slices;
 
   my @bed_slices;
   open my $BED, '<', $bed or throw("could not open $bed: $!");
   LINE:
   while (my $line = <$BED>) {
+    chomp($line);
+    
+    
     my ($SQ, $start, $end) = split(/\s+/, $line);
     throw("did not recognise line in bed: $line") if (!defined $end);
     my @parent_index = grep {$parent_slices->[$_]->end >= $start}
@@ -77,6 +80,7 @@ sub bed_to_slices {
     if ($end > $parent_slice->end) {
       $end = $parent_slice->end;
     }
+    
     my $bed_slice = ReseqTrack::Hive::Utils::SequenceSlice->new(
         -SQ_name => $SQ,
         -SQ_length => $parent_slice->SQ_length,
@@ -84,10 +88,13 @@ sub bed_to_slices {
         -end => $end,
         );
     push(@{$bed_slices[$parent_index[0]]}, $bed_slice);
+   
   }
   close $BED;
+  
+  
   my @sorted_bed_slices = map {sort {$a->start <=> $b->start} @$_} @bed_slices;
-  return \@sorted_bed_slices;
+    return \@sorted_bed_slices;
 }
 
 

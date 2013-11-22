@@ -140,8 +140,8 @@ sub run {
     $self->dbc->disconnect_when_inactive(0);
 
     $self->output_param('vcf_bed', $$output_file[0]);
-    #$self->output_param('SQ_start' , $$SQ_start[0]);
-    #$self->output_param('SQ_end' , $$SQ_end[0]);
+    $self->output_param('CHROM_start' , $$SQ_start[0]);
+    $self->output_param('CHROM_end' , $$SQ_end[0]);
 
 }
 
