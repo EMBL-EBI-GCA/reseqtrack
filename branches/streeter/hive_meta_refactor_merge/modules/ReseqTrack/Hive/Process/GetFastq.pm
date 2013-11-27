@@ -24,7 +24,7 @@ sub run {
 
     my $run_id = $self->param_required('run_id');
     my $db_params = $self->param_required('reseqtrack_db');
-    my $module = $self->param_required('module');
+    my $module = $self->param('module') // param_defaults()->{'module'};
     my $source_root_dir = $self->param('source_root_dir');
     my $clobber = $self->param('clobber');
     my $era_dbuser = $self->param_required('era_dbuser');

@@ -35,7 +35,7 @@ sub default_options {
         'sample_attribute_keys' => [],
         'sample_columns' => ['sample_source_id', 'sample_alias'],
         'run_attribute_keys' => [],
-        'run_columns' => ['run_source_id'],
+        'run_columns' => ['run_id', 'run_source_id'],
         'study_attribute_keys' => [],
         'study_columns' => ['study_source_id'],
         'experiment_attribute_keys' => [],
@@ -45,6 +45,14 @@ sub default_options {
         'fastq_output_layout' => '#sample_alias#/sequence_read',
         'fastqc_output_dir' => $self->o('fastq_output_dir'),
         'fastqc_output_layout' => '#fastq_output_layout#/fastqc',
+
+        fastq_name_file_module => 'ReseqTrack::Hive::NameFile::BaseNameFile',
+        fastq_name_file_method => 'basic',
+        fastq_name_file_params => { new_dir => '#fastq_output_dir#/#fastq_output_layout#' },
+
+        fastqc_name_file_module => 'ReseqTrack::Hive::NameFile::BaseNameFile',
+        fastqc_name_file_method => 'basic',
+        fastqc_name_file_params => { new_dir => '#fastqc_output_dir#/#fastqc_output_layout#' },
 
     };
 }
@@ -77,14 +85,12 @@ sub pipeline_analyses {
             -module        => 'ReseqTrack::Hive::Process::SeedFactory',
             -meadow_type => 'LOCAL',
             -parameters    => {
-              output_run_columns => $self->o('run_columns'),
-              output_run_attributes => $self->o('run_attribute_keys'),
+              output_columns => $self->o('run_columns'),
+              output_attributes => $self->o('run_attribute_keys'),
               output_sample_columns => $self->o('sample_columns'),
               output_sample_attributes => $self->o('sample_attribute_keys'),
               output_experiment_columns => $self->o('experiment_columns'),
               output_experiment_attributes => $self->o('experiment_attribute_keys'),
-              output_run_columns => $self->o('run_columns'),
-              output_run_attributes => $self->o('run_attribute_keys'),
             },
             -analysis_capacity  =>  1,  # use per-analysis limiter
             -flow_into => {
@@ -115,11 +121,15 @@ sub pipeline_analyses {
             -parameters    => {
               type => $self->o('fastq_type'),
               collect => 1,
-              move => 1,
               clobber => $self->o('clobber'),
+              name_file_module => $self->o('fastq_name_file_module'),
+              name_file_method => $self->o('fastq_name_file_method'),
+              name_file_params => $self->o('fastq_name_file_params'),
+              fastq_output_dir => $self->o('fastq_output_dir'),
+              fastq_output_layout => $self->o('fastq_output_layout'),
+              md5 => '#fastq_md5#',
               collection_name => '#run_source_id#',
               file => '#fastq#',
-              output_dir => '#fastq_output_dir#/#fastq_output_layout#',
             },
             -flow_into => {
                 1 => { 'fastq_factory' => {'fastq' => '#file#'}},
@@ -131,7 +141,6 @@ sub pipeline_analyses {
             -meadow_type => 'LOCAL',
             -parameters    => {
               factory_value => '#fastq#',
-              temp_param_sub => { 2 => [['fastq','factory_value']]}, # temporary hack pending updates to hive code
             },
             -flow_into => {
                 '2->A' => { 'fastqc' => {'fastq' => '#factory_value#'}},
@@ -159,14 +168,18 @@ sub pipeline_analyses {
             -parameters    => {
               type => $self->o('fastqc_summary_type'),
               collect => 1,
-              move => 1,
+              name_file_module => $self->o('fastqc_name_file_module'),
+              name_file_method => $self->o('fastqc_name_file_method'),
+              name_file_params => $self->o('fastqc_name_file_params'),
+              fastqc_output_dir => $self->o('fastqc_output_dir'),
+              fastq_output_layout => $self->o('fastq_output_layout'),
+              fastqc_output_layout => $self->o('fastqc_output_layout'),
               clobber => $self->o('clobber'),
               collection_name => '#run_source_id#',
               file => '#fastqc_summary#',
-              output_dir => '#fastqc_output_dir#/#fastqc_output_layout#',
             },
             -flow_into => {
-                1 => [ 'store_fastqc_report' ],
+                1 => { 'store_fastqc_report' => {fastqc_summary => '#file#'}},
             },
       });
     push(@analyses, {
@@ -176,14 +189,18 @@ sub pipeline_analyses {
             -parameters    => {
               type => $self->o('fastqc_report_type'),
               collect => 1,
-              move => 1,
+              name_file_module => $self->o('fastqc_name_file_module'),
+              name_file_method => $self->o('fastqc_name_file_method'),
+              name_file_params => $self->o('fastqc_name_file_params'),
+              fastqc_output_dir => $self->o('fastqc_output_dir'),
+              fastq_output_layout => $self->o('fastq_output_layout'),
+              fastqc_output_layout => $self->o('fastqc_output_layout'),
               clobber => $self->o('clobber'),
               collection_name => '#run_source_id#',
               file => '#fastqc_report#',
-              output_dir => '#fastqc_output_dir#/#fastqc_output_layout#',
             },
             -flow_into => {
-                1 => [ 'store_fastqc_zip' ],
+                1 => { 'store_fastqc_zip' => {fastqc_report => '#file#'}},
             },
       });
     push(@analyses, {
@@ -193,14 +210,18 @@ sub pipeline_analyses {
             -parameters    => {
               type => $self->o('fastqc_zip_type'),
               collect => 1,
-              move => 1,
+              name_file_module => $self->o('fastqc_name_file_module'),
+              name_file_method => $self->o('fastqc_name_file_method'),
+              name_file_params => $self->o('fastqc_name_file_params'),
+              fastqc_output_dir => $self->o('fastqc_output_dir'),
+              fastq_output_layout => $self->o('fastq_output_layout'),
+              fastqc_output_layout => $self->o('fastqc_output_layout'),
               clobber => $self->o('clobber'),
               collection_name => '#run_source_id#',
               file => '#fastqc_zip#',
-              output_dir => '#fastqc_output_dir#/#fastqc_output_layout#',
             },
             -flow_into => {
-                1 => [ 'mark_seed_complete' ],
+                1 => { 'mark_seed_complete' => {fastqc_zip => '#file#'}},
             },
       });
     push(@analyses, {

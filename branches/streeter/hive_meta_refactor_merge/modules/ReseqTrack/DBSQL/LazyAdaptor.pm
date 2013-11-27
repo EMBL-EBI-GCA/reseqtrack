@@ -158,6 +158,8 @@ sub update {
 
   $sth->execute;
   $sth->finish;
+
+  $self->store_attributes($obj, 1);
   return $obj;
 }
 

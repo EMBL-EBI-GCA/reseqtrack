@@ -29,12 +29,15 @@ sub run {
     my $vcfs = $self->file_param_to_flat_array('vcf');
     my $bp_start = $self->param_to_flat_array('bp_start');
     my $bp_end = $self->param_to_flat_array('bp_end');
+
+    throw("unexpected number of vcf files") if scalar @$vcfs != scalar @$bp_start;
+    throw("unexpected number of vcf files") if scalar @$vcfs != scalar @$bp_end;
+
+    $self->dbc->disconnect_when_inactive(1);
+
     foreach my $vcf_path (grep {defined $_} @$vcfs) {
       check_file_exists($vcf_path);
     }
-
-    print scalar @$bp_start, "\n";
-    print scalar @$vcfs, "\n";
 
     my $output_dir = $self->output_dir;
     my $job_name = $self->job_name;
@@ -46,7 +49,7 @@ sub run {
     }
     open my $OUT, "| $bgzip -c > $output_file";
     my $first_vcf = 1;
-    $self->dbc->disconnect_when_inactive(1);
+
     VCF:
     foreach my $i (0..$#{$vcfs}) {
       my $vcf_path = $vcfs->[$i];

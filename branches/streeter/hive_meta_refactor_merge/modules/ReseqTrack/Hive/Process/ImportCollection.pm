@@ -25,7 +25,7 @@ sub run {
     $self->param_required('output_param');
 
     throw("must have a collection name or collection id")
-          if (!defined $collection_id || !defined $collection_name);
+          if (!defined $collection_id && !defined $collection_name);
     throw("must have a collection type with a collection name")
           if (defined $collection_name && !defined $collection_type);
 

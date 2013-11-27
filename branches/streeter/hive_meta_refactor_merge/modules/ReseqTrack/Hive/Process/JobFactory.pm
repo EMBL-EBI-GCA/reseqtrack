@@ -19,7 +19,7 @@ sub run {
     my $values = $self->param_required('factory_value');
 
     foreach my $value (@$values) {
-      $self->prepare_factory_output_id($value, {'factory_value' => $value});
+      $self->prepare_factory_output_id({'factory_value' => $value});
     }
 
 }

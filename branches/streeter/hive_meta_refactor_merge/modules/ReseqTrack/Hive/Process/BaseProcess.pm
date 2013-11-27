@@ -103,22 +103,27 @@ sub output_dir {
   if (defined $dir) {
     $base_params->{'output_dir'} = $dir;
   }
-  elsif($self->param_is_defined('root_output_dir')) {
-    if ($self->param_is_defined('dir_label_params')) {
-      $base_params->{'output_dir'} = join('/', $self->param('root_output_dir'),
-              grep {length($_)}
-              map {$self->param($_)}
-              grep {$self->param_is_defined($_)}
-              grep {length($_)}
-              @{$self->param('dir_label_params')});
+  if (!defined $base_params->{'output_dir'}) {
+    if ($self->param_is_defined('output_dir')) {
+      $base_params->{'output_dir'} = $self->param('output_dir');
     }
-    else {
-      $base_params->{'output_dir'} = $self->param('root_output_dir');
+    elsif($self->param_is_defined('root_output_dir')) {
+      if ($self->param_is_defined('dir_label_params')) {
+        $base_params->{'output_dir'} = join('/', $self->param('root_output_dir'),
+                grep {length($_)}
+                map {$self->param($_)}
+                grep {$self->param_is_defined($_)}
+                grep {length($_)}
+                @{$self->param('dir_label_params')});
+      }
+      else {
+        $base_params->{'output_dir'} = $self->param('root_output_dir');
+      }
     }
+    throw('cannot make a sensible output directory') if ! $base_params->{'output_dir'};
     $base_params->{'output_dir'} =~ s/\s+//g;
     $base_params->{'output_dir'} =~ s{//+}{/}g;
   }
-  throw('cannot make a sensible output directory') if ! $base_params->{'output_dir'};
   return $base_params->{'output_dir'};
 }
 
@@ -154,7 +159,13 @@ sub job_name {
     }
     $job_label =~ s/\s+//g;
 
-    $base_params->{'job_name'} = join('.', $job_label, $analysis_label);
+    $base_params->{'job_name'} = join('.', grep {length($_)} $job_label, $analysis_label);
+
+    if ($self->param_is_defined('file_timestamp') && $self->param('file_timestamp')) {
+      my ($year, $month, $day) = (localtime(time))[5,4,3];
+      $base_params->{'job_name'} .= sprintf(".%04d%02d%02d", $year+1900, $month, $day);
+    }
+
   }
   return $base_params->{'job_name'};
 }

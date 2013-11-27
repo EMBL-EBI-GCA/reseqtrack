@@ -60,6 +60,7 @@ sub DEFAULT_OPTIONS {
         ,    # Location of reference fasta file, used by CollectRnaSeqMetrics
         'strand_specificity' => 'NONE'
         ,    #For strand-specific library prep,  used by CollectRnaSeqMetrics
+        'read_group_fields' => {}, # used by AddOrReplaceReadGroups
     };
 }
 
@@ -71,6 +72,7 @@ sub CMD_MAPPINGS { return {
     'sort'              => \&run_sort,
     'alignment_metrics' => \&run_alignment_metrics,
     'rna_seq_metrics'   => \&run_rna_alignment_metrics,
+    'add_or_replace_read_groups'   => \&run_add_or_replace_read_groups,
     };    
 }
 
@@ -558,6 +560,68 @@ sub run_fix_mate{
 
     return;   
 }
+
+sub run_add_or_replace_read_groups{
+  my ($self) = @_;
+    
+  my $sort_order = $self->options('sort_order');
+  if ($sort_order ne 'coordinate' && $sort_order ne 'queryname') {
+      $sort_order = 'null';
+  }
+          
+  my $jar = $self->_jar_path('AddOrReplaceReadGroups.jar');
+
+  foreach my $input (@{$self->input_files}) {
+    my $name = fileparse($input, qr/\.[sb]am/);
+    my $prefix = $self->working_dir . '/' . $name . '.fixed';
+    $prefix =~ s{//}{/}g;
+    my $output = $prefix . '.bam';
+
+    my @cmd_words = ($self->java_exe);
+    push(@cmd_words, $self->jvm_options) if ($self->jvm_options);
+    push(@cmd_words, '-jar', $jar);
+    push(@cmd_words, $self->_get_standard_options);
+    push(@cmd_words, 'SORT_ORDER=' . $sort_order);
+    push(@cmd_words, 'INPUT=' . $input);
+    push(@cmd_words, 'OUTPUT=' . $output);
+    push(@cmd_words, 'CREATE_INDEX='
+            . ($self->create_index ? 'true' : 'false'));
+
+    my $rg_fields = $self->options('read_group_fields');
+    push(@cmd_words, 'RGID=' . $rg_fields->{'ID'});
+    push(@cmd_words, 'RGLB=' . $rg_fields->{'LB'});
+    push(@cmd_words, 'RGPL=' . $rg_fields->{'PL'});
+    push(@cmd_words, 'RGPU=' . $rg_fields->{'PU'});
+    push(@cmd_words, 'RGSM=' . $rg_fields->{'SM'});
+    push(@cmd_words, 'RGCN=' . $rg_fields->{'CN'}) if $rg_fields->{'CN'};
+    push(@cmd_words, 'RGDS=' . $rg_fields->{'DS'}) if $rg_fields->{'DS'};
+    push(@cmd_words, 'RGDT=' . $rg_fields->{'DT'}) if $rg_fields->{'DT'};
+    push(@cmd_words, 'RGPI=' . $rg_fields->{'PI'}) if $rg_fields->{'PI'};
+
+    my $cmd = join(' ', @cmd_words);
+  
+    $self->output_files($output);
+    $self->created_files("$prefix.bai") if $self->create_index;
+
+    $self->execute_command_line($cmd);
+
+    if ($self->create_index) {
+        my $bai = "$prefix.bai";
+        my $index_ext = $self->options('index_ext');
+        if ($index_ext && $index_ext ne '.bai') {
+            my $corrected_bai = "$prefix" . $index_ext;
+            move($bai, $corrected_bai)
+              or throw "move failed: $!";
+            $bai = $corrected_bai;
+        }
+        $self->output_files($bai);
+    }
+  
+  }
+
+    return;   
+}
+
 
 sub _get_standard_options {
     my $self = shift;

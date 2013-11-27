@@ -83,18 +83,19 @@ sub create_seed_params {
   SEED:
   while (my $rowHashref = $sth->fetchrow_hashref) {
     my $seed = $adaptor->object_from_hashref($rowHashref);
-    while (my ($attr_name, $values) = each %$require_attributes) {
+    foreach my $attr_name (keys %$require_attributes) {
       my ($attribute) = grep {$_->attribute_name eq $attr_name} @{$seed->attributes};
       next SEED if !$attribute;
+      my $values = $require_attributes->{$attr_name};
       $values = ref($values) eq 'ARRAY' ? $values : [$values];
-      next SEED if !grep {$attribute->value eq $_} @$values;
+      next SEED if !grep {$attribute->attribute_value eq $_} @$values;
     }
     ATTR:
     while (my ($attr_name, $values) = each %$exclude_attributes) {
       my ($attribute) = grep {$_->attribute_name eq $attr_name} @{$seed->attributes};
       next ATTR if !$attribute;
       $values = ref($values) eq 'ARRAY' ? $values : [$values];
-      next SEED if grep {$attribute->value eq $_} @$values;
+      next SEED if grep {$attribute->attribute_value eq $_} @$values;
     }
 
     my %output_id;

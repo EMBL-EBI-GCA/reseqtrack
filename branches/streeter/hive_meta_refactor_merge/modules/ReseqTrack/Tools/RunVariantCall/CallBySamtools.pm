@@ -6,6 +6,7 @@ use warnings;
 use ReseqTrack::Tools::Exception qw(throw);
 use ReseqTrack::Tools::Argument qw(rearrange);
 use ReseqTrack::Tools::FileSystemUtils qw(check_file_exists check_executable);
+use POSIX qw(ceil);
 
 use base qw(ReseqTrack::Tools::RunVariantCall);
 
@@ -49,7 +50,7 @@ sub DEFAULT_OPTIONS { return {
         mpileup => '-EDS -e20 -h100 -L250 -o40 -C50 -m1 -F0.002 -d 250 -P ILLUMINA -ug', # mainly the defaults
         bcfview => '-p 0.5 -vcg', #default options
         vcfutils => '-D 10000000 -d 2 -a 2 -Q 10 -w 3 -W 10 -1 1e-4 -2 1e-100 -3 0 -4 1e-4 -e 1e-4', # vcfutils defaults
-        coverage_per_bam => undef,
+        depth_of_coverage => undef,
         };
 }
 
@@ -108,17 +109,12 @@ sub run_program {
     my $output_vcf = $self->working_dir .'/'. $self->job_name . '.vcf.gz';
     $output_vcf =~ s{//}{/};
 
-    my $coverage;
-    if (my $sample_covg = $self->options->{'coverage_per_bam'}) {
-      $coverage = $sample_covg * scalar @{$self->input_files};
-    }
-    
     my @cmd_words;
     push(@cmd_words, $self->program, 'mpileup');
     push(@cmd_words, $self->options->{'mpileup'});
 
-    if (defined $coverage) {
-      push(@cmd_words, '-d', 5*$coverage);
+    if (my $coverage = $self->options->{'depth_of_coverage'}) {
+      push(@cmd_words, '-d', ceil(5.5*$coverage)); # should exceed the -D flag for vcfutils
     }
 
     push(@cmd_words, '-f', $self->reference);
@@ -138,8 +134,8 @@ sub run_program {
     push(@cmd_words, $self->vcfutils, 'varFilter');
     push(@cmd_words, $self->options->{'vcfutils'});
 
-    if (defined $coverage) {
-      push(@cmd_words, '-D', 5*$coverage);
+    if (my $coverage = $self->options->{'depth_of_coverage'}) {
+      push(@cmd_words, '-D', ceil(5*$coverage));
     }
 
     push(@cmd_words, '|', $self->bgzip, '-c');

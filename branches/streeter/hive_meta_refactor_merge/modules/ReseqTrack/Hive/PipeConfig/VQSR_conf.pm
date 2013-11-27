@@ -34,7 +34,6 @@ config_options=-indel_resources mills='known=true,training=true,truth=true,prior
   Options that have defaults but you will often want to set them in your pipeline.cofig_options table/column:
 
       -root_output_dir, (default is your current directory)
-      -type_bam, type of bam files to look for in the reseqtrack database, default BAM
       -final_label, used to name your final output files (default is your pipeline name)
       -target_bed_file, for if you want to do exome calling (default undefined)
       -transpose_window_size, (default 50000000) Controls the size of the region convered by a single transposed bam
@@ -87,7 +86,6 @@ sub default_options {
 
         'pipeline_name' => 'vc',
 
-        'type_bam'    => 'BAM',
         'transpose_exe' => $self->o('ENV', 'RESEQTRACK').'/c_code/transpose_bam/transpose_bam',
         'bgzip_exe' => '/nfs/1000g-work/G1K/work/bin/tabix/bgzip',
         'gatk_dir' => '/nfs/1000g-work/G1K/work/bin/gatk/dist/',
@@ -123,6 +121,8 @@ sub default_options {
         'final_label' => $self->o('pipeline_name'),
         'call_window_size' => 50000,
         'transpose_window_size' => 50000000,
+
+        'seed_attribute' => [],
 
         'vqsr_snps' => 1,
         'vqsr_indels' => 1,
@@ -161,6 +161,7 @@ sub resource_classes {
             '2Gb' => { 'LSF' => '-C0 -M2000 -q production -R"select[mem>2000] rusage[mem=2000]"' },
             '4Gb' => { 'LSF' => '-C0 -M4000 -q production -R"select[mem>4000] rusage[mem=4000]"' },
             '5Gb' => { 'LSF' => '-C0 -M5000 -q production -R"select[mem>5000] rusage[mem=5000]"' },
+            '8Gb' => { 'LSF' => '-C0 -M8000 -q production -R"select[mem>8000] rusage[mem=8000]"' },
     };
 }
 
@@ -173,10 +174,12 @@ sub pipeline_analyses {
             -module        => 'ReseqTrack::Hive::Process::SeedFactory',
             -meadow_type => 'LOCAL',
             -parameters    => {
-                output_columns => 'name',
+                output_columns => ['name', 'collection_id'],
+                output_attributes => $self->o('seed_attribute'),
+                use_reseqtrack_file_table => 0,
             },
             -flow_into => {
-                2 => { 'block_seed_complete' => {'callgroup' => '#name#', 'ps_id' => '#ps_id#'} },
+                2 => [ 'block_seed_complete' ],
             },
       });
     push(@analyses, {
@@ -187,7 +190,7 @@ sub pipeline_analyses {
               flows_non_factory => [1,2],
           },
             -flow_into => {
-                '2->A' => [ 'find_source_bams' ],
+                '2->A' => { 'find_source_bams' => {'callgroup' => '#name#'}},
                 'A->1' => [ 'mark_seed_complete' ],
             },
       });
@@ -196,8 +199,6 @@ sub pipeline_analyses {
             -module        => 'ReseqTrack::Hive::Process::ImportCollection',
             -meadow_type => 'LOCAL',
             -parameters    => {
-                collection_type => $self->o('type_bam'),
-                collection_name=> '#callgroup#',
                 output_param => 'bam',
                 flows_file_count_param => 'bam',
                 flows_file_count => { 1 => '1+', },
@@ -256,7 +257,7 @@ sub pipeline_analyses {
             -analysis_capacity  =>  4,
             -hive_capacity  =>  200,
             -flow_into => {
-                '2' => { 'call_by_gatk_snps' => {'region2' => '#expr(join(".",$callgroup,$SQ_start,$bp_start,$SQ_end,$bp_end))expr#',
+                '1' => { 'call_by_gatk_snps' => {'region2' => '#expr(join(".",$callgroup,$SQ_start,$bp_start,$SQ_end,$bp_end))expr#',
                                                 'SQ_start' => '#SQ_start#', 'bp_start' => '#bp_start#', 'SQ_end' => '#SQ_end#', 'bp_end' => '#bp_end#', 'fan_index' => '#fan_index#',
                                                 }},
                 '2' => { 'call_by_gatk_indels' => {'region2' => '#expr(join(".",$callgroup,$SQ_start,$bp_start,$SQ_end,$bp_end))expr#',
@@ -407,9 +408,10 @@ sub pipeline_analyses {
               options => $self->o('variant_recalibrator_snps_options'),
               resources => $self->o('snp_resources'),
               annotations => $self->o('snp_annotations'),
+              jvm_args => '-Xmx16g', 
               mode => 'SNP',
           },
-          -rc_name => '2Gb',
+          -rc_name => '8Gb',
           -hive_capacity  =>  200,
           -flow_into => {
               1 => [ 'apply_recalibration_snps' ],
@@ -424,9 +426,10 @@ sub pipeline_analyses {
               options => $self->o('variant_recalibrator_indels_options'),
               resources => $self->o('indel_resources'),
               annotations => $self->o('indel_annotations'),
+              jvm_args => '-Xmx8g', 
               mode => 'INDEL',
           },
-          -rc_name => '2Gb',
+          -rc_name => '4Gb',
           -hive_capacity  =>  200,
           -flow_into => {
               1 => [ 'apply_recalibration_indels' ],
@@ -443,7 +446,7 @@ sub pipeline_analyses {
               options => $self->o('apply_recalibration_snps_options'),
           },
           -flow_into => { '1' => [ 'rename_vcf' ] },
-          -rc_name => '500Mb',
+          -rc_name => '2Gb',
           -hive_capacity  =>  200,
       });
     push(@analyses, {
@@ -456,7 +459,7 @@ sub pipeline_analyses {
               options => $self->o('apply_recalibration_indels_options'),
           },
           -flow_into => { '1' => [ 'rename_vcf' ] },
-          -rc_name => '500Mb',
+          -rc_name => '2Gb',
           -hive_capacity  =>  200,
       });
     push(@analyses, {
@@ -466,6 +469,7 @@ sub pipeline_analyses {
             -parameters => {
                 final_label => $self->o('final_label'),
                 analysis_label => '#expr(' . q($var_type.'.'.$final_label) . ')expr#',
+                file_timestamp => 1,
                 suffix => 'vcf.gz',
                 file_param_name => 'vcf',
             },
@@ -476,11 +480,12 @@ sub pipeline_analyses {
     push(@analyses, {
             -logic_name    => 'store_vcf',
             -module        => 'ReseqTrack::Hive::Process::LoadFile',
-            -meadow_type => 'LOCAL',
             -parameters    => {
               type => $self->o('vcf_type'),
               file => '#vcf#',
             },
+            -rc_name => '200Mb',
+            -hive_capacity  =>  200,
       });
     push(@analyses, {
             -logic_name    => 'mark_seed_complete',
