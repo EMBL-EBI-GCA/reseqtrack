@@ -74,6 +74,15 @@ sub default_options {
 
         'pipeline_name' => 'vc',
 
+        seeding_module => 'ReseqTrack::Hive::PipeSeed::BasePipeSeed',
+        seeding_options => {
+            output_columns => ['name', 'sample_id'],
+            require_columns => $self->o('require_collection_columns'),
+            exclude_columns => $self->o('exclude_collection_columns'),
+            require_attributes => $self->o('require_collection_attributes'),
+            exclude_attributes => $self->o('exclude_collection_attributes'),
+          },
+
         'transpose_exe' => $self->o('ENV', 'RESEQTRACK').'/c_code/transpose_bam/transpose_bam',
         'samtools_exe' => '/nfs/1000g-work/G1K/work/bin/samtools/samtools',
         'bcftools_exe' => '/nfs/1000g-work/G1K/work/bin/samtools/bcftools/bcftools',
@@ -92,7 +101,6 @@ sub default_options {
         'fai' => $self->o('reference') . '.fai',
         'target_bed_file' => undef,
 
-        'final_label' => $self->o('pipeline_name'),
         'call_window_size' => 50000,
         'transpose_window_size' => 10000000,
 
@@ -101,6 +109,22 @@ sub default_options {
         'call_by_freebayes' => 1,
 
         'vcf_type' => undef,
+
+        'callgroup_type' => $self->o('callgroup_type'),
+        'require_collection_columns' => {'type' => $self->o('callgroup_type')},
+        'exclude_collection_columns' => {},
+        'require_collection_attributes' => {},
+        'exclude_collection_attributes' => {},
+
+        final_output_dir => $self->o('root_output_dir'),
+        name_file_module => 'ReseqTrack::Hive::NameFile::BaseNameFile',
+        name_file_method => 'basic',
+        name_file_params => {
+            new_dir => $self->o('final_output_dir'),
+            new_basename => '#callgroup#.#caller#',
+            add_datestamp => 1,
+            suffix => ['.vcf.gz'],
+          },
 
     };
 }
@@ -153,10 +177,11 @@ sub pipeline_analyses {
             -module        => 'ReseqTrack::Hive::Process::SeedFactory',
             -meadow_type => 'LOCAL',
             -parameters    => {
-                output_columns => ['name','collection_id'],
+                seeding_module => $self->o('seeding_module'),
+                seeding_options => $self->o('seeding_options'),
             },
             -flow_into => {
-                2 => { 'block_seed_complete' => {'callgroup' => '#name#', 'bam_collection_id' => '#collection_id#', 'ps_id' => '#ps_id#'} },
+                2 => [ 'block_seed_complete' ],
             },
       });
     push(@analyses, {
@@ -167,7 +192,7 @@ sub pipeline_analyses {
               flows_non_factory => [1,2],
           },
             -flow_into => {
-                '2->A' => [ 'find_source_bams' ],
+                '2->A' => { 'find_source_bams' => {'callgroup' => '#name#', 'bam_collection_id' => '#collection_id#'}},
                 'A->1' => [ 'mark_seed_complete' ],
             },
       });
@@ -408,12 +433,9 @@ sub pipeline_analyses {
               },
           },
             -flow_into => {
-                '1' => [ 'merge_samtools_vcf' ],
-                '2' => [ 'merge_gatk_vcf' ],
-                '3' => [ 'merge_freebayes_vcf' ],
-                #'1' => { 'merge_vcf' => {'caller' => 'samtools', 'vcf' => '#samtools_vcf#'}},
-                #'2' => { 'merge_vcf' => {'caller' => 'gatk', 'vcf' => '#gatk_vcf#'}},
-                #'3' => { 'merge_vcf' => {'caller' => 'freebayes', 'vcf' => '#freebayes_vcf#'}},
+                '1' => { 'merge_samtools_vcf' => {'caller' => 'samtools'}},
+                '2' => { 'merge_gatk_vcf' => {'caller' => 'gatk'}},
+                '3' => { 'merge_freebayes_vcf' => {'caller' => 'freebayes'}},
             },
       });
 
@@ -423,9 +445,6 @@ sub pipeline_analyses {
           -module        => 'ReseqTrack::Hive::Process::MergeVcf',
           -parameters    => {
               vcf => '#samtools_vcf#',
-              final_label => $self->o('final_label'),
-              analysis_label => '#expr(' . q('samtools.'.$final_label) . ')expr#',
-              file_timestamp => 1,
               bgzip => $self->o('bgzip_exe'),
               delete_param => ['samtools_vcf'],
           },
@@ -438,9 +457,6 @@ sub pipeline_analyses {
           -module        => 'ReseqTrack::Hive::Process::MergeVcf',
           -parameters    => {
               vcf => '#gatk_vcf#',
-              final_label => $self->o('final_label'),
-              analysis_label => '#expr(' . q('gatk.'.$final_label) . ')expr#',
-              file_timestamp => 1,
               bgzip => $self->o('bgzip_exe'),
               delete_param => ['gatk_vcf'],
           },
@@ -453,9 +469,6 @@ sub pipeline_analyses {
           -module        => 'ReseqTrack::Hive::Process::MergeVcf',
           -parameters    => {
               vcf => '#freebayes_vcf#',
-              final_label => $self->o('final_label'),
-              analysis_label => '#expr(' . q('freebayes.'.$final_label) . ')expr#',
-              file_timestamp => 1,
               bgzip => $self->o('bgzip_exe'),
               delete_param => ['freebayes_vcf'],
           },
@@ -469,6 +482,9 @@ sub pipeline_analyses {
             -parameters    => {
               type => $self->o('vcf_type'),
               file => '#vcf#',
+              name_file_module => $self->o('name_file_module'),
+              name_file_method => $self->o('name_file_method'),
+              name_file_params => $self->o('name_file_params'),
             },
           -rc_name => '200Mb',
       });

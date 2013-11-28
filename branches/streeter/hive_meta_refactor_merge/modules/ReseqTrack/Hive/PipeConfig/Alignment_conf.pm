@@ -93,6 +93,16 @@ sub default_options {
 
         'pipeline_name' => 'align',
 
+        seeding_module => 'ReseqTrack::Hive::PipeSeed::BasePipeSeed',
+        seeding_options => {
+            output_columns => $self->o('sample_columns'),
+            output_attributes => $self->o('sample_attributes'),
+            require_columns => $self->o('require_sample_columns'),
+            exclude_columns => $self->o('exclude_sample_columns'),
+            require_attributes => $self->o('require_sample_attributes'),
+            exclude_attributes => $self->o('exclude_sample_attributes'),
+          },
+
         'chunk_max_reads'    => 5000000,
         'type_fastq'    => 'FILTERED_FASTQ',
         'split_exe' => $self->o('ENV', 'RESEQTRACK').'/c_code/split/split',
@@ -139,12 +149,16 @@ sub default_options {
         require_run_attributes => {},
         require_experiment_attributes => {},
         require_study_attributes => {},
+        require_sample_attributes => {},
         exclude_run_attributes => {},
         exclude_experiment_attributes => {},
         exclude_study_attributes => {},
+        exclude_sample_attributes => {},
         require_experiment_columns => { instrument_platform => ['ILLUMINA'], },
         require_run_columns => { status => ['public', 'private'], },
         require_study_columns => {},
+        require_sample_columns => {},
+        exclude_sample_columns => {},
 
 
         final_output_dir => $self->o('root_output_dir'),
@@ -205,8 +219,8 @@ sub pipeline_analyses {
             -module        => 'ReseqTrack::Hive::Process::SeedFactory',
             -meadow_type => 'LOCAL',
             -parameters    => {
-                output_columns => $self->o('sample_columns'),
-                output_attributes => $self->o('sample_attribute_keys'),
+                seeding_module => $self->o('seeding_module'),
+                seeding_options => $self->o('seeding_options'),
             },
             -flow_into => {
                 2 => [ 'libraries_factory' ],

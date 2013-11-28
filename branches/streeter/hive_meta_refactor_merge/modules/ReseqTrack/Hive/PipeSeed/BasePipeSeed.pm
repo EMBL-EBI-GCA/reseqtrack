@@ -1,21 +1,16 @@
 
-package ReseqTrack::Hive::PipeSeed::Default;
+package ReseqTrack::Hive::PipeSeed::BasePipeSeed;
 
 use strict;
 use warnings;
-
-sub output_params {
-  return [qw(
-    output_columns
-    output_attributes
-  )];
-}
+use ReseqTrack::Tools::Exception qw(throw);
+use ReseqTrack::Tools::Argument qw(rearrange);
 
 sub sql_existing {
-  my ($pipeline) = @_;
-  my $table_name = $pipeline->table_name;
+  my ($self) = @_;
+  my $table_name = $self->table_name;
   my $dbID_name = $table_name . '_id';
-  my $pipeline_id = $pipeline->dbID;
+  my $pipeline_id = $self->pipeline_id;
   my $sql_existing =
         "SELECT pipeline_seed.seed_id FROM $table_name, pipeline_seed, hive_db"
       . " WHERE pipeline_seed.hive_db_id = hive_db.hive_db_id"
@@ -28,30 +23,85 @@ sub sql_existing {
 }
 
 
-#select_options affect what gets selected as a pipeline seed.  These are defined in the ReseqTrack pipeline table
-#output_params affect what parameters get written to the output id. Defined by the pipeline configuration.
+sub new {
+  my ( $class, @args ) = @_;
+  my $self = {};
+  bless $self, $class;
+
+  my ( $options, $pipeline ) = rearrange( [ qw( OPTIONS PIPELINE ) ], @args);
+
+  $self->options($options);
+  $self->pipeline($pipeline);
+  
+  return $self;
+}
+
+
+sub pipeline {
+  my ($self, $pipeline) = @_;
+  if ($pipeline) {
+    throw("pipeline is not a ReseqTrack::Pipeline object") if ref($pipeline) ne 'ReseqTrack::Pipeline';
+    $self->{'pipeline'} = $pipeline;
+  }
+  return $self->{'pipeline'};
+}
+
+sub table_name {
+  my ($self) = @_;
+  return $self->pipeline->table_name;
+}
+sub pipeline_id {
+  my ($self) = @_;
+  return $self->pipeline->dbID;
+}
+sub db {
+  my ($self) = @_;
+  return $self->pipeline->adaptor->db;
+}
+sub dbID_name {
+  my ($self) = @_;
+  return $self->table_name . '_id';
+}
+
+sub options {
+  my ($self, $options) = @_;
+  if ($options) {
+    throw( "options is not a hashref") if ref($options) ne 'HASH';
+    $self->{'options'} = $options;
+  }
+  return $self->{'options'} // {};
+}
+
+sub seed_params {
+  my ($self, $seed_params) = @_;
+  if ($seed_params) {
+    $self->{'seed_params'} = $seed_params;
+  }
+  return $self->{'seed_params'} // [];
+}
+
 
 sub create_seed_params {
-  my ($pipeline, $select_options, $output_params) = @_;
-  my $output_columns = ref($output_params->{'output_columns'}) eq 'ARRAY' ? $output_params->{'output_columns'}
-                      : defined $output_params->{'output_columns'} ? [$output_params->{'output_columns'}]
+  my ($self) = @_;
+  my $options = $self->options;
+  my $output_columns = ref($options->{'output_columns'}) eq 'ARRAY' ? $options->{'output_columns'}
+                      : defined $options->{'output_columns'} ? [$options->{'output_columns'}]
                       : [];
-  my $output_attributes = ref($output_params->{'output_attributes'}) eq 'ARRAY' ? $output_params->{'output_attributes'}
-                      : defined $output_params->{'output_attributes'} ? [$output_params->{'output_attributes'}]
+  my $output_attributes = ref($options->{'output_attributes'}) eq 'ARRAY' ? $options->{'output_attributes'}
+                      : defined $options->{'output_attributes'} ? [$options->{'output_attributes'}]
                       : [];
 
-  my $require_columns = $select_options->{'require_columns'} || {};
-  my $require_attributes = $select_options->{'require_attributes'} || {};
-  my $exclude_columns = $select_options->{'exclude_columns'} || {};
-  my $exclude_attributes = $select_options->{'exclude_attributes'} || {};
+  my $require_columns = $options->{'require_columns'} || {};
+  my $require_attributes = $options->{'require_attributes'} || {};
+  my $exclude_columns = $options->{'exclude_columns'} || {};
+  my $exclude_attributes = $options->{'exclude_attributes'} || {};
 
-  my $db = $pipeline->adaptor->db;
+  my $db = $self->db();
+  my $table_name = $self->table_name();
+  my $dbID_name = $self->dbID_name();
+  my $adaptor = $self->db->get_adaptor_for_table($self->table_name);
 
-  my $table_name = $pipeline->table_name;
-  my $dbID_name = $table_name . '_id';
-
-  my $adaptor = $db->get_adaptor_for_table($table_name);
-  my $sql_existing = sql_existing($pipeline);
+  my $sql_existing = $self->sql_existing();
   my $sql = "SELECT ".$adaptor->columns." FROM $table_name "
         . " WHERE $dbID_name NOT IN ($sql_existing)";
   my @bind_values;
@@ -114,7 +164,7 @@ sub create_seed_params {
     }
     push(@seed_params, [$seed, \%output_id]);
   }
-  return \@seed_params;
+  $self->seed_params(\@seed_params);
 }
 
 1;

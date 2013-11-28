@@ -3,55 +3,43 @@ package ReseqTrack::Hive::PipeSeed::Run;
 
 use strict;
 use warnings;
-require ReseqTrack::Hive::PipeSeed::Default;
-
-sub output_params {
-  return [
-    @{ ReseqTrack::Hive::PipeSeed::Default::output_params()},
-    qw(
-    output_experiment_columns
-    output_experiment_attributes
-    output_sample_columns
-    output_sample_attributes
-    output_study_columns
-    output_study_attributes
-  )];
-}
+use base ('ReseqTrack::Hive::PipeSeed::BasePipeSeed');
 
 
 sub create_seed_params {
-  my ($pipeline, $select_options, $output_params) = @_;
+  my ($self) = @_;
+  my $options = $self->options;
 
-  my $output_experiment_columns = ref($output_params->{'output_experiment_columns'}) eq 'ARRAY' ? $output_params->{'output_experiment_columns'}
-                      : defined $output_params->{'output_experiment_columns'} ? [$output_params->{'output_experiment_columns'}]
+  my $output_experiment_columns = ref($options->{'output_experiment_columns'}) eq 'ARRAY' ? $options->{'output_experiment_columns'}
+                      : defined $options->{'output_experiment_columns'} ? [$options->{'output_experiment_columns'}]
                       : [];
-  my $output_experiment_attributes = ref($output_params->{'output_experiment_attributes'}) eq 'ARRAY' ? $output_params->{'output_experiment_attributes'}
-                      : defined $output_params->{'output_experiment_attributes'} ? [$output_params->{'output_experiment_attributes'}]
+  my $output_experiment_attributes = ref($options->{'output_experiment_attributes'}) eq 'ARRAY' ? $options->{'output_experiment_attributes'}
+                      : defined $options->{'output_experiment_attributes'} ? [$options->{'output_experiment_attributes'}]
                       : [];
-  my $output_sample_columns = ref($output_params->{'output_sample_columns'}) eq 'ARRAY' ? $output_params->{'output_sample_columns'}
-                      : defined $output_params->{'output_sample_columns'} ? [$output_params->{'output_sample_columns'}]
+  my $output_sample_columns = ref($options->{'output_sample_columns'}) eq 'ARRAY' ? $options->{'output_sample_columns'}
+                      : defined $options->{'output_sample_columns'} ? [$options->{'output_sample_columns'}]
                       : [];
-  my $output_sample_attributes = ref($output_params->{'output_sample_attributes'}) eq 'ARRAY' ? $output_params->{'output_sample_attributes'}
-                      : defined $output_params->{'output_sample_attributes'} ? [$output_params->{'output_sample_attributes'}]
+  my $output_sample_attributes = ref($options->{'output_sample_attributes'}) eq 'ARRAY' ? $options->{'output_sample_attributes'}
+                      : defined $options->{'output_sample_attributes'} ? [$options->{'output_sample_attributes'}]
                       : [];
-  my $output_study_columns = ref($output_params->{'output_study_columns'}) eq 'ARRAY' ? $output_params->{'output_study_columns'}
-                      : defined $output_params->{'output_study_columns'} ? [$output_params->{'output_study_columns'}]
+  my $output_study_columns = ref($options->{'output_study_columns'}) eq 'ARRAY' ? $options->{'output_study_columns'}
+                      : defined $options->{'output_study_columns'} ? [$options->{'output_study_columns'}]
                       : [];
-  my $output_study_attributes = ref($output_params->{'output_study_attributes'}) eq 'ARRAY' ? $output_params->{'output_study_attributes'}
-                      : defined $output_params->{'output_study_attributes'} ? [$output_params->{'output_study_attributes'}]
+  my $output_study_attributes = ref($options->{'output_study_attributes'}) eq 'ARRAY' ? $options->{'output_study_attributes'}
+                      : defined $options->{'output_study_attributes'} ? [$options->{'output_study_attributes'}]
                       : [];
 
   throw('this module will only accept pipelines that work on the run table')
-      if $pipeline->table_name ne 'run';
+      if $self->table_name ne 'run';
 
-  my $db = $pipeline->adaptor->db;
-
+  my $db = $self->db();
   my $sa = $db->get_SampleAdaptor;
   my $ea = $db->get_ExperimentAdaptor;
   my $sta = $db->get_StudyAdaptor;
 
-  my $seed_params = ReseqTrack::Hive::PipeSeed::Default::create_seed_params($pipeline, $select_options, $output_params);
-  foreach my $seed_params (@$seed_params) {
+  $self->SUPER::create_seed_params();
+
+  foreach my $seed_params (@{$seed->seed_params}) {
     my ($run, $output_hash) = @$seed_params;
     if (scalar @$output_sample_columns || scalar @$output_sample_attributes) {
       my $sample = $sa->fetch_by_dbID($run->sample_id);
@@ -104,7 +92,6 @@ sub create_seed_params {
       }
     }
   }
-  return $seed_params;
 }
 
 1;

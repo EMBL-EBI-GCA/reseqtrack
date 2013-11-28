@@ -94,6 +94,16 @@ sub default_options {
 
         'pipeline_name' => 'align',
 
+        seeding_module => 'ReseqTrack::Hive::PipeSeed::BasePipeSeed',
+        seeding_options => {
+            output_columns => $self->o('sample_columns'),
+            output_attributes => $self->o('sample_attributes'),
+            require_columns => $self->o('require_sample_columns'),
+            exclude_columns => $self->o('exclude_sample_columns'),
+            require_attributes => $self->o('require_sample_attributes'),
+            exclude_attributes => $self->o('exclude_sample_attributes'),
+          },
+
         'chunk_max_reads'    => 5000000,
         'type_fastq'    => 'FILTERED_FASTQ',
         'split_exe' => $self->o('ENV', 'RESEQTRACK').'/c_code/split/split',
@@ -128,12 +138,16 @@ sub default_options {
         require_run_attributes => {},
         require_experiment_attributes => {},
         require_study_attributes => {},
+        require_sample_attributes => {},
         exclude_run_attributes => {},
         exclude_experiment_attributes => {},
         exclude_study_attributes => {},
+        exclude_sample_attributes => {},
         require_experiment_columns => { instrument_platform => ['ILLUMINA'], },
         require_run_columns => { status => ['public', 'private'], },
         require_study_columns => {},
+        require_sample_columns => {},
+        exclude_sample_columns => {},
 
         final_output_dir => $self->o('root_output_dir'),
         final_output_layout => '#sample_source_id#/alignment',
@@ -192,8 +206,8 @@ sub pipeline_analyses {
             -module        => 'ReseqTrack::Hive::Process::SeedFactory',
             -meadow_type => 'LOCAL',
             -parameters    => {
-                output_columns => $self->o('sample_columns'),
-                output_attributes => $self->o('sample_attribute_keys'),
+                seeding_module => $self->o('seeding_module'),
+                seeding_options => $self->o('seeding_options'),
             },
             -flow_into => {
                 2 => [ 'libraries_factory' ],
@@ -277,7 +291,7 @@ sub pipeline_analyses {
             -module        => 'ReseqTrack::Hive::Process::LobSTR',
             -parameters    => {
                 program_file => $self->o('lobstr_exe'),
-                reference_index => $self->o('lobstr_ref_index'),
+                ref_index_prefix => $self->o('lobstr_ref_index_prefix'),
                 options => $self->o('lobstr_options'),
                 delete_param => 'fastq',
             },
@@ -289,6 +303,20 @@ sub pipeline_analyses {
       });
     push(@analyses, {
             -logic_name => 'sort_chunks',
+            -module        => 'ReseqTrack::Hive::Process::RunSamtools',
+            -parameters => {
+                program_file => $self->o('samtools_exe'),
+                command => 'sort',
+                delete_param => 'bam',
+            },
+            -rc_name => '2Gb',
+            -hive_capacity  =>  200,
+            -flow_into => {
+                1 => [ 'fix_read_group']
+            },
+      });
+    push(@analyses, {
+            -logic_name => 'fix_read_group',
             -module        => 'ReseqTrack::Hive::Process::RunPicard',
             -parameters => {
                 picard_dir => $self->o('picard_dir'),
@@ -330,7 +358,7 @@ sub pipeline_analyses {
           -parameters => {
           },
           -flow_into => {
-                1 => [ ':////accu?bam=[]'],
+                1 => [ ':////accu?bam=[]' ':////accu?fastq=[]'],
           },
       });
     push(@analyses, {
@@ -338,11 +366,7 @@ sub pipeline_analyses {
           -module        => 'ReseqTrack::Hive::Process::BaseProcess',
           -meadow_type=> 'LOCAL',
           -parameters => {
-              flows_non_factory => {
-                  1 => 1,
-                  2 => 1,
-                  7 => 1,
-              },
+              flows_non_factory => [1,2,7],
               flows_do_count_param => 'bam',
               flows_do_count => {
                         1 => '1+',

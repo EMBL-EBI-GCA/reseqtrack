@@ -86,6 +86,15 @@ sub default_options {
 
         'pipeline_name' => 'vc',
 
+        seeding_module => 'ReseqTrack::Hive::PipeSeed::BasePipeSeed',
+        seeding_options => {
+            output_columns => ['name', 'collection_id'],
+            require_columns => $self->o('require_collection_columns'),
+            exclude_columns => $self->o('exclude_collection_columns'),
+            require_attributes => $self->o('require_collection_attributes'),
+            exclude_attributes => $self->o('exclude_collection_attributes'),
+          },
+
         'transpose_exe' => $self->o('ENV', 'RESEQTRACK').'/c_code/transpose_bam/transpose_bam',
         'bgzip_exe' => '/nfs/1000g-work/G1K/work/bin/tabix/bgzip',
         'gatk_dir' => '/nfs/1000g-work/G1K/work/bin/gatk/dist/',
@@ -118,16 +127,29 @@ sub default_options {
         'fai' => $self->o('reference') . '.fai',
         'target_bed_file' => undef,
 
-        'final_label' => $self->o('pipeline_name'),
         'call_window_size' => 50000,
-        'transpose_window_size' => 50000000,
-
-        'seed_attribute' => [],
+        'transpose_window_size' => 10000000,
 
         'vqsr_snps' => 1,
         'vqsr_indels' => 1,
 
         'vcf_type' => undef,
+
+        'callgroup_type' => $self->o('callgroup_type'),
+        'require_collection_columns' => {'type' => $self->o('callgroup_type')},
+        'exclude_collection_columns' => {},
+        'require_collection_attributes' => {},
+        'exclude_collection_attributes' => {},
+
+        final_output_dir => $self->o('root_output_dir'),
+        name_file_module => 'ReseqTrack::Hive::NameFile::BaseNameFile',
+        name_file_method => 'basic',
+        name_file_params => {
+            new_dir => $self->o('final_output_dir'),
+            new_basename => '#callgroup#.#var_type#.vqsr',
+            add_datestamp => 1,
+            suffix => ['.vcf.gz'],
+          },
 
     };
 }
@@ -174,8 +196,8 @@ sub pipeline_analyses {
             -module        => 'ReseqTrack::Hive::Process::SeedFactory',
             -meadow_type => 'LOCAL',
             -parameters    => {
-                output_columns => ['name', 'collection_id'],
-                output_attributes => $self->o('seed_attribute'),
+                seeding_module => $self->o('seeding_module'),
+                seeding_options => $self->o('seeding_options'),
                 use_reseqtrack_file_table => 0,
             },
             -flow_into => {
@@ -217,7 +239,7 @@ sub pipeline_analyses {
                 bed => $self->o('target_bed_file'),
             },
             -flow_into => {
-                '2->A' => { 'transpose_bam' => {'region1' => '#expr(join(".",$callgroup,$SQ_start,$bp_start,$SQ_end,$bp_end))expr#',
+                '2->A' => { 'transpose_bam' => {'region1' => '#callgroup#.#SQ_start#.#bp_start#.#SQ_end#.#bp_end#',
                                                 'SQ_start' => '#SQ_start#', 'bp_start' => '#bp_start#', 'SQ_end' => '#SQ_end#', 'bp_end' => '#bp_end#', 'fan_index' => '#fan_index#',
                                                 }},
                 'A->1' => [ 'decide_mergers'],
@@ -257,10 +279,10 @@ sub pipeline_analyses {
             -analysis_capacity  =>  4,
             -hive_capacity  =>  200,
             -flow_into => {
-                '1' => { 'call_by_gatk_snps' => {'region2' => '#expr(join(".",$callgroup,$SQ_start,$bp_start,$SQ_end,$bp_end))expr#',
+                '1' => { 'call_by_gatk_snps' => {'region2' => '#callgroup#.#SQ_start#.#bp_start#.#SQ_end#.#bp_end#',
                                                 'SQ_start' => '#SQ_start#', 'bp_start' => '#bp_start#', 'SQ_end' => '#SQ_end#', 'bp_end' => '#bp_end#', 'fan_index' => '#fan_index#',
                                                 }},
-                '2' => { 'call_by_gatk_indels' => {'region2' => '#expr(join(".",$callgroup,$SQ_start,$bp_start,$SQ_end,$bp_end))expr#',
+                '2' => { 'call_by_gatk_indels' => {'region2' => '#callgroup#.#SQ_start#.#bp_start#.#SQ_end#.#bp_end#',
                                                 'SQ_start' => '#SQ_start#', 'bp_start' => '#bp_start#', 'SQ_end' => '#SQ_end#', 'bp_end' => '#bp_end#', 'fan_index' => '#fan_index#',
                                                 }},
                 '3' => [ ':////accu?bp_start=[fan_index]', ':////accu?bp_end=[fan_index]'],
@@ -445,7 +467,7 @@ sub pipeline_analyses {
               gatk_dir => $self->o('gatk_dir'),
               options => $self->o('apply_recalibration_snps_options'),
           },
-          -flow_into => { '1' => [ 'rename_vcf' ] },
+          -flow_into => { '1' => [ 'store_vcf' ] },
           -rc_name => '2Gb',
           -hive_capacity  =>  200,
       });
@@ -458,24 +480,9 @@ sub pipeline_analyses {
               gatk_dir => $self->o('gatk_dir'),
               options => $self->o('apply_recalibration_indels_options'),
           },
-          -flow_into => { '1' => [ 'rename_vcf' ] },
+          -flow_into => { '1' => [ 'store_vcf' ] },
           -rc_name => '2Gb',
           -hive_capacity  =>  200,
-      });
-    push(@analyses, {
-            -logic_name => 'rename_vcf',
-            -module        => 'ReseqTrack::Hive::Process::RenameFile',
-            -meadow_type => 'LOCAL',
-            -parameters => {
-                final_label => $self->o('final_label'),
-                analysis_label => '#expr(' . q($var_type.'.'.$final_label) . ')expr#',
-                file_timestamp => 1,
-                suffix => 'vcf.gz',
-                file_param_name => 'vcf',
-            },
-            -flow_into => {
-                1 => ['store_vcf'],
-            },
       });
     push(@analyses, {
             -logic_name    => 'store_vcf',
@@ -483,6 +490,9 @@ sub pipeline_analyses {
             -parameters    => {
               type => $self->o('vcf_type'),
               file => '#vcf#',
+              name_file_module => $self->o('name_file_module'),
+              name_file_method => $self->o('name_file_method'),
+              name_file_params => $self->o('name_file_params'),
             },
             -rc_name => '200Mb',
             -hive_capacity  =>  200,

@@ -27,8 +27,6 @@ sub columns{
       pipeline.table_name
       pipeline.config_module
       pipeline.config_options
-      pipeline.seeding_module
-      pipeline.seeding_options
       pipeline.created
       ));
 }
@@ -62,7 +60,6 @@ sub store{
       'INSERT INTO  pipeline' 
       . ' (name, table_name,'
       . ' config_module, config_options,'
-      . ' seeding_module, seeding_options,'
       . ' created)'
       . ' values(?, ?, ?, ?, ?, ?, now()) ';
  
@@ -72,8 +69,6 @@ sub store{
   $sth->bind_param(2,  $pipeline->table_name);
   $sth->bind_param(3,  $pipeline->config_module);
   $sth->bind_param(4,  $pipeline->config_options);
-  $sth->bind_param(5,  $pipeline->seeding_module);
-  $sth->bind_param(6,  $pipeline->seeding_options);
   my $rows_inserted = $sth->execute();
   my $dbID = $sth->{'mysql_insertid'};
  
@@ -94,8 +89,6 @@ sub update{
       "table_name     = ?, ".
       "config_module = ?,  ".
       "config_options = ?,  ".
-      "seeding_module = ?,  ".
-      "seeding_options = ?  ".
       "WHERE pipeline_id  = ?";
   
   
@@ -106,9 +99,7 @@ sub update{
   $sth->bind_param(2,  $pipeline->table_name);
   $sth->bind_param(3,  $pipeline->config_module);
   $sth->bind_param(4,  $pipeline->config_options);
-  $sth->bind_param(5,  $pipeline->seeding_module);
-  $sth->bind_param(6,  $pipeline->seeding_options);
-  $sth->bind_param(7, $pipeline->dbID);
+  $sth->bind_param(5, $pipeline->dbID);
  
   $sth->execute();
   $sth->finish();
@@ -132,8 +123,6 @@ sub object_from_hashref{
          -table_name        =>$hashref->{table_name},
          -config_module     =>$hashref->{config_module},
          -config_options    =>$hashref->{config_options},
-         -seeding_module    =>$hashref->{seeding_module},
-         -seeding_options   =>$hashref->{seeding_options},
          -created           =>$hashref->{created},
          -is_loaded         =>1,
      

@@ -140,14 +140,10 @@ sub job_name {
   my ($self) = @_;
   my $base_params = $self->param('_BaseProcess_params');
   if (!$base_params->{'job_name'}) {
-    my $analysis_label = $self->param_is_defined('analysis_label') ?
-              $self->param('analysis_label') : $self->analysis->logic_name;
+    my $analysis_label = $self->analysis->logic_name;
 
     my $job_label;
-    if ($self->param_is_defined('file_label')) {
-      $job_label = $self->param('file_label');
-    }
-    if (!length($job_label) && $self->param_is_defined('dir_label_params')) {
+    if ($self->param_is_defined('dir_label_params')) {
       $job_label = ( grep {length($_)}
             map {$self->param($_)}
             grep {$self->param_is_defined($_)}
@@ -160,11 +156,6 @@ sub job_name {
     $job_label =~ s/\s+//g;
 
     $base_params->{'job_name'} = join('.', grep {length($_)} $job_label, $analysis_label);
-
-    if ($self->param_is_defined('file_timestamp') && $self->param('file_timestamp')) {
-      my ($year, $month, $day) = (localtime(time))[5,4,3];
-      $base_params->{'job_name'} .= sprintf(".%04d%02d%02d", $year+1900, $month, $day);
-    }
 
   }
   return $base_params->{'job_name'};

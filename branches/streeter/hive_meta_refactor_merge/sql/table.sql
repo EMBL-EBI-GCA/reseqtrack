@@ -374,8 +374,6 @@ CREATE TABLE pipeline(
        table_name VARCHAR(50) NOT NULL,
        config_module VARCHAR(255) NOT NULL,
        config_options VARCHAR(30000),
-       seeding_module VARCHAR(255) NOT NULL,
-       seeding_options VARCHAR(30000),
        created   datetime NOT NULL,
        PRIMARY KEY(pipeline_id),
        UNIQUE(name)   

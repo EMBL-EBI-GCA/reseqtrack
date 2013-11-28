@@ -23,6 +23,8 @@ sub param_defaults {
     gatk_dir => undef,
 
     freebayes => undef,
+
+    lobstr => undef,
   };
 }
 
@@ -66,6 +68,13 @@ sub run {
     }
     elsif ($module_name eq 'CallByFreebayes') {
       $module_args{'-program'} = $self->param('freebayes');
+      $module_args{'-bgzip'} = $self->param('bgzip');
+    }
+    elsif ($module_name eq 'CallByLobSTR') {
+      $module_args{'-program'} = $self->param('lobstr');
+      $module_args{'-noise_model'} = $self->param_required('noise_model');
+      $module_args{'-ref_index_prefix'} = $self->param_required('ref_index_prefix');
+      $self->param('reference', $self->param('ref_index_prefix'));
     }
 
 

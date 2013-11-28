@@ -3,22 +3,20 @@ package ReseqTrack::Hive::PipeSeed::ForeignFiles;
 
 use strict;
 use warnings;
+use base ('ReseqTrack::Hive::PipeSeed::BasePipeSeed');
 
 use File::Find qw(find);
 use File::stat;
 use DateTime::Format::MySQL;
 
-sub output_params {
-  return [];
-}
-
 sub create_seed_params {
-  my ($pipeline, $select_options, $output_params) = @_;
+  my ($self) = @_;
 
   throw('this module will only accept pipelines that work on the file table')
-      if $pipeline->table_name ne 'file';
+      if $self->table_name ne 'file';
 
-  my $db = $pipeline->adaptor->db;
+  my $db = $self->db;
+  my $pipeline = $self->pipeline;
 
   my $remote_hosts = $db->get_HostAdaptor->fetch_all_remote();
   my $fa = $db->get_FileAdaptor;
@@ -53,7 +51,7 @@ sub create_seed_params {
       push(@seed_params, [$file, \%output_params]);
     }
   }
-  return \@seed_params;
+  $self->seed_params(\@seed_params);
 }
 
 1;

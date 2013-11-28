@@ -52,18 +52,17 @@ sub default_options {
 sub pipeline_create_commands {
     my ($self) = @_;
 
-    my @sql;
-    push(@sql, '
+   
+    my $reseqtrack_file_sql =  '
     CREATE TABLE reseqtrack_file (
       file_id int(10) unsigned NOT NULL AUTO_INCREMENT,
       name VARCHAR(64000) NOT NULL,
       PRIMARY KEY (file_id)
-      )');
+      )';
 
     return [
         @{$self->SUPER::pipeline_create_commands},  # inheriting database and hive tables' creation
-
-        map {$self->db_execute_command('pipeline_db', $_)} @sql,
+        'db_cmd.pl -url '.$self->pipeline_url()." -sql '$reseqtrack_file_sql'",
     ];
 }
 

@@ -61,6 +61,9 @@ sub default_options {
 
         'pipeline_name' => 'file_release',                     # name used by the beekeeper to prefix job names on the farm
 
+        seeding_module => 'ReseqTrack::Hive::PipeSeed::ForeignFiles',
+        seeding_options => {},
+
         checking_module  => 'ReseqTrack::Hive::Process::FileRelease::Checks',
         hostname => '1000genomes.ebi.ac.uk',
 
@@ -84,6 +87,10 @@ sub pipeline_analyses {
             -logic_name    => 'get_seeds',
             -module        => 'ReseqTrack::Hive::Process::SeedFactory',
             -meadow_type => 'LOCAL',
+            -parameters    => {
+                seeding_module => $self->o('seeding_module'),
+                seeding_options => $self->o('seeding_options'),
+            },
             -flow_into => {
                 2 => [ 'quick_checks' ],
             },

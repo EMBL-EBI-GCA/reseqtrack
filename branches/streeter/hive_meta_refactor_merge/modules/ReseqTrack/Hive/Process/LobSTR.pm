@@ -22,7 +22,7 @@ sub run {
     my $self = shift @_;
 
     $self->param_required('fastq');
-    my $reference_index = $self->param_required('reference_index');
+    my $ref_index_prefix = $self->param_required('ref_index_prefix');
 
     my $fastqs = $self->file_param_to_flat_array('fastq');
 
@@ -41,7 +41,7 @@ sub run {
           -program => $self->param('program_file'),
           -working_dir => $self->output_dir,
           -job_name => $self->job_name,
-          -reference_index => $reference_index,
+          -ref_index_prefix => $ref_index_prefix,
           -read_group_fields => \%read_group_fields,
           -options => $self->param('options'),
           );

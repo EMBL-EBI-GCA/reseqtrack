@@ -14,19 +14,15 @@ sub new{
   my  $self = $class->SUPER::new(@args);
   my ($name, $table_name,
       $config_module, $config_options,
-      $seeding_module, $seeding_options,
       $created, $is_loaded) = 
       rearrange(['NAME', 'TABLE_NAME',
                  'CONFIG_MODULE', 'CONFIG_OPTIONS',
-                 'SEEDING_MODULE', 'SEEDING_OPTIONS',
                  'CREATED', 'IS_LOADED'], @args);
   
   $self->name($name) if $name;
   $self->table_name($table_name) if $table_name;
   $self->config_module($config_module) if $config_module;
   $self->config_options($config_options) if $config_options;
-  $self->seeding_module($seeding_module) if $seeding_module;
-  $self->seeding_options($seeding_options) if $seeding_options;
   $self->created($created) if $created;
   $self->is_loaded($is_loaded);
 
@@ -51,8 +47,6 @@ sub load {
   $self->table_name($self->table_name // $object->table_name);
   $self->config_module($self->config_module // $object->config_module);
   $self->config_options($self->config_options // $object->config_options);
-  $self->seeding_module($self->seeding_module // $object->seeding_module);
-  $self->seeding_options($self->seeding_options // $object->seeding_options);
   $self->created($self->created // $object->created);
 }
 
@@ -98,28 +92,6 @@ sub config_options{
     $self->load;
   }
   return $self->{config_options};
-}
-
-sub seeding_module{
-  my ($self, $seeding_module) = @_;
-  if($seeding_module){
-    $self->{seeding_module} = $seeding_module;
-  }
-  if (!$self->{seeding_module} && !$self->is_loaded) {
-    $self->load;
-  }
-  return $self->{seeding_module};
-}
-
-sub seeding_options{
-  my ($self, $seeding_options) = @_;
-  if($seeding_options){
-    $self->{seeding_options} = $seeding_options;
-  }
-  if (!$self->{seeding_options} && !$self->is_loaded) {
-    $self->load;
-  }
-  return $self->{seeding_options};
 }
 
 sub created{

@@ -22,6 +22,20 @@ sub default_options {
 
         'pipeline_name' => 'get_fastq',                     # name used by the beekeeper to prefix job names on the farm
 
+        seeding_module => 'ReseqTrack::Hive::PipeSeed::Run',
+        seeding_options => {
+            output_columns => $self->o('run_columns'),
+            output_attributes => $self->o('run_attributes'),
+            require_columns => $self->o('require_run_columns'),
+            exclude_columns => $self->o('exclude_run_columns'),
+            require_attributes => $self->o('require_run_attributes'),
+            exclude_attributes => $self->o('exclude_run_attributes'),
+            output_sample_columns => $self->o('sample_columns'),
+            output_sample_attributes => $self->o('sample_attribute_keys'),
+            output_experiment_columns => $self->o('experiment_columns'),
+            output_experiment_attributes => $self->o('experiment_attribute_keys'),
+          },
+
         get_fastq_module => undef, # module default is ReseqTrack::Tools::GetFastq
         fastq_source_root_dir => undef, # module default is /nfs/era-pub
         clobber => 0,
@@ -40,6 +54,8 @@ sub default_options {
         'study_columns' => ['study_source_id'],
         'experiment_attribute_keys' => [],
         'experiment_columns' => [],
+        require_run_attributes => {},
+        exclude_run_attributes => {},
 
         'fastq_output_dir' => $self->o('root_output_dir'),
         'fastq_output_layout' => '#sample_alias#/sequence_read',
@@ -85,12 +101,8 @@ sub pipeline_analyses {
             -module        => 'ReseqTrack::Hive::Process::SeedFactory',
             -meadow_type => 'LOCAL',
             -parameters    => {
-              output_columns => $self->o('run_columns'),
-              output_attributes => $self->o('run_attribute_keys'),
-              output_sample_columns => $self->o('sample_columns'),
-              output_sample_attributes => $self->o('sample_attribute_keys'),
-              output_experiment_columns => $self->o('experiment_columns'),
-              output_experiment_attributes => $self->o('experiment_attribute_keys'),
+                seeding_module => $self->o('seeding_module'),
+                seeding_options => $self->o('seeding_options'),
             },
             -analysis_capacity  =>  1,  # use per-analysis limiter
             -flow_into => {

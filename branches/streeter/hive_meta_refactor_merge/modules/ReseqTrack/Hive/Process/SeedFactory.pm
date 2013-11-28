@@ -7,12 +7,13 @@ use base ('ReseqTrack::Hive::Process::BaseProcess');
 use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::Exception qw(throw);
 use ReseqTrack::Tools::GeneralUtils qw(delete_lock_string is_locked create_lock_string);
-use Bio::EnsEMBL::Hive::Utils qw(destringify);
 
 sub run {
     my $self = shift @_;
 
-    my $db = ReseqTrack::DBSQL::DBAdaptor->new(%{$self->param('reseqtrack_db')});
+    my $db = ReseqTrack::DBSQL::DBAdaptor->new(%{$self->param_required('reseqtrack_db')});
+    my $seeding_module = $self->param_required('seeding_module');
+    eval "require $seeding_module" or throw "cannot load module $seeding_module $@";
 
     my $dbname = $self->dbc->dbname;
     my $host = $self->dbc->host;
@@ -31,22 +32,15 @@ sub run {
     create_lock_string($lock_string, $meta_adaptor);
 
     my $pipeline = $hive_db->pipeline;
-    my $seeding_module = $pipeline->seeding_module;
-    eval "require $seeding_module" or throw "cannot load module $seeding_module $@";
 
-    my $seeding_sub_name = $seeding_module . '::create_seed_params';
-    my $seeding_sub = \&$seeding_sub_name;
-    my $seeding_options = $pipeline->seeding_options 
-                        ? destringify($pipeline->seeding_options)
-                        : {};
-    my %output_params;
-    foreach my $param_name (@{$seeding_module->output_params}) {
-      next if ! $self->param_is_defined($param_name);
-      $output_params{$param_name} = $self->param($param_name);
-    }
+    my $seeder = $seeding_module->new(
+            -options => $self->param('seeding_options'),
+            -pipeline => $pipeline,
+            );
+    $seeder->create_seed_params;
 
     my $psa = $db->get_PipelineSeedAdaptor;
-    foreach my $seed_params (@{&$seeding_sub($pipeline, $seeding_options, \%output_params)}) {
+    foreach my $seed_params (@{$seeder->seed_params}) {
       my ($seed, $output_hash) = @$seed_params;
       throw('seeding module has returned an object of the wrong type')
           if $seed->adaptor->table_name ne $pipeline->table_name;

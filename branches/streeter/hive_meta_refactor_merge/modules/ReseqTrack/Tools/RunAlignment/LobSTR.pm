@@ -20,13 +20,13 @@ sub new {
     my ( $class, @args ) = @_;
     my $self = $class->SUPER::new(@args);
 
-    my ( $index_prefix)
+    my ( $ref_index_prefix)
         = rearrange( [
-            qw( INDEX_PREFIX
+            qw( REF_INDEX_PREFIX
                 )], @args);
 
 
-    $self->index_prefix($index_prefix);
+    $self->ref_index_prefix($ref_index_prefix);
 
 
     return $self;
@@ -38,7 +38,7 @@ sub new {
 sub run_alignment {
     my ($self) = @_;
 
-    throw("need a index_prefix") if ! $self->index_prefix;
+    throw("need a ref_index_prefix") if ! $self->ref_index_prefix;
 
     TYPE:
     foreach my $aln_type ('MATE', 'FRAG') {
@@ -72,7 +72,7 @@ sub run_alignment {
         }
       }
 
-      push(@cmd_words, '--index-prefix', $self->index_prefix);
+      push(@cmd_words, '--index-prefix', $self->ref_index_prefix);
       push(@cmd_words, '--threads', $self->options('threads') || 1);
       push(@cmd_words, '--fastq');
 
@@ -83,24 +83,25 @@ sub run_alignment {
         push(@cmd_words, '--rg-lib', $library);
       }
 
-      push(@cmd_words, '--out', $output_file);
+      push(@cmd_words, '--out', $output_prefix);
 
       my $cmd_line = join(' ', @cmd_words);
 
       $self->output_files($output_file);
+      $self->created_files("$output_prefix.stats");
       $self->execute_command_line($cmd_line);
     }
 
 }
 
 
-sub index_prefix {
+sub ref_index_prefix {
     my ( $self, $arg ) = @_;
 
     if ($arg) {
-        $self->{index_prefix} = $arg;
+        $self->{ref_index_prefix} = $arg;
     }
-    return $self->{index_prefix};
+    return $self->{ref_index_prefix};
 }
 
 1;
