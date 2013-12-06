@@ -88,7 +88,7 @@ sub run_alignment {
       my $cmd_line = join(' ', @cmd_words);
 
       $self->output_files($output_file);
-      $self->created_files("$output_prefix.stats");
+      $self->created_files("$output_prefix.aligned.stats");
       $self->execute_command_line($cmd_line);
     }
 

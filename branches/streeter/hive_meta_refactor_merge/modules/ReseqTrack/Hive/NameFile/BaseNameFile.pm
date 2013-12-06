@@ -7,10 +7,13 @@ use ReseqTrack::Tools::Exception qw(throw);
 use ReseqTrack::Tools::Argument qw(rearrange);
 use File::Basename qw(fileparse);
 
-my %method_subs = (
-  basic => \&basic_rename,
-  default => sub {return},
-);
+sub method_subs {
+  return {
+    basic => \&basic_rename,
+    default => sub {return},
+  };
+}
+
 
 sub new {
   my ( $class, @args ) = @_;
@@ -63,8 +66,8 @@ sub file_map {
 sub derive_paths {
   my ($self) = @_;
   my $method = $self->method;
-  throw("did not recognise method $method") if ! defined $method_subs{$method};
-  return &{ $method_subs{$method}}($self);
+  throw("did not recognise method $method") if ! defined $self->method_subs->{$method};
+  return &{ $self->method_subs->{$method}}($self);
 }
 
 sub basic_rename {
@@ -83,25 +86,31 @@ sub basic_rename {
   $suffixes = [$suffixes] if !ref($suffixes);
 
   foreach my $file (@$files) {
-    my ($old_basename, $old_dir, $old_suffix) = fileparse($file, @$suffixes);
-    throw "unexpected suffix" if $params->{suffix} && !$old_suffix;
-    my $new_dir = $params->{new_dir} // $old_dir;
-    my $new_filename;
-    if ($params->{new_name}) {
-      $new_filename = $params->{new_name};
+    my $new_full_path;
+    if ($params->{new_full_path}) {
+      $new_full_path = $params->{new_full_path};
     }
     else {
-      $new_filename = $params->{new_basename} // $old_basename;
-      if ($params->{add_datestamp}) {
-        my ($year, $month, $day) = (localtime(time))[5,4,3];
-        $new_filename .= sprintf(".%04d%02d%02d", $year+1900, $month, $day);
+      my ($old_basename, $old_dir, $old_suffix) = fileparse($file, @$suffixes);
+      throw "unexpected suffix" if $params->{suffix} && !$old_suffix;
+      my $new_dir = $params->{new_dir} // $old_dir;
+      my $new_filename;
+      if ($params->{new_name}) {
+        $new_filename = $params->{new_name};
       }
-      if ($old_suffix) {
-        $new_filename .= $old_suffix;
+      else {
+        $new_filename = $params->{new_basename} // $old_basename;
+        if ($params->{add_datestamp}) {
+          my ($year, $month, $day) = (localtime(time))[5,4,3];
+          $new_filename .= sprintf(".%04d%02d%02d", $year+1900, $month+1, $day);
+        }
+        if ($old_suffix) {
+          $new_filename .= $old_suffix;
+        }
       }
+      $new_full_path = "$new_dir/$new_filename";
     }
 
-    my $new_full_path = "$new_dir/$new_filename";
     $new_full_path =~ s{//+}{/}g;
     $file_map{$file} = $new_full_path;
   }

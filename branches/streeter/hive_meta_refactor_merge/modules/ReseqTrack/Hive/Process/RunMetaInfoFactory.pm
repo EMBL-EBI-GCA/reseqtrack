@@ -9,10 +9,6 @@ use ReseqTrack::Tools::Exception qw(throw);
 
 sub param_defaults {
   return {
-    #allowed_platform => ['ILLUMINA'],
-    #allowed_status => ['public', 'private'],
-    #max_paired_length => undef,
-
     output_experiment_columns => [],
     output_experiment_attributes => [],
     output_run_columns => [],
@@ -42,9 +38,6 @@ sub param_defaults {
 sub libraries_factory {
     my ($self) = @_;
     my $sample_id = $self->param_required('sample_id');
-    #my $allowed_strategies = $self->param_to_flat_array('allowed_strategy');
-    #my $allowed_platforms = $self->param_to_flat_array('allowed_platform');
-    #my $max_paired_length = $self->param('max_paired_length');
     my $require_experiment_columns = $self->param('require_experiment_columns') || param_defaults()->{'require_experiment_columns'};
     my $require_experiment_attributes = $self->param('require_experiment_attributes') || param_defaults()->{'require_experiment_attributes'};
     my $exclude_experiment_attributes = $self->param('exclude_experiment_attributes') || param_defaults()->{'exclude_experiment_attributes'};
@@ -117,7 +110,6 @@ sub runs_factory {
     my ($self) = @_;
     my $library_name = $self->param_required('library_name');
     my $sample_id = $self->param_required('sample_id');
-    my $allowed_statuses = $self->param_to_flat_array('allowed_status');
     my $output_run_columns = $self->param('output_run_columns') || [];
     my $output_run_attributes = $self->param('output_run_attributes') || [];
     my $output_experiment_columns = $self->param('output_experiment_columns') || [];

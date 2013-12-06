@@ -135,7 +135,6 @@ sub default_options {
 
         'vcf_type' => undef,
 
-        'callgroup_type' => $self->o('callgroup_type'),
         'require_collection_columns' => {'type' => $self->o('callgroup_type')},
         'exclude_collection_columns' => {},
         'require_collection_attributes' => {},
@@ -198,7 +197,6 @@ sub pipeline_analyses {
             -parameters    => {
                 seeding_module => $self->o('seeding_module'),
                 seeding_options => $self->o('seeding_options'),
-                use_reseqtrack_file_table => 0,
             },
             -flow_into => {
                 2 => [ 'block_seed_complete' ],

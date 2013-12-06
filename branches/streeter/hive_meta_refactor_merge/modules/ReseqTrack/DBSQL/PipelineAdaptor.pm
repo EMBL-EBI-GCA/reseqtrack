@@ -61,7 +61,7 @@ sub store{
       . ' (name, table_name,'
       . ' config_module, config_options,'
       . ' created)'
-      . ' values(?, ?, ?, ?, ?, ?, now()) ';
+      . ' values(?, ?, ?, ?, now()) ';
  
   my $sth = $self->prepare($sql);
 
@@ -88,7 +88,7 @@ sub update{
       "UPDATE pipeline SET name   = ?, ".
       "table_name     = ?, ".
       "config_module = ?,  ".
-      "config_options = ?,  ".
+      "config_options = ?  ".
       "WHERE pipeline_id  = ?";
   
   

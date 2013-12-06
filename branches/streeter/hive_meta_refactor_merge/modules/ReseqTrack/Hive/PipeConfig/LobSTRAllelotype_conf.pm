@@ -58,7 +58,7 @@ config_options=-reference /path/to/human.fa
 
 
 
-package ReseqTrack::Hive::PipeConfig::VariantCall_conf;
+package ReseqTrack::Hive::PipeConfig::LobSTRAllelotype_conf;
 
 use strict;
 use warnings;
@@ -76,7 +76,7 @@ sub default_options {
 
         seeding_module => 'ReseqTrack::Hive::PipeSeed::BasePipeSeed',
         seeding_options => {
-            output_columns => ['name', 'sample_id'],
+            output_columns => ['name', 'collection_id'],
             require_columns => $self->o('require_collection_columns'),
             exclude_columns => $self->o('exclude_collection_columns'),
             require_attributes => $self->o('require_collection_attributes'),
@@ -84,7 +84,7 @@ sub default_options {
           },
 
         'bgzip_exe' => '/nfs/1000g-work/G1K/work/bin/tabix/bgzip',
-        'lobstr_exe' => '/nfs/1000g-work/G1K/work/bin/lobstr/bin/lobSTR',
+        'lobstr_exe' => '/nfs/1000g-work/G1K/work/bin/lobstr/bin/allelotype',
 
         call_by_lobstr_options => {}, # use module defaults
 
@@ -198,7 +198,7 @@ sub pipeline_analyses {
             -module        => 'ReseqTrack::Hive::Process::SequenceSliceFactory',
             -meadow_type => 'LOCAL',
             -parameters    => {
-                num_bases => 0,
+                num_bases => 99999999999,
                 max_sequences => 200,
                 bed => $self->o('target_bed_file'),
             },
@@ -234,12 +234,6 @@ sub pipeline_analyses {
             -module        => 'ReseqTrack::Hive::Process::BaseProcess',
             -meadow_type => 'LOCAL',
             -parameters    => {
-                flows_non_factory => {
-                    1 => $self->o('call_by_samtools'),
-                    2 => $self->o('call_by_gatk'),
-                    3 => $self->o('call_by_freebayes'),
-                    4 => 1,
-                },
               delete_param => ['bam','bai'],
             },
             -flow_into => {

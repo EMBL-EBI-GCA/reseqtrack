@@ -73,7 +73,9 @@ sub run {
     elsif ($module_name eq 'CallByLobSTR') {
       $module_args{'-program'} = $self->param('lobstr');
       $module_args{'-noise_model'} = $self->param_required('noise_model');
+      $module_args{'-str_info'} = $self->param_required('str_info');
       $module_args{'-ref_index_prefix'} = $self->param_required('ref_index_prefix');
+      $module_args{'-bgzip'} = $self->param('bgzip');
       $self->param('reference', $self->param('ref_index_prefix'));
     }
 

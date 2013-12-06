@@ -146,7 +146,7 @@ sub run {
       $db->get_CollectionAdaptor->store($collection);
     }
 
-    if (ref $self->param('file') eq '') {
+    if (@$load_file_paths == 1) {
       $self->output_param('file', $load_file_paths->[0]);
     }
     else {

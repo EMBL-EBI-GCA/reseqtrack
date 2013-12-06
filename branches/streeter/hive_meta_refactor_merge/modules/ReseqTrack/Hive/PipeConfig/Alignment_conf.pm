@@ -137,13 +137,13 @@ sub default_options {
         'RGSM' => '#sample_source_id#',
         'RGPU' => '#run_source_id#',
 
-        'sample_attribute_keys' => ['POPULATION'],
+        'sample_attributes' => [],
         'sample_columns' => ['sample_id', 'sample_source_id', 'sample_alias'],
-        'run_attribute_keys' => [],
+        'run_attributes' => [],
         'run_columns' => ['run_source_id', 'center_name', 'run_alias'],
-        'study_attribute_keys' => [],
+        'study_attributes' => [],
         'study_columns' => ['study_source_id'],
-        'experiment_attribute_keys' => [],
+        'experiment_attributes' => [],
         'experiment_columns' => ['instrument_platform', 'paired_nominal_length'],
 
         require_run_attributes => {},
@@ -263,6 +263,9 @@ sub pipeline_analyses {
                 output_run_columns => $self->o('run_columns'),
                 output_study_columns => $self->o('study_columns'),
                 output_experiment_columns => $self->o('experiment_columns'),
+                output_run_attributes => $self->o('run_attributes'),
+                output_study_attributes => $self->o('study_attributes'),
+                output_experiment_attributes => $self->o('experiment_attributes'),
             },
             -flow_into => {
                 '2->A' => [ 'find_source_fastqs' ],
@@ -682,7 +685,7 @@ sub pipeline_analyses {
             },
             -rc_name => '200Mb',
             -hive_capacity  =>  200,
-            -flow_into => {1 => ['store_bai']},
+            -flow_into => {1 => {'store_bai' => {'bam' => '#file#'}}},
       });
     push(@analyses, {
             -logic_name    => 'store_bai',
@@ -690,15 +693,13 @@ sub pipeline_analyses {
             -parameters    => {
               type => $self->o('bai_type'),
               file => '#bai#',
-              name_file_module => $self->o('name_file_module'),
-              name_file_method => $self->o('name_file_method'),
-              name_file_params => $self->o('name_file_params'),
-              final_output_dir => $self->o('final_output_dir'),
-              final_output_layout => $self->o('final_output_layout'),
+              name_file_module => 'ReseqTrack::Hive::NameFile::BaseNameFile',
+              name_file_method => 'basic',
+              name_file_params => {new_full_path => '#bam#.bai'},
             },
             -rc_name => '200Mb',
             -hive_capacity  =>  200,
-            -flow_into => {1 => ['validate']},
+            -flow_into => {1 => {'validate' => {'bai' => '#file#'}}},
       });
     push(@analyses, {
             -logic_name => 'validate',
@@ -717,13 +718,11 @@ sub pipeline_analyses {
             -parameters    => {
               type => $self->o('bas_type'),
               file => '#bas#',
-              name_file_module => $self->o('name_file_module'),
-              name_file_method => $self->o('name_file_method'),
-              name_file_params => $self->o('name_file_params'),
-              final_output_dir => $self->o('final_output_dir'),
-              final_output_layout => $self->o('final_output_layout'),
+              name_file_module => 'ReseqTrack::Hive::NameFile::BaseNameFile',
+              name_file_method => 'basic',
+              name_file_params => {new_full_path => '#bam#.bas'},
             },
-            -flow_into => {1 => ['mark_seed_complete']},
+            -flow_into => {1 => {'mark_seed_complete' => {'bas' => '#file#'}}},
       });
     push(@analyses, {
             -logic_name    => 'mark_seed_complete',
