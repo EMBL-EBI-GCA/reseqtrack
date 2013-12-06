@@ -109,9 +109,17 @@ sub run_program {
 
 	push @cmd_args, '--gsize', $self->options('genome_size') if ($self->options('genome_size')); 
 	
-	for my $control_file (@{$self->control_files}){
-		push @cmd_args, '-c', $control_file;
+	
+	if (@{$self->control_files}){
+	  push @cmd_args, '-c <(samtools merge - ';
+	  for my $control_file (@{$self->control_files}){
+  		push @cmd_args, $control_file;
+  	}
+	  push @cmd_args, ')';
 	}
+	#for my $control_file (@{$self->control_files}){
+	#	push @cmd_args, '-c', $control_file;
+	#}
 	
 	push @cmd_args, '--tsize', $self->options('tag_size') if ($self->options('tag_size')); 
 	push @cmd_args, '--bw='.$self->options('bandwidth') if ($self->options('bandwidth')); 
@@ -130,7 +138,6 @@ sub run_program {
 	push @cmd_args, '--space='.$self->options('space') if ($self->options('space'));
 	push @cmd_args, '--single-profile' if ($self->options('wiggle') || $self->options('bedgraph'));
 	push @cmd_args, '--call-subpeaks' if ($self->options('call_subpeaks'));
-
 	push @cmd_args, '--verbose='.$self->options('verbose') if (defined $self->options('verbose')); 
 	
 	my $dir = getcwd;

@@ -40,8 +40,12 @@ my $samtools_path           = 'samtools';
 my $intersect_bed_path      = 'intersectBed';
 my $control_experiment_type = 'ChIP-Seq Input';
 my $save_temp_files         = 0;
-my $run_id_regex = '[ESD]RR\d{6}';
-my $sample_id_regex = '[ESD]RS\d{6}';
+my $run_id_regex            = '[ESD]RR\d{6}';
+my $sample_id_regex         = '[ESD]RS\d{6}';
+my $require_control         = 0;
+my $preserve_paths          = 0;
+;
+my $fragment_size_stat_name;
 my %options;
 
 &GetOptions(
@@ -71,12 +75,16 @@ my %options;
   'control_type=s'            => \$control_type,
   'control_experiment_type=s' => \$control_experiment_type,
   'save_temp_files=s'         => \$save_temp_files,
-	'run_id_regex=s' => \$run_id_regex,
-	'sample_id_regex=s' => \$sample_id_regex,
+  'run_id_regex=s'            => \$run_id_regex,
+  'sample_id_regex=s'         => \$sample_id_regex,
+  'require_control!'          => \$require_control,
+  'preserve_paths'            => \$preserve_paths,
+  'fragment_size_stat_name=s'  => \$fragment_size_stat_name,
 );
 
-throw("Must specify an output directory") if ( !$output_dir );
-throw("Must specify an output type")      if ( !$type_output );
+throw("Must specify an output directory ")
+  if ( !$output_dir && !$preserve_paths );
+throw("Must specify an output type") if ( !$type_output );
 
 my $peak_call_module = load_module( $module_path, $module_name );
 my $allowed_options = get_allowed_options($peak_call_module);
@@ -110,37 +118,74 @@ throw("Failed to find a collection for "
     . $dbname )
   unless ($collection);
 
-my $input_files = $collection->others;
+my $input_files     = $collection->others;
+my $job_name        = $name;
 my @input_filepaths = map { $_->{'name'} } @$input_files;
 
 my $run_meta_info = get_run_meta_info( $name, $rmia );
-$output_dir =
+if ($preserve_paths) {
+  my ( $filename, $basepath, $suffix ) = fileparse( $input_filepaths[0] );
+  print Dumper( [ $filename, $basepath, $suffix ] );
+  $output_dir = $basepath;
+  $job_name   = $filename;
+  $job_name =~ s/\.bam$//;
+}
+else {
+  $output_dir =
     create_directory_path( $run_meta_info, $directory_layout, $output_dir )
     if ($directory_layout);
+}
 
 my $control_filepaths =
-  get_control_file_paths( $run_meta_info, $control_experiment_type,
+  get_control_file_paths( $name, $run_meta_info, $control_experiment_type,
   $control_type )
   if ($control_type);
+
+throw("No control found for $name $type_input")
+  if ( $require_control && (!$control_filepaths || !@$control_filepaths ));
 
 print 'Found input files ' . join( ', ', @input_filepaths ) . $/ if $verbose;
 print 'Found control files ' . join( ', ', @$control_filepaths ) . $/
   if $verbose;
 
-# run analysis
-my $peak_caller = $peak_call_module->new(
+
+print STDOUT join( "\t", "Using input:",   @input_filepaths ) . $/;
+print STDOUT join( "\t", "Using control:", @$control_filepaths ) . $/ if $control_filepaths;
+
+
+
+my %peak_caller_args = (
   -input_files              => \@input_filepaths,
   -control_files            => $control_filepaths,
   -program                  => $program,
   -working_dir              => $output_dir,
   -options                  => \%options,
   -echo_cmd_line            => $verbose,
-  -job_name                 => $name,
+  -job_name                 => $job_name,
   -strip_duplicates         => $strip_duplicates,
   -bam_to_bed_path          => $bam_to_bed_path,
   -samtools_path            => $samtools_path,
   -save_files_from_deletion => $save_temp_files,
 );
+
+if ($fragment_size_stat_name) {
+  my $stats = $collection->statistics();
+  my $fragment_size;
+  for my $stat (@$stats) {
+    if ($stat->attribute_name eq $fragment_size_stat_name) {
+      # ppqt can find multiple peaks. the first is the most likely, so we use that one
+            ($fragment_size) = split /,/, $stat->attribute_value();
+    }
+  }
+  throw("Could not find statistic $fragment_size_stat_name for collection $name $type_input") unless $fragment_size;
+
+  $peak_caller_args{-fragment_size} = $fragment_size;
+}
+
+print Dumper( \%peak_caller_args );
+
+# run analysis
+my $peak_caller = $peak_call_module->new(%peak_caller_args);
 
 $peak_caller->run();
 my @files = @{ $peak_caller->output_files };
@@ -183,6 +228,7 @@ my $collection = ReseqTrack::Collection->new(
 
 if ($do_peak_stats) {
   my @stats;
+
   while ( my ( $key, $value ) = each %peak_stats ) {
     push @stats, create_statistic_for_object( $collection, $key, $value )
       if ($key);
@@ -208,6 +254,8 @@ if ($do_peak_stats) {
 
   $ca->store($collection) if ($store);
 }
+
+$ca->store($collection) if ($store);
 
 sub load_module {
   my ( $module_path, $module_name ) = @_;
@@ -283,39 +331,46 @@ sub get_reads_in_peaks {
   return $reads_in_peaks;
 }
 
+sub get_run_meta_info {
+  my ( $name, $rmia, $run_id_regex, $sample_id_regex ) = @_;
 
-sub get_run_meta_info{
-	my ($name,$rmia, $run_id_regex, $sample_id_regex) = @_;
-	
-	my $run_meta_info;
-	if ($name =~ /$run_id_regex/) {
-		$run_meta_info = $rmia->fetch_by_run_id($name);
-	}
-	elsif ($name =~ /$sample_id_regex/) {
-		my $rmi_list = $rmia->fetch_by_sample_id($name);
-		$run_meta_info = $rmi_list->[0] if (@$rmi_list);
-	}
-	else {
-	  throw("$name did not match the run or sample ID regexs");
-	}
-	print $run_meta_info.$/;
-	
-	return $run_meta_info;
+  my $run_meta_info;
+  if ( $name =~ /$run_id_regex/ ) {
+    $run_meta_info = $rmia->fetch_by_run_id($name);
+  }
+  elsif ( $name =~ /$sample_id_regex/ ) {
+    my $rmi_list = $rmia->fetch_by_sample_id($name);
+    $run_meta_info = $rmi_list->[0] if (@$rmi_list);
+  }
+  else {
+    throw("$name did not match the run or sample ID regexs");
+  }
+  print $run_meta_info. $/;
+
+  return $run_meta_info;
 }
 
 sub get_control_file_paths {
-  my ( $run_meta_info, $control_experiment_type, $control_type ) = @_;
+  my ( $name, $run_meta_info, $control_experiment_type, $control_type ) = @_;
 
   my @control_filepaths;
-  my $control_runs = $rmia->fetch_by_column_names(
-    [ "run_meta_info.sample_id", "run_meta_info.experiment_type" ],
-    [ $run_meta_info->sample_id, $control_experiment_type ]
-  );
 
-  for my $cr (@$control_runs) {
-    my $control_collection =
-      $ca->fetch_by_name_and_type( $cr->run_id, $control_type );
-    next if ( !$control_collection );
+  my $ctrl_stmt = <<'QUERY_END';
+select distinct c.collection_id
+from run_meta_info t
+join run_meta_info ctrl on t.sample_id = ctrl.sample_id
+join collection c on c.name in( ctrl.run_id, ctrl.experiment_id )
+where ? in( t.run_id, t.experiment_id )
+and c.type = ?
+and ctrl.experiment_type = 'ChIP-Seq Input'
+QUERY_END
+
+  my $query_sth = $db->dbc->prepare($ctrl_stmt);
+  $query_sth->execute( $name, $control_type ) or die $query_sth->errstr;
+
+  while ( my $rs = $query_sth->fetchrow_arrayref ) {
+    my ($c_id) = @$rs;
+    my $control_collection = $ca->fetch_by_dbID($c_id);
     my @file_paths = map { $_->name } @{ $control_collection->others };
     push @control_filepaths, @file_paths;
   }

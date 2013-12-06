@@ -90,17 +90,7 @@ sub run {
   return scalar @{$self->output_files};
 }
 
-=head2 run
 
-returns 1 if fastq are available; otherwise 0
-
-=cut
-
-sub check_fastq_available {
-  my $self = shift;
-  my $era_rmia = $self->db->get_ERARunMetaInfoAdaptor;
-  return $era_rmia->is_fastq_available($self->run_meta_info->run_id);
-}
 
 =head2 run
 
@@ -108,7 +98,7 @@ returns 1 if status is OK; otherwise 0
 
 =cut
 
-sub check_status {
+sub check_fastq_available {
   my $self = shift;
   my $era_rmia = $self->db->get_ERARunMetaInfoAdaptor;
   my $status = $era_rmia->get_status($self->run_meta_info->run_id);

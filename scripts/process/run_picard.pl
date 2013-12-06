@@ -34,7 +34,7 @@ my $store;
 my $disable_md5;
 my $delete_inputs;
 my $directory_layout;
-my $run_id_regex = '[ESD]RR\d{6}';
+my $run_id_regex    = '[ESD]RR\d{6}';
 my $sample_id_regex = '[ESD]RS\d{6}';
 my $command;
 my %options;
@@ -61,13 +61,13 @@ my $metrics_file_type;
   'disable_md5!'       => \$disable_md5,
   'delete_inputs!'     => \$delete_inputs,
   'directory_layout=s' => \$directory_layout,
-  'command=s' => \$command,
-  'options=s' => \%options,
-  'run_id_regex=s' => \$run_id_regex,
-  'sample_id_regex=s' => \$sample_id_regex,
-  'create_index!' => \$create_index,
-  'store_stats!' => \$store_stats,
-  'metrics_type=s' => \$metrics_file_type,
+  'command=s'          => \$command,
+  'options=s'          => \%options,
+  'run_id_regex=s'     => \$run_id_regex,
+  'sample_id_regex=s'  => \$sample_id_regex,
+  'create_index!'      => \$create_index,
+  'store_stats!'       => \$store_stats,
+  'metrics_type=s'     => \$metrics_file_type,
 );
 
 my @allowed_cmds = ReseqTrack::Tools::RunPicard->get_valid_commands;
@@ -113,10 +113,10 @@ if ($directory_layout) {
   my $rmia = $db->get_RunMetaInfoAdaptor;
   my $run_meta_info;
 
-  if ($name =~ /$run_id_regex/) {
+  if ( $name =~ /$run_id_regex/ ) {
     $run_meta_info = $rmia->fetch_by_run_id($&);
   }
-  elsif ($name =~ /$sample_id_regex/) {
+  elsif ( $name =~ /$sample_id_regex/ ) {
     my $rmi_list = $rmia->fetch_by_sample_id($&);
     $run_meta_info = $rmi_list->[0] if (@$rmi_list);
   }
@@ -136,11 +136,12 @@ my $picard_object = ReseqTrack::Tools::RunPicard->new(
   -jvm_options  => $jvm_options,
   -picard_dir   => $picard_dir,
   -create_index => $create_index,
-  -keep_metrics => (defined $metrics_file_type),
+  -keep_metrics => ( defined $metrics_file_type ),
 );
-my ($metrics) = $picard_object->run($command);
+my @metrics = $picard_object->run($command);
 
-throw("store_stats is set, but the command has not produced any")  if ( $store_stats && !$metrics );
+throw("store_stats is set, but the command has not produced any")
+  if ( $store_stats && !@metrics );
 
 $db->dbc->disconnect_when_inactive(0);
 if ($store) {
@@ -161,21 +162,23 @@ if ($store) {
       }
     }
 
-
     my $collection = ReseqTrack::Collection->new(
       -name   => $name,
       -type   => $type_output,
       -others => $files
     );
-    
+
     $ca->store($collection);
- 
-    if ( $store_stats && $metrics ) {
-      for my $metrics_row (@$metrics) {
-        while ( my ( $key, $value ) = each %$metrics_row ) {
-          if ( defined $value && defined $key ) {
-            my $stat = create_statistic_for_object( $collection, $key, $value );
-            $collection->statistics($stat);
+
+    if ( $store_stats && @metrics ) {
+      for my $metrics_group (@metrics) {
+        for my $metrics_row (@$metrics_group) {
+          while ( my ( $key, $value ) = each %$metrics_row ) {
+            if ( defined $value && defined $key ) {
+              my $stat =
+                create_statistic_for_object( $collection, $key, $value );
+              $collection->statistics($stat);
+            }
           }
         }
       }
@@ -257,7 +260,7 @@ sub create_metrics_records {
     -table_name => 'file',
   );
 
-  $db->get_CollectionAdaptor->store($collection,1);
+  $db->get_CollectionAdaptor->store( $collection, 1 );
 }
 
 =pod
