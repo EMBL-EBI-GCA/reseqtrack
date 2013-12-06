@@ -4,6 +4,7 @@ use strict;
 use warnings;
 
 use ReseqTrack::Tools::RunPicard;
+use ReseqTrack::Tools::QC::PPQT;
 use ReseqTrack::Tools::HostUtils qw(get_host_object);
 use ReseqTrack::Tools::StatisticsUtils;
 use ReseqTrack::Tools::FileUtils;
@@ -21,10 +22,12 @@ my $dbpass;
 my $dbport;
 my $dbname;
 
-my $java_path = '/usr/bin/java';
+my $java_path   = '/usr/bin/java';
+my $jvm_options = '-Xmx2g -Xms2g';
+my $rscript_path;
+my $script_path;
 my $picard_dir;
 my $name;
-my $jvm_options = '-Xmx2g -Xms2g';
 my $reference_sequence;
 my $host_name         = '1000genomes.ebi.ac.uk';
 my $keep_metrics_file = 0;
@@ -35,9 +38,17 @@ my %options = (
   "reference_sequence"    => $reference_sequence,
 );
 
-my @modes                   = ( 'alignment', 'rna' );
-my $mode                    = $modes[0];
+my %commands = (
+  'alignment'   => 'alignment_metrics',
+  'rna'         => 'rna_seq_metrics',
+  'insert_size' => 'insert_size_metrics',
+  'multi'       => 'multiple_metrics',
+  'ppqt'        => 'non_picard',
+);
+
+my $mode                    = 'alignment';
 my $attribute_prefix_column = 'CATEGORY';
+my @programs;
 
 &GetOptions(
   'dbhost=s'                  => \$dbhost,
@@ -47,6 +58,8 @@ my $attribute_prefix_column = 'CATEGORY';
   'dbport=s'                  => \$dbport,
   'host=s'                    => \$host_name,
   'java_path=s'               => \$java_path,
+  'rscript_path=s'            => \$rscript_path,
+  'script_path=s'             => \$script_path,
   'picard_dir=s'              => \$picard_dir,
   'jvm_options=s'             => \$jvm_options,
   'reference_sequence=s'      => \$reference_sequence,
@@ -57,6 +70,7 @@ my $attribute_prefix_column = 'CATEGORY';
   'mode=s'                    => \$mode,
   'options=s'                 => \%options,
   'attribute_prefix_column=s' => \$attribute_prefix_column,
+  'programs=s'                => \@programs,
 );
 
 my $db = ReseqTrack::DBSQL::DBAdaptor->new(
@@ -76,50 +90,67 @@ my $collection =
 throw("Cannot find collection in db for $name $input_type") if ( !$collection );
 throw("Collection $name $input_type must be of files")
   if ( $collection->table_name ne 'file' );
-throw("Mode must be one of @modes , is $mode")
-  if ( !grep { $mode eq $_ } @modes );
 
-my $picard = ReseqTrack::Tools::RunPicard->new(
-  -job_name     => $name,
-  -program      => $java_path,
-  -picard_dir   => $picard_dir,
-  -jvm_options  => $jvm_options,
-  -options      => \%options,
-  -input_files  => [ $collection->others->[0]->name ],
-  -keep_metrics => $keep_metrics_file,
-);
+my $command = $commands{$mode};
 
-my $picard_metrics;
+throw("Mode must be one of "
+    . join( ', ', keys %commands )
+    . " but is "
+    . ( $mode || 'undef' ) )
+  unless ($command);
 
-if ( $mode eq 'alignment' ) {
-  $picard_metrics = $picard->run_alignment_metrics;
+if (@programs) {
+  $options{'metrics_programs'} = \@programs;
 }
-elsif ( $mode eq 'rna' ) {
-  $picard_metrics = $picard->run_rna_alignment_metrics;
+
+my $metrics_generator;
+
+if ( $mode eq 'ppqt' ) {
+  $metrics_generator = ReseqTrack::Tools::QC::PPQT->new(
+    -job_name     => $name,
+    -program      => $script_path,
+    -rscript_path => $rscript_path,
+    -options      => \%options,
+    -input_files  => [ $collection->others->[0]->name ],
+    -keep_metrics => $keep_metrics_file,
+  );
 }
 else {
-  throw("$mode did not match a run mode");
+  $metrics_generator = ReseqTrack::Tools::RunPicard->new(
+    -job_name     => $name,
+    -program      => $java_path,
+    -picard_dir   => $picard_dir,
+    -jvm_options  => $jvm_options,
+    -options      => \%options,
+    -input_files  => [ $collection->others->[0]->name ],
+    -keep_metrics => $keep_metrics_file,
+  );
 }
 
-my $metrics_files = $picard->output_metrics_files;
-my $statistics = [];
+my @generated_metrics = $metrics_generator->run_program($command);
+my $metrics_files     = $metrics_generator->output_files;
+my $statistics        = [];
 
-for my $metrics (@$picard_metrics) {
-  my $prefix = $metrics->{$attribute_prefix_column};
-  while ( my ( $key, $value ) = each %$metrics ) {
-    next if $key eq $attribute_prefix_column;
+for my $metrics_group (@generated_metrics) {
+  for my $metrics (@$metrics_group) {
+    print Dumper($metrics);
+    my $prefix = $metrics->{$attribute_prefix_column};
+    while ( my ( $key, $value ) = each %$metrics ) {
+      next if $key eq $attribute_prefix_column;
 
-    if ($prefix) {
-      $key = join( '_', $prefix, $key );
+      if ($prefix) {
+        $key = join( '_', $prefix, $key );
+      }
+
+      push @$statistics,
+        create_statistic_for_object( $collection, $key, $value )
+        if ( defined $value );
     }
-
-    push @$statistics, create_statistic_for_object( $collection, $key, $value )
-      if ( defined $value );
   }
 }
 
 $collection->statistics($statistics);
-$collection_adaptor->store_statistics($collection,1);
+$collection_adaptor->store_statistics( $collection, 1 );
 
 if ($keep_metrics_file) {
   create_output_records( $name, $metrics_file_type, $metrics_files );
@@ -130,7 +161,7 @@ else {
   }
 }
 
-$picard->delete_files;
+$metrics_generator->delete_files;
 
 sub create_output_records {
   my ( $collection_name, $type, $file_names ) = @_;

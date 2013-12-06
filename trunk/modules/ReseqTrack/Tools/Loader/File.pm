@@ -26,7 +26,7 @@ sub new {
       $md5_file,        $hostname,  $die_for_problems,
       $update_existing, $store_new, $assign_types,
       $do_md5,    $md5_program,
-      $remote, 
+      $remote, $md5_hash,
    )
    = rearrange(
   [
@@ -34,7 +34,7 @@ sub new {
      MD5_FILE        HOSTNAME
      DIE_FOR_PROBLEMS    UPDATE_EXISTING     STORE_NEW
      ASSIGN_TYPES     DO_MD5
-     MD5_PROGRAM REMOTE
+     MD5_PROGRAM REMOTE MD5_HASH
      )
   ],
   @args
@@ -54,6 +54,7 @@ sub new {
  $self->store_new($store_new);
  $self->remote($remote);
  $self->do_md5($do_md5);
+ $self->md5_hash($md5_hash)
 
  if ( ( $self->type eq "MUST_FIX" ) && !$self->assign_types ) {
   throw("Must give load_files.pl a file type with -type");
@@ -193,7 +194,7 @@ sub md5_hash {
 sub md5_on_off_check {
  my $self = shift;
  
- if ( !$self->{md5_file} && !$self->{do_md5} ) {
+ if ( !$self->{md5_file} && !$self->{do_md5} && $self->{md5_hash}) {
   
   warning
 "do_md5  OFF. Not loading from an md5 list. No md5s for files. You sure??";

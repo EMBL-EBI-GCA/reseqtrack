@@ -82,8 +82,8 @@ if($all_checks){
   $check_unidentified = 1;
 }
 
-if(($store_new + $update_existing + $update_collections + $check_sample + 
-    $check_status + $check_unidentified) == 0){
+unless($store_new || $update_existing || $update_collections || $check_sample || 
+    $check_status || $check_unidentified){
   print STDERR "There script has nothing to do you need to specify at least ".
     "one of -store_new, -update_existing, -update_collections, -check_sample ".
       "-check_status or -all to have everything run\n";
