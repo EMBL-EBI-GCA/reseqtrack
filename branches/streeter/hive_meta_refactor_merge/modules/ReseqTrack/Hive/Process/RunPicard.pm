@@ -22,7 +22,7 @@ sub param_defaults {
 sub run {
     my $self = shift @_;
     $self->param_required('bam');
-    my $bams = $self->file_param_to_flat_array('bam');
+    my $bams = $self->param_as_array('bam');
     my $command = $self->param_required('command');
 
     my @allowed_cmds = ReseqTrack::Tools::RunPicard->get_valid_commands;
@@ -45,13 +45,6 @@ sub run {
 
     my $output_bams = $picard_object->output_bam_files;
     my $output_bais = $picard_object->output_bai_files;
-    if (@$output_bams ==1) {
-      $output_bams = $output_bams->[0];
-    }
-    if (@$output_bais ==1) {
-      $output_bais = $output_bais->[0];
-    }
-
 
     $self->output_param('bam', $output_bams);
     $self->output_param('bai', $output_bais);

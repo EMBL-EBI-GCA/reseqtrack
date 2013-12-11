@@ -21,7 +21,7 @@ sub param_defaults {
 sub run {
     my $self = shift @_;
     $self->param_required('bam');
-    my $bams = $self->file_param_to_flat_array('bam');
+    my $bams = $self->param_as_array('bam');
     my $command = $self->param_required('command');
 
     my @allowed_cmds = qw(merge sort index fix_and_calmd calmd fixmate sam_to_bam);
@@ -48,9 +48,6 @@ sub run {
     $self->run_program($samtools_object, $command);
 
     my $output_files = $samtools_object->output_files;
-    if (!ref($self->param('bam')) || $command eq 'merge') {
-      $output_files = $output_files->[0];
-    }
 
     $self->output_param($command eq 'index' ? 'bai' : 'bam'  => $output_files);
 

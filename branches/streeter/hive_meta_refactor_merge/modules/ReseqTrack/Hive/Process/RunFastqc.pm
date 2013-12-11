@@ -25,7 +25,7 @@ sub run {
     my $store_attributes = $self->param('store_attributes') ? 1 : 0;
     my $db_params = $store_attributes ? $self->param_required('reseqtrack_db') : undef;
 
-    my $fastqs = $self->file_param_to_flat_array('fastq');
+    my $fastqs = $self->param_as_array('fastq');
     throw("Expecting one fastq file") if scalar @$fastqs != 1;
     my $fastq = $fastqs->[0];
 

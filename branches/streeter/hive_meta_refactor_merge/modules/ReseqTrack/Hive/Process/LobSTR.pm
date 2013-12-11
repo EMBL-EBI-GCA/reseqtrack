@@ -24,7 +24,7 @@ sub run {
     $self->param_required('fastq');
     my $ref_index_prefix = $self->param_required('ref_index_prefix');
 
-    my $fastqs = $self->file_param_to_flat_array('fastq');
+    my $fastqs = $self->param_as_array('fastq');
 
     my %read_group_fields = (
       LB => $self->param('library_name'),

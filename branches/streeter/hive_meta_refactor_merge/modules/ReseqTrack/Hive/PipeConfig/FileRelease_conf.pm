@@ -101,12 +101,14 @@ sub pipeline_analyses {
             -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
             -parameters    => {
               check_class => 'quick',
-              flows_non_factory => [1,2],
-              flows_do_count => {
-                1 => '0',
-                2 => '1+',
+              reseqtrack_options => {
+                flows_non_factory => [1,2],
+                flows_do_count => {
+                  1 => '0',
+                  2 => '1+',
+                },
+                flows_do_count_param => 'is_failed',
               },
-              flows_do_count_param => 'is_failed',
             },
             -flow_into => {
                 1 => [ 'slow_checks' ],
@@ -118,12 +120,14 @@ sub pipeline_analyses {
             -module        => $self->o('checking_module'),
             -parameters    => {
               check_class => 'slow',
-              flows_non_factory => [1,2],
-              flows_do_count => {
-                1 => '0',
-                2 => '1+',
+              reseqtrack_options => {
+                flows_non_factory => [1,2],
+                flows_do_count => {
+                  1 => '0',
+                  2 => '1+',
+                },
+                flows_do_count_param => 'is_failed',
               },
-              flows_do_count_param => 'is_failed',
             },
             -flow_into => {
                 1 => [ 'move_to_staging' ],

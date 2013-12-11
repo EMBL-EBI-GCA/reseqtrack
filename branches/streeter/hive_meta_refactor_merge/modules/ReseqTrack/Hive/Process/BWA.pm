@@ -38,7 +38,7 @@ sub run {
     my $run_id = $self->param_required('run_id');
     my $reference = $self->param_required('reference');
 
-    my $fastqs = $self->file_param_to_flat_array('fastq');
+    my $fastqs = $self->param_as_array('fastq');
 
     my %read_group_fields = (
       ID => $self->param('RGID') // $self->param('run_source_id'),

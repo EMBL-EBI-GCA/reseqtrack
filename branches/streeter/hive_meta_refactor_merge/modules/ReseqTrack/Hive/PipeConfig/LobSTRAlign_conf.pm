@@ -191,6 +191,7 @@ sub resource_classes {
             '4Gb' => { 'LSF' => '-C0 -M4000 -q production -R"select[mem>4000] rusage[mem=4000]"' },
             '5Gb' => { 'LSF' => '-C0 -M5000 -q production -R"select[mem>5000] rusage[mem=5000]"' },
             '6Gb' => { 'LSF' => '-C0 -M6000 -q production -R"select[mem>6000] rusage[mem=6000]"' },
+            '6Gb_4t' => { 'LSF' => '-C0 -M6000 -q production -R"select[mem>6000] rusage[mem=6000]" -n4' },
             '8Gb' => { 'LSF' => '-C0 -M8000 -q production -R"select[mem>8000] rusage[mem=8000]"' },
     };
 }
@@ -267,8 +268,10 @@ sub pipeline_analyses {
                 collection_type => $self->o('type_fastq'),
                 collection_name => '#run_source_id#',
                 output_param => 'fastq',
-                flows_do_count_param => 'fastq',
-                flows_do_count => { 1 => '1+', },
+                reseqtrack_options => {
+                  flows_do_count_param => 'fastq',
+                  flows_do_count => { 1 => '1+', },
+                },
             },
             -flow_into => {
                 1 => [ 'split_fastq', ':////accu?fastq=[]' ],
@@ -296,9 +299,11 @@ sub pipeline_analyses {
                 program_file => $self->o('lobstr_exe'),
                 ref_index_prefix => $self->o('lobstr_ref_index_prefix'),
                 options => $self->o('lobstr_options'),
-                delete_param => 'fastq',
-            },
-            -rc_name => '6Gb',
+                reseqtrack_options => {
+                  delete_param => 'fastq',
+                },
+              },
+            -rc_name => '6Gb_4t',
             -hive_capacity  =>  100,
             -flow_into => {
                 1 => ['sort_chunks'],
@@ -310,7 +315,9 @@ sub pipeline_analyses {
             -parameters => {
                 program_file => $self->o('samtools_exe'),
                 command => 'sort',
-                delete_param => 'bam',
+                reseqtrack_options => {
+                  delete_param => 'bam',
+                },
             },
             -rc_name => '2Gb',
             -hive_capacity  =>  200,
@@ -326,7 +333,6 @@ sub pipeline_analyses {
                 command => 'add_or_replace_read_groups',
                 create_index => 0,
                 jvm_args => '-Xmx2g',
-                delete_param => 'bam',
                 options => {read_group_fields => {
                   ID => '#run_source_id#',
                   LB => '#library_name#',
@@ -337,6 +343,9 @@ sub pipeline_analyses {
                   PU => $self->o('RGPU'),
                   PL => '#instrument_platform#',
                 }},
+                reseqtrack_options => {
+                  delete_param => 'bam',
+                },
             },
             -rc_name => '2Gb',
             -hive_capacity  =>  200,
@@ -369,13 +378,16 @@ sub pipeline_analyses {
           -module        => 'ReseqTrack::Hive::Process::BaseProcess',
           -meadow_type=> 'LOCAL',
           -parameters => {
-              flows_non_factory => [1,2,7],
-              flows_do_count_param => 'bam',
-              flows_do_count => {
-                        1 => '1+',
-                        2 => '2+',
-                        7 => '0',
-                      },
+              reseqtrack_options => {
+                denestify => 'bam',
+                flows_non_factory => [1,2,7],
+                flows_do_count_param => 'bam',
+                flows_do_count => {
+                          1 => '1+',
+                          2 => '2+',
+                          7 => '0',
+                        },
+              },
           },
             -flow_into => {
                 '2->A' => [ 'merge_bams' ],
@@ -391,7 +403,10 @@ sub pipeline_analyses {
               jvm_args => '-Xmx2g',
               command => 'merge',
               create_index => 0,
-              delete_param => ['bam'],
+              reseqtrack_options => {
+                denestify => 'bam',
+                delete_param => 'bam',
+              },
           },
           -rc_name => '2Gb',
           -hive_capacity  =>  200,
@@ -410,7 +425,10 @@ sub pipeline_analyses {
                 'SQ_assembly' => $self->o('ref_assembly'),
                 'SQ_species' => $self->o('ref_species'),
                 'SQ_uri' => $self->o('reference_uri'),
-                delete_param => ['bam'],
+                reseqtrack_options => {
+                  denestify => 'bam',
+                  delete_param => 'bam',
+                },
             },
             -rc_name => '200Mb',
             -hive_capacity  =>  200,

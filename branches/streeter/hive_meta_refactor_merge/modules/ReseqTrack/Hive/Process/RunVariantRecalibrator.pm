@@ -24,7 +24,7 @@ sub run {
 
     $self->param_required('vcf');
     $self->param_required('resources');
-    my $vcfs = $self->file_param_to_flat_array('vcf');
+    my $vcfs = $self->param_as_array('vcf');
     my $reference = $self->param_required('reference');
 
     throw("Expecting one vcf file") if scalar @$vcfs != 1;

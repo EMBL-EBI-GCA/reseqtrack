@@ -30,7 +30,7 @@ sub run {
     my $output_dir = $self->output_dir;
 
 
-    my $fastqs = $self->file_param_to_flat_array('fastq');
+    my $fastqs = $self->param_as_array('fastq');
     my ($mate1, $mate2, $frag) = assign_files($fastqs);
     throw ("No mate for $mate1") if ($mate1 && ! $mate2);
     throw ("No mate for $mate2") if ($mate2 && ! $mate1);

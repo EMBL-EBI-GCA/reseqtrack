@@ -189,7 +189,9 @@ sub pipeline_analyses {
           -module        => 'ReseqTrack::Hive::Process::BaseProcess',
           -meadow_type=> 'LOCAL',
           -parameters => {
+            reseqtrack_options => {
               flows_non_factory => [1,2],
+            },
           },
             -flow_into => {
                 '2->A' => { 'find_source_bams' => {'callgroup' => '#name#', 'bam_collection_id' => '#collection_id#'}},
@@ -203,8 +205,10 @@ sub pipeline_analyses {
             -parameters    => {
                 collection_id=> '#bam_collection_id#',
                 output_param => 'bam',
-                flows_file_count_param => 'bam',
-                flows_file_count => { 1 => '1+', },
+                reseqtrack_options => {
+                  flows_file_count_param => 'bam',
+                  flows_file_count => { 1 => '1+', },
+                },
             },
             -flow_into => {
                 1 => [ 'regions_factory_1' ],
@@ -251,11 +255,13 @@ sub pipeline_analyses {
                 num_bases => $self->o('call_window_size'),
                 max_sequences => 1,
                 bed => $self->o('target_bed_file'),
-                flows_factory => {
-                    1 => $self->o('call_by_samtools'),
-                    2 => $self->o('call_by_gatk'),
-                    3 => $self->o('call_by_freebayes'),
-                    4 => 1,
+                reseqtrack_options => {
+                  flows_factory => {
+                      1 => $self->o('call_by_samtools'),
+                      2 => $self->o('call_by_gatk'),
+                      3 => $self->o('call_by_freebayes'),
+                      4 => 1,
+                  },
                 },
             },
             -rc_name => '200Mb',
@@ -279,13 +285,15 @@ sub pipeline_analyses {
             -module        => 'ReseqTrack::Hive::Process::BaseProcess',
             -meadow_type => 'LOCAL',
             -parameters    => {
-                flows_non_factory => {
-                    1 => $self->o('call_by_samtools'),
-                    2 => $self->o('call_by_gatk'),
-                    3 => $self->o('call_by_freebayes'),
-                    4 => 1,
-                },
-              delete_param => ['bam','bai'],
+              reseqtrack_options => {
+                  flows_non_factory => {
+                      1 => $self->o('call_by_samtools'),
+                      2 => $self->o('call_by_gatk'),
+                      3 => $self->o('call_by_freebayes'),
+                      4 => 1,
+                  },
+                delete_param => ['bam','bai'],
+              }
             },
             -flow_into => {
                 1 => [ ':////accu?samtools_vcf=[fan_index]' ],
@@ -307,6 +315,9 @@ sub pipeline_analyses {
               coverage_per_sample => $self->o('coverage_per_sample'),
               options => $self->o('call_by_samtools_options'),
               region_overlap => 100,
+              reseqtrack_options => {
+                encode_file_id => 'vcf',
+              },
           },
           -rc_name => '500Mb',
           -hive_capacity  =>  200,
@@ -328,6 +339,9 @@ sub pipeline_analyses {
               coverage_per_sample => $self->o('coverage_per_sample'),
               options => $self->o('call_by_samtools_options'),
               region_overlap => 100,
+              reseqtrack_options => {
+                encode_file_id => 'vcf',
+              },
           },
           -rc_name => '1Gb',
           -hive_capacity  =>  200,
@@ -344,6 +358,9 @@ sub pipeline_analyses {
               gatk_dir => $self->o('gatk_dir'),
               options => $self->o('call_by_gatk_options'),
               region_overlap => 100,
+              reseqtrack_options => {
+                encode_file_id => 'vcf',
+              },
           },
           -rc_name => '2Gb',
           -hive_capacity  =>  200,
@@ -361,6 +378,9 @@ sub pipeline_analyses {
               gatk_dir => $self->o('gatk_dir'),
               options => $self->o('call_by_gatk_options'),
               region_overlap => 100,
+              reseqtrack_options => {
+                encode_file_id => 'vcf',
+              },
           },
           -rc_name => '4Gb',
           -hive_capacity  =>  100,
@@ -378,6 +398,9 @@ sub pipeline_analyses {
               bgzip => $self->o('bgzip_exe'),
               options => $self->o('call_by_freebayes_options'),
               region_overlap => 100,
+              reseqtrack_options => {
+                encode_file_id => 'vcf',
+              },
           },
           -rc_name => '2Gb',
           -hive_capacity  =>  200,
@@ -396,6 +419,9 @@ sub pipeline_analyses {
               bgzip => $self->o('bgzip_exe'),
               options => $self->o('call_by_freebayes_options'),
               region_overlap => 100,
+              reseqtrack_options => {
+                encode_file_id => 'vcf',
+              },
           },
           -rc_name => '8Gb',
           -hive_capacity  =>  100,
@@ -414,6 +440,9 @@ sub pipeline_analyses {
               bgzip => $self->o('bgzip_exe'),
               options => $self->o('call_by_freebayes_options'),
               region_overlap => 100,
+              reseqtrack_options => {
+                encode_file_id => 'vcf',
+              },
           },
           -rc_name => '12Gb',
           -hive_capacity  =>  100,
@@ -426,10 +455,12 @@ sub pipeline_analyses {
           -module        => 'ReseqTrack::Hive::Process::BaseProcess',
           -meadow_type=> 'LOCAL',
           -parameters => {
-              flows_non_factory => {
-                  1 => $self->o('call_by_samtools'),
-                  2 => $self->o('call_by_gatk'),
-                  3 => $self->o('call_by_freebayes'),
+              reseqtrack_options => {
+                flows_non_factory => {
+                    1 => $self->o('call_by_samtools'),
+                    2 => $self->o('call_by_gatk'),
+                    3 => $self->o('call_by_freebayes'),
+                },
               },
           },
             -flow_into => {
@@ -446,7 +477,11 @@ sub pipeline_analyses {
           -parameters    => {
               vcf => '#samtools_vcf#',
               bgzip => $self->o('bgzip_exe'),
-              delete_param => ['samtools_vcf'],
+              reseqtrack_options => {
+                decode_file_id => 'samtools_vcf',
+                denestify => ['samtools_vcf','bp_start','bp_end'],
+                delete_param => 'samtools_vcf',
+              },
           },
           -flow_into => { '1' => [ 'store_vcf' ], },
           -rc_name => '500Mb',
@@ -458,7 +493,11 @@ sub pipeline_analyses {
           -parameters    => {
               vcf => '#gatk_vcf#',
               bgzip => $self->o('bgzip_exe'),
-              delete_param => ['gatk_vcf'],
+              reseqtrack_options => {
+                decode_file_id => 'gatk_vcf',
+                denestify => ['gatk_vcf','bp_start','bp_end'],
+                delete_param => 'gatk_vcf',
+              },
           },
           -flow_into => { '1' => [ 'store_vcf' ], },
           -rc_name => '500Mb',
@@ -470,7 +509,11 @@ sub pipeline_analyses {
           -parameters    => {
               vcf => '#freebayes_vcf#',
               bgzip => $self->o('bgzip_exe'),
-              delete_param => ['freebayes_vcf'],
+              reseqtrack_options => {
+                decode_file_id => 'freebayes_vcf',
+                denestify => ['freebayes_vcf','bp_start','bp_end'],
+                delete_param => 'freebayes_vcf',
+              },
           },
           -flow_into => { '1' => [ 'store_vcf' ], },
           -rc_name => '500Mb',

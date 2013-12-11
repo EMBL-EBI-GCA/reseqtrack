@@ -37,14 +37,14 @@ sub run {
     $self->param_required('file');
     my $db_params = $self->param_required('reseqtrack_db');
     my $type = $self->param('type');
-    my $md5_hash = $self->file_param('md5');
+    my $md5_hash = $self->param('md5');
     my $collect = $self->param('collect') ? 1 : 0;
     my $collection_name = $collect ? $self->param_required('collection_name') : undef;
     my $host_name = $self->param('host_name');
     my $pipeline_seed_id = $self->param_required('ps_id');
     my $clobber = $self->param('clobber') ? 1 : 0;
 
-    my $current_file_paths = $self->file_param_to_flat_array('file');
+    my $current_file_paths = $self->param_as_array('file');
     throw('no files') if !@$current_file_paths;
 
     foreach my $current_path (@$current_file_paths) {

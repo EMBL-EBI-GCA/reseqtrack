@@ -23,9 +23,9 @@ sub run {
     my ($self) = @_;
 
     $self->param_required('bam');
-    my $bams = $self->file_param_to_flat_array('bam');
+    my $bams = $self->param_as_array('bam');
     $self->param_required('fastq');
-    my $fastqs = $self->file_param_to_flat_array('fastq');
+    my $fastqs = $self->param_as_array('fastq');
 
     my @extra_header_lines;
     foreach my $fastq (grep {$_} @$fastqs) {

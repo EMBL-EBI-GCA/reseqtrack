@@ -172,7 +172,9 @@ sub pipeline_analyses {
           -module        => 'ReseqTrack::Hive::Process::BaseProcess',
           -meadow_type=> 'LOCAL',
           -parameters => {
-              flows_non_factory => [1,2],
+              reseqtrack_options => {
+                flows_non_factory => [1,2],
+              },
           },
             -flow_into => {
                 '2->A' => { 'find_source_bams' => {'callgroup' => '#name#', 'bam_collection_id' => '#collection_id#'}},
@@ -186,8 +188,10 @@ sub pipeline_analyses {
             -parameters    => {
                 collection_id=> '#bam_collection_id#',
                 output_param => 'bam',
-                flows_file_count_param => 'bam',
-                flows_file_count => { 1 => '1+', },
+                reseqtrack_options => {
+                  flows_file_count_param => 'bam',
+                  flows_file_count => { 1 => '1+', },
+                },
             },
             -flow_into => {
                 1 => [ 'regions_factory_1' ],
@@ -221,12 +225,11 @@ sub pipeline_analyses {
             -analysis_capacity  =>  4,
             -hive_capacity  =>  200,
             -flow_into => {
-                '2' => { 'call_by_lobstr' => {'region2' => '#callgroup#.#SQ_start#',
+                '2->A' => { 'call_by_lobstr' => {'region2' => '#callgroup#.#SQ_start#',
                                                 'SQ_start' => '#SQ_start#', 'bp_start' => '#bp_start#', 'SQ_end' => '#SQ_end#', 'bp_end' => '#bp_end#', 'fan_index' => '#fan_index#',
                                                 },
-                          ':////accu?bp_start=[fan_index]' => {bp_start => '#bp_start#', 'fan_index' => '#fan_index#'},
-                          ':////accu?bp_end=[fan_index]' => {bp_end => '#bp_end#', 'fan_index' => '#fan_index#'},
-                }
+                },
+                'A->1' => [ 'collect_vcf'],
             },
       });
     push(@analyses, {
@@ -234,7 +237,9 @@ sub pipeline_analyses {
             -module        => 'ReseqTrack::Hive::Process::BaseProcess',
             -meadow_type => 'LOCAL',
             -parameters    => {
-              delete_param => ['bam','bai'],
+              reseqtrack_options => {
+                delete_param => ['bam','bai'],
+              },
             },
             -flow_into => {
                 1 => [ ':////accu?vcf=[fan_index]', ':////accu?bp_start=[fan_index]', ':////accu?bp_end=[fan_index]' ],
@@ -250,11 +255,14 @@ sub pipeline_analyses {
               noise_model => $self->o('lobstr_noise_model'),
               str_info => $self->o('lobstr_str_info'),
               options => $self->o('call_by_lobstr_options'),
+              reseqtrack_options => {
+                encode_file_id => 'vcf',
+              },
           },
           -rc_name => '500Mb',
-          -hive_capacity  =>  200,
+          -hive_capacity  =>  50,
           -flow_into => {
-              1 => [ ':////accu?vcf=[fan_index]' ],
+              1 => [ ':////accu?vcf=[fan_index]', ':////accu?bp_start=[fan_index]', ':////accu?bp_end=[fan_index]', ],
           },
       });
 
@@ -263,7 +271,11 @@ sub pipeline_analyses {
           -module        => 'ReseqTrack::Hive::Process::MergeVcf',
           -parameters    => {
               bgzip => $self->o('bgzip_exe'),
-              delete_param => ['vcf'],
+              reseqtrack_options => {
+                decode_file_id => 'vcf',
+                denestify => ['vcf','bp_start','bp_end'],
+                delete_param => 'vcf',
+              }
           },
           -flow_into => { '1' => [ 'store_vcf' ], },
           -rc_name => '500Mb',

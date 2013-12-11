@@ -26,9 +26,9 @@ sub run {
     my $tabix = $self->param('tabix');
     my $run_tabix = $self->param('run_tabix');
 
-    my $vcfs = $self->file_param_to_flat_array('vcf');
-    my $bp_start = $self->param_to_flat_array('bp_start');
-    my $bp_end = $self->param_to_flat_array('bp_end');
+    my $vcfs = $self->param_as_array('vcf');
+    my $bp_start = $self->param_as_array('bp_start');
+    my $bp_end = $self->param_as_array('bp_end');
 
     throw("unexpected number of vcf files") if scalar @$vcfs != scalar @$bp_start;
     throw("unexpected number of vcf files") if scalar @$vcfs != scalar @$bp_end;

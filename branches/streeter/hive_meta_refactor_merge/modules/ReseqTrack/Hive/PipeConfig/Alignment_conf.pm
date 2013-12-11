@@ -310,9 +310,11 @@ sub pipeline_analyses {
                 samtools => $self->o('samtools_exe'),
                 reference => $self->o('reference'),
                 options => $self->o('bwa_options'),
-                delete_param => 'fastq',
                 RGSM => $self->o('RGSM'),
                 RGPU => $self->o('RGPU'),
+                reseqtrack_options => {
+                  delete_param => 'fastq',
+                },
             },
             -rc_name => '6Gb', # Note the 'hardened' version of BWA may need 8Gb RAM or more
             -hive_capacity  =>  100,
@@ -328,7 +330,9 @@ sub pipeline_analyses {
                 command => 'fix_mate',
                 create_index => 1,
                 jvm_args => '-Xmx2g',
-                delete_param => 'bam',
+                reseqtrack_options => {
+                  delete_param => 'bam',
+                },
             },
             -rc_name => '2Gb',
             -hive_capacity  =>  200,
@@ -343,21 +347,23 @@ sub pipeline_analyses {
           -parameters => {
               realign_knowns_only => $self->o('realign_knowns_only'),
               recalibrate_level => $self->o('recalibrate_level'),
-              flows_non_factory => {
-                  1 => '#realign_knowns_only#',
-                  2 => '#realign_knowns_only#',
-                  3 => '#expr($recalibrate_level==1 && !$realign_knowns_only)expr#',
-                  4 => '#expr($recalibrate_level==1 && !$realign_knowns_only)expr#',
-                  5 => '#expr(!$realign_knowns_only && $recalibrate_level!=1)expr#',
+              reseqtrack_options => {
+                flows_non_factory => {
+                    1 => '#realign_knowns_only#',
+                    2 => '#realign_knowns_only#',
+                    3 => '#expr($recalibrate_level==1 && !$realign_knowns_only)expr#',
+                    4 => '#expr($recalibrate_level==1 && !$realign_knowns_only)expr#',
+                    5 => '#expr(!$realign_knowns_only && $recalibrate_level!=1)expr#',
+                },
+                flows_do_count_param => 'bam',
+                flows_do_count => {
+                          1 => '1+',
+                          2 => '2+',
+                          3 => '1+',
+                          4 => '2+',
+                          5 => '1+',
+                        },
               },
-              flows_do_count_param => 'bam',
-              flows_do_count => {
-                        1 => '1+',
-                        2 => '2+',
-                        3 => '1+',
-                        4 => '2+',
-                        5 => '1+',
-                      },
           },
           -flow_into => {
                 '2->A' => [ 'merge_chunks' ],
@@ -481,8 +487,11 @@ sub pipeline_analyses {
           -module        => 'ReseqTrack::Hive::Process::BaseProcess',
           -meadow_type=> 'LOCAL',
           -parameters => {
-              flows_do_count_param => 'bam',
-              flows_do_count => { 1 => '1+', },
+              reseqtrack_options => {
+                denestify => 'bam',
+                flows_do_count_param => 'bam',
+                flows_do_count => { 1 => '1+', },
+              }
           },
           -flow_into => {
               1 => [ 'mark_duplicates', ':////accu?fastq=[]'],
@@ -497,7 +506,10 @@ sub pipeline_analyses {
                 command => 'mark_duplicates',
                 options => {'shorten_input_names' => 1},
                 create_index => 1,
-                delete_param => ['bam', 'bai'],
+                reseqtrack_options => {
+                  delete_param => ['bam', 'bai'],
+                  denestify => ['bam', 'bai'],
+                }
             },
             -rc_name => '5Gb',
             -hive_capacity  =>  100,
@@ -512,25 +524,27 @@ sub pipeline_analyses {
           -parameters => {
               realign_knowns_only => $self->o('realign_knowns_only'),
               recalibrate_level => $self->o('recalibrate_level'),
-              flows_non_factory => {
-                  1 => '#expr(!$realign_knowns_only)expr#',
-                  2 => '#expr(!$realign_knowns_only)expr#',
-                  3 => '#expr($recalibrate_level==2 && $realign_knowns_only)expr#',
-                  4 => '#expr($recalibrate_level==2 && $realign_knowns_only)expr#',
-                  5 => '#expr($recalibrate_level!=2 && $realign_knowns_only)expr#',
-                  6 => '#expr($recalibrate_level!=2 && $realign_knowns_only)expr#',
-                  7 => 1,
+              reseqtrack_options => {
+                flows_non_factory => {
+                    1 => '#expr(!$realign_knowns_only)expr#',
+                    2 => '#expr(!$realign_knowns_only)expr#',
+                    3 => '#expr($recalibrate_level==2 && $realign_knowns_only)expr#',
+                    4 => '#expr($recalibrate_level==2 && $realign_knowns_only)expr#',
+                    5 => '#expr($recalibrate_level!=2 && $realign_knowns_only)expr#',
+                    6 => '#expr($recalibrate_level!=2 && $realign_knowns_only)expr#',
+                    7 => 1,
+                },
+                flows_do_count_param => 'bam',
+                flows_do_count => {
+                          1 => '1+',
+                          2 => '2+',
+                          3 => '1+',
+                          4 => '2+',
+                          5 => '1+',
+                          6 => '2+',
+                          7 => '0',
+                        },
               },
-              flows_do_count_param => 'bam',
-              flows_do_count => {
-                        1 => '1+',
-                        2 => '2+',
-                        3 => '1+',
-                        4 => '2+',
-                        5 => '1+',
-                        6 => '2+',
-                        7 => '0',
-                      },
           },
             -flow_into => {
                 '2->A' => [ 'merge_libraries' ],
@@ -550,7 +564,9 @@ sub pipeline_analyses {
               jvm_args => '-Xmx2g',
               command => 'merge',
               create_index => 1,
-              delete_param => ['bam', 'bai'],
+              reseqtrack_options => {
+                delete_param => ['bam', 'bai'],
+              },
           },
           -rc_name => '2Gb',
           -hive_capacity  =>  200,
@@ -567,7 +583,9 @@ sub pipeline_analyses {
                 gatk_dir => $self->o('gatk_dir'),
                 known_sites_vcf => $self->o('known_indels_vcf'),
                 gatk_module_options => {knowns_only => 0},
-                delete_param => ['bam', 'bai'],
+                reseqtrack_options => {
+                  delete_param => ['bam', 'bai'],
+                },
             },
             -rc_name => '5Gb',
             -hive_capacity  =>  100,
@@ -583,10 +601,12 @@ sub pipeline_analyses {
                 command => 'calmd',
                 reference => $self->o('reference'),
                 samtools_options => {input_sort_status => 'c'},
+                reseqtrack_options => {
                 delete_param => ['bam'],
-                flows_non_factory => {
-                    1 => '#expr($recalibrate_level==2)expr#',
-                    2 => '#expr($recalibrate_level!=2)expr#',
+                  flows_non_factory => {
+                      1 => '#expr($recalibrate_level==2)expr#',
+                      2 => '#expr($recalibrate_level!=2)expr#',
+                  }
                 }
             },
             -rc_name => '2Gb',
@@ -618,7 +638,9 @@ sub pipeline_analyses {
               gatk_dir => $self->o('gatk_dir'),
               jvm_args => '-Xmx2g',
               known_sites_vcf => $self->o('known_snps_vcf'),
-              delete_param => ['bam', 'bai'],
+              reseqtrack_options => {
+                delete_param => ['bam', 'bai'],
+              },
           },
           -rc_name => '2Gb',
           -hive_capacity  =>  200,
@@ -633,7 +655,9 @@ sub pipeline_analyses {
                 program_file => $self->o('squeeze_exe'),
                 'rm_OQ_fields' => 1,
                 'rm_tag_types' => ['XM:i', 'XG:i', 'XO:i'],
-                delete_param => ['bam'],
+                reseqtrack_options => {
+                  delete_param => ['bam'],
+                },
             },
             -rc_name => '200Mb',
             -hive_capacity  =>  200,
@@ -652,7 +676,9 @@ sub pipeline_analyses {
                 'SQ_assembly' => $self->o('ref_assembly'),
                 'SQ_species' => $self->o('ref_species'),
                 'SQ_uri' => $self->o('reference_uri'),
-                delete_param => ['bam', 'bai'],
+                reseqtrack_options => {
+                  delete_param => ['bam', 'bai'],
+                },
             },
             -rc_name => '200Mb',
             -hive_capacity  =>  200,

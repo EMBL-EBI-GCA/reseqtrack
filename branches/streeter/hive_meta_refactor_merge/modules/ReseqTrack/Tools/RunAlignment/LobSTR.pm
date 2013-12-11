@@ -72,9 +72,11 @@ sub run_alignment {
         }
       }
 
-      push(@cmd_words, '--index-prefix', $self->ref_index_prefix);
       push(@cmd_words, '--threads', $self->options('threads') || 1);
-      push(@cmd_words, '--fastq');
+
+      push(@cmd_words, '-q'); # for fastq files
+
+      push(@cmd_words, '--index-prefix', $self->ref_index_prefix);
 
       if (my $sample = $self->read_group_fields->{'SM'}) {
         push(@cmd_words, '--rg-sample', $sample);

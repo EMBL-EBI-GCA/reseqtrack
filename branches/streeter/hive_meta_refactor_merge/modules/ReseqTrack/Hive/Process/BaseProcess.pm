@@ -44,7 +44,6 @@ use ReseqTrack::Tools::Exception qw(throw);
 
 use base ('Bio::EnsEMBL::Hive::Process');
 use ReseqTrack::Tools::FileSystemUtils qw(delete_file);
-use Bio::EnsEMBL::Hive::Utils qw(destringify);
 
 
 =head2 output_param
@@ -162,49 +161,8 @@ sub job_name {
 }
 
 
-=head2 count_param_values
 
-  Arg [1]   : param_name
-  Function  : Counts how many values have been passed to the job for a particular parameter
-            E.g. if $self->param('A') is [10,20,30] then $self->count_param_values('A') is 3
-  Example   : my $num_bams = $self->count_param_values('bam');
-  Returntype: Integer
-
-=cut
-
-
-sub count_param_values {
-  my ($self, $param_name) = @_;
-  return 0 if ! $self->param_is_defined($param_name);
-  my $param_value = $self->param($param_name);
-  my $flattened_values = [];
-  __add_to_flat_array($flattened_values, $param_value);
-  return scalar @$flattened_values;
-}
-
-=head2 file_param
-
-  Arg [1]   : param_name
-  Function  : Getter for job parameters.  Does a dbID to filename conversion if the 
-            stored object is a file stored in the reseqtrack_file table (or a data structure
-            containing files in the reseqtrack_file table)
-  Example   : my $bam = $self->file_param('bam');
-  Returntype: Any Perl structure or object
-
-=cut
-
-sub file_param {
-  my ($self, $param_name) = @_;
-  if (!$self->param('use_reseqtrack_file_table')) {
-    return $self->param($param_name)
-  }
-  return undef if ! $self->param_is_defined($param_name);
-  my $data_structure = $self->param($param_name);
-  $data_structure = $self->_get_files($data_structure);
-  return $data_structure;
-}
-
-=head2 param_to_flat_array
+=head2 param_as_array
 
   Arg [1]   : param_name
   Function  : Getter for job parameters.  Converts complex data structures to arrays.
@@ -214,32 +172,13 @@ sub file_param {
 
 =cut
 
-sub param_to_flat_array {
+sub param_as_array {
   my ($self, $param_name) = @_;
-  return [] if ! $self->param_is_defined($param_name);
-  my $data_structure = $self->param($param_name);
-  my $flattened_values = [];
-  __add_to_flat_array($flattened_values, $data_structure);
-  return $flattened_values;
-}
-
-=head2 file_param_to_flat_array
-
-  Arg [1]   : param_name
-  Function  : Getter for job parameters.  Combines the functions of param_to_flat_array and file_param.
-  Returntype: Array ref
-  Example   : my $bam_list = $self->file_param_to_flat_array('bam');
-
-=cut
-
-
-sub file_param_to_flat_array {
-  my ($self, $param_name) = @_;
-  my $flattened_values = $self->param_to_flat_array($param_name);
-  if ($self->param('use_reseqtrack_file_table')) {
-    $flattened_values = $self->_get_files($flattened_values);
-  }
-  return $flattened_values;
+  my $val = $self->param($param_name);
+  $val = ref($val) eq 'ARRAY' ? $val
+      : defined $val ? [$val]
+      : [];
+  return $val;
 }
 
 =head2 run_program
@@ -285,38 +224,68 @@ sub run_program {
 sub fetch_input {
   my ($self) = @_;
 
-  $self->param_required('use_reseqtrack_file_table');
-
   $self->param('_BaseProcess_params', {});
 
-  if ($self->param_is_defined('delete_param') && $self->param_is_defined('root_output_dir')) {
+  my $reseqtrack_options = $self->param_is_defined('reseqtrack_options') ? $self->param('reseqtrack_options') : {};
+  $self->param('reseqtrack_options', undef);
+
+  if (my $denestify_params = $reseqtrack_options->{'denestify'}) {
+    $denestify_params = [$denestify_params] if !ref($denestify_params);
+    PARAM:
+    foreach my $param_name (@$denestify_params) {
+      next PARAM if ! $self->param_is_defined($param_name);
+      my $flat_array = [];
+      _add_to_flat_array($flat_array, $self->param($param_name));
+      $self->param($param_name, $flat_array);
+    }
+  }
+
+  if (my $decode_params = $reseqtrack_options->{'decode_file_id'}) {
+    $decode_params = [$decode_params] if !ref($decode_params);
+    PARAM:
+    foreach my $param_name (@$decode_params) {
+      next PARAM if ! $self->param_is_defined($param_name);
+      my $data_structure = $self->param($param_name);
+      $data_structure = $self->_get_files($data_structure);
+      $self->param($param_name, $data_structure);
+    }
+  }
+
+  if (my $delete_params = $reseqtrack_options->{'delete_param'}) {
+    $delete_params = [$delete_params] if !ref($delete_params);
     my $root_output_dir = $self->param('root_output_dir');
     my %delete_params;
     my @delete_files;
     PARAM:
-    foreach my $param_name (@{$self->param_to_flat_array('delete_param')}) {
+    foreach my $param_name (@$delete_params) {
+      next PARAM if ! $self->param_is_defined($param_name);
       $delete_params{$param_name} = 1;
-      push(@delete_files, @{$self->file_param_to_flat_array($param_name)});
+      my $files = $self->param($param_name);
+      $files = [$files] if ! ref($files);
+      throw("file names should be strings") if grep {ref($_)} @$files;
+      push(@delete_files, @$files);
     }
     $self->_files_to_delete([grep { /^$root_output_dir/ } @delete_files]);
     $self->_params_to_delete([keys %delete_params]);
   }
 
-  my $flows_factory = $self->param_is_defined('flows_factory') ? $self->param('flows_factory') : 2;
+  my $flows_factory = $reseqtrack_options->{'flows_factory'} // 2;
   $self->_flows_factory($flows_factory);
 
-  my $flows_non_factory = $self->param_is_defined('flows_non_factory') ? $self->param('flows_non_factory')
-                        : (grep {$_ == 1} @{$self->_flows_factory}) ? undef : 1;
+  my $flows_non_factory = $reseqtrack_options->{'flows_non_factory'} //
+                        ((grep {$_ == 1} @{$self->_flows_factory}) ? undef : 1);
   $self->_flows_non_factory($flows_non_factory);
 
-  my $flows_do_count = $self->param_is_defined('flows_do_count') ? $self->param('flows_do_count') : {};
+  my $flows_do_count = $reseqtrack_options->{'flows_do_count'} // {};
   $self->_flows_do_count($flows_do_count);
 
-  my $do_count_param = $self->param_is_defined('flows_do_count_param') ? $self->param('flows_do_count_param') : {};
+  my $do_count_param = $reseqtrack_options->{'flows_do_count_param'} // {};
   $self->_flows_do_count_param($do_count_param);
 
   throw("flows_do_count_param is not defined") if ! $do_count_param && scalar keys %$flows_do_count;
 
+  my $encode_params = $reseqtrack_options->{'encode_file_id'} // [];
+  $self->_params_to_encode($encode_params);
 
 }
 
@@ -347,16 +316,20 @@ sub write_output {
   $self->input_job->autoflow(0);
 
   my %base_output;
-  my $use_file_table = $self->param('use_reseqtrack_file_table');
 
   my $delete_params = $self->_params_to_delete;
   foreach my $param (@$delete_params) {
     $base_output{$param} = undef;
   }
 
+  my $encode_params = $self->_params_to_encode;
+
   while (my ($key, $val) = each %{$self->output_param}) {
-    if ($use_file_table) {
+    if (grep {$_ eq $key} @$encode_params) {
       $val = $self->_make_file_ids($val);
+    }
+    if (ref($val) eq 'ARRAY' && @$val <= 1) {
+      $val = @$val ? $val->[0] : undef;
     }
     $self->param($key, $val);
     $base_output{$key} = $val;
@@ -367,7 +340,12 @@ sub write_output {
   my $flows_do_count_hash = $self->_flows_do_count();
   my $flows_do_count_param = $self->_flows_do_count_param();
 
-  my $num_files_base = $flows_do_count_param ? $self->count_param_values($flows_do_count_param) : 0;
+  my $num_files_base = 0;
+  if ($flows_do_count_param && $self->param_is_defined($flows_do_count_param)) {
+    my $data_structure = $self->param($flows_do_count_param);
+    $num_files_base = ref($data_structure) eq 'ARRAY' ? scalar @$data_structure
+                    : defined $data_structure ? 1 : 0;
+  }
   my %flows_pass_count_base;
   FLOW:
   foreach my $flow (@$flows_non_factory, @$flows_factory) {
@@ -391,9 +369,9 @@ sub write_output {
       my @flows_for_output = @flows_no_count;
       if (@flows_for_count) {
         if (exists $extra_data_hash->{$flows_do_count_param}) {
-          my $flattened_values = [];
-          __add_to_flat_array($flattened_values, $extra_data_hash->{$flows_do_count_param});
-          my $num_files = scalar @$flattened_values;
+          my $data_structure = $extra_data_hash->{$flows_do_count_param};
+          my $num_files = ref($data_structure) eq 'ARRAY' ? scalar @$data_structure
+                          : defined $data_structure ? 1 : 0;
           FLOW:
           foreach my $flow (@flows_for_count) {
             my ($require_num, $modifier) = @{$flows_do_count_hash->{$flow}};
@@ -411,8 +389,11 @@ sub write_output {
 
       my $new_factory_hash = {%base_output};
       while (my ($param_name, $param_value) = each %$extra_data_hash) {
-        if ($use_file_table) {
+        if (grep {$_ eq $param_name} @$encode_params) {
           $param_value = $self->_make_file_ids($param_value);
+        }
+        if (ref($param_value) eq 'ARRAY' && @$param_value <= 1) {
+          $param_value = @$param_value ? $param_value->[0] : undef;
         }
         $new_factory_hash->{$param_name} = $param_value;
       }
@@ -506,12 +487,21 @@ sub _flows_do_count_param {
   return $base_params->{'flows_do_count_param'};
 }
 
+sub _params_to_encode {
+  my ($self, $params) = @_;
+  my $base_params = $self->param('_BaseProcess_params');
+  if (defined $params) {
+    $params = [$params] if !ref($params);
+    $base_params->{'params_to_encode'} = $params;
+  }
+  return $base_params->{'params_to_encode'} // [];
+}
+
 
 
 sub _get_files {
   my ($self, $data_structure) = @_;
   my $sql = "SELECT name FROM reseqtrack_file WHERE file_id=?";
-  #my $hive_dbc = $self->data_dbc();
   my $hive_dbc = $self->dbc();
   my $sth = $hive_dbc->prepare($sql) or die "could not prepare $sql: ".$hive_dbc->errstr;
   return $self->__structure_to_file_paths($data_structure, $sth);
@@ -519,7 +509,6 @@ sub _get_files {
 
 sub _make_file_ids {
   my ($self, $data_structure) = @_;
-  #my $hive_dbc = $self->data_dbc();
   my $hive_dbc = $self->dbc();
   my $sql_insert = "INSERT INTO reseqtrack_file (name) values (?)";
   my $sth_insert = $hive_dbc->prepare($sql_insert) or die "could not prepare $sql_insert: ".$hive_dbc->errstr;
@@ -620,11 +609,11 @@ sub _file_cache {
   return $base_params->{'file_cache'}->{$dbID};
 }
 
-sub __add_to_flat_array {
+sub _add_to_flat_array {
   my ($flat_array, $value) = @_;
   if (ref($value) eq 'ARRAY') {
     foreach my $sub_value (@$value) {
-      __add_to_flat_array($flat_array, $sub_value);
+      _add_to_flat_array($flat_array, $sub_value);
     }
   }
   elsif (defined $value) {

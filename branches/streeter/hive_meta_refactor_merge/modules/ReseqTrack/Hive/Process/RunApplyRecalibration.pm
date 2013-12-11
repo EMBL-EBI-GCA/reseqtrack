@@ -26,9 +26,9 @@ sub run {
     $self->param_required('tranches_file');
     my $reference = $self->param_required('reference');
 
-    my $vcf_arr = $self->file_param_to_flat_array('vcf');
-    my $tranches_arr = $self->file_param_to_flat_array('tranches_file');
-    my $recal_arr = $self->file_param_to_flat_array('recal_file');
+    my $vcf_arr = $self->param_as_array('vcf');
+    my $tranches_arr = $self->param_as_array('tranches_file');
+    my $recal_arr = $self->param_as_array('recal_file');
 
     throw("Expecting one vcf file") if scalar @$vcf_arr != 1;
     throw("Expecting one tranches file") if scalar @$tranches_arr != 1;

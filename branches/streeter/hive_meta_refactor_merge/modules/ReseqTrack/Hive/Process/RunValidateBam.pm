@@ -18,7 +18,7 @@ sub run {
     my ($self) = @_;
 
     $self->param_required('bam');
-    my $bams = $self->file_param_to_flat_array('bam');
+    my $bams = $self->param_as_array('bam');
 
     my $bam_validator = ReseqTrack::Tools::RunValidateBam->new(
       -input_files  => $bams,

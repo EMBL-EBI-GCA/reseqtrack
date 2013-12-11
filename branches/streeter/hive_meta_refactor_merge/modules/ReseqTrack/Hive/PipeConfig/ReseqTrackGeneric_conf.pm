@@ -36,8 +36,6 @@ sub default_options {
 
         root_output_dir => $self->o('ENV', 'PWD'), # Should be set to something more sensible
 
-        use_reseqtrack_file_table => 1, # boolean. File paths in job input ids will be converted to e.g. F1234F
-
     };
 }
 
@@ -81,7 +79,6 @@ sub pipeline_wide_parameters {
 
         'reseqtrack_db' => $self->o('reseqtrack_db'),
         'root_output_dir' => $self->o('root_output_dir'),
-        'use_reseqtrack_file_table' => $self->o('use_reseqtrack_file_table'),
 
         'dir_label_params' => [],
         'file_label' => undef,

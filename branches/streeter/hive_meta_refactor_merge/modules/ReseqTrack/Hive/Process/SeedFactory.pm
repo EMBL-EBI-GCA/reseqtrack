@@ -10,7 +10,6 @@ use ReseqTrack::Tools::GeneralUtils qw(delete_lock_string is_locked create_lock_
 
 sub run {
     my $self = shift @_;
-    $self->param('use_reseqtrack_file_table', 0);
 
     my $db = ReseqTrack::DBSQL::DBAdaptor->new(%{$self->param_required('reseqtrack_db')});
     my $seeding_module = $self->param_required('seeding_module');
