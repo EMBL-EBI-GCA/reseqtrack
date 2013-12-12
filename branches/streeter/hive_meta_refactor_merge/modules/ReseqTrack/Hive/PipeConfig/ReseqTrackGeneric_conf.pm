@@ -35,6 +35,7 @@ sub default_options {
         },
 
         root_output_dir => $self->o('ENV', 'PWD'), # Should be set to something more sensible
+        dir_label_params => [],
 
     };
 }
@@ -79,9 +80,7 @@ sub pipeline_wide_parameters {
 
         'reseqtrack_db' => $self->o('reseqtrack_db'),
         'root_output_dir' => $self->o('root_output_dir'),
-
-        'dir_label_params' => [],
-        'file_label' => undef,
+        'dir_label_params' => $self->o('dir_label_params'),
 
     };
 }

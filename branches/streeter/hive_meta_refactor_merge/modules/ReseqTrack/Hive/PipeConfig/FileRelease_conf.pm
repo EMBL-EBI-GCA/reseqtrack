@@ -9,14 +9,13 @@
   Messages from the pipeline get written to the attribute table of the ReseqTrack database.
   Rejected files get retried if they are updated in the ReseqTrack database or if their unix timestamp changes
 
-  Pipeline MUST be seeded by the file table of a ReseqTrack database. (foreign files only)
+  Pipeline must be seeded by the file table of a ReseqTrack database. (foreign files only)
   i.e. use the seeding module ReseqTrack::Hive::PipeSeed::ForeignFiles or something very similar to it
 
   Here is an example pipeline configuration to load using reseqtrack/scripts/pipeline/load_pipeline_from_conf.pl
 
 [file release]
 table_name=file
-seeding_module=ReseqTrack::Hive::PipeSeed::ForeignFiles
 config_module=ReseqTrack::Hive::PipeConfig::FileRelease_conf
 config_options=-file_move_module MyProjectModules::MoveFile
 
@@ -26,6 +25,9 @@ config_options=-file_move_module MyProjectModules::MoveFile
               This modules implements the derive_directory subrouine (i.e. a project-specific subroutine)
 
   Options that have defaults but you will often want to set them in your pipeline.cofig_options table/column:
+
+      -seeding_module, (default is ReseqTrack::Hive::PipeSeed::ForeignFiles) override this with a project-specific module
+      -seeding_options, hashref passed to the seeding module.  Default is {}.
 
       -checking_module, (default is ReseqTrack::Hive::Process::FileRelease::Checks)
       -hostname, (default is 1000genomes.ebi.ac.uk)
@@ -152,7 +154,7 @@ sub pipeline_analyses {
             -logic_name    => 'seed_complete',
             -module        => 'ReseqTrack::Hive::Process::UpdateSeed',
             -parameters    => {
-              delete_seeds  => '#expr($is_failed ? 0 : 1)expr#',
+              delete_seeds  => '#expr(#is_failed# ? 0 : 1)expr#',
             },
             -meadow_type => 'LOCAL',
       });

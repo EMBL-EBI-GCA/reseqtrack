@@ -4,28 +4,42 @@
 
 =head1 SYNOPSIS
 
-  Pipeline MUST be seeded by the collection table of a ReseqTrack database (collection of bam files)
+  Pipeline must be seeded by the collection table of a ReseqTrack database (collection of bam files)
   Multiple vcf files will be created for each collection, and stored in the ReseqTrack database
 
   Here is an example pipeline configuration to load using reseqtrack/scripts/pipeline/load_pipeline_from_conf.pl
 
 [variant call]
 table_name=collection
-seeding_module=ReseqTrack::Hive::PipeSeed::Default
 config_module=ReseqTrack::Hive::PipeConfig::VariantCall_conf
 config_options=-root_output_dir /path/to/dir
 config_options=-reference /path/to/human.fa
+config_options=-coverage_per_sample 12
+config_options=-callgroup_type CALLGROUP_BAM
   
   Options that MUST be specified in the pipeline.config_options table/column of your ReseqTrack database:
 
-      -reference, fasta file of your reference genome.  Should be indexed for bwa and should have a .fai and .dict
+      -callgroup_type, type of collection (of bams) in the reseqtrack database used for seeding the pipeline
+      -reference, fasta file of your reference genome.  Should have a .fai
+      -coverage_per_sample, average depth of coverage in each bam file. Passed to CallBySamtools.
 
   Options that have defaults but you will often want to set them in your pipeline.cofig_options table/column:
 
-      -root_output_dir, (default is your current directory)
-      -final_label, used to name your final output files (default is your pipeline name)
+      -seeding_module, (default is ReseqTrack::Hive::PipeSeed::BasePipeSeed) override this with a project-specific module
+      -seeding_options, hashref passed to the seeding module.  Override the defaults only if using a different seeding module.
+
+      -require_collection_columns, -exclude_collection_columns, -require_collection_attributes, -exclude_collection_attributes'
+            These are hashrefs, add to these to control which collections are used to seed the pipeline
+            e.g. -exclude_collection_columns name=GBR
+
+      -name_file_module, (default is ReseqTrack::Hive::NameFile::BaseNameFile) override this with a project-specific module. Controls how your output bam file is named.
+      -name_file_method, (default is 'basic'), controls which subroutine of your name_file_module is used to name your bam file.
+      -final_output_dir, (default is your root_output_dir) the root output directory for your final bam file
+      -name_file_params. a hash ref, passed to your name_file_module.  Change the default values to control how your final output file is named.
+
+      -root_output_dir, (default is your current directory) This is where working files go, i.e. not necessarily the final resting place of your output vcf
       -target_bed_file, for if you want to do exome calling (default undefined)
-      -transpose_window_size, (default 50000000) Controls the size of the region convered by a single transposed bam
+      -transpose_window_size, (default 10000000) Controls the size of the region convered by a single transposed bam
       -call_window_size, (default 50000) Controls the size of the region for each individual variant calling job
 
       Caller options
@@ -43,6 +57,7 @@ config_options=-reference /path/to/human.fa
       -vcfutils_exe, (default /nfs/1000g-work/G1K/work/bin/samtools/bcftools/vcfutils.pl)
       -bgzip_exe, (default /nfs/1000g-work/G1K/work/bin/tabix/bgzip)
       -gatk_dir, (default /nfs/1000g-work/G1K/work/bin/gatk/dist/)
+
   Options that are required, but will be passed in by reseqtrack/scripts/init_pipeline.pl:
 
       -pipeline_db -host=???
@@ -95,7 +110,7 @@ sub default_options {
         call_by_freebayes_options => {}, # use module defaults
 
         call_by_samtools_options => {
-          depth_of_coverage => '#expr($num_samples * $coverage_per_sample)expr#',
+          depth_of_coverage => '#expr(#num_samples# * #coverage_per_sample#)expr#',
           },
 
         'fai' => $self->o('reference') . '.fai',
@@ -224,9 +239,9 @@ sub pipeline_analyses {
                 bed => $self->o('target_bed_file'),
             },
             -flow_into => {
-                '2->A' => { 'transpose_bam' => {'region1' => '#expr(join(".",$callgroup,$SQ_start,$bp_start,$SQ_end,$bp_end))expr#',
+                '2->A' => { 'transpose_bam' => {'region1' => '#callgroup#.#SQ_start#.#bp_start#.#SQ_end#.#bp_end#',
                                                 'SQ_start' => '#SQ_start#', 'bp_start' => '#bp_start#', 'SQ_end' => '#SQ_end#', 'bp_end' => '#bp_end#', 'fan_index' => '#fan_index#',
-                                                'num_samples' => '#expr(scalar @{$bam})expr#',
+                                                'num_samples' => '#expr(scalar @{ #bam# })expr#',
                                                 }},
                 'A->1' => [ 'decide_mergers'],
             },
@@ -268,13 +283,13 @@ sub pipeline_analyses {
             -analysis_capacity  =>  4,
             -hive_capacity  =>  200,
             -flow_into => {
-                '1' => { 'call_by_samtools' => {'region2' => '#expr(join(".",$callgroup,$SQ_start,$bp_start,$SQ_end,$bp_end))expr#',
+                '1' => { 'call_by_samtools' => {'region2' => '#$callgroup#.#SQ_start#.#bp_start#.#SQ_end#.#bp_end#',
                                                 'SQ_start' => '#SQ_start#', 'bp_start' => '#bp_start#', 'SQ_end' => '#SQ_end#', 'bp_end' => '#bp_end#', 'fan_index' => '#fan_index#',
                                                 }},
-                '2' => { 'call_by_gatk' => {'region2' => '#expr(join(".",$callgroup,$SQ_start,$bp_start,$SQ_end,$bp_end))expr#',
+                '2' => { 'call_by_gatk' => {'region2' => '#$callgroup#.#SQ_start#.#bp_start#.#SQ_end#.#bp_end#',
                                                 'SQ_start' => '#SQ_start#', 'bp_start' => '#bp_start#', 'SQ_end' => '#SQ_end#', 'bp_end' => '#bp_end#', 'fan_index' => '#fan_index#',
                                                 }},
-                '3' => { 'call_by_freebayes' => {'region2' => '#expr(join(".",$callgroup,$SQ_start,$bp_start,$SQ_end,$bp_end))expr#',
+                '3' => { 'call_by_freebayes' => {'region2' => '#$callgroup#.#SQ_start#.#bp_start#.#SQ_end#.#bp_end#',
                                                 'SQ_start' => '#SQ_start#', 'bp_start' => '#bp_start#', 'SQ_end' => '#SQ_end#', 'bp_end' => '#bp_end#', 'fan_index' => '#fan_index#',
                                                 }},
                 '4' => [ ':////accu?bp_start=[fan_index]', ':////accu?bp_end=[fan_index]'],

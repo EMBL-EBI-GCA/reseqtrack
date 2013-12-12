@@ -1,3 +1,81 @@
+=head1 NAME
+
+ ReseqTrack::Hive::PipeConfig::GetFastq_conf
+
+=head1 SYNOPSIS
+
+  Pipeline must be seeded by the run table of a ReseqTrack database
+  i.e. use the seeding module ReseqTrack::Hive::PipeSeed::Run or something very similar to it
+
+  Here is an example pipeline configuration to load using reseqtrack/scripts/pipeline/load_pipeline_from_conf.pl
+
+[Get Fastq]
+table_name=run
+config_module=ReseqTrack::Hive::PipeConfig::VariantCall_conf
+config_options=-root_output_dir /path/to/dir
+config_options=-reference /path/to/human.fa
+  
+
+  Options that have defaults but you will often want to set them in your pipeline.cofig_options table/column:
+
+      -seeding_module, (default is ReseqTrack::Hive::PipeSeed::Run) override this with a project-specific module
+      -seeding_options, hashref passed to the seeding module.  Override the defaults only if using a different seeding module.
+
+      -fastq_name_file_module, controls how you fastq files are named (default is ReseqTrack::Hive::NameFile::BaseNameFile) override this with a project-specific module.
+      -fastq_name_file_method, (default is 'basic'), controls which subroutine of your fastq_name_file_module is used to name your fastq files.
+      -fastq_name_file_params. a hash ref, passed to your fastq_name_file_module.  Change the default values to control how your final output file is named.
+      -fastq_output_dir (default is your root_output_dir) Root directory for the final resting place of your fastq files
+      -fastq_output_layout (default '#sample_alias#/sequence_read' ) used by the default fastq_name_file_module, sub directory of your final fastq files
+
+      -fastqc_name_file_module, controls how you fastqc files are named (default is ReseqTrack::Hive::NameFile::BaseNameFile) override this with a project-specific module.
+      -fastqc_name_file_method, (default is 'basic'), controls which subroutine of your fastqc_name_file_module is used to name your fastqc files.
+      -fastqc_name_file_params. a hash ref, passed to your fastqc_name_file_module.  Change the default values to control how your final output file is named.
+      -fastqc_output_dir (default is same as your fastq_output_dir) Root directory for the final resting place of your fastq files
+      -fastqc_output_layout (default '#fastq_output_layout#/fastqc' ) used by the default fastqc_name_file_module, sub directory of your final fastqc files
+
+      -fastq_type, default is to use the file_type_rule table
+      -fastqc_summary_type, default is to use the file_type_rule table
+      -fastqc_report_type, default is to use the file_type_rule table
+      -fastqc_zip_type, default is to use the file_type_rule table
+
+      -sample_columns, default is ['sample_source_id', 'sample_alias'].
+      -run_columns, default is ['run_source_id', 'run_source_id'],
+      -study_columns, default is ['study_source_id']
+      -experiment_columns, -sample attributes, -run_attributes, -experiment_attributes, study_attributes, default is [] for each one.
+            These parameters define what meta information parameters are added to the flow of information around the hive pipeline
+            Add to these arrays if your pipeline uses any extra meta information, e.g. when naming the final output files.
+            e.g. for 1000genomes project you might want -sample_attributes POPULATION
+
+      -require_run_columns, default is { status => ['public'], }
+      -exlude_run_columns, -require_run_attributes, -exclude_run_attributes, default is {} for each one of these
+            Use these hashrefs to control what runs are used to seed the pipeline
+            e.g. -require_run_columns instrument_platform=ILLUMINA
+            e.g. -exclude_run_attributes BASE_COUNT=0
+
+      -get_fastq_module, (default is ReseqTrack::Tools::GetFastq) override this with a GetFastq plugin
+      -fastq_source_root_dir, (default is to use the get_fastq_module default e.g. /nfs/era-pub)
+
+      -final_output_dir, (default is your root_output_dir) the root output directory for your final bam file
+
+      -clobber, default 0, whether to overwrite existing files
+
+      -root_output_dir, (default is your current directory) This is where working files go, i.e. not necessarily the final resting place of your output fastq
+
+      -fastqc_exe, (default /nfs/1000g-work/G1K/work/bin/FastQC/fastqc)
+
+  Options that are required, but will be passed in by reseqtrack/scripts/init_pipeline.pl:
+
+      -pipeline_db -host=???
+      -pipeline_db -port=???
+      -pipeline_db -user=???
+      -dipeline_db -dbname=???
+      -reseqtrack_db -host=???
+      -reseqtrack_db -user=???
+      -reseqtrack_db -port=???
+      -reseqtrack_db -pass=???
+
+=cut
+
 
 package ReseqTrack::Hive::PipeConfig::GetFastq_conf;
 
@@ -6,13 +84,6 @@ use warnings;
 
 use base ('ReseqTrack::Hive::PipeConfig::ReseqTrackGeneric_conf');
 
-
-=head2 default_options
-
-    Description : Implements default_options() interface method of Bio::EnsEMBL::Hive::PipeConfig::HiveGeneric_conf that is used to initialize default options.
-                  In addition to the standard things it defines two options, 'first_mult' and 'second_mult' that are supposed to contain the long numbers to be multiplied.
-
-=cut
 
 sub default_options {
     my ($self) = @_;
@@ -54,7 +125,7 @@ sub default_options {
         'study_columns' => ['study_source_id'],
         'experiment_attribute_keys' => [],
         'experiment_columns' => [],
-        require_run_attributes => {},
+        require_run_columns => { status => ['public'], },
         exclude_run_attributes => {},
 
         'fastq_output_dir' => $self->o('root_output_dir'),

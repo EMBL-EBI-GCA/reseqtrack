@@ -1,48 +1,55 @@
 =head1 NAME
 
- ReseqTrack::Hive::PipeConfig::VariantCall_conf
+ ReseqTrack::Hive::PipeConfig::LobSTRAllelotype_conf
 
 =head1 SYNOPSIS
 
-  Pipeline MUST be seeded by the collection table of a ReseqTrack database (collection of bam files)
-  Multiple vcf files will be created for each collection, and stored in the ReseqTrack database
+  Pipeline must be seeded by the collection table of a ReseqTrack database (collection of lobstr bam files)
+  A vcf file will be created for each collection, and stored in the ReseqTrack database
 
   Here is an example pipeline configuration to load using reseqtrack/scripts/pipeline/load_pipeline_from_conf.pl
 
-[variant call]
+[lobstr_allelotype]
 table_name=collection
-seeding_module=ReseqTrack::Hive::PipeSeed::Default
-config_module=ReseqTrack::Hive::PipeConfig::VariantCall_conf
+config_module=ReseqTrack::Hive::PipeConfig::LobSTRAllelotype_conf
 config_options=-root_output_dir /path/to/dir
 config_options=-reference /path/to/human.fa
+config_options=-callgroup_type LOBSTR_BAMS
+config_options=-lobstr_ref_index_prefix /path/to/resources/lobstr_
+config_options=-lobstr_str_info /path/to/resources/lobstr_v2.0.3_hg19_strinfo.tab
+config_options=-lobstr_noise_model /path/to/models/illumina_v2.0.3
   
   Options that MUST be specified in the pipeline.config_options table/column of your ReseqTrack database:
 
-      -reference, fasta file of your reference genome.  Should be indexed for bwa and should have a .fai and .dict
+      -callgroup_type, type of collection (of bams) in the reseqtrack database used for seeding the pipeline
+      -reference, fasta file of your reference genome.  Should have a .fai
+      -lobstr_ref_index_prefix, e.g. /path/to/resources/lobstr_
+      -lobstr_str_info, e.g. /path/to/resources/lobstr_v2.0.3_hg19_strinfo.tab
+      -lobstr_noise_model, e.g. /path/to//models/illumina_v2.0.3
 
   Options that have defaults but you will often want to set them in your pipeline.cofig_options table/column:
 
-      -root_output_dir, (default is your current directory)
-      -final_label, used to name your final output files (default is your pipeline name)
-      -target_bed_file, for if you want to do exome calling (default undefined)
-      -transpose_window_size, (default 50000000) Controls the size of the region convered by a single transposed bam
-      -call_window_size, (default 50000) Controls the size of the region for each individual variant calling job
+      -seeding_module, (default is ReseqTrack::Hive::PipeSeed::BasePipeSeed) override this with a project-specific module
+      -seeding_options, hashref passed to the seeding module.  Override the defaults only if using a different seeding module.
 
-      Caller options
-      -call_by_samtools, boolean, default 1, turn on/off calling by samtools mpileup
-      -call_by_gatk, boolean, default 1, turn on/off calling by gatk UnifiedGenotyper
-      -call_by_freebayes, boolean, default 1, turn on/off calling by freebayes
-      -call_by_gatk_options, key/val pairs, passed on to the CallByGATK module
-      -call_by_samtools_options, key/val pairs, passed on to the CallBySamtools module
-      -call_by_freebayes_options, key/val pairs, passed on to the CallByFreebayes module
+      -require_collection_columns, -exclude_collection_columns, -require_collection_attributes, -exclude_collection_attributes'
+            These are hashrefs, add to these to control which collections are used to seed the pipeline
+            e.g. -exclude_collection_columns name=GBR
+
+      -name_file_module, (default is ReseqTrack::Hive::NameFile::BaseNameFile) override this with a project-specific module. Controls how your output bam file is named.
+      -name_file_method, (default is 'basic'), controls which subroutine of your name_file_module is used to name your bam file.
+      -final_output_dir, (default is your root_output_dir) the root output directory for your final bam file
+      -name_file_params. a hash ref, passed to your name_file_module.  Change the default values to control how your final output file is named.
+
+      -root_output_dir, (default is your current directory) This is where working files go, i.e. not necessarily the final resting place of your output vcf
+      -target_bed_file, for if you want to do exome calling (default undefined)
+
+      -call_by_lobstr_options, key/val pairs, passed on to the CallByLobstr module
 
       Paths of executables:
-      -transpose_exe, (default is to work it out from your environment variable $RESEQTRACK)
-      -samtools_exe, (default /nfs/1000g-work/G1K/work/bin/samtools/samtools)
-      -bcftools_exe, (default /nfs/1000g-work/G1K/work/bin/samtools/bcftools/bcftools)
-      -vcfutils_exe, (default /nfs/1000g-work/G1K/work/bin/samtools/bcftools/vcfutils.pl)
+      -lobstr_exe, (default /nfs/1000g-work/G1K/work/bin/lobstr/bin/allelotype)
       -bgzip_exe, (default /nfs/1000g-work/G1K/work/bin/tabix/bgzip)
-      -gatk_dir, (default /nfs/1000g-work/G1K/work/bin/gatk/dist/)
+
   Options that are required, but will be passed in by reseqtrack/scripts/init_pipeline.pl:
 
       -pipeline_db -host=???
@@ -55,7 +62,6 @@ config_options=-reference /path/to/human.fa
       -reseqtrack_db -pass=???
 
 =cut
-
 
 
 package ReseqTrack::Hive::PipeConfig::LobSTRAllelotype_conf;

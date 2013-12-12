@@ -4,14 +4,13 @@
 
 =head1 SYNOPSIS
 
-  Pipeline MUST be seeded by the collection table of a ReseqTrack database (collection of bam files)
+  Pipeline must be seeded by the collection table of a ReseqTrack database (collection of bam files)
   Vcf files will be created for each collection (possibly for SNPs and for indels), and stored in the ReseqTrack database
 
   Here is an example pipeline configuration to load using reseqtrack/scripts/pipeline/load_pipeline_from_conf.pl
 
 [vqsr]
 table_name=collection
-seeding_module=ReseqTrack::Hive::PipeSeed::Default
 config_module=ReseqTrack::Hive::PipeConfig::VQSR_conf
 config_options=-root_output_dir /path/to/dir
 config_options=-reference /path/to/human.fa
@@ -19,10 +18,13 @@ config_options=-snp_alleles /nfs/1000g-work/G1K/work/REFERENCE/snps/grc37_snps/O
 config_options=-indel_alleles /nfs/1000g-archive/vol1/ftp/technical/reference/phase2_mapping_resources/ALL.wgs.indels_mills_devine_hg19_leftAligned_collapsed_double_hit.indels.sites.vcf.gz
 config_options=-snp_resources omni='known=true,training=true,truth=true,prior=12.0 /nfs/1000g-work/G1K/work/REFERENCE/snps/grc37_snps/OMNI25_1856/Omni25_genotypes_1856_PASS.vcf.gz'
 config_options=-indel_resources mills='known=true,training=true,truth=true,prior=12.0 /nfs/1000g-archive/vol1/ftp/technical/reference/phase2_mapping_resources/ALL.wgs.indels_mills_devine_hg19_leftAligned_collapsed_double_hit.indels.sites.vcf.gz'
+config_options=-callgroup_type CALLGROUP_BAM
   
   Options that MUST be specified in the pipeline.config_options table/column of your ReseqTrack database:
 
-      -reference, fasta file of your reference genome.  Should be indexed for bwa and should have a .fai and .dict
+      -callgroup_type, type of collection (of bams) in the reseqtrack database used for seeding the pipeline
+
+      -reference, fasta file of your reference genome.  Should have a .fai
 
       -snp_alleles, path to a vcf file containing sites for recalibration (should be tabixed)
       -indel_alleles, path to a vcf file containing sites for recalibration (should be tabixed)
@@ -33,8 +35,19 @@ config_options=-indel_resources mills='known=true,training=true,truth=true,prior
 
   Options that have defaults but you will often want to set them in your pipeline.cofig_options table/column:
 
-      -root_output_dir, (default is your current directory)
-      -final_label, used to name your final output files (default is your pipeline name)
+      -seeding_module, (default is ReseqTrack::Hive::PipeSeed::BasePipeSeed) override this with a project-specific module
+      -seeding_options, hashref passed to the seeding module.  Override the defaults only if using a different seeding module.
+
+      -require_collection_columns, -exclude_collection_columns, -require_collection_attributes, -exclude_collection_attributes'
+            These are hashrefs, add to these to control which collections are used to seed the pipeline
+            e.g. -exclude_collection_columns name=GBR
+
+      -name_file_module, (default is ReseqTrack::Hive::NameFile::BaseNameFile) override this with a project-specific module. Controls how your output bam file is named.
+      -name_file_method, (default is 'basic'), controls which subroutine of your name_file_module is used to name your bam file.
+      -final_output_dir, (default is your root_output_dir) the root output directory for your final bam file
+      -name_file_params. a hash ref, passed to your name_file_module.  Change the default values to control how your final output file is named.
+
+      -root_output_dir, (default is your current directory) This is where working files go, i.e. not necessarily the final resting place of your output vcf
       -target_bed_file, for if you want to do exome calling (default undefined)
       -transpose_window_size, (default 50000000) Controls the size of the region convered by a single transposed bam
       -call_window_size, (default 50000) Controls the size of the region for each individual variant calling job
