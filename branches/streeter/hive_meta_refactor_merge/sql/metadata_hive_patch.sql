@@ -1,6 +1,6 @@
 CREATE TABLE attribute(
    attribute_id int(10) unsigned NOT  NULL AUTO_INCREMENT,
-   table_name  enum('file', 'event', 'run_meta_info', 'alignment_meta_info', 'collection','run','sample','experiment','study', 'pipeline_seed'),
+   table_name enum('file','event','run_meta_info','alignment_meta_info','collection','run','sample','experiment','study','pipeline_seed') not null,
    other_id int(10) unsigned NOT  NULL,      
    attribute_name VARCHAR(100) NOT NULL,
    attribute_value VARCHAR(4000) NOT NULL,
@@ -129,5 +129,5 @@ left outer join attribute rc on rc.table_name = 'run' and rc.attribute_name = 'R
 left outer join attribute bc on bc.table_name = 'run' and bc.attribute_name = 'BASE_COUNT' and bc.other_id = r.run_id
 ;
 
-alter table history modify table_name enum('file','collection','event','run_meta_info','alignment_meta_info','study','sample','experiment','run') not null;
+alter table history modify table_name enum('file','collection','event','run_meta_info','alignment_meta_info','study','sample','experiment','run','pipeline') NOT NULL;
 alter table history modify comment varchar(65000) not null;
