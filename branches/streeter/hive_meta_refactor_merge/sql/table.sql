@@ -110,36 +110,6 @@ CREATE TABLE collection_group(
 ) ENGINE=MYISAM;
 
 
-CREATE TABLE  run_meta_info(
-       run_meta_info_id int(10) unsigned NOT NULL AUTO_INCREMENT,
-       run_id VARCHAR(15) NOT NULL,
-       study_id VARCHAR(20) NOT NULL,
-       study_name VARCHAR(500),
-       center_name VARCHAR(15),
-       submission_id VARCHAR(20) NOT NULL,
-       submission_date datetime,
-       sample_id VARCHAR(20) NOT NULL,
-       sample_name VARCHAR(20) NOT NULL,
-       population VARCHAR(50),
-       experiment_id VARCHAR(20) NOT NULL,
-       instrument_platform VARCHAR(50) NOT NULL,
-       instrument_model VARCHAR(100),
-       library_name VARCHAR(255) NOT NULL,
-       run_name VARCHAR(255),
-       run_block_name VARCHAR(255),
-       paired_length int(10),
-       library_layout VARCHAR(10),
-       status VARCHAR(50),     
-       archive_base_count bigint,
-       archive_read_count bigint,
-	   library_strategy varchar(32),
-       PRIMARY KEY(run_meta_info_id),
-       KEY (run_id),
-       KEY sample_run_idx(run_id, sample_name),
-       UNIQUE(run_id)           
-) ENGINE=MYISAM;
-
-
 create table alignment_meta_info(
       alignment_meta_info_id int(10) unsigned NOT NULL AUTO_INCREMENT,
       file_id int(10) unsigned NOT NULL,
