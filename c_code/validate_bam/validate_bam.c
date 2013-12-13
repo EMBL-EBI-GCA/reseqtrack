@@ -412,7 +412,7 @@ void md5_to_str(unsigned char* md5, char* md5_string) {
 /* Reads a file and creates md5
 Writes md5 as a string to md5_string */
 void calc_md5(char* filename, char* md5_string) {
-  unsigned char md5[MD5_DIGEST_LENGTH], file_buffer[1024];
+  unsigned char md5[MD5_DIGEST_LENGTH], file_buffer[8192];
   MD5_CTX md_context;
   int bytes;
 
@@ -423,7 +423,7 @@ void calc_md5(char* filename, char* md5_string) {
   }
 
   MD5_Init(&md_context);
-  while ((bytes = fread (file_buffer, 1, 1024, inFile)) != 0)
+  while ((bytes = fread (file_buffer, 1, 8192, inFile)) != 0)
     MD5_Update (&md_context, file_buffer, bytes);
   MD5_Final (md5, &md_context);
   if (fclose(inFile) != 0) {
