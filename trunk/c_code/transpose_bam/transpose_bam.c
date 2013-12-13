@@ -78,7 +78,7 @@ KSORT_INIT(heap, heap1_t, pos_cmp);
 
 int merge_regions(int num_infiles, samfile_t **in_bams, bam_index_t **in_indexes, bamFile out_bam, int num_regions, char **regions) {
   int *tid, *beg, *end;
-  int i,j;
+  int i,j,num_regions_collapsed;
   bam_iter_t *bam_iters = (bam_iter_t*) malloc(sizeof(bam_iter_t) * num_infiles);
   heap1_t *heap = (heap1_t*) malloc(sizeof(heap1_t) * num_infiles);
 
@@ -106,6 +106,25 @@ int merge_regions(int num_infiles, samfile_t **in_bams, bam_index_t **in_indexes
     beg[insert_i] = insert_beg;
     end[insert_i] = insert_end;
   }
+  while (1) {
+    int old_num_regions = num_regions;
+    for(i=num_regions-1; i>0; i--) {
+      if (tid[i-1] == tid[i] && end[i-1] >= beg[i]-1) {
+        int i_shift;
+        if (end[i] > end[i-1])
+          end[i-1] = end[i];
+        for (i_shift = i+1; i_shift < num_regions; i_shift++) {
+          tid[i_shift-1] = tid[i_shift];
+          beg[i_shift-1] = beg[i_shift];
+          end[i_shift-1] = end[i_shift];
+        }
+        num_regions --;
+      }
+    }
+    if (old_num_regions == num_regions)
+      break;
+  }
+
 
   for (j=0; j<num_infiles; j++) {
     heap1_t *h = heap + j;
@@ -117,15 +136,20 @@ int merge_regions(int num_infiles, samfile_t **in_bams, bam_index_t **in_indexes
       heap1_t *h = heap + j;
       bam_iters[j] = bam_iter_query(in_indexes[j], tid[i], beg[i], end[i]);
       h->j = j;
-      if (bam_iter_read(in_bams[j]->x.bam, bam_iters[j], h->b) <= 0)
-        h->j = -1;
+      while (1) {
+        if (bam_iter_read(in_bams[j]->x.bam, bam_iters[j], h->b) <= 0) {
+          h->j = -1;
+          break;
+        }
+        if (h->b->core.tid == tid[i] && h->b->core.pos >= beg[i])
+          break;
+      }
     }
     ks_heapmake(heap, num_infiles, heap);
     while (heap->j >= 0) {
       bam_write1(out_bam, heap->b);
-      if (bam_iter_read(in_bams[heap->j]->x.bam, bam_iters[heap->j], heap->b) <= 0) {
+      if (bam_iter_read(in_bams[heap->j]->x.bam, bam_iters[heap->j], heap->b) <= 0)
         heap->j = -1;
-      }
       ks_heapadjust(heap, 0, num_infiles, heap);
     }
 

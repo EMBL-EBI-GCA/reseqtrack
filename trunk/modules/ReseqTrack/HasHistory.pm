@@ -7,7 +7,7 @@ ReseqTrack::HasHistory
 
 =head1 SYNOPSIS
 
-Base Class for objects which can have history or statistic objects attached to them
+Base Class for objects which can have history or attribute objects attached to them
 
 =head1 Example
 
@@ -39,7 +39,7 @@ use ReseqTrack::Base;
 
   Arg [1]   : ReseqTrack::HasHistory
   Arg [2]   : arrayref of ReseqTrack::History objects
-  Arg [3]   : arrayref of ReseqTrack::Statistic objects
+  Arg [3]   : arrayref of ReseqTrack::Attribute objects
   Function  : create ReseqTrack::HasHistory object
   Returntype: ReseqTrack::HasHistory
   Exceptions: 
@@ -50,10 +50,10 @@ use ReseqTrack::Base;
 sub new {
     my ( $class, @args ) = @_;
     my $self = $class->SUPER::new(@args);
-    my ( $history, $statistics ) =
-      rearrange( [ 'HISTORY', 'STATISTICS' ], @args );
-    $self->history($history);
-    $self->statistics($statistics);
+    my ( $history, $attributes ) =
+      rearrange( [ 'HISTORY', 'ATTRIBUTES' ], @args );
+    $self->history($history) if $history;
+    $self->attributes($attributes) if $attributes;
     return $self;
 }
 
@@ -200,124 +200,124 @@ sub empty_history {
 }
 
 
-=head2 statistics
+=head2 attributes
 
   Arg [1]   : ReseqTrack::HasHistory
-  Arg [2]   : arrayref of ReseqTrack::Statistics objects
-  Function  : store arrayref of statistic objects, if no statistics objects are
-  defined but a dbID and an adaptor it will try and fetch the attached statistic objects
-  Returntype: arrayref of ReseqTrack::Statistic objects
+  Arg [2]   : arrayref of ReseqTrack::Attributes objects
+  Function  : store arrayref of attribute objects, if no attributes objects are
+  defined but a dbID and an adaptor it will try and fetch the attached attribute objects
+  Returntype: arrayref of ReseqTrack::Attribute objects
   Exceptions: 
   Example   : 
 
 =cut
 
-sub statistics {
+sub attributes {
     my ( $self, $arg ) = @_;
     if ($arg) {
-        $self->populate_statistics(1)
+        $self->populate_attributes(1)
           ;    # $now has two stats objects, read and base
         if ( ref($arg) eq 'ARRAY' ) {
             if ( @$arg >= 1 ) {
                 throw(
-"Must pass ReseqTrack::HasHistory::statistics an arrayref of statistics objects"
-                ) unless ( $arg->[0]->isa("ReseqTrack::Statistic") );
-                push( @{ $self->{statistics} }, @$arg );
+"Must pass ReseqTrack::HasHistory::attributes an arrayref of attributes objects"
+                ) unless ( $arg->[0]->isa("ReseqTrack::Attribute") );
+                push( @{ $self->{attributes} }, @$arg );
             }
         }
-        elsif ( $arg->isa("ReseqTrack::Statistic") ) {
-            push( @{ $self->{statistics} }, $arg );
+        elsif ( $arg->isa("ReseqTrack::Attribute") ) {
+            push( @{ $self->{attributes} }, $arg );
         }
         else {
             throw(
-"Must give ReqseqTrack::HasHistory::statistics either a ReseqTrack::Statistic "
-                  . "object or an arrayref of Statistic objects not "
+"Must give ReqseqTrack::HasHistory::attributes either a ReseqTrack::Attribute "
+                  . "object or an arrayref of attribute objects not "
                   . $arg );
         }
-        $self->{statistics} = $self->uniquify_statistics( $self->{statistics} );
+        $self->{attributes} = $self->uniquify_attributes( $self->{attributes} );
     }
-    elsif ( !$self->{statistics} || @{ $self->{statistics} } == 0 ) {
-        $self->populate_statistics;
+    elsif ( !$self->{attributes} || @{ $self->{attributes} } == 0 ) {
+        $self->populate_attributes;
     }
-    return $self->{statistics};
+    return $self->{attributes};
 }
 
-=head2 populate_statistics
+=head2 populate_attributes
 
   Arg [1]   : ReseqTrack::HasHistory 
-  Arg [2]   : 0/1 binary, if set to one the uniqufy statistics method isn't called
-  Function  : populate the statistics array based on the dbID and the table name
+  Arg [2]   : 0/1 binary, if set to one the uniqufy attributes method isn't called
+  Function  : populate the attributes array based on the dbID and the table name
   Returntype: n/a
   Exceptions: 
   Example   : 
 
 =cut
 
-sub populate_statistics {
+sub populate_attributes {
     my ( $self, $dont_unique ) = @_;
-    my @statistics;
+    my @attributes;
     if ( $self->adaptor && $self->dbID ) {
-        my $hist_a = $self->adaptor->db->get_StatisticsAdaptor;
+        my $hist_a = $self->adaptor->db->get_AttributeAdaptor;
         my $objects =
           $hist_a->fetch_by_other_id_and_table_name( $self->dbID,
             $self->object_table_name );
-        push( @statistics, @$objects ) if ( $objects && @$objects >= 1 );
+        push( @attributes, @$objects ) if ( $objects && @$objects >= 1 );
     }
-    push( @statistics, @{ $self->{statistics} } ) if ( $self->{statistics} );
+    push( @attributes, @{ $self->{attributes} } ) if ( $self->{attributes} );
     unless ($dont_unique) {
-        $self->{statistics} = $self->uniquify_statistics( \@statistics );
+        $self->{attributes} = $self->uniquify_attributes( \@attributes );
     }
     else {
-        $self->{statistics} = \@statistics;
+        $self->{attributes} = \@attributes;
     }
 }
 
-=head2 refresh_statistics
+=head2 refresh_attributes
 
   Arg [1]   : ReseqTrack::HasHistory
-  Function  : fetch a fresh set of statistic objects from the database and remove any already 
-  attached statistics
-  Returntype: arrayref of ReseqTrack::Statistic objects
+  Function  : fetch a fresh set of attribute objects from the database and remove any already 
+  attached attributes
+  Returntype: arrayref of ReseqTrack::Attribute objects
   Exceptions: 
   Example   : 
 
 =cut
 
-sub refresh_statistics {
+sub refresh_attributes {
     my ($self) = @_;
     if ( $self->adaptor && $self->dbID ) {
-        my $hist_a = $self->adaptor->get_StatisticsAdaptor;
+        my $hist_a = $self->adaptor->get_AttributeAdaptor;
         my $objects =
           $hist_a->fetch_by_object_id_and_table_name( $self->dbID,
             $self->object_table_name );
-        if ( @{ $self->{statistics} } ) {
+        if ( @{ $self->{attributes} } ) {
             warning( $self
-                  . "->{statistics} contains objects you will lose them now" );
+                  . "->{attributes} contains objects you will lose them now" );
         }
-        $self->{statistics} = $objects;
+        $self->{attributes} = $objects;
     }
-    return $self->{statistics};
+    return $self->{attributes};
 }
 
-=head2 uniquify_statistics
+=head2 uniquify_attributes
 
   Arg [1]   : ReseqTrack::HasHistory
-  Arg [2]   : arrayref of ReseqTrack::Statistic objects
-  Function  : produce a unique set of statistics objects based on timestamp and comment
-  Returntype: arrayref of ReseqTrack::Statistic objects
+  Arg [2]   : arrayref of ReseqTrack::Attribute objects
+  Function  : produce a unique set of attributes objects based on timestamp and comment
+  Returntype: arrayref of ReseqTrack::Attribute objects
   Exceptions: 
   Example   : 
 
 =cut
 
-sub uniquify_statistics {
-    my ( $self, $statistics ) = @_;
+sub uniquify_attributes {
+    my ( $self, $attributes ) = @_;
     my %hash;
     my %id;   #key is obj att name, value is its dbID
               # This function takes an array of stats objects for the same file,
      # merge stats with the same attribute name and update the  attribute value.
      # some stats objects have not been loaded in db so they do not have dbID, in these cases, dbID would be inherited from existing tats object
-  HISTORY: foreach my $stats (@$statistics) {
+  HISTORY: foreach my $stats (@$attributes) {
         if ( $hash{ $stats->attribute_name } ) {
             if ( $stats->dbID ) {
                 $id{ $stats->attribute_name } = $stats->dbID;
@@ -340,28 +340,38 @@ sub uniquify_statistics {
     return \@values;
 }
 
-=head2 replace_statistic
+=head2 replace_attributes
 
   Arg [1]   : ReseqTrack::HasHistory
-  Arg [2]   : ReseqTrack::Statistic
-  Function  : replace one statistic object of the same attribute name with another
-  Returntype: arrayref of statistic objects
+  Arg [2]   : ReseqTrack::Attribute
+  Function  : replace one attribute object of the same attribute name with another
+  Returntype: arrayref of attribute objects
   Exceptions: 
   Example   : 
 
 =cut
 
-sub replace_statistic {
-    my ( $self, $statistic ) = @_;
+sub replace_attributes {
+    my ( $self, $attribute ) = @_;
     my %hash;
-    foreach my $statistics ( @{ $self->statistics } ) {
-        $hash{ $statistics->attribute_name } = $statistics
+    foreach my $attributes ( @{ $self->attributes } ) {
+        $hash{ $attributes->attribute_name } = $attributes
           ;    #this way the same attribute name always gets the latest value
     }
 
-    $hash{ $statistic->attribute_name } = $statistic;
+    $hash{ $attribute->attribute_name } = $attribute;
     my @values = values(%hash);
     return \@values;
+}
+
+sub attributes_hash {
+  my ($self) = @_;
+  
+  my %attrs;
+  for my $a (@{$self->attributes()}){
+    $attrs{$a->attribute_name} = $a;
+  }
+  return \%attrs;
 }
 
 1;

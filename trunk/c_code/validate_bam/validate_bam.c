@@ -163,7 +163,8 @@ void update_stats(rg_stats_t *rg_stats, bam1_t *bam_line) {
     if (bam_line->core.flag & BAM_FPAIRED)
       rg_stats->num_mapped_reads_paired_in_sequencing ++;
 
-    if (bam_line->core.flag & BAM_FPROPER_PAIR) {
+    //if (bam_line->core.flag & BAM_FPROPER_PAIR) {
+    if ((bam_line->core.flag & BAM_FPROPER_PAIR) && ! (bam_line->core.flag & 2048)) {
       rg_stats->num_mapped_reads_properly_paired ++;
       if (bam_line->core.qual > 0 && bam_line->core.isize > 0) {
         int ret;
@@ -348,7 +349,8 @@ void output_rg_stats(void *_rg_stats_hash, char* out_fname, char* bam_basename, 
       fprintf(fp, "\t%s", (rg_stats->sample ? rg_stats->sample : "-"));
       fprintf(fp, "\t%s", (rg_stats->platform ? rg_stats->platform : "-"));
       fprintf(fp, "\t%s", (rg_stats->library ? rg_stats->library : "-"));
-      fprintf(fp, "\t%s", (rg_stats->platform_unit ? rg_stats->platform_unit : kh_key(rg_stats_hash, k)));
+      fprintf(fp, "\t%s", kh_key(rg_stats_hash, k));
+      //fprintf(fp, "\t%s", (rg_stats->platform_unit ? rg_stats->platform_unit : kh_key(rg_stats_hash, k)));
       fprintf(fp, "\t%llu", rg_stats->num_total_bases);
       fprintf(fp, "\t%llu", rg_stats->num_mapped_bases);
       fprintf(fp, "\t%llu", rg_stats->num_total_reads);

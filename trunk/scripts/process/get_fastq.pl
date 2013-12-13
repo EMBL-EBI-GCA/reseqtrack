@@ -8,8 +8,8 @@ use ReseqTrack::Tools::Exception qw(throw warning);
 use ReseqTrack::Tools::FileUtils qw(create_object_from_path create_history);
 use ReseqTrack::Tools::HostUtils qw(get_host_object);
 use ReseqTrack::Tools::ERAUtils qw(get_erapro_conn);
-use ReseqTrack::Tools::RunMetaInfoUtils qw( create_directory_path );
-use Data::Dumper;
+use ReseqTrack::Tools::MetaDataUtils qw( create_directory_path );
+
 $| = 1;
 
 my $run_id;
@@ -26,132 +26,124 @@ my $output_dir;
 my $load = 0;
 my $era_dbuser;
 my $era_dbpass;
-my $help             = 0;
+my $help = 0;
 my $directory_layout = 'sample_name/archive_sequence';
-my $module           = 'ReseqTrack::Tools::GetFastq';
+my $module = 'ReseqTrack::Tools::GetFastq';
 my %module_options;
 
-&GetOptions(
-    'run_id=s'           => \$run_id,
-    'output_dir=s'       => \$output_dir,
-    'host_name=s'        => \$host_name,
-    'type|file_type=s'   => \$file_type,
-    'clobber!'           => \$clobber,
-    'dbhost=s'           => \$dbhost,
-    'dbname=s'           => \$dbname,
-    'dbuser=s'           => \$dbuser,
-    'dbpass=s'           => \$dbpass,
-    'dbport=s'           => \$dbport,
-    'load!'              => \$load,
-    'era_dbuser=s'       => \$era_dbuser,
-    'era_dbpass=s'       => \$era_dbpass,
-    'help!'              => \$help,
-    'directory_layout=s' => \$directory_layout,
-    'module=s'           => \$module,
-    'root_location=s'    => \$source_root_location,
-    'module_option=s'    => \%module_options,
-);
+&GetOptions( 
+  'run_id=s' => \$run_id,
+  'output_dir=s' => \$output_dir,
+  'host_name=s' => \$host_name,
+  'type|file_type=s' => \$file_type,
+  'clobber!' => \$clobber,
+  'dbhost=s'       => \$dbhost,
+  'dbname=s'       => \$dbname,
+  'dbuser=s'       => \$dbuser,
+  'dbpass=s'       => \$dbpass,
+  'dbport=s'       => \$dbport,
+  'load!' => \$load,
+  'era_dbuser=s' =>\$era_dbuser,
+  'era_dbpass=s' => \$era_dbpass,
+  'help!' => \$help,
+  'directory_layout=s' => \$directory_layout,
+  'module=s' => \$module,
+  'root_location=s' => \$source_root_location,
+  'module_option=s' => \%module_options,
+    );
 
-if ($help) {
-    usage();
+if($help){
+  usage();
 }
 
 eval "require $module" or throw "cannot load module $module $@";
 
 throw("need a run_id") if !$run_id;
-throw("need a file type to load files") if ( $load && !$file_type );
+throw("need a file type to load files") if ($load && !$file_type);
 
 my $db = ReseqTrack::DBSQL::DBAdaptor->new(
-    -host   => $dbhost,
-    -user   => $dbuser,
-    -port   => $dbport,
-    -dbname => $dbname,
-    -pass   => $dbpass,
-);
+  -host   => $dbhost,
+  -user   => $dbuser,
+  -port   => $dbport,
+  -dbname => $dbname,
+  -pass   => $dbpass,
+    );
 
-my $era_db = get_erapro_conn( $era_dbuser, $era_dbpass );
+my $era_db = get_erapro_conn($era_dbuser, $era_dbpass);
 
-my $meta_info = $db->get_RunMetaInfoAdaptor->fetch_by_run_id($run_id);
-throw(  "Failed to find a run meta info object for "
-      . $run_id
-      . " from "
-      . $dbname )
-  unless ($meta_info);
+my $run = $db->get_RunAdaptor->fetch_by_source_id($run_id);
 
-if ( $meta_info->instrument_platform eq 'COMPLETE_GENOMICS' ) {
-    exit(0);
+throw("Failed to find a run object for ".$run_id." from ".$dbname)
+    unless($run);
+
+if($run->instrument_platform && $run->instrument_platform eq 'COMPLETE_GENOMICS'){
+  exit(0);
 }
 
 if ($directory_layout) {
-    $output_dir =
-      create_directory_path( $meta_info, $directory_layout, $output_dir );
+  $output_dir = create_directory_path($run, $directory_layout, $output_dir);
 }
 
 $db->dbc->disconnect_when_inactive(1);
 
 my %constructor_hash;
-while ( my ( $key, $value ) = each %module_options ) {
-    $constructor_hash{ '-' . $key } = $value;
+while (my ($key, $value) = each %module_options) {
+  $constructor_hash{'-'.$key} = $value;
 }
-$constructor_hash{-output_dir}      = $output_dir;
-$constructor_hash{-run_meta_info}   = $meta_info;
+$constructor_hash{-output_dir} = $output_dir;
+$constructor_hash{-run_info} = $run;
 $constructor_hash{-source_root_dir} = $source_root_location;
-$constructor_hash{-clobber}         = $clobber;
-$constructor_hash{-db}              = $era_db;
+$constructor_hash{-clobber} = $clobber;
+$constructor_hash{-db} = $era_db;
 
-my $fastq_getter = $module->new(%constructor_hash);
-my $num_files    = $fastq_getter->run;
+my $fastq_getter = $module->new (%constructor_hash);
+my $num_files = $fastq_getter->run;
 
-my $host = get_host_object( $host_name, $db );
+my $host = get_host_object($host_name, $db);
 my $fastq_paths = $fastq_getter->output_files;
 my @file_objects;
-print Dumper($fastq_paths);
+if($load && $num_files){
+  $db->dbc->disconnect_when_inactive(0);
+  my $fa = $db->get_FileAdaptor;
+  foreach my $path (@$fastq_paths) {
+    my $file = create_object_from_path($path, $file_type, $host);
+    my $md5 = $fastq_getter->md5_hash->{$path};
+    warning("Don't have md5 for $path") if !$md5;
+    $file->md5($md5);
 
-warning("No files to load") if ( $load && !$num_files );
-
-if ( $load && $num_files ) {
-    $db->dbc->disconnect_when_inactive(0);
-    my $fa = $db->get_FileAdaptor;
-    foreach my $path (@$fastq_paths) {
-        my $file = create_object_from_path( $path, $file_type, $host );
-        my $md5 = $fastq_getter->md5_hash->{$path};
-        warning("Don't have md5 for $path") if !$md5;
-        $file->md5($md5);
-
-        my $stored_files = $fa->fetch_by_filename( $file->filename );
-        if (@$stored_files) {
-            if ( @$stored_files > 1 ) {
-                throw(  "Not sure what to do, seem to have "
-                      . @$stored_files
-                      . " associated with "
-                      . $file->filename );
-            }
-            my $history = create_history( $file, $stored_files->[0] );
-            $file->dbID( $stored_files->[0]->dbID );
-            $file->history($history);
-        }
-        push( @file_objects, $file );
+    my $stored_files = $fa->fetch_by_filename($file->filename);
+    if (@$stored_files) {
+      if (@$stored_files > 1) {
+        throw("Not sure what to do, seem to have ".@$stored_files." associated with ".  $file->filename)
+      }
+      my $history = create_history($file, $stored_files->[0]);
+      $file->dbID($stored_files->[0]->dbID);
+      $file->history($history);
     }
+    push(@file_objects, $file);
+  }
 
-    my $collection = ReseqTrack::Collection->new(
-        -name   => $run_id,
-        -others => \@file_objects,
-        -type   => $file_type,
-    );
+  my $collection =  ReseqTrack::Collection->new(
+    -name => $run_id,
+    -others => \@file_objects,
+    -type => $file_type,
+      );
 
-    my $ca = $db->get_CollectionAdaptor;
-    $ca->store($collection);
+  my $ca = $db->get_CollectionAdaptor;
+  $ca->store($collection);
 
-    my $stored_collection = $ca->fetch_by_name_and_type( $run_id, $file_type );
-    foreach my $stored_file ( @{ $stored_collection->others } ) {
-        throw( $stored_file->name . " doesn't exist" )
-          unless ( -e $stored_file->name );
-    }
+  my $stored_collection = $ca->fetch_by_name_and_type($run_id, $file_type);
+  foreach my $stored_file(@{$stored_collection->others}){
+    throw($stored_file->name." doesn't exist") unless(-e $stored_file->name);
+  }
 }
 
-sub usage {
-    exec( 'perldoc', $0 );
-    exit(0);
+
+
+
+sub usage{
+  exec('perldoc', $0);
+  exit(0);
 }
 
 =pod

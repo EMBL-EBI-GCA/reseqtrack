@@ -22,6 +22,7 @@ use ReseqTrack::Tools::FileSystemUtils
     delete_file check_file_does_not_exist check_executable create_tmp_process_dir);
 use ReseqTrack::Tools::Exception qw(throw warning stack_trace_dump);
 use ReseqTrack::Tools::Argument qw(rearrange);
+use File::Basename qw(fileparse);
 use Env qw( @PATH );
 use POSIX;
 
@@ -180,7 +181,9 @@ sub DESTROY {
 =cut
 
 sub execute_command_line {
-    my ($self, $command_line) = @_;
+    my ($self, $command_line, $exit_code_handler) = @_;
+
+    $exit_code_handler //= \&default_process_exit_code;
 
     if ($self->echo_cmd_line) {
         $command_line = "echo \'" . $command_line . "\'";
@@ -193,25 +196,41 @@ sub execute_command_line {
       throw "could not fork: $!";
     }
     elsif(!$pid) {
+      setpgrp(0,0);
+      $self->save_files_from_deletion(1);
       exec(bash => (-o => 'pipefail', -c => $command_line)) or do{
-        print STDERR "$command_line did not execute: $!\n";
+        print STDERR "Did not execute: $!: $command_line\n";
         exit(255);
       }
     }
     while (! waitpid($pid, WNOHANG)) {
-      sleep(5);
+      sleep(3);
       if ($term_sig) {
-        kill 15, $pid;
+        $self->term_sig($term_sig);
+        my $deleting_pid = fork;
+        if ($deleting_pid == 0) {
+          kill -15, $pid;
+          #`kill -s 15 -$pid`;
+          $self->delete_files;
+          exit(0);
+        }
+        $self->save_files_from_deletion(1);
+        throw("received a signal ($term_sig) so command line was killed $command_line");
       }
     }
-    throw("received a signal ($term_sig) so command line was killed $command_line") if ($term_sig);
-    throw("command failed: $! $command_line") if ( $? == -1 );
+    #throw("received a signal ($term_sig) so command line was killed $command_line") if ($term_sig);
 
     my $signal = $? & 127;
     throw("process died with signal $signal $command_line") if ($signal);
     my $exit = $? >> 8;
-    throw("command exited with value $exit $command_line") if ($exit != 0);
+    throw("command could not be executed by bash: $command_line") if ($exit == 255);
+    $exit_code_handler->($self, $exit, $command_line);
     return $exit;
+}
+
+sub default_process_exit_code {
+  my ($self, $exit, $command_line) = @_;
+  throw("command exited with value $exit $command_line") if ($exit != 0);
 }
 
 =head2 save_files_from_deletion
@@ -332,7 +351,7 @@ sub working_dir {
 
   Arg [1]   : ReseqTrack::Tools::RunProgram
   Arg [2]   : string, path of output directory
-  Function  : accessor method for output directory
+  Function  : alternative accessor to working_dir.  output_dir and working_dir are the same thing.
   Returntype: string
   Exceptions: n/a
   Example   : my $output_dir = $self->output_dir;
@@ -341,10 +360,7 @@ sub working_dir {
 
 sub output_dir {
   my ( $self, $arg ) = @_;
-  if ($arg) {
-    $self->{'output_dir'} = $arg;
-  }
-  return $self->{'output_dir'};
+  return $self->working_dir($arg);
 }
 
 
@@ -445,7 +461,6 @@ sub input_files {
   my @files = keys %{$self->{'input_files'}};
   return \@files;
 }
-
 
 =head2 created_files
 
@@ -552,7 +567,6 @@ sub _running {
   Arg [1]   : ReseqTrack::Tools::RunProgram
   Function  : Gets a temp directory for use by the child class.
               Adds the temp directory to list of created files.
-              (in test mode, the temp directory is allowed to be an existing directory)
   Returntype: String, path of temp directory
   Exceptions: Throws if there is an error making the temp directory.
   Example   : my $dir = $self->get_temp_dir;
@@ -560,7 +574,7 @@ sub _running {
 =cut
 
 sub get_temp_dir {
-    my ($self, $allow_test_mode) = @_;
+    my ($self) = @_;
     my $temp_dir = $self->{'_temp_dir'};
     if (! $temp_dir) {
       $temp_dir = create_tmp_process_dir($self->working_dir, $self->job_name, 0);
@@ -569,6 +583,32 @@ sub get_temp_dir {
     }
     return $temp_dir;
 }
+
+=head2 get_short_input_names
+
+  Arg [1]   : ReseqTrack::Tools::RunProgram
+  Function  : Uses symbolic links to allow the conversion of long file names into something shorter
+              Symbolic links are created within a temporary directory
+  Returntype: hash, key is the long file name, value is the short file name
+  Exceptions: Throws if there is an error linking the files
+  Example   : my $short_name = $self->get_short_input_names->{'/long/file/name'};
+
+=cut
+
+
+sub get_short_input_names {
+    my ($self) = @_;
+    my $temp_dir = $self->get_temp_dir;
+    my $temp_dir_basename = fileparse($temp_dir);
+    $self->{'_short_inputs'} ||= {};
+    foreach my $long_name (grep {!$self->{'_short_inputs'}->{$_}} @{$self->input_files}) {
+      my $short_name = $temp_dir_basename . '/' . fileparse($long_name);
+      $self->{'_short_inputs'}->{$long_name} = $short_name;
+      symlink($long_name, $short_name) or throw("could not symlink $long_name to $short_name");
+    }
+    return $self->{'_short_inputs'};
+}
+
 
 =head2 options
 
@@ -587,45 +627,52 @@ sub get_temp_dir {
 
 
 sub options {
-	my ($self, @args) = @_;
+  my ($self, @args) = @_;
 
-	$self->{'options'} ||= {};	
-	my $num_of_args = scalar(@args);
+  $self->{'options'} ||= {};  
+  my $num_of_args = scalar(@args);
 
-	# no arguments, return all the options
-	if ($num_of_args == 0){
-		return $self->{'options'};
-	}
-	elsif ($num_of_args == 1){
-		my $ref_type = ref($args[0]);
+  # no arguments, return all the options
+  if ($num_of_args == 0){
+    return $self->{'options'};
+  }
+  elsif ($num_of_args == 1){
+    my $ref_type = ref($args[0]);
 
-		if (! $ref_type){
-			# arg is a scalar
-			return $self->{'options'}->{$args[0]};
-		}
-		elsif ($ref_type eq 'HASH'){
-			# merge these options with any existing
+    if (! $ref_type){
+      # arg is a scalar
+      return $self->{'options'}->{$args[0]};
+    }
+    elsif ($ref_type eq 'HASH'){
+      # merge these options with any existing
 
-			while (my ($name, $value) = each %{$args[0]}) {
-				$self->{'options'}->{$name} = $value;
-			}
+      while (my ($name, $value) = each %{$args[0]}) {
+        $self->{'options'}->{$name} = $value;
+      }
 
-			return $self->{'options'};
-		}
-		else {
-			throw("Cannot set options with a $ref_type reference");
-		}
+      return $self->{'options'};
+    }
+    else {
+      throw("Cannot set options with a $ref_type reference");
+    }
 
-	}
-	else{
-		my ($option_name,$option_value) = @args;
-
-		throw( "option_name not specified") if (! $option_name);
-
-		$self->{'options'}->{$option_name} = $option_value;
-		return $self->{'options'}->{$option_name};
-	}
+  }
+  else{
+    my ($option_name,$option_value) = @args;
+    throw( "option_name not specified") if (! $option_name);
+    $self->{'options'}->{$option_name} = $option_value;
+    return $self->{'options'}->{$option_name};
+  }
 
 }
+
+sub term_sig {
+  my ($self, $term_sig) = @_;
+  if (@_ > 1) {
+    $self->{'_term_sig'} = $term_sig
+  }
+  return $self->{'_term_sig'} || 0;
+}
+
 
 1;

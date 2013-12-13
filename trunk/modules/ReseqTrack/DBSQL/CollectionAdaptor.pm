@@ -169,7 +169,7 @@ sub store{
     #warning($exists->name." ".$exists->type." is already in the datbase skipping");
     $collection->dbID($exists->dbID);
     $collection->adaptor($self);
-    $self->store_statistics($collection, $update);
+    $self->store_attributes($collection, $update);
     $self->store_others($collection);
     return $collection;
   }
@@ -185,7 +185,7 @@ sub store{
   $sth->finish;
   $collection->dbID($dbID);
   $collection->adaptor($self);
-  $self->store_statistics($collection, $update);
+  $self->store_attributes($collection, $update);
   $self->store_others($collection);
   return $collection;
 }

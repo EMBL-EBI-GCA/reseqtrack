@@ -6,7 +6,7 @@ use warnings;
 use ReseqTrack::Tools::RunPicard;
 use ReseqTrack::Tools::QC::PPQT;
 use ReseqTrack::Tools::HostUtils qw(get_host_object);
-use ReseqTrack::Tools::StatisticsUtils;
+use ReseqTrack::Tools::AttributeUtils;
 use ReseqTrack::Tools::FileUtils;
 use ReseqTrack::Tools::FileSystemUtils;
 use ReseqTrack::DBSQL::DBAdaptor;
@@ -22,7 +22,7 @@ my $dbpass;
 my $dbport;
 my $dbname;
 
-my $java_path   = '/usr/bin/java';
+my $java_path = '/usr/bin/java';
 my $jvm_options = '-Xmx2g -Xms2g';
 my $rscript_path;
 my $script_path;
@@ -133,7 +133,6 @@ my $statistics        = [];
 
 for my $metrics_group (@generated_metrics) {
   for my $metrics (@$metrics_group) {
-    print Dumper($metrics);
     my $prefix = $metrics->{$attribute_prefix_column};
     while ( my ( $key, $value ) = each %$metrics ) {
       next if $key eq $attribute_prefix_column;
@@ -141,16 +140,15 @@ for my $metrics_group (@generated_metrics) {
       if ($prefix) {
         $key = join( '_', $prefix, $key );
       }
-
       push @$statistics,
-        create_statistic_for_object( $collection, $key, $value )
+        create_attribute_for_object( $collection, $key, $value )
         if ( defined $value );
     }
   }
 }
 
-$collection->statistics($statistics);
-$collection_adaptor->store_statistics( $collection, 1 );
+$collection->uniquify_attributes($statistics);
+$collection_adaptor->store_attributes($collection);
 
 if ($keep_metrics_file) {
   create_output_records( $name, $metrics_file_type, $metrics_files );
