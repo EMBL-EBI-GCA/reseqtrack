@@ -90,7 +90,7 @@ sub run {
   return scalar @{$self->output_files};
 }
 
-=head2 run
+=head2 check_fastq_available
 
 returns 1 if fastq are available; otherwise 0
 
@@ -102,7 +102,7 @@ sub check_fastq_available {
   return $era_rmia->is_fastq_available($self->run_info->source_id);
 }
 
-=head2 run
+=head2 check_status
 
 returns 1 if status is OK; otherwise 0
 

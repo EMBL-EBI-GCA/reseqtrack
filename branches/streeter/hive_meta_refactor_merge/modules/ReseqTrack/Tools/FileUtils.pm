@@ -177,6 +177,7 @@ sub calculate_comment{
   #throw("New and Old files need to have the same name for this to be relavant".
   #      " not new ".$new->name." and old ".$old->name) if($new->name ne $old->name);
   my $result = are_files_identical($new, $old);
+
   unless($result == 1){
     if($new->full_path ne $old->full_path){
       return "File has changed location from ".$old->full_path." to ".$new->full_path;
@@ -430,7 +431,7 @@ sub move_file_in_db_and_dir {
     #`mv $file_path $dir`;
     
     my $new_path = $dir . "/" . $base_name;
-    move($file_path, $new_path);
+    move($file_path, $new_path) or throw("Could not move $file_path to $new_path: $!"); 
     throw("Failed to move ".$file_path." to ".$new_path) unless(-e $new_path);
     $f_obj->name($new_path);
     $f_obj->type($new_f_type);

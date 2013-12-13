@@ -121,6 +121,16 @@ sub get_files {
   }
 }
 
+sub check_fastq_available {
+  my $self = shift;
+  my $era_rmia = $self->db->get_ERARunMetaInfoAdaptor;
+  my $status = $era_rmia->get_status($self->run_meta_info->run_id);
+  if ($status eq 'public') {
+    print "status is public for ".$self->run_meta_info->run_id."\n";
+    return 0;
+  }
+  return 1;
+}
 
 sub fuse_password{
   my ($self, $fuse_password) = @_;
@@ -154,8 +164,4 @@ sub fuse_mount_dir{
   return $self->{fuse_mount_dir};
 }
 
-
-
-
 1;
-

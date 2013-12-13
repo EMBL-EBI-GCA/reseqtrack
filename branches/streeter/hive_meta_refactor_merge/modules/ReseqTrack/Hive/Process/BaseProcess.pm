@@ -12,27 +12,71 @@ ReseqTrack::Hive::Process::BaseProcess;
 
     Advantages of using this base class:
 
-      Files can be stored in the reseqtrack_file table of the hive database.  A job input_id can then contain the file dbID instead of a long file string.
-          (This behaviour can be turned off for a pipeline by setting 'use_reseqtrack_file_table' => 0 in the pipeline configuration file)
+      Provides a safe way of running a RunProgram object in a hive analysis
 
-      Files can be deleted automatically after successful completion of a job. E.g. by adding the following in your analysis definition:
-        -parameters => {
-            delete_param => 'fastq'
+      Output files and directories are given sensible names.
+        This is managed by setting dir_label_params and root_output_dir in the pipeline_wide_parameters part of your hive conf file.
+        E.g. dir_label_params => ["sample_source_id", "library_name", "run_source_id", "chunk_label"]
+        Hive process modules can then call $self->output_dir and $self->job_name to return sensible names
+          (Output directory can be overriden for a particular analysis by explicitly setting the parameter 'output_dir' => '/path/to/dir' in the pipeline configuration file.  Avoid doing this if possible.)
+
+      Interprets the reseqtrack_options in your hive configuration file.  E.g. an analysis definition may contain this:
+      -parameters => {
+        reseqtrack_options => {
+          delete_file => 'fastq',
+          denestify => 'fastq',
+          decode_file_id =>  'fastq',
+          encode_file_id =>  ['bam', 'bai'],
+
+          flows_factory => [1,2,3],
+          flows_non_factory => [4,5,6],
+          flows_count_param => 'bam',
+          flows_do_count => {1=>50, 2=>'100+'},
         }
-        or:
-        -parameters => {
-            delete_param => ['bam', 'bai']
-        }
-      Files will only be deleted if they are located somewhere under the root_output_dir
+      }
 
-      Output files and directories are given sensible names.  This is managed by using the concept of a branch 'label'.  Each time the pipeline branches into factory jobs, each branch is given a new label string.
-          (This behaviour can be turned off for a pipeline by setting 'use_label_management' => 0 in the pipeline configuration file)
-          (Output directory can be overriden for a particular analysis by explicitly setting the parameter 'output_dir' => '/path/to/dir' in the pipeline configuration file)
+      delete_file
+        Can be a string or arrayref e.g. 'fastq' or ['bam', 'bai']
+        Input files can be earmarked for deletion once the job has completed successfully.
+        Files will only be deleted if they are located somewhere under the root_output_dir
 
-      Management of job input_ids: When job A creates job B, the input_id for job B will contain:
-          1. any parameter from the input_id of job A
-          2. any parameter from the accu table for job A
-          3. any extra data added by job A
+      denestify
+        Can be a string or arrayref e.g. 'fastq' or ['bam', 'bai']
+        Takes an input that looks something like this [[[1,2],[3,4]],5,6] and turns it into this [1,2,3,4,5,6]
+        Useful when inputs come from the accu table
+
+      encode_file_id
+        Can be a string or arrayref e.g. 'fastq' or ['bam', 'bai']
+        If an output parameter looks like this: /file/path/with/very/long/filename/blahblahblah.txt
+          then it can be shortened to something like this: F34F
+        Useful when outputting a very large array of very long filenames (e.g. when flowing into a merge)
+
+      decode_file_id
+        Can be a string or arrayref e.g. 'fastq' or ['bam', 'bai']
+        If a filename is encoded, this will decode it in the next analysis
+
+      flows_factory
+        Default is 2
+        Can be a number, arrayref or hashref e.g. 2 or  [1,2,3] or {1=>1, 2=>1, 3=>0}
+        Hive processes that create factory jobs will flow down these flow numbers
+        When flows_factory is a hashref, the key is the flow number, the value is a boolean
+
+      flows_non_factory
+        Default is 1 (or undef if 1 is being used for factory)
+        Can be a number, arrayref or hashref e.g. 2 or  [1,2,3] or {1=>1, 2=>1, 3=>0}
+        Each hive process will spawn a single non_factory output_id, which will flow down these flow numbers
+
+      flows_count_param
+        Should be a single parameter name e.g. 'fastq'
+        If set then you can control the flows depending on how many there are of this param
+        e.g. in an array ['fastq1', 'fastq2', 'fastq3'] then the count is 3.
+
+      flows_do_count
+        This is a hash where key is the the flow, value is a condition. E.g. if flows_count_param='fastq':
+            1=>50 means only flow down #1 if there are exactly 50 fastq files
+            2=>'50+' means only flow down #2 if there are 50 or more fastq files
+            3=>'20-' means only flow down #3 if there are 20 or fewer fastq files
+        
 
 =cut
 
