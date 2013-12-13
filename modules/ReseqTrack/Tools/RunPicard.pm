@@ -36,49 +36,51 @@ use base qw(ReseqTrack::Tools::RunProgram);
 =cut
 
 sub DEFAULT_OPTIONS {
-  return {
-    'assume_sorted' =>
-      undef,    # assume input files are sorted, even if header says otherwise
-    'sort_order'         => 'coordinate',   # can be 'coordinate' or 'queryname'
-    'index_ext'          => '.bam.bai',     #can be '.bai' or '.bam.bai'
-    'verbosity'          => 'INFO',
-    'quiet'              => 'false',
-    'max_records_in_ram' => 500000,
-    'remove_duplicates'  => 0,              # used by run_mark_duplicates
-    'use_threading'      => 0,              # used by merge
-    'validation_stringency' => undef,
-    'max_file_handles'      => 1000,  # should be slightly less than 'ulimit -n'
-    'ref_flat' =>
-      undef
-    ,   # gene annotations file in ref flat format, used by CollectRnaSeqMetrics
-    'ribosomal_intervals' =>
-      undef
-    , # Location of rRNA sequences in genome, in interval_list format, used by CollectRnaSeqMetrics
-    'reference_sequence' =>
-      undef,    # Location of reference fasta file, used by CollectRnaSeqMetrics
-    'strand_specificity' =>
-      'NONE',   #For strand-specific library prep,  used by CollectRnaSeqMetrics
-    'keep_mapped_regex' => 'concordant_uniq|concordant_mult',
-    'metrics_programs'  => [
-      'CollectAlignmentSummaryMetrics', 'CollectInsertSizeMetrics',
-      'QualityScoreDistribution',       'MeanQualityByCycle'
-    ]
-  };
+    return {
+        'assume_sorted' =>
+          undef,  # assume input files are sorted, even if header says otherwise
+        'sort_order' => 'coordinate',    # can be 'coordinate' or 'queryname'
+        'index_ext'  => '.bam.bai',      #can be '.bai' or '.bam.bai'
+        'verbosity'  => 'INFO',
+        'quiet'      => 'false',
+        'max_records_in_ram'    => 500000,
+        'remove_duplicates'     => 0,        # used by run_mark_duplicates
+        'use_threading'         => 0,        # used by merge
+        'validation_stringency' => undef,
+        'max_file_handles' => 1000, # should be slightly less than 'ulimit -n'
+        'shorten_input_names' => 0, # should be used by merge and mark_duplicates when the number of input files is very large
+        'ref_flat' =>
+          undef
+        , # gene annotations file in ref flat format, used by CollectRnaSeqMetrics
+        'ribosomal_intervals' =>
+          undef
+        , # Location of rRNA sequences in genome, in interval_list format, used by CollectRnaSeqMetrics
+        'reference_sequence' =>
+          undef
+        ,    # Location of reference fasta file, used by CollectRnaSeqMetrics
+        'strand_specificity' => 'NONE'
+        ,    #For strand-specific library prep,  used by CollectRnaSeqMetrics
+        'read_group_fields' => {}, # used by AddOrReplaceReadGroups
+        'keep_mapped_regex' => 'concordant_uniq|concordant_mult',
+        'metrics_programs'  => [
+          'CollectAlignmentSummaryMetrics', 'CollectInsertSizeMetrics',
+          'QualityScoreDistribution',       'MeanQualityByCycle'
+    };
 }
 
-sub CMD_MAPPINGS {
-  return {
-    'mark_duplicates'     => \&run_mark_duplicates,
-    'fix_mate'            => \&run_fix_mate,
-    'merge'               => \&run_merge,
-    'sort'                => \&run_sort,
-    'alignment_metrics'   => \&run_alignment_metrics,
-    'rna_seq_metrics'     => \&run_rna_alignment_metrics,
+
+sub CMD_MAPPINGS { return {
+    'mark_duplicates'   => \&run_mark_duplicates,
+    'fix_mate'          => \&run_fix_mate,
+    'merge'             => \&run_merge,
+    'sort'              => \&run_sort,
+    'alignment_metrics' => \&run_alignment_metrics,
+    'rna_seq_metrics'   => \&run_rna_alignment_metrics,
+    'add_or_replace_read_groups'   => \&run_add_or_replace_read_groups,
     'demap_merge'         => \&run_demap_merge,
     'insert_size_metrics' => \&run_insert_size_metrics,
     'multiple_metrics'    => \&run_multiple_metrics,
-  };
-}
+    };    
 
 =head2 new
 
@@ -177,12 +179,10 @@ sub get_valid_commands {
 sub run_mark_duplicates {
   my $self = shift;
 
-  my $jar = $self->_jar_path('MarkDuplicates.jar');
-  my @metrics_data;
-  foreach my $input ( @{ $self->input_files } ) {
-    my $suffix = $self->options('remove_duplicates') ? '.rmdup' : '.mrkdup';
-    my $name = fileparse( $input, qr/\.[sb]am/ );
-    my $prefix = $self->working_dir . '/' . $name . $suffix;
+    my $jar = $self->_jar_path('MarkDuplicates.jar');
+    my @metrics_data;
+    my $suffix = $self->options('remove_duplicates') ? 'rmdup' : 'mrkdup';
+    my $prefix = $self->working_dir . '/' . $self->job_name . ".$suffix";
     $prefix =~ s{//}{/}g;
     my $bam     = $prefix . '.bam';
     my $metrics = $prefix . '.dup_metrics';
@@ -191,27 +191,29 @@ sub run_mark_duplicates {
     push( @cmd_words, $self->jvm_options ) if ( $self->jvm_options );
     push( @cmd_words, '-jar', $jar );
     push( @cmd_words, $self->_get_standard_options );
-    push( @cmd_words, 'INPUT=' . $input );
+    my @cmd_words = ( $self->java_exe );
+    push( @cmd_words, $self->jvm_options ) if ( $self->jvm_options );
+    push( @cmd_words, '-jar', $jar );
+    push( @cmd_words, $self->_get_standard_options );
+    my $input_files = $self->options('shorten_input_names') ? [values %{$self->get_short_input_names}]
+                    : $self->input_files;
+    push( @cmd_words, map { "INPUT=$_" } @$input_files );
     push( @cmd_words, 'OUTPUT=' . $bam );
     push( @cmd_words, 'METRICS_FILE=' . $metrics );
     push( @cmd_words,
-      'REMOVE_DUPLICATES='
-        . ( $self->options('remove_duplicates') ? 'true' : 'false' ) );
+        'REMOVE_DUPLICATES='
+          . ( $self->options('remove_duplicates') ? 'true' : 'false' ) );
     push( @cmd_words,
-      'ASSUME_SORTED='
-        . ( $self->options('assume_sorted') ? 'true' : 'false' ) )
+        'ASSUME_SORTED='
+          . ( $self->options('assume_sorted') ? 'true' : 'false' ) )
       if defined $self->options('assume_sorted');
     push( @cmd_words,
-      'CREATE_INDEX=' . ( $self->create_index ? 'true' : 'false' ) );
-    push( @cmd_words,
-      'MAX_FILE_HANDLES_FOR_READ_ENDS_MAP='
-        . $self->options('max_file_handles') )
+        'CREATE_INDEX=' . ( $self->create_index ? 'true' : 'false' ) );
+    push( @cmd_words, 'MAX_FILE_HANDLES_FOR_READ_ENDS_MAP=' . $self->options('max_file_handles'))
       if $self->options('max_file_handles');
-
     my $cmd = join( ' ', @cmd_words );
-
+    my $cmd = join( ' ', @cmd_words );
     $self->output_files($bam);
-
     if ( $self->keep_metrics ) {
       $self->output_files($metrics);
     }
@@ -221,7 +223,6 @@ sub run_mark_duplicates {
 
     $self->created_files("$prefix.bai") if $self->create_index;
     $self->execute_command_line($cmd);
-
     push @metrics_data, $self->parse_metrics_file($metrics);
 
     if ( $self->create_index ) {
@@ -235,8 +236,6 @@ sub run_mark_duplicates {
       }
       $self->output_files($bai);
     }
-
-  }
 
   return ( \@metrics_data );
 }
@@ -474,7 +473,8 @@ sub run_rna_alignment_metrics {
 sub run_merge {
   my ($self) = @_;
 
-  my $input_bam_list = $self->input_files;
+  my $input_bam_list = $self->options('shorten_input_names') ? [values %{$self->get_short_input_names}]
+                  : $self->input_files;
   throw("need more than two or more files to merge")
     if ( @$input_bam_list < 2 );
 
@@ -727,6 +727,68 @@ sub run_fix_mate {
 
   return;
 }
+
+sub run_add_or_replace_read_groups{
+  my ($self) = @_;
+    
+  my $sort_order = $self->options('sort_order');
+  if ($sort_order ne 'coordinate' && $sort_order ne 'queryname') {
+      $sort_order = 'null';
+  }
+          
+  my $jar = $self->_jar_path('AddOrReplaceReadGroups.jar');
+
+  foreach my $input (@{$self->input_files}) {
+    my $name = fileparse($input, qr/\.[sb]am/);
+    my $prefix = $self->working_dir . '/' . $name . '.fixed';
+    $prefix =~ s{//}{/}g;
+    my $output = $prefix . '.bam';
+
+    my @cmd_words = ($self->java_exe);
+    push(@cmd_words, $self->jvm_options) if ($self->jvm_options);
+    push(@cmd_words, '-jar', $jar);
+    push(@cmd_words, $self->_get_standard_options);
+    push(@cmd_words, 'SORT_ORDER=' . $sort_order);
+    push(@cmd_words, 'INPUT=' . $input);
+    push(@cmd_words, 'OUTPUT=' . $output);
+    push(@cmd_words, 'CREATE_INDEX='
+            . ($self->create_index ? 'true' : 'false'));
+
+    my $rg_fields = $self->options('read_group_fields');
+    push(@cmd_words, 'RGID=' . $rg_fields->{'ID'});
+    push(@cmd_words, 'RGLB=' . $rg_fields->{'LB'});
+    push(@cmd_words, 'RGPL=' . $rg_fields->{'PL'});
+    push(@cmd_words, 'RGPU=' . $rg_fields->{'PU'});
+    push(@cmd_words, 'RGSM=' . $rg_fields->{'SM'});
+    push(@cmd_words, 'RGCN=' . $rg_fields->{'CN'}) if $rg_fields->{'CN'};
+    push(@cmd_words, 'RGDS=' . $rg_fields->{'DS'}) if $rg_fields->{'DS'};
+    push(@cmd_words, 'RGDT=' . $rg_fields->{'DT'}) if $rg_fields->{'DT'};
+    push(@cmd_words, 'RGPI=' . $rg_fields->{'PI'}) if $rg_fields->{'PI'};
+
+    my $cmd = join(' ', @cmd_words);
+  
+    $self->output_files($output);
+    $self->created_files("$prefix.bai") if $self->create_index;
+
+    $self->execute_command_line($cmd);
+
+    if ($self->create_index) {
+        my $bai = "$prefix.bai";
+        my $index_ext = $self->options('index_ext');
+        if ($index_ext && $index_ext ne '.bai') {
+            my $corrected_bai = "$prefix" . $index_ext;
+            move($bai, $corrected_bai)
+              or throw "move failed: $!";
+            $bai = $corrected_bai;
+        }
+        $self->output_files($bai);
+    }
+  
+  }
+
+    return;   
+}
+
 
 sub _get_standard_options {
   my $self = shift;

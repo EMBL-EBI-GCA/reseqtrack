@@ -24,6 +24,7 @@ use ReseqTrack::Tools::Argument qw(rearrange);
 use File::Basename qw(fileparse);
 use ReseqTrack::Tools::FileSystemUtils qw(check_file_exists check_file_does_not_exist get_lines_from_file);
 use IPC::System::Simple qw(capture);
+use List::Util qw (first);
 
 use base qw(ReseqTrack::Tools::RunProgram);
 
@@ -74,10 +75,10 @@ sub new {
   my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
 
-  my ( $header_lines_file, $extra_header_lines, $SQ_fields_hash,
+  my ( $header_lines_file, $extra_header_lines, $SQ_fields_hash, $dict_file,
         )
     = rearrange( [
-         qw( HEADER_LINES_FILE EXTRA_HEADER_LINES SQ_FIELDS_HASH
+         qw( HEADER_LINES_FILE EXTRA_HEADER_LINES SQ_FIELDS_HASH DICT_FILE
                 ) ], @args);
 
   #setting defaults
@@ -86,6 +87,7 @@ sub new {
   }
   $self->extra_header_lines($extra_header_lines);
   $self->header_lines_file($header_lines_file);
+  $self->dict_file($dict_file);
 
   throw("SQ_fields_hash should be a hash reference") if (defined $SQ_fields_hash && ref($SQ_fields_hash) ne 'HASH');
 
@@ -118,11 +120,11 @@ sub get_header_file {
   throw("Option inconsistency: replace_CO flag is set but reuse_old_header is not set")
     if ($self->options('replace_CO') && ! $self->options('reuse_old_header'));
 
-  if (! $self->options('reuse_old_header') && ! @{$self->extra_header_lines} && ! keys %{$self->SQ_fields_hash}) {
+  if (! $self->options('reuse_old_header') && ! @{$self->extra_header_lines} && ! (keys %{$self->SQ_fields_hash} || $self->dict_file)) {
     return $self->header_lines_file;
   }
 
-  my $header_lines;
+  my $header_lines = [];
   if ($self->options('reuse_old_header')) {
     $header_lines = $self->get_old_header;
 
@@ -138,6 +140,11 @@ sub get_header_file {
 
   if ($self->header_lines_file) {
     push(@$header_lines, @{get_lines_from_file($self->header_lines_file)});
+  }
+  if ($self->dict_file) {
+    $header_lines = [grep { $_ !~ /^\@SQ/ } @$header_lines];
+    my $insert_index = (first {$header_lines->[$_] !~ /^\@HD/} (0..$#{$header_lines})) // scalar @$header_lines;
+    splice(@$header_lines, $insert_index, 0, grep { /^\@SQ/ } @{get_lines_from_file($self->dict_file)});
   }
 
   push(@$header_lines, @{$self->extra_header_lines});
@@ -203,6 +210,14 @@ sub header_lines_file {
     $self->{'header_lines_file'} = $header_lines_file;
   }
   return $self->{'header_lines_file'};
+}
+
+sub dict_file {
+  my ($self, $dict_file) = @_;
+  if ($dict_file) {
+    $self->{'dict_file'} = $dict_file;
+  }
+  return $self->{'dict_file'};
 }
 
 sub extra_header_lines {

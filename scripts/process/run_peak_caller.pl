@@ -11,7 +11,7 @@ use ReseqTrack::Tools::RunMetaInfoUtils qw(create_directory_path);
 use ReseqTrack::Tools::GeneralUtils
   qw(execute_system_command execute_pipe_system_command);
 use ReseqTrack::Tools::FileSystemUtils qw(run_md5);
-use ReseqTrack::Tools::StatisticsUtils qw(create_statistic_for_object);
+use ReseqTrack::Tools::AttributeUtils qw(create_attribute_for_object);
 use ReseqTrack::Tools::Loader::File;
 
 use Statistics::Descriptive;
@@ -169,7 +169,7 @@ my %peak_caller_args = (
 );
 
 if ($fragment_size_stat_name) {
-  my $stats = $collection->statistics();
+  my $stats = $collection->attributes();
   my $fragment_size;
   for my $stat (@$stats) {
     if ($stat->attribute_name eq $fragment_size_stat_name) {
@@ -230,10 +230,10 @@ if ($do_peak_stats) {
   my @stats;
 
   while ( my ( $key, $value ) = each %peak_stats ) {
-    push @stats, create_statistic_for_object( $collection, $key, $value )
+    push @stats, create_attribute_for_object( $collection, $key, $value )
       if ($key);
   }
-  $collection->statistics( \@stats );
+  $collection->attributes( \@stats );
 
   if ($metric_type) {
     my $metrics_file = $output_dir . '/' . $name . '.region_metrics';

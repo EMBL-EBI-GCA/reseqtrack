@@ -5,6 +5,8 @@ use warnings;
 
 use ReseqTrack::Tools::Exception qw(throw warning);
 use ReseqTrack::Tools::Argument qw(rearrange);
+use File::Copy qw(move);
+use File::Basename qw(fileparse);
 
 use base qw(ReseqTrack::Tools::RunProgram);
 
@@ -25,91 +27,71 @@ sub new {
 	return $self;	
 }
 
-sub run {
+sub run_program {
 	my ( $self, @args ) = @_;
 	
 	my $program = $self->program;
-	my $working_dir = $self->working_dir;
+	my $temp_dir = $self->get_temp_dir;
 	my @fastq_files = @{$self->input_files};
 	
-	my $cmd  = "$program -q -o $working_dir ".join(' ',@fastq_files);
+	my $cmd  = "$program -q -o $temp_dir ".join(' ',@fastq_files);
 	
 	$self->execute_command_line($cmd); 
-	
-	for my $fastq_file (@fastq_files){
-		$self->handle_output($fastq_file);
-	}
-}
+        
+        foreach my $fastq (@fastq_files) {
+          print "Here1: $fastq\n";
+          my $fastq_base_name = fileparse($fastq, qr/\.f(?:ast)?q(?:\.gz)?/);
+          my $fastq_temp_dir = $temp_dir .'/'.$fastq_base_name .'_fastqc';
+          my ($output_dir, $rename_files);
 
-sub handle_output {
-	my ($self, $fastq_file) = @_;
-	
-	$self->keep_or_delete($self->keep_html, $self->html_report_paths($fastq_file));
-	$self->keep_or_delete($self->keep_text, $self->report_text_path($fastq_file));
-	$self->keep_or_delete($self->keep_summary, $self->summary_text_path($fastq_file));
-	$self->keep_or_delete($self->keep_zip, $self->zipped_output_path($fastq_file));
-	$self->keep_or_delete($self->keep_file_output_dir, $self->file_output_path($fastq_file));
-}
+          if ($self->keep_file_output_dir) {
+            $output_dir = $self->working_dir . '/'. $fastq_base_name . '_fastqc';
+            $rename_files = 0;
+          }
+          else {
+            $output_dir = $self->working_dir;
+            $rename_files = 1;
+          }
+          $self->change_dir($output_dir); # to make sure directory exists
 
-sub output_base_name {
-	my ($self, $fastq_file) = @_;
-	my @chunks =  split /\//, $fastq_file;
-	my $base_name = $chunks[-1];
-	
-	$base_name =~ s/\.fastq.gz/_fastqc/;
-	
-	my $working_dir = $self->working_dir;
-	my $output_dir = "$working_dir/$base_name";
-	
-	return ($base_name,$output_dir);
-}
+          if ($self->keep_zip) {
+            my $from = "$fastq_temp_dir.zip";
+            my $to = $output_dir.'/'.$fastq_base_name.'_fastqc.zip';
+            $self->output_files($to);
+            print "moving $from $to\n";
+            move($from, $to) or throw("could not move $from to $to $!");
+          }
 
-sub file_output_path {
-	my ($self, $fastq_file) = @_;
-	$self->output_base_name($fastq_file);
-	my ($base_name,$output_dir) = $self->output_base_name($fastq_file);	
-	return $output_dir;
-}
+          if ($self->keep_summary) {
+            my $from = "$fastq_temp_dir/summary.txt";
+            my $to = $rename_files ? $output_dir.'/'.$fastq_base_name.'_fastqc_summary.txt'
+                    : "$output_dir/summary.txt";
+            $self->output_files($to);
+            print "moving $from $to\n";
+            move($from, $to) or throw("could not move $from to $to $!");
+          }
 
-sub summary_text_path {
-	my ($self, $fastq_file) = @_;
-	$self->output_base_name($fastq_file);
-	my ($base_name,$output_dir) = $self->output_base_name($fastq_file);	
-	return "$output_dir/summary.txt";
-}
+          if ($self->keep_text) {
+            my $from = "$fastq_temp_dir/fastqc_data.txt";
+            my $to = $rename_files ? $output_dir.'/'.$fastq_base_name.'_fastqc_report.txt'
+                    : "$output_dir/fastqc_data.txt";
+            $self->output_files($to);
+            print "moving $from $to\n";
+            move($from, $to) or throw("could not move $from to $to $!");
+          }
 
-sub report_text_path {
-	my ($self, $fastq_file) = @_;
-	$self->output_base_name($fastq_file);
-	my ($base_name,$output_dir) = $self->output_base_name($fastq_file);	
-	return "$output_dir/fastqc_data.txt";
-}
+          if ($self->keep_html) {
+            foreach my $file_name ('fastqc_report.html', 'Icons', 'Images') {
+              my $from = "$fastq_temp_dir/$file_name";
+              my $to = $rename_files ? $output_dir.'/'.$fastq_base_name.'_'.$file_name
+                      : "$output_dir/$file_name";
+              $self->output_files($to);
+              print "moving $from $to\n";
+              move($from, $to) or throw("could not move $from to $to $!");
+            }
+          }
+        }
 
-sub html_report_paths {
-	my ($self, $fastq_file) = @_;
-	$self->output_base_name($fastq_file);
-	my ($base_name,$output_dir) = $self->output_base_name($fastq_file);
-	return ("$output_dir/fastqc_report.html","$output_dir/Icons","$output_dir/Images");
-}
-
-sub zipped_output_path {
-	my ($self, $fastq_file) = @_;
-	$self->output_base_name($fastq_file);
-	my ($base_name,$output_dir) = $self->output_base_name($fastq_file);	
-	my $working_dir = $self->working_dir;
-	return "$working_dir/$base_name.zip";
-}
-
-sub keep_or_delete {
-	my ($self,$keep,@files) = @_;
-	
-	if ($keep){
-		$self->output_files(\@files);
-	}
-	else {
-		$self->created_files(\@files);
-	}
-	
 }
 
 sub keep_file_output_dir {

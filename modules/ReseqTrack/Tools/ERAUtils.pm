@@ -31,6 +31,7 @@ sub get_erapro_conn{
   my $dbname = 'ERAPRO';
   my $dbhost = 'grappa.ebi.ac.uk';
   my $dbport = 1531;
+
   my $db = ReseqTrack::DBSQL::ERADBAdaptor->new(
     -host   => $dbhost,
     -user   => $dbuser,
