@@ -169,7 +169,7 @@ my %peak_caller_args = (
 );
 
 if ($fragment_size_stat_name) {
-  my $stats = $collection->statistics();
+  my $stats = $collection->attributes();
   my $fragment_size;
   for my $stat (@$stats) {
     if ($stat->attribute_name eq $fragment_size_stat_name) {

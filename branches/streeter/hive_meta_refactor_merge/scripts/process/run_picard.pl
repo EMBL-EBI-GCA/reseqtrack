@@ -180,7 +180,7 @@ if ($store) {
           }
         }
       }
-      $ca->store_statistics($collection);
+      $ca->store_attributes($collection);
     }
 
     if ( $metrics_file_type && @{ $picard_object->output_metrics_files } ) {

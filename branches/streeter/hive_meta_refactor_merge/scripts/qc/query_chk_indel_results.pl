@@ -49,7 +49,7 @@ my $seq_index_hash = parse_index($seq_index);
 =cut
 
 my $rmi_a = $db->get_RunMetaInfoAdaptor;
-my $stats_a = $db->get_StatisticsAdaptor;
+my $attr_a = $db->get_AttributeAdaptor;
 
 if ($bam_list ) {
 	my $bams = get_lines_from_file($bam_list);
@@ -75,7 +75,7 @@ sub process_results {
 		print "run id $run_id\t";
 		my $rmi_obj = $rmi_a->fetch_by_run_id($run_id);	
 		#print "rmi id is " . $rmi_obj->dbID . "\n";
-		my $stats_objs = $stats_a->fetch_by_other_id_and_table_name($rmi_obj->dbID, 'run_meta_info');
+		my $stats_objs = $attr_a->fetch_by_other_id_and_table_name($rmi_obj->dbID, 'run_meta_info');
 		if ( ! $stats_objs || @$stats_objs == 0 ) {
 			print "no check indel results\n";
 			$flag = 1;

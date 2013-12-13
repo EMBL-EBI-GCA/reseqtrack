@@ -2,14 +2,11 @@ package ReseqTrack::Tools::QC::ChkIndelsBAM;
 
 use strict;
 use warnings;
-use vars qw(@ISA);
 use ReseqTrack::Tools::Exception qw(throw warning);
 use ReseqTrack::Tools::Argument qw(rearrange);
 use ReseqTrack::Tools::FileSystemUtils qw(get_lines_from_file);
-use File::Path;
-use File::Basename;
+use ReseqTrack::Tools::AttributeUtils qw(create_attribute_for_object);
 use base qw(ReseqTrack::Tools::RunProgram);
-use ReseqTrack::DBSQL::StatisticsAdaptor;
 
 =pod
 
@@ -55,15 +52,14 @@ sub new {
 sub run_program {
     my ($self) = @_;
        
-    mkpath $self->working_dir unless (-e $self->working_dir);
 
 	print "input file is " . $self->input_files->[0] . "\n";
 	my $outfile = $self->working_dir . "/" . basename($self->input_files->[0]) . ".out";
 	my $command = $self->program . " " . $self->input_files->[0] . " > " . $outfile;
 	
+	$self->output_files($outfile);
 	ReseqTrack::Tools::RunProgram->execute_command_line($command);
 	
-	$self->output_files($outfile);
 	
 	$self->_insert_results_into_db;
     return $self;
@@ -73,7 +69,7 @@ sub _insert_results_into_db {
 	my ($self) = @_;
     
 	my $rmi_a = $self->db->get_RunMetaInfoAdaptor;
-	my $stats_a = $self->db->get_StatisticsAdaptor;
+	my $attr_a = $self->db->get_AttributeAdaptor;
 	
 	my $result_file = $self->output_files->[0];
 	my $lines = get_lines_from_file($result_file);
@@ -83,35 +79,15 @@ sub _insert_results_into_db {
 		my @data = split (/\t/, $line);
 		my $rmi_obj = $rmi_a->fetch_by_run_id($data[1]);	
 				
-		my $stats_obj_1 = ReseqTrack::Statistic->new(
-			-table_name => 'run_meta_info',
-			-other_id	=> $rmi_obj->dbID,
-			-attribute_name	=> 'sh_insert',
-			-attribute_value	=> $data[2],
-		);	
-		my $stats_obj_2 = ReseqTrack::Statistic->new(
-			-table_name => 'run_meta_info',
-			-other_id	=> $rmi_obj->dbID,
-			-attribute_name	=> 'sh_del',
-			-attribute_value	=> $data[3],
-		);	
-		my $stats_obj_3 = ReseqTrack::Statistic->new(
-			-table_name => 'run_meta_info',
-			-other_id	=> $rmi_obj->dbID,
-			-attribute_name	=> 'reg_insert',
-			-attribute_value	=> $data[4],
-		);	
-		my $stats_obj_4 = ReseqTrack::Statistic->new(
-			-table_name => 'run_meta_info',
-			-other_id	=> $rmi_obj->dbID,
-			-attribute_name	=> 'reg_del',
-			-attribute_value	=> $data[5],
-		);	
+		my $attr_obj_1 = create_attribute_for_object($rmi_obj, 'sh_insert', $data[2]);
+		my $attr_obj_2 = create_attribute_for_object($rmi_obj, 'sh_del', $data[3]);
+		my $attr_obj_3 = create_attribute_for_object($rmi_obj, 'reg_insert', $data[4]);
+		my $attr_obj_4 = create_attribute_for_object($rmi_obj, 'reg_del', $data[5]);
 			
-		$stats_a->store($stats_obj_1) if $self->store;	
-		$stats_a->store($stats_obj_2) if $self->store;	
-		$stats_a->store($stats_obj_3) if $self->store;	
-		$stats_a->store($stats_obj_4) if $self->store;	
+		$stats_a->store($attr_obj_1) if $self->store;	
+		$stats_a->store($attr_obj_2) if $self->store;	
+		$stats_a->store($attr_obj_3) if $self->store;	
+		$stats_a->store($attr_obj_4) if $self->store;	
 		
 	}	
 		return $self;
