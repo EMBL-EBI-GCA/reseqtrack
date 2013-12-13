@@ -64,7 +64,8 @@ sub DEFAULT_OPTIONS {
         'keep_mapped_regex' => 'concordant_uniq|concordant_mult',
         'metrics_programs'  => [
           'CollectAlignmentSummaryMetrics', 'CollectInsertSizeMetrics',
-          'QualityScoreDistribution',       'MeanQualityByCycle'
+          'QualityScoreDistribution',       'MeanQualityByCycle',
+          ],
     };
 }
 
@@ -81,6 +82,7 @@ sub CMD_MAPPINGS { return {
     'insert_size_metrics' => \&run_insert_size_metrics,
     'multiple_metrics'    => \&run_multiple_metrics,
     };    
+}
 
 =head2 new
 
@@ -191,10 +193,6 @@ sub run_mark_duplicates {
     push( @cmd_words, $self->jvm_options ) if ( $self->jvm_options );
     push( @cmd_words, '-jar', $jar );
     push( @cmd_words, $self->_get_standard_options );
-    my @cmd_words = ( $self->java_exe );
-    push( @cmd_words, $self->jvm_options ) if ( $self->jvm_options );
-    push( @cmd_words, '-jar', $jar );
-    push( @cmd_words, $self->_get_standard_options );
     my $input_files = $self->options('shorten_input_names') ? [values %{$self->get_short_input_names}]
                     : $self->input_files;
     push( @cmd_words, map { "INPUT=$_" } @$input_files );
@@ -211,7 +209,6 @@ sub run_mark_duplicates {
         'CREATE_INDEX=' . ( $self->create_index ? 'true' : 'false' ) );
     push( @cmd_words, 'MAX_FILE_HANDLES_FOR_READ_ENDS_MAP=' . $self->options('max_file_handles'))
       if $self->options('max_file_handles');
-    my $cmd = join( ' ', @cmd_words );
     my $cmd = join( ' ', @cmd_words );
     $self->output_files($bam);
     if ( $self->keep_metrics ) {
