@@ -415,9 +415,6 @@ CREATE TABLE attribute(
    unique(other_id, table_name, attribute_name)
 ) ENGINE=MYISAM; 
 
-insert into attribute (attribute_id,table_name,other_id,attribute_name,attribute_value)
-select statistics_id,table_name,other_id,attribute_name,attribute_value from statistics;
-
 create table study(
     study_id int(10) unsigned primary key auto_increment, 
     study_source_id  varchar(15) not null,

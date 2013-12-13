@@ -131,3 +131,52 @@ left outer join attribute bc on bc.table_name = 'run' and bc.attribute_name = 'B
 
 alter table history modify table_name enum('file','collection','event','run_meta_info','alignment_meta_info','study','sample','experiment','run','pipeline') NOT NULL;
 alter table history modify comment varchar(65000) not null;
+
+
+CREATE TABLE pipeline(
+       pipeline_id int(10) unsigned NOT NULL AUTO_INCREMENT,
+       name VARCHAR(100) NOT NULL,
+       table_name VARCHAR(50) NOT NULL,
+       config_module VARCHAR(255) NOT NULL,
+       config_options VARCHAR(30000),
+       created   datetime NOT NULL,
+       PRIMARY KEY(pipeline_id),
+       UNIQUE(name)   
+) ENGINE=MYISAM;
+
+CREATE TABLE hive_db(
+       hive_db_id int(10) unsigned NOT NULL AUTO_INCREMENT,
+       pipeline_id int(10) unsigned NOT NULL,
+       name VARCHAR(255) NOT NULL,
+       host VARCHAR(255) NOT NULL,
+       port smallint unsigned NOT NULL,
+       created   datetime NOT NULL,
+       retired   datetime,
+       hive_version VARCHAR(255) NOT NULL,
+       is_seeded tinyint NOT NULL DEFAULT 0,
+       PRIMARY KEY(hive_db_id),
+       UNIQUE(name,host,port,created)   
+) ENGINE=MYISAM;
+
+CREATE TABLE pipeline_seed(
+       pipeline_seed_id int(10) unsigned NOT NULL AUTO_INCREMENT,
+       seed_id int(10) unsigned NOT NULL,
+       hive_db_id int(10) unsigned NOT NULL,
+       is_running tinyint NOT NULL,
+       is_complete tinyint NOT NULL default 0,
+       is_failed tinyint NOT NULL default 0,
+       is_futile tinyint NOT NULL default 0,
+       created datetime NOT NULL,
+       completed datetime,
+       PRIMARY KEY(pipeline_seed_id)
+) ENGINE=MYISAM;
+
+CREATE TABLE pipeline_output(
+       pipeline_output_id int(10) unsigned NOT NULL AUTO_INCREMENT,
+       pipeline_seed_id int(10) unsigned NOT NULL,
+       table_name VARCHAR(50) NOT NULL,
+       output_id int(10) unsigned NOT NULL,
+       action VARCHAR(50) NOT NULL,     
+       PRIMARY KEY(pipeline_output_id)
+) ENGINE=MYISAM;
+
