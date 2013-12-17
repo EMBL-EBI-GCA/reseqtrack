@@ -367,6 +367,25 @@ sub pipeline_analyses {
             -rc_name => '2Gb',
             -hive_capacity  =>  200,
             -flow_into => {
+                1 => [ 'fix_contig_order']
+            },
+      });
+    push(@analyses, {
+            -logic_name => 'fix_contig_order',
+            -module        => 'ReseqTrack::Hive::Process::RunPicard',
+            -parameters => {
+                picard_dir => $self->o('picard_dir'),
+                command => 'reorder',
+                create_index => 0,
+                jvm_args => '-Xmx2g',
+                options => {reference_sequence => $self->o('reference')},
+                reseqtrack_options => {
+                  delete_param => 'bam',
+                },
+            },
+            -rc_name => '2Gb',
+            -hive_capacity  =>  200,
+            -flow_into => {
                 1 => [ ':////accu?bam=[]']
             },
       });
@@ -443,7 +462,7 @@ sub pipeline_analyses {
                 'SQ_species' => $self->o('ref_species'),
                 'SQ_uri' => $self->o('reference_uri'),
                 reseqtrack_options => {
-                  denestify => 'bam',
+                  denestify => ['bam','fastq'],
                   delete_param => 'bam',
                 },
             },

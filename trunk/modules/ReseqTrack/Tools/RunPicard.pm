@@ -21,7 +21,7 @@ use warnings;
 
 use ReseqTrack::Tools::Exception qw(throw);
 use ReseqTrack::Tools::Argument qw(rearrange);
-use ReseqTrack::Tools::FileSystemUtils qw(check_executable);
+use ReseqTrack::Tools::FileSystemUtils qw(check_executable check_file_exists);
 use File::Basename qw(fileparse);
 use File::Copy qw (move);
 
@@ -57,7 +57,7 @@ sub DEFAULT_OPTIONS {
         , # Location of rRNA sequences in genome, in interval_list format, used by CollectRnaSeqMetrics
         'reference_sequence' =>
           undef
-        ,    # Location of reference fasta file, used by CollectRnaSeqMetrics
+        ,    # Location of reference fasta file, used by CollectRnaSeqMetrics and ReorderSam
         'strand_specificity' => 'NONE'
         ,    #For strand-specific library prep,  used by CollectRnaSeqMetrics
         'read_group_fields' => {}, # used by AddOrReplaceReadGroups
@@ -81,6 +81,7 @@ sub CMD_MAPPINGS { return {
     'demap_merge'         => \&run_demap_merge,
     'insert_size_metrics' => \&run_insert_size_metrics,
     'multiple_metrics'    => \&run_multiple_metrics,
+    'reorder'             => \&run_reorder,
     };    
 }
 
@@ -638,6 +639,66 @@ sub run_sort {
     push( @cmd_words, 'SORT_ORDER=' . $sort_order );
     push( @cmd_words, 'INPUT=' . $input );
     push( @cmd_words, 'OUTPUT=' . $output );
+    push( @cmd_words,
+      'CREATE_INDEX=' . ( $self->create_index ? 'true' : 'false' ) );
+
+    my $cmd = join( ' ', @cmd_words );
+
+    $self->output_files($output);
+    $self->created_files("$prefix.bai") if $self->create_index;
+
+    $self->execute_command_line($cmd);
+
+    if ( $self->create_index ) {
+      my $bai       = "$prefix.bai";
+      my $index_ext = $self->options('index_ext');
+      if ( $index_ext && $index_ext ne '.bai' ) {
+        my $corrected_bai = "$prefix" . $index_ext;
+        move( $bai, $corrected_bai )
+          or throw "move failed: $!";
+        $bai = $corrected_bai;
+      }
+      $self->output_files($bai);
+    }
+
+  }
+
+  return;
+}
+
+
+=head2 run_reorder
+
+  Arg [1]   : ReseqTrack::Tools::RunPicard
+  Function  : uses ReorderSam.jar to reorder reads to match a different contig order
+  Returntype: 
+  Exceptions: 
+  Example   : $self->run_sort
+
+=cut
+
+sub run_reorder {
+  my ($self) = @_;
+
+  my $jar = $self->_jar_path('ReorderSam.jar');
+
+  throw("Reference sequence is required to reorder contigs")
+    unless $self->options('reference_sequence');
+  check_file_exists $self->options('reference_sequence');
+
+  foreach my $input ( @{ $self->input_files } ) {
+    my $name = fileparse( $input, qr/\.[sb]am/ );
+    my $prefix = $self->working_dir . '/' . $name . '.reordered';
+    $prefix =~ s{//}{/}g;
+    my $output = $prefix . '.bam';
+
+    my @cmd_words = ( $self->java_exe );
+    push( @cmd_words, $self->jvm_options ) if ( $self->jvm_options );
+    push( @cmd_words, '-jar', $jar );
+    push( @cmd_words, $self->_get_standard_options );
+    push( @cmd_words, 'INPUT=' . $input );
+    push( @cmd_words, 'OUTPUT=' . $output );
+    push( @cmd_words, 'REFERENCE=' . $self->options('reference_sequence'));
     push( @cmd_words,
       'CREATE_INDEX=' . ( $self->create_index ? 'true' : 'false' ) );
 
