@@ -708,6 +708,7 @@ sub pipeline_analyses {
                 'SQ_species' => $self->o('ref_species'),
                 'SQ_uri' => $self->o('reference_uri'),
                 reseqtrack_options => {
+                  denestify => 'fastq',
                   delete_param => ['bam', 'bai'],
                 },
             },
