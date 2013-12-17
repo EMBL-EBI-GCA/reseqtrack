@@ -19,7 +19,7 @@ config_options=-reference /path/to/human.fa
 config_options=-known_indels_vcf /nfs/1000g-archive/vol1/ftp/technical/reference/phase2_mapping_resources/ALL.wgs.indels_mills_devine_hg19_leftAligned_collapsed_double_hit.indels.sites.vcf.gz
 config_options=-known_snps_vcf /nfs/1000g-archive/vol1/ftp/technical/reference/phase2_mapping_resources/ALL.wgs.dbsnp.build135.snps.sites.vcf.gz
 config_options=-realign_intervals_file /path/to/realigner.intervals
-config_options=-realign_knowns_only 1
+config_options=-realign_level 1
 config_options=-recalibrate_level 1
 config_options=-require_experiment_columns library_strategy=WGS
 config_options=-sample_attributes POPULATION
@@ -50,11 +50,11 @@ config_options=-final_output_layout '#POPULATION#/#sample_alias#/alignment'
       -chunk_max_reads, (default 5000000) controls how fastq files are split up into chunks for parallel alignment
 
       Recalibration and Realignment options:
-      -realign_knowns_only, boolean, default 0.  You can choose between full indel realignment (1) or faster realignment around known indels only (0)
+      -realign_level, can be 0 (don't realign), 1 (fast realignment around known indels only at lane level), 2 (full realignment at sample level).
       -recalibrate_level, can be 0 (don't recalibrate), 1 (fast recalibration at lane level, e.g. 1000genomes), 2 (slower recalibration at sample level for better accuracy)
-      -known_indels_vcf, used for indel realignment (default undefined).  Optional if realign_knowns_only=0; mandatory if realign_knowns_only=1.
+      -known_indels_vcf, used for indel realignment (default undefined).  Optional if realign_level=2; mandatory if realign_level=1.
       -known_snps_vcf, used for recalibration (default undefined). Mandatory if recalibrate_level != 0.
-      -realign_intervals_file, should be given if realign_known_only=1.  Can be generated using gatk RealignerTargetCreator
+      -realign_intervals_file, should be given if realign_level=1.  Can be generated using gatk RealignerTargetCreator
 
       Various options for reheadering a bam file:
       -header_lines_file should contain any @PG and @CO lines you want written to your bam header.
@@ -156,7 +156,7 @@ sub default_options {
         'ref_species' => undef,
         'header_lines_file' => undef,
 
-        'realign_knowns_only' => 0,
+        'realign_level' => 0,
         'recalibrate_level' => 2,
 
         'bam_type' => undef,
@@ -376,15 +376,15 @@ sub pipeline_analyses {
           -module        => 'ReseqTrack::Hive::Process::BaseProcess',
           -meadow_type=> 'LOCAL',
           -parameters => {
-              realign_knowns_only => $self->o('realign_knowns_only'),
+              realign_level => $self->o('realign_level'),
               recalibrate_level => $self->o('recalibrate_level'),
               reseqtrack_options => {
                 flows_non_factory => {
-                    1 => '#realign_knowns_only#',
-                    2 => '#realign_knowns_only#',
-                    3 => '#expr(#recalibrate_level#==1 && !#realign_knowns_only#)expr#',
-                    4 => '#expr(#recalibrate_level#==1 && !#realign_knowns_only#)expr#',
-                    5 => '#expr(!#realign_knowns_only# && #recalibrate_level#!=1)expr#',
+                    1 => '#expr(#realign_level#==1)expr#',
+                    2 => '#expr(#realign_level#==1)expr#',
+                    3 => '#expr(#recalibrate_level#==1 && #realign_level#!=1)expr#',
+                    4 => '#expr(#recalibrate_level#==1 && #realign_level#!=1)expr#',
+                    5 => '#expr(#realign_level#!=1 && #recalibrate_level#!=1)expr#',
                 },
                 flows_do_count_param => 'bam',
                 flows_do_count => {
@@ -485,10 +485,10 @@ sub pipeline_analyses {
               jvm_args => '-Xmx2g',
               known_sites_vcf => $self->o('known_snps_vcf'),
               delete_param => ['bam', 'bai'],
-              realign_knowns_only => $self->o('realign_knowns_only'),
+              realign_level => $self->o('realign_level'),
               flows_non_factory => {
-                  1 => '#realign_knowns_only#',
-                  2 => '#expr(!#realign_knowns_only#)expr#',
+                  1 => '#expr(#realign_level#!=2)expr#',
+                  2 => '#expr(#realign_level#==2)expr#',
               }
           },
           -rc_name => '2Gb',
@@ -553,16 +553,16 @@ sub pipeline_analyses {
           -module        => 'ReseqTrack::Hive::Process::BaseProcess',
           -meadow_type=> 'LOCAL',
           -parameters => {
-              realign_knowns_only => $self->o('realign_knowns_only'),
+              realign_level => $self->o('realign_level'),
               recalibrate_level => $self->o('recalibrate_level'),
               reseqtrack_options => {
                 flows_non_factory => {
-                    1 => '#expr(!#realign_knowns_only#)expr#',
-                    2 => '#expr(!#realign_knowns_only#)expr#',
-                    3 => '#expr(#recalibrate_level#==2 && #realign_knowns_only#)expr#',
-                    4 => '#expr(#recalibrate_level#==2 && #realign_knowns_only#)expr#',
-                    5 => '#expr(#recalibrate_level#!=2 && #realign_knowns_only#)expr#',
-                    6 => '#expr(#recalibrate_level#!=2 && #realign_knowns_only#)expr#',
+                    1 => '#expr(#realign_level#==2)expr#',
+                    2 => '#expr(#realign_level#==2)expr#',
+                    3 => '#expr(#recalibrate_level#==2 && #realign_level#!=2)expr#',
+                    4 => '#expr(#recalibrate_level#==2 && #realign_level#!=2)expr#',
+                    5 => '#expr(#recalibrate_level#!=2 && #realign_level#!=2)expr#',
+                    6 => '#expr(#recalibrate_level#!=2 && #realign_level#!=2)expr#',
                     7 => 1,
                 },
                 flows_do_count_param => 'bam',
