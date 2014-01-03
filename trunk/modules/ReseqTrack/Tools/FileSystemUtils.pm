@@ -383,8 +383,12 @@ sub delete_file {
       }
     }
 
-    unlink($file)
-        or throw( "file not deleted: $file $!");
+    my $result = unlink($file);
+
+    # no need to throw if file has been delete by another process
+    if (!$result && -e $file) {
+      throw( "file not deleted: $file $!");
+    }
 
     return 1;
 }

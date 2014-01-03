@@ -382,9 +382,11 @@ sub pipeline_analyses {
                 flows_non_factory => {
                     1 => '#expr(#realign_level#==1)expr#',
                     2 => '#expr(#realign_level#==1)expr#',
-                    3 => '#expr(#recalibrate_level#==1 && #realign_level#!=1)expr#',
-                    4 => '#expr(#recalibrate_level#==1 && #realign_level#!=1)expr#',
-                    5 => '#expr(#realign_level#!=1 && #recalibrate_level#!=1)expr#',
+                    3 => '#expr(#recalibrate_level#==1 && #realign_level#==2)expr#',
+                    4 => '#expr(#recalibrate_level#==1 && #realign_level#==2)expr#',
+                    5 => '#expr(#realign_level#==0)expr#',
+                    6 => '#expr(#realign_level#==0)expr#',
+                    7 => '#expr(#realign_level#==2 && #recalibrate_level#!=1)expr#',
                 },
                 flows_do_count_param => 'bam',
                 flows_do_count => {
@@ -393,6 +395,8 @@ sub pipeline_analyses {
                           3 => '1+',
                           4 => '2+',
                           5 => '1+',
+                          6 => '2+',
+                          7 => '1+',
                         },
               },
           },
@@ -401,7 +405,9 @@ sub pipeline_analyses {
                 'A->1' => [ 'realign_knowns_only' ],
                 '4->B' => [ 'merge_chunks' ],
                 'B->3' => [ 'recalibrate_run_level' ],
-                5 => [ ':////accu?bam=[]', ':////accu?bai=[]'],
+                '6->C' => [ 'merge_chunks' ],
+                'C->5' => [ 'calmd_run_level' ],
+                7 => [ ':////accu?bam=[]', ':////accu?bai=[]'],
           },
       });
     push(@analyses, {

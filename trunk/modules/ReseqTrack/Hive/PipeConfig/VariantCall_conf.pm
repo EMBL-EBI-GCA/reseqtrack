@@ -255,7 +255,7 @@ sub pipeline_analyses {
                 bed => $self->o('target_bed_file'),
                 region_overlap => 100,
             },
-            -rc_name => '2Gb',
+            -rc_name => '500Mb',
             -analysis_capacity  =>  4,
             -hive_capacity  =>  200,
             -flow_into => {
