@@ -76,9 +76,9 @@ static inline int pos_cmp(const heap1_t a, const heap1_t b) {
 
 KSORT_INIT(heap, heap1_t, pos_cmp);
 
-int merge_regions(int num_infiles, samfile_t **in_bams, bam_index_t **in_indexes, bamFile out_bam, int num_regions, char **regions) {
+int merge_regions(int num_infiles, samfile_t **in_bams, char **in_fnames, bamFile out_bam, int num_regions, char **regions) {
   int *tid, *beg, *end;
-  int i,j,num_regions_collapsed;
+  int i,j;
   bam_iter_t *bam_iters = (bam_iter_t*) malloc(sizeof(bam_iter_t) * num_infiles);
   heap1_t *heap = (heap1_t*) malloc(sizeof(heap1_t) * num_infiles);
 
@@ -134,7 +134,13 @@ int merge_regions(int num_infiles, samfile_t **in_bams, bam_index_t **in_indexes
   for (i=0; i<num_regions; i++) {
     for (j=0; j<num_infiles; j++) {
       heap1_t *h = heap + j;
-      bam_iters[j] = bam_iter_query(in_indexes[j], tid[i], beg[i], end[i]);
+      bam_index_t* in_index = bam_index_load(in_fnames[j]);
+      if (in_index == 0) {
+        printf("Failed to load index for file %s\n", in_fnames[j]);
+        return -1;
+      }
+      bam_iters[j] = bam_iter_query(in_index, tid[i], beg[i], end[i]);
+      bam_index_destroy(in_index);
       h->j = j;
       while (1) {
         if (bam_iter_read(in_bams[j]->x.bam, bam_iters[j], h->b) <= 0) {
@@ -182,7 +188,6 @@ int main(int argc, char *argv[])
   int num_infiles;
   int ret = 0;
   samfile_t **in_bams = NULL;
-  bam_index_t **in_indexes = NULL;
   bamFile out_bam = NULL;
 
   regions = (char**) malloc(sizeof(char*) * argc);
@@ -216,14 +221,9 @@ int main(int argc, char *argv[])
   
   in_fnames = argv + optind;
   in_bams = (samfile_t**) malloc(sizeof(samfile_t*) * num_infiles);
-  in_indexes = (bam_index_t**) malloc(sizeof(bam_index_t*) * num_infiles);
   for (i=0; i<num_infiles; i++) {
     if ((in_bams[i] = samopen(in_fnames[i], "rb", NULL)) == 0) {
       printf("Failed to open file %s\n", in_fnames[i]);
-      exit(-1);
-    }
-    if ((in_indexes[i] = bam_index_load(in_fnames[i])) == 0) {
-      printf("Failed to load index for file %s\n", in_fnames[i]);
       exit(-1);
     }
   }
@@ -235,16 +235,14 @@ int main(int argc, char *argv[])
 
   merge_bam_headers(num_infiles, in_bams, out_bam);
 
-  ret = merge_regions(num_infiles, in_bams, in_indexes, out_bam, num_regions, regions);
+  ret = merge_regions(num_infiles, in_bams, in_fnames, out_bam, num_regions, regions);
 
 
   bam_close(out_bam);
   for (i=0; i<num_infiles; i++) {
     samclose(in_bams[i]);
-    bam_index_destroy(in_indexes[i]);
   }
   free(in_bams);
-  free(in_indexes);
   free(regions);
 
   if (build_index && ret == 0)
