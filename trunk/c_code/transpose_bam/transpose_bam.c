@@ -79,7 +79,7 @@ KSORT_INIT(heap, heap1_t, pos_cmp);
 int merge_regions(int num_infiles, samfile_t **in_bams, char **in_fnames, bamFile out_bam, int num_regions, char **regions) {
   int *tid, *beg, *end;
   int i,j;
-  bam_iter_t *bam_iters = (bam_iter_t*) malloc(sizeof(bam_iter_t) * num_infiles);
+  bam_iter_t **bam_iters = (bam_iter_t**) malloc(sizeof(bam_iter_t*) * num_infiles);
   heap1_t *heap = (heap1_t*) malloc(sizeof(heap1_t) * num_infiles);
 
   tid = (int*) malloc(sizeof(int) * num_regions);
@@ -128,22 +128,26 @@ int merge_regions(int num_infiles, samfile_t **in_bams, char **in_fnames, bamFil
 
   for (j=0; j<num_infiles; j++) {
     heap1_t *h = heap + j;
+    bam_index_t* in_index = bam_index_load(in_fnames[j]);
+    if (in_index == 0) {
+      printf("Failed to load index for file %s\n", in_fnames[j]);
+      return -1;
+    }
     h->b = bam_init1();
+
+    bam_iters[j] = (bam_iter_t*) malloc(sizeof(bam_iter_t) * num_regions);
+    for (i=0; i<num_regions; i++) {
+      bam_iters[j][i] = bam_iter_query(in_index, tid[i], beg[i], end[i]);
+    }
+    bam_index_destroy(in_index);
   }
 
   for (i=0; i<num_regions; i++) {
     for (j=0; j<num_infiles; j++) {
       heap1_t *h = heap + j;
-      bam_index_t* in_index = bam_index_load(in_fnames[j]);
-      if (in_index == 0) {
-        printf("Failed to load index for file %s\n", in_fnames[j]);
-        return -1;
-      }
-      bam_iters[j] = bam_iter_query(in_index, tid[i], beg[i], end[i]);
-      bam_index_destroy(in_index);
       h->j = j;
       while (1) {
-        if (bam_iter_read(in_bams[j]->x.bam, bam_iters[j], h->b) <= 0) {
+        if (bam_iter_read(in_bams[j]->x.bam, bam_iters[j][i], h->b) <= 0) {
           h->j = -1;
           break;
         }
@@ -154,18 +158,19 @@ int merge_regions(int num_infiles, samfile_t **in_bams, char **in_fnames, bamFil
     ks_heapmake(heap, num_infiles, heap);
     while (heap->j >= 0) {
       bam_write1(out_bam, heap->b);
-      if (bam_iter_read(in_bams[heap->j]->x.bam, bam_iters[heap->j], heap->b) <= 0)
+      if (bam_iter_read(in_bams[heap->j]->x.bam, bam_iters[heap->j][i], heap->b) <= 0)
         heap->j = -1;
       ks_heapadjust(heap, 0, num_infiles, heap);
     }
 
     for (j=0; j<num_infiles; j++)
-      bam_iter_destroy(bam_iters[j]);
+      bam_iter_destroy(bam_iters[j][i]);
   }
 
   for (j=0; j<num_infiles; j++) {
     heap1_t *h = heap + j;
     bam_destroy1(h->b);
+    free(bam_iters[j]);
   }
 
   free(tid);
