@@ -29,9 +29,14 @@ sub run {
 
     my $output_dir = $self->output_dir;
 
+    my $run_source_id = $self->param_required('run_source_id');
+    my @regexs = (qr/${run_source_id}_1\.(\w+\.)*f(?:ast)?q(?:\.gz)?/i,
+                  qr/${run_source_id}_2\.(\w+\.)*f(?:astq)?(?:\.gz)?/i,
+                  qr/${run_source_id}\.(\w+\.)*f(?:ast)?q(?:\.gz)?/i);
+
 
     my $fastqs = $self->param_as_array('fastq');
-    my ($mate1, $mate2, $frag) = assign_files($fastqs);
+    my ($mate1, $mate2, $frag) = assign_files($fastqs, \@regexs);
     throw ("No mate for $mate1") if ($mate1 && ! $mate2);
     throw ("No mate for $mate2") if ($mate2 && ! $mate1);
 
