@@ -143,7 +143,7 @@ void update_stats(rg_stats_t *rg_stats, bam1_t *bam_line) {
   if (! (bam_line->core.flag & BAM_FUNMAP)) {
     uint32_t *cigar = bam1_cigar(bam_line);
     uint8_t *qual = bam1_qual(bam_line);
-    uint8_t i,j;
+    uint16_t i,j;
 
     rg_stats->num_mapped_reads ++;
     rg_stats->num_bases_in_mapped_reads += bam_line->core.l_qseq;
