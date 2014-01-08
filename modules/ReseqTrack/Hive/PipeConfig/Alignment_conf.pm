@@ -143,7 +143,7 @@ sub default_options {
         'squeeze_exe' => '/nfs/1000g-work/G1K/work/bin/bamUtil/bin/bam',
         'gatk_dir' => '/nfs/1000g-work/G1K/work/bin/gatk/dist/',
         'picard_dir' => '/nfs/1000g-work/G1K/work/bin/picard',
-        'known_indels_vcf' => undef,
+        'known_indels_vcf' => [],
         'known_snps_vcf' => undef,
         'realign_intervals_file' => undef,
         'max_paired_length' => undef,
