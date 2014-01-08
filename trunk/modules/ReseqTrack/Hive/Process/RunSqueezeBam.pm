@@ -12,7 +12,7 @@ sub param_defaults {
     program_file => undef,
     rm_tag_types => undef,
     rm_OQ_fields => 1,
-    rum_dups => 1,
+    rm_dups => 0,
   };
 }
 
