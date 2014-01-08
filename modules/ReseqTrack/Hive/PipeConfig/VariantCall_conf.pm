@@ -91,7 +91,7 @@ sub default_options {
 
         seeding_module => 'ReseqTrack::Hive::PipeSeed::BasePipeSeed',
         seeding_options => {
-            output_columns => ['name', 'sample_id'],
+            output_columns => ['name', 'collection_id'],
             require_columns => $self->o('require_collection_columns'),
             exclude_columns => $self->o('exclude_collection_columns'),
             require_attributes => $self->o('require_collection_attributes'),
@@ -283,13 +283,13 @@ sub pipeline_analyses {
             -analysis_capacity  =>  4,
             -hive_capacity  =>  200,
             -flow_into => {
-                '1' => { 'call_by_samtools' => {'region2' => '#$callgroup#.#SQ_start#.#bp_start#.#SQ_end#.#bp_end#',
+                '1' => { 'call_by_samtools' => {'region2' => '#callgroup#.#SQ_start#.#bp_start#.#SQ_end#.#bp_end#',
                                                 'SQ_start' => '#SQ_start#', 'bp_start' => '#bp_start#', 'SQ_end' => '#SQ_end#', 'bp_end' => '#bp_end#', 'fan_index' => '#fan_index#',
                                                 }},
-                '2' => { 'call_by_gatk' => {'region2' => '#$callgroup#.#SQ_start#.#bp_start#.#SQ_end#.#bp_end#',
+                '2' => { 'call_by_gatk' => {'region2' => '#callgroup#.#SQ_start#.#bp_start#.#SQ_end#.#bp_end#',
                                                 'SQ_start' => '#SQ_start#', 'bp_start' => '#bp_start#', 'SQ_end' => '#SQ_end#', 'bp_end' => '#bp_end#', 'fan_index' => '#fan_index#',
                                                 }},
-                '3' => { 'call_by_freebayes' => {'region2' => '#$callgroup#.#SQ_start#.#bp_start#.#SQ_end#.#bp_end#',
+                '3' => { 'call_by_freebayes' => {'region2' => '#callgroup#.#SQ_start#.#bp_start#.#SQ_end#.#bp_end#',
                                                 'SQ_start' => '#SQ_start#', 'bp_start' => '#bp_start#', 'SQ_end' => '#SQ_end#', 'bp_end' => '#bp_end#', 'fan_index' => '#fan_index#',
                                                 }},
                 '4' => [ ':////accu?bp_start=[fan_index]', ':////accu?bp_end=[fan_index]'],
