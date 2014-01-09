@@ -311,8 +311,10 @@ sub pipeline_analyses {
                 collection_type => $self->o('type_fastq'),
                 collection_name => '#run_source_id#',
                 output_param => 'fastq',
-                flows_do_count_param => 'fastq',
-                flows_do_count => { 1 => '1+', },
+                reseqtrack_options => {
+                  flows_do_count_param => 'fastq',
+                  flows_do_count => { 1 => '1+', },
+                }
             },
             -flow_into => {
                 1 => [ 'split_fastq', ':////accu?fastq=[]' ],
@@ -418,7 +420,9 @@ sub pipeline_analyses {
               jvm_args => '-Xmx2g',
               command => 'merge',
               create_index => 1,
-              delete_param => ['bam', 'bai'],
+              reseqtrack_options => {
+                delete_param => ['bam', 'bai'],
+              }
           },
           -rc_name => '2Gb',
           -hive_capacity  =>  200,
@@ -436,7 +440,9 @@ sub pipeline_analyses {
                 known_sites_vcf => $self->o('known_indels_vcf'),
                 intervals_file => $self->o('realign_intervals_file'),
                 gatk_module_options => {knowns_only => 1},
-                delete_param => ['bam', 'bai'],
+                reseqtrack_options => {
+                  delete_param => ['bam', 'bai'],
+                }
             },
             -rc_name => '5Gb',
             -hive_capacity  =>  100,
@@ -452,12 +458,14 @@ sub pipeline_analyses {
                 command => 'calmd',
                 reference => $self->o('reference'),
                 samtools_options => {input_sort_status => 'c'},
-                delete_param => ['bam'],
                 recalibrate_level => $self->o('recalibrate_level'),
-                flows_non_factory => {
-                    1 => '#expr(#recalibrate_level#==1)expr#',
-                    2 => '#expr(#recalibrate_level#==0)expr#',
-                    3 => '#expr(#recalibrate_level#==2)expr#',
+                reseqtrack_options => {
+                  delete_param => ['bam'],
+                  flows_non_factory => {
+                      1 => '#expr(#recalibrate_level#==1)expr#',
+                      2 => '#expr(#recalibrate_level#==0)expr#',
+                      3 => '#expr(#recalibrate_level#==2)expr#',
+                  }
                 }
             },
             -rc_name => '2Gb',
@@ -490,11 +498,13 @@ sub pipeline_analyses {
               gatk_dir => $self->o('gatk_dir'),
               jvm_args => '-Xmx2g',
               known_sites_vcf => $self->o('known_snps_vcf'),
-              delete_param => ['bam', 'bai'],
               realign_level => $self->o('realign_level'),
-              flows_non_factory => {
-                  1 => '#expr(#realign_level#!=2)expr#',
-                  2 => '#expr(#realign_level#==2)expr#',
+              reseqtrack_options => {
+                delete_param => ['bam', 'bai'],
+                flows_non_factory => {
+                    1 => '#expr(#realign_level#!=2)expr#',
+                    2 => '#expr(#realign_level#==2)expr#',
+                }
               }
           },
           -rc_name => '2Gb',
@@ -511,7 +521,9 @@ sub pipeline_analyses {
                 program_file => $self->o('squeeze_exe'),
                 'rm_OQ_fields' => 1,
                 'rm_tag_types' => ['XM:i', 'XG:i', 'XO:i'],
-                delete_param => ['bam'],
+                reseqtrack_options => {
+                  delete_param => ['bam'],
+                }
             },
             -rc_name => '200Mb',
             -hive_capacity  =>  200,
@@ -639,7 +651,7 @@ sub pipeline_analyses {
                 reference => $self->o('reference'),
                 samtools_options => {input_sort_status => 'c'},
                 reseqtrack_options => {
-                delete_param => ['bam'],
+                  delete_param => ['bam'],
                   flows_non_factory => {
                       1 => '#expr(#recalibrate_level#==2)expr#',
                       2 => '#expr(#recalibrate_level#!=2)expr#',
