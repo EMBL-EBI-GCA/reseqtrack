@@ -130,9 +130,20 @@ sub create_seed_params {
 
   my @seed_params;
 
+  my @remote_host_ids = map {$_->dbID} @{$db->get_HostAdaptor->fetch_all_remote()};
+
   SEED:
   while (my $rowHashref = $sth->fetchrow_hashref) {
     my $seed = $adaptor->object_from_hashref($rowHashref);
+
+    # Do not run a pipeline on foreign files:
+    next SEED if $table_name eq 'file' && grep {$seed->host_id == $_} @remote_host_ids;
+    if ($table_name eq 'collection' && $seed->table_name eq 'file') {
+      foreach my $file (@{$seed->others}) {
+        next SEED if grep {$file->host_id == $_} @remote_host_ids;
+      }
+    }
+
     foreach my $attr_name (keys %$require_attributes) {
       my ($attribute) = grep {$_->attribute_name eq $attr_name} @{$seed->attributes};
       next SEED if !$attribute;
