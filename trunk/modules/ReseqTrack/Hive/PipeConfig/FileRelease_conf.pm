@@ -78,7 +78,7 @@ sub resource_classes {
     my ($self) = @_;
     return {
             %{$self->SUPER::resource_classes},  # inherit 'default' from the parent class
-            '200Mb' => { 'LSF' => '-C0 -M200 -q production -R"select[mem>200] rusage[mem=200]"' },
+            '200Mb' => { 'LSF' => '-C0 -M200 -q '.$self->o('lsf_queue').' -R"select[mem>200] rusage[mem=200]"' },
     };
 }
 
