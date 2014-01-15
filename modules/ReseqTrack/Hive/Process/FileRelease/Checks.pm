@@ -55,7 +55,7 @@ sub check_ctime {
   my ($self, $dropbox_path, $file_object) = @_;
   my $st = stat($dropbox_path) or throw("could not stat $dropbox_path: $!");
   my $ctime_now = $st->ctime;
-  my $file_details = $self->file_param('file');
+  my $file_details = $self->param('file');
   my $job_ctime = $file_details->{'dropbox'}->{'ctime'};
   if ($ctime_now != $job_ctime) {
     $self->is_reject(0);
@@ -68,7 +68,7 @@ sub check_ctime {
 sub check_update_time {
   my ($self, $dropbox_path, $file_object) = @_;
   my $db_updated = $file_object->updated;
-  my $file_details = $self->file_param('file');
+  my $file_details = $self->param('file');
   my $job_updated = $file_details->{'db'}->{'updated'};
   if ($db_updated ne $job_updated) {
     $self->is_reject(0);
@@ -115,8 +115,7 @@ sub param_defaults {
 sub run {
     my $self = shift @_;
 
-    $self->param_required('file');
-    my $file_details = $self->file_param('file');
+    my $file_details = $self->param_required('file');
     my $db_params = $self->param_required('reseqtrack_db');
     my $check_class = $self->param_required('check_class');
     my $ps_id = $self->param_required('ps_id');

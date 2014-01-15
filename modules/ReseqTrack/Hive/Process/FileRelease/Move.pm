@@ -7,6 +7,7 @@ use base ('ReseqTrack::Hive::Process::BaseProcess');
 use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::Exception qw(throw);
 use ReseqTrack::Tools::HostUtils qw(get_host_object);
+use ReseqTrack::Tools::FileSystemUtils qw(check_directory_exists);
 use ReseqTrack::History;
 use File::Copy qw(move);
 use File::stat;
@@ -19,21 +20,22 @@ use File::stat;
 =cut
 
 sub derive_directory {
-  my ($dropbox_path, $file_object) = @_;
+  my ($self, $dropbox_path, $file_object) = @_;
+  my $derive_directory_options = $self->param('derive_directory_options');
   throw("Project-specific class must implement the derive_directory subroutine");
 }
 
 sub param_defaults {
   return {
     'ps_attributes' => {},
+    'derive_directory_options' => {},
   };
 }
 
 sub run {
     my $self = shift @_;
 
-    $self->param_required('file');
-    my $file_details = $self->file_param('file');
+    my $file_details = $self->param_required('file');
     my $db_params = $self->param_required('reseqtrack_db');
     my $hostname = $self->param_required('hostname');
     my $ps_attributes = $self->param('ps_attributes');
@@ -71,6 +73,7 @@ sub run {
         return;
     }
 
+    check_directory_exists($dir);
     move($dropbox_path, $new_path) or throw("error moving to $new_path: $!");
     my $host = get_host_object($hostname, $db);
     my $comment = 'changed host from '. $file_object->host->name.' to '. $host->name;
