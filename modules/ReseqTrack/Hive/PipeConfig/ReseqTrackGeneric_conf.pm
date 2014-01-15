@@ -36,6 +36,7 @@ sub default_options {
 
         root_output_dir => $self->o('ENV', 'PWD'), # Should be set to something more sensible
         dir_label_params => [],
+        lsf_queue => 'production',
 
     };
 }
