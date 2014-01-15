@@ -69,6 +69,8 @@ sub default_options {
         checking_module  => 'ReseqTrack::Hive::Process::FileRelease::Checks',
         hostname => '1000genomes.ebi.ac.uk',
 
+        derive_directory_options => {},
+
     };
 }
 
@@ -144,6 +146,7 @@ sub pipeline_analyses {
             -module        => $self->o('file_move_module'),
             -parameters    => {
                 hostname => $self->o('hostname'),
+                derive_directory_options => $self->o('derive_directory_options'),
             },
             -flow_into => {
                 1 => ['seed_complete'],
