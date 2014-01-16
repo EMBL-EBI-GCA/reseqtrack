@@ -60,9 +60,10 @@ my $fa = $db->get_FileAdaptor;
 LINE:
 foreach my $line (@{get_lines_from_file($list_file)}) {
   next LINE if $line =~ /^#/;
+  next LINE if $line !~ /\S/;
   chomp $line;
   my ($path, $size, $md5, $host) = split("\t", $line);
-  throw("invalid line: $line") if !$path || !$size || !$md5;
+  throw("invalid line: $line") if !$path || ! defined $size || !$md5;
   $host //= $default_host;
   throw("no host for $path") if !$host;
   throw("did not recognise host: $host") if ! defined $hosts{$host};
