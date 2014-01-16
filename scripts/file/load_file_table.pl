@@ -76,6 +76,9 @@ foreach my $line (@{get_lines_from_file($list_file)}) {
 
   $size =~ s/[\s,"]//g;
   throw("did not recognise size of $path") if $size !~ /^\d+$/;
+  
+  $md5 =~ s/\s//g;
+  throw("md5 is wrong length $path $md5") if length($md5) != 32;
 
   my $file = ReseqTrack::File->new(
         -name => $path, -size => $size,
