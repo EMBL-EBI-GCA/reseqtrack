@@ -7,7 +7,7 @@ use base ('ReseqTrack::Hive::Process::BaseProcess');
 use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::Exception qw(throw);
 use ReseqTrack::Tools::HostUtils qw(get_host_object);
-use ReseqTrack::Tools::FileSystemUtils qw(check_directory_exists);
+use ReseqTrack::Tools::FileSystemUtils qw(check_directory_exists move_by_rsync);
 use ReseqTrack::History;
 use File::Copy qw(move);
 use File::stat;
@@ -29,6 +29,7 @@ sub param_defaults {
   return {
     'ps_attributes' => {},
     'derive_directory_options' => {},
+    'move_by_rsync' => 0,
   };
 }
 
@@ -74,7 +75,13 @@ sub run {
     }
 
     check_directory_exists($dir);
-    move($dropbox_path, $new_path) or throw("error moving to $new_path: $!");
+    if ($self->param('move_by_rsync')) {
+      move_by_rsync($dropbox_path, $new_path);
+      throw("unexpected file size after rsync $dropbox_path $new_path") if $file_object->size != -s $new_path;
+    }
+    else {
+      move($dropbox_path, $new_path) or throw("error moving to $new_path: $!");
+    }
     my $host = get_host_object($hostname, $db);
     my $comment = 'changed host from '. $file_object->host->name.' to '. $host->name;
     my $history = ReseqTrack::History->new(

@@ -15,6 +15,7 @@ use File::Temp qw/ tempfile tempdir /;
 use Time::localtime;
 use List::Util qw (first);
 use Env qw( @PATH );
+use File::Rsync;
 
 use vars qw (@ISA  @EXPORT);
 
@@ -35,7 +36,9 @@ use vars qw (@ISA  @EXPORT);
   check_file_does_not_exist
   check_directory_exists
   check_executable
-  create_tmp_process_dir  );
+  create_tmp_process_dir
+  move_by_rsync
+  );
 
 =head2 list_files_in_dir
 
@@ -520,6 +523,30 @@ sub create_tmp_process_dir {
 
   chmod 0775, $temp_dir or throw("could not chmod $temp_dir $!");
   return $temp_dir;
+}
+
+=head2 move_by_rsync
+
+  Arg [1]   : from - path of the file to be moved
+  Arg [2]   : to - path of the destination file or directory
+  Function  : moves the file using rsync.
+  Exceptions: throws if arguments are missing
+              throws if rsync encounters an error
+  Example   : move_by_rsync('/path/to/file1', '/new/path/to/file1')
+
+=cut
+
+
+sub move_by_rsync {
+  my ($from, $to) = @_;
+  throw("no from") if !$from;
+  throw("no to") if !$to;
+  my $rsyncer = File::Rsync->new({'remove-sent-files' => 1});
+  my $success = $rsyncer->exec({src => $from, dest => $to});
+  if (!$success) {
+    throw(join('', "move_by_rsync failed from $from to $to ", $rsyncer->err));
+  }
+  return 1;
 }
 
 1;
