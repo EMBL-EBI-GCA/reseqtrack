@@ -16,7 +16,7 @@ sub derive_directory {
   my $dirname = dirname($dropbox_path);
 
   if (my $trim = $derive_directory_options->{trim_dir}) {
-    $dirname =~ s/^$trim//;
+    $dirname =~ s/^$trim// or throw("could not trim $dirname $trim");
   }
 
   my $destination = "$destination_base_dir/$dirname";

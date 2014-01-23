@@ -76,7 +76,11 @@ sub run {
 
     check_directory_exists($dir);
     if ($self->param('move_by_rsync')) {
+      $self->dbc->disconnect_when_inactive(1);
+      $db->dbc->disconnect_when_inactive(1);
       move_by_rsync($dropbox_path, $new_path);
+      $self->dbc->disconnect_when_inactive(0);
+      $db->dbc->disconnect_when_inactive(0);
       throw("unexpected file size after rsync $dropbox_path $new_path") if $file_object->size != -s $new_path;
     }
     else {
