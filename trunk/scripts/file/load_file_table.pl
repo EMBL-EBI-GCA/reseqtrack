@@ -91,7 +91,7 @@ foreach my $line (@{get_lines_from_file($list_file)}) {
 
     # check if a pipeline has already run on that file:
     my $existing_pipeline_seeds = $db->get_PipelineSeedAdaptor->fetch_by_seed($old_file);
-    if (@$existing_pipeline_seeds) {
+    if (grep {$_->is_complete || $_->is_running} @$existing_pipeline_seeds) {
       throw("cannot update $path because pipelines have already run on this file: "
           . join(' ', map {$_->pipeline->name} @$existing_pipeline_seeds));
     }
