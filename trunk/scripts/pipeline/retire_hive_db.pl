@@ -97,7 +97,7 @@ This is so the hive database will not be used any more for running pipelines
 
     $DB_OPTS="-dbhost mysql-host -dbuser rw_user -dbpass **** -dbport 4197 -dbname my_database"
 
-  perl reseqtrack/process/run_picard.pl $DB_OPTS $HIVE_DB_OPTS
+  perl reseqtrack/pipeline/retire_hive_db.pl $DB_OPTS
     -pipeline_name alignment
     -force -nofutile
 
