@@ -142,8 +142,7 @@ sub pipeline_analyses {
                 2 => [ 'seed_complete' ],
             },
             -rc_name => '200Mb',
-            -analysis_capacity  =>  50,  # use per-analysis limiter
-            -hive_capacity  =>  -1,
+            -hive_capacity  =>  50,
       });
     push(@analyses, {
             -logic_name    => 'move_to_staging',
@@ -156,7 +155,8 @@ sub pipeline_analyses {
             -flow_into => {
                 1 => ['seed_complete'],
             },
-            -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
+            -rc_name => '200Mb',
+            -hive_capacity  =>  50,
       });
     push(@analyses, {
             -logic_name    => 'seed_complete',
