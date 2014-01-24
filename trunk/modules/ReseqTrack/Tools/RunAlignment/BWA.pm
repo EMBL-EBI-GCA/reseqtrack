@@ -43,11 +43,12 @@ sub DEFAULT_OPTIONS { return {
         'gap_extension_penalty' => undef,
         'max_gap_opens' => undef,
         'max_gap_extensions' => undef,
-        'threads' => 1,
+        'z_best' => undef,
+	'threads' => 1,
         'load_fm_index' => 1,
         'disable_smith_waterman' => 0,
         'algorithm' => 'mem', # to run bwa-mem or bwa-backtrack or bwa-sw
-
+	
         'mark_secondary_hits' => 1, # for compatibility with gatk indel realigner
 
         };
@@ -300,6 +301,8 @@ sub run_bwa_sw {
               if ($self->options('gap_open_penalty'));
       push(@cmd_words, '-r', $self->options('gap_extension_penalty'))
               if ($self->options('gap_extension_penalty'));
+      push (@cmd_words, '-z', $self->options('z_best'))
+	      if ($self->options('z_best'));
 
       push(@cmd_words, '-M') if $self->options('mark_secondary_hits');
 

@@ -22,6 +22,7 @@ use ReseqTrack::Tools::AttributeUtils
 use ReseqTrack::Tools::Metadata::EnaReadInfo;
 use feature 'switch';
 use ReseqTrack::Tools::Argument qw(rearrange);
+use ReseqTrack::Tools::Exception;
 
 sub new {
   my ( $class, @args ) = @_;
