@@ -154,7 +154,7 @@ This script is used to do two things:
 
     $DB_OPTS="-dbhost mysql-host -dbuser rw_user -dbpass **** -dbport 4197 -dbname my_database"
 
-  perl reseqtrack/process/run_picard.pl $DB_OPTS $HIVE_DB_OPTS
+  perl reseqtrack/pipeline/run_pipeline.pl $DB_OPTS $HIVE_DB_OPTS
     -pipeline_name alignment
     -ensembl_cvs_dir /path/to/api
 
