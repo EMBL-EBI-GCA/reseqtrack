@@ -165,7 +165,8 @@ sub default_options {
         'bai_type' => undef,
         'bas_type' => undef,
 
-        'bwa_options' => {},
+        'bwa_algorithm' => 'mem',
+        'bwa_options' => {algorithm => $self->o('bwa_algorithm')},
 
         'RGSM' => '#sample_source_id#',
         'RGPU' => '#run_source_id#',
@@ -362,7 +363,18 @@ sub pipeline_analyses {
             -module        => 'ReseqTrack::Hive::Process::RunPicard',
             -parameters => {
                 picard_dir => $self->o('picard_dir'),
-                command => 'fix_mate',
+                bwa_algorithm => $self->o('bwa_algorithm'),
+                command => '#expr(#bwa_algorithm#=="sw" ? "add_or_replace_read_groups" : "fix_mate")expr#',
+                options => {read_group_fields => {
+                  ID => '#run_source_id#',
+                  LB => '#library_name#',
+                  PL => '#instrument_platform#',
+                  PU => $self->o('RGPU'),
+                  SM => $self->o('RGSM'),
+                  CN => '#center_name#',
+                  DS => '#study_source_id#',
+                  PI => '#paired_nominal_length#',
+                }, },
                 create_index => 1,
                 jvm_args => '-Xmx2g',
                 reseqtrack_options => {
