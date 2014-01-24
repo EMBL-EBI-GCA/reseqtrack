@@ -52,6 +52,7 @@ config_options=-final_output_layout '#POPULATION#/#sample_alias#/alignment'
       Recalibration and Realignment options:
       -realign_level, can be 0 (don't realign), 1 (fast realignment around known indels only at lane level), 2 (full realignment at sample level).
       -recalibrate_level, can be 0 (don't recalibrate), 1 (fast recalibration at lane level, e.g. 1000genomes), 2 (slower recalibration at sample level for better accuracy)
+      -run_calmd, can be 0 (don't don't run calmd), 1 (do run it, the default)
       -known_indels_vcf, used for indel realignment (default undefined).  Optional if realign_level=2; mandatory if realign_level=1.
       -known_snps_vcf, used for recalibration (default undefined). Mandatory if recalibrate_level != 0.
       -realign_intervals_file, should be given if realign_level=1.  Can be generated using gatk RealignerTargetCreator
@@ -158,6 +159,7 @@ sub default_options {
 
         'realign_level' => 0,
         'recalibrate_level' => 2,
+        'run_calmd' => 1,
 
         'bam_type' => undef,
         'bai_type' => undef,
@@ -384,11 +386,13 @@ sub pipeline_analyses {
                 flows_non_factory => {
                     1 => '#expr(#realign_level#==1)expr#',
                     2 => '#expr(#realign_level#==1)expr#',
-                    3 => '#expr(#recalibrate_level#==1 && #realign_level#==2)expr#',
-                    4 => '#expr(#recalibrate_level#==1 && #realign_level#==2)expr#',
-                    5 => '#expr(#realign_level#==0)expr#',
-                    6 => '#expr(#realign_level#==0)expr#',
-                    7 => '#expr(#realign_level#==2 && #recalibrate_level#!=1)expr#',
+                    3 => '#expr(#recalibrate_level#==1 && (#realign_level#==2 || (#realign_level#==0 && #run_calmd#==0)))expr#',
+                    4 => '#expr(#recalibrate_level#==1 && (#realign_level#==2 || (#realign_level#==0 && #run_calmd#==0)))expr#',
+                    5 => '#expr(#realign_level#==0 && #run_calmd#==1)expr#',
+                    6 => '#expr(#realign_level#==0 && #run_calmd#==1)expr#',
+                    7 => '#expr(#realign_level#==0 && #recalibrate_level#==0 && #run_calmd#==0)expr#',
+                    8 => '#expr(#realign_level#==0 && #recalibrate_level#==0 && #run_calmd#==0)expr#',
+                    9 => '#expr(#realign_level#==2 && #recalibrate_level#!=1)expr#',
                 },
                 flows_do_count_param => 'bam',
                 flows_do_count => {
@@ -399,6 +403,8 @@ sub pipeline_analyses {
                           5 => '1+',
                           6 => '2+',
                           7 => '1+',
+                          8 => '2+',
+                          9 => '1+',
                         },
               },
           },
@@ -409,7 +415,9 @@ sub pipeline_analyses {
                 'B->3' => [ 'recalibrate_run_level' ],
                 '6->C' => [ 'merge_chunks' ],
                 'C->5' => [ 'calmd_run_level' ],
-                7 => [ ':////accu?bam=[]', ':////accu?bai=[]'],
+                '8->D' => [ 'merge_chunks' ],
+                'D->7' => [ 'tag_strip_run_level' ],
+                9 => [ ':////accu?bam=[]', ':////accu?bai=[]'],
           },
       });
     push(@analyses, {
@@ -442,12 +450,21 @@ sub pipeline_analyses {
                 gatk_module_options => {knowns_only => 1},
                 reseqtrack_options => {
                   delete_param => ['bam', 'bai'],
+                  flows_non_factory => {
+                      1 => '#expr(#run_calmd#==1)expr#',
+                      2 => '#expr(#run_calmd#==0 && #recalibrate_level#==1)expr#',
+                      3 => '#expr(#run_calmd#==0 && #recalibrate_level#==0)expr#',
+                      4 => '#expr(#run_calmd#==0 && #recalibrate_level#==2)expr#',
+                  }
                 }
             },
             -rc_name => '5Gb',
             -hive_capacity  =>  100,
             -flow_into => {
                 1 => [ 'calmd_run_level'],
+                2 => [ 'index_recalibrate_run_level'],
+                3 => [ 'tag_strip_run_level'],
+                4 => [ ':////accu?bam=[]', ':////accu?bai=[]'],
             },
       });
     push(@analyses, {
@@ -634,12 +651,19 @@ sub pipeline_analyses {
                 gatk_module_options => {knowns_only => 0},
                 reseqtrack_options => {
                   delete_param => ['bam', 'bai'],
+                  flows_non_factory => {
+                      1 => '#expr(#run_calmd#==1)expr#',
+                      2 => '#expr(#run_calmd#==0 && #recalibrate_level#==2)expr#',
+                      3 => '#expr(#run_calmd#==0 && #recalibrate_level#!=2)expr#',
+                  }
                 },
             },
             -rc_name => '5Gb',
             -hive_capacity  =>  100,
             -flow_into => {
                 1 => [ 'calmd_sample_level'],
+                2 => [ 'index_recalibrate_sample_level'],
+                3 => [ 'tag_strip_sample_level'],
             },
       });
     push(@analyses, {
