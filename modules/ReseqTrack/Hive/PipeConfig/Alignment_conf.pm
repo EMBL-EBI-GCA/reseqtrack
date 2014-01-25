@@ -394,6 +394,7 @@ sub pipeline_analyses {
           -parameters => {
               realign_level => $self->o('realign_level'),
               recalibrate_level => $self->o('recalibrate_level'),
+              run_calmd => $self->o('run_calmd'),
               reseqtrack_options => {
                 flows_non_factory => {
                     1 => '#expr(#realign_level#==1)expr#',
@@ -460,6 +461,8 @@ sub pipeline_analyses {
                 known_sites_vcf => $self->o('known_indels_vcf'),
                 intervals_file => $self->o('realign_intervals_file'),
                 gatk_module_options => {knowns_only => 1},
+                recalibrate_level => $self->o('recalibrate_level'),
+                run_calmd => $self->o('run_calmd'),
                 reseqtrack_options => {
                   delete_param => ['bam', 'bai'],
                   flows_non_factory => {
@@ -661,6 +664,8 @@ sub pipeline_analyses {
                 gatk_dir => $self->o('gatk_dir'),
                 known_sites_vcf => $self->o('known_indels_vcf'),
                 gatk_module_options => {knowns_only => 0},
+                recalibrate_level => $self->o('recalibrate_level'),
+                run_calmd => $self->o('run_calmd'),
                 reseqtrack_options => {
                   delete_param => ['bam', 'bai'],
                   flows_non_factory => {
@@ -686,6 +691,7 @@ sub pipeline_analyses {
                 command => 'calmd',
                 reference => $self->o('reference'),
                 samtools_options => {input_sort_status => 'c'},
+                recalibrate_level => $self->o('recalibrate_level'),
                 reseqtrack_options => {
                   delete_param => ['bam'],
                   flows_non_factory => {
