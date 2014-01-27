@@ -23,6 +23,7 @@ use ReseqTrack::Tools::FileSystemUtils
 use ReseqTrack::Tools::Exception qw(throw warning stack_trace_dump);
 use ReseqTrack::Tools::Argument qw(rearrange);
 use File::Basename qw(fileparse);
+use File::Find qw(find);
 use Env qw( @PATH );
 use POSIX;
 
@@ -602,9 +603,21 @@ sub get_short_input_names {
     my $temp_dir_basename = fileparse($temp_dir);
     $self->{'_short_inputs'} ||= {};
     foreach my $long_name (grep {!$self->{'_short_inputs'}->{$_}} @{$self->input_files}) {
-      my $short_name = $temp_dir_basename . '/' . fileparse($long_name);
+      my ($basename, $dirname) = fileparse($long_name);
+      $dirname =~ s/\/$//;
+      my $short_name = $temp_dir_basename . '/' . $basename;
       $self->{'_short_inputs'}->{$long_name} = $short_name;
       symlink($long_name, $short_name) or throw("could not symlink $long_name to $short_name");
+
+      my $link_others_sub = sub {
+        return if $File::Find::dir ne $dirname;
+        my ($extension) = $_ =~ /$basename(.+)$/;
+        return if ! defined $extension;
+        my $destination = $temp_dir . '/' . $_;
+        symlink($File::Find::name, $destination) or throw("could not symlink $File::Find::name to $destination $!");
+      };
+      find($link_others_sub, $dirname);
+
     }
     return $self->{'_short_inputs'};
 }
