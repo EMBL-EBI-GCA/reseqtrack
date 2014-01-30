@@ -30,9 +30,10 @@ sub run {
     my $output_dir = $self->output_dir;
 
     my $run_source_id = $self->param_required('run_source_id');
-    my @regexs = (qr/${run_source_id}_1\.(\w+\.)*f(?:ast)?q(?:\.gz)?/i,
-                  qr/${run_source_id}_2\.(\w+\.)*f(?:astq)?(?:\.gz)?/i,
-                  qr/${run_source_id}\.(\w+\.)*f(?:ast)?q(?:\.gz)?/i);
+    my $run_alias = $self->param_required('run_alias');
+    my @regexs = (qr/(?:${run_source_id}|${run_alias})_1\.(?:\w+\.)*f(?:ast)?q(?:\.gz)?/i,
+                  qr/(?:${run_source_id}|${run_alias})_2\.(?:\w+\.)*f(?:astq)?(?:\.gz)?/i,
+                  qr/(?:${run_source_id}|${run_alias})\.(?:\w+\.)*f(?:ast)?q(?:\.gz)?/i);
 
 
     my $fastqs = $self->param_as_array('fastq');
