@@ -23,7 +23,7 @@ use ReseqTrack::Tools::Exception qw(throw);
 use ReseqTrack::Tools::Argument qw(rearrange);
 use ReseqTrack::Tools::FileSystemUtils qw(check_executable check_file_exists);
 use File::Basename qw(fileparse);
-use File::Copy qw (move);
+use File::Copy qw(move);
 
 use base qw(ReseqTrack::Tools::RunProgram);
 
@@ -813,15 +813,15 @@ sub run_add_or_replace_read_groups{
             . ($self->create_index ? 'true' : 'false'));
 
     my $rg_fields = $self->options('read_group_fields');
-    push(@cmd_words, 'RGID=' . $rg_fields->{'ID'});
-    push(@cmd_words, 'RGLB=' . $rg_fields->{'LB'});
-    push(@cmd_words, 'RGPL=' . $rg_fields->{'PL'});
-    push(@cmd_words, 'RGPU=' . $rg_fields->{'PU'});
-    push(@cmd_words, 'RGSM=' . $rg_fields->{'SM'});
-    push(@cmd_words, 'RGCN=' . $rg_fields->{'CN'}) if $rg_fields->{'CN'};
-    push(@cmd_words, 'RGDS=' . $rg_fields->{'DS'}) if $rg_fields->{'DS'};
-    push(@cmd_words, 'RGDT=' . $rg_fields->{'DT'}) if $rg_fields->{'DT'};
-    push(@cmd_words, 'RGPI=' . $rg_fields->{'PI'}) if $rg_fields->{'PI'};
+    push(@cmd_words, "RGID='" . $rg_fields->{'ID'} . "'");
+    push(@cmd_words, "RGLB='" . $rg_fields->{'LB'} . "'");
+    push(@cmd_words, "RGPL='" . $rg_fields->{'PL'} . "'");
+    push(@cmd_words, "RGPU='" . $rg_fields->{'PU'} . "'");
+    push(@cmd_words, "RGSM='" . $rg_fields->{'SM'} . "'");
+    push(@cmd_words, "RGCN='" . $rg_fields->{'CN'} . "'") if $rg_fields->{'CN'};
+    push(@cmd_words, "RGDS='" . $rg_fields->{'DS'} . "'") if $rg_fields->{'DS'};
+    push(@cmd_words, "RGDT='" . $rg_fields->{'DT'} . "'") if $rg_fields->{'DT'};
+    push(@cmd_words, "RGPI='" . $rg_fields->{'PI'} . "'") if $rg_fields->{'PI'};
 
     my $cmd = join(' ', @cmd_words);
   
