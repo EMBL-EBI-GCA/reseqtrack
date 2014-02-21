@@ -127,6 +127,8 @@ sub default_options {
         'experiment_columns' => [],
         require_run_columns => { status => ['public'], },
         exclude_run_attributes => {},
+        run_attributes => [],
+        exclude_run_columns => {},
 
         'fastq_output_dir' => $self->o('root_output_dir'),
         'fastq_output_layout' => '#sample_alias#/sequence_read',
