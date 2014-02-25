@@ -239,7 +239,7 @@ sub find_file {
   Arg [2]   : md5 to check against
   Function  : runs md5sum to see if it equals the given md5
   actual files
-  Returntype: 0/1 
+  Returntype: 0/1, if 0, also return the md5s 
   Example   : 
 
 =cut
