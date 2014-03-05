@@ -113,7 +113,7 @@ This script initialises a hive database using the configuration defined in the p
     $HIVE_DB_OPTS="-hive_host mysql-host -hive_user rw_user -hive_pass **** -hive_port 4175"
 
 
-  perl reseqtrack/process/run_picard.pl $DB_OPTS $HIVE_DB_OPTS
+  perl reseqtrack/pipeline/init_hive_db.pl $DB_OPTS $HIVE_DB_OPTS
     -ensembl_cvs_dir /path/to/ensembl-100
     -pipeline_name alignment
 
