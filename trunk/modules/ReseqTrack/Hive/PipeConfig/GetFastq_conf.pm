@@ -127,6 +127,7 @@ sub default_options {
         'experiment_columns' => [],
         require_run_columns => { status => ['public'], },
         exclude_run_attributes => {},
+        require_run_attributes => {},
         run_attributes => [],
         exclude_run_columns => {},
 
