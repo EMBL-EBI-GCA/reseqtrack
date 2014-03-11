@@ -47,107 +47,190 @@ use ReseqTrack::Tools::FileSystemUtils
 use base qw(ReseqTrack::Tools::RunProgram);
 
 sub new {
-  my ( $class, @args ) = @_;
+    my ( $class, @args ) = @_;
 
-  my $self = $class->SUPER::new(@args);
+    my $self = $class->SUPER::new(@args);
 
-  my ( $rscript_path, $keep_metrics ) =
-    rearrange( [qw( RSCRIPT_PATH KEEP_METRICS)], @args );
-  
-  $self->rscript_path($rscript_path);
-  $self->keep_metrics_file($keep_metrics);
-  #setting defaults
-  if ( !$self->rscript_path ) {
-    $self->rscript_path('Rscript');
-  }
-  if ( !$self->program ) {
-    $self->program('run_spp.R');
-  }
+    my (
+        $rscript_path, $keep_metrics, $samtools_path,
+        $keep_plot,    $keep_rdata,   $no_dups
+      )
+      = rearrange(
+        [
+            qw( RSCRIPT_PATH KEEP_METRICS SAMTOOLS_PATH KEEP_PLOT KEEP_RDATA NO_DUPS)
+        ],
+        @args
+      );
 
-  return $self;
+    $self->rscript_path($rscript_path);
+    $self->keep_metrics_file($keep_metrics);
+    $self->keep_plot($keep_plot);
+    $self->keep_rdata($keep_rdata);
+    $self->samtools_path($samtools_path);
+    $self->no_dups($no_dups);
+
+    #setting defaults
+    if ( !$self->rscript_path ) {
+        $self->rscript_path('Rscript');
+    }
+    if ( !$self->program ) {
+        $self->program('run_spp.R');
+    }
+
+    return $self;
 }
 
 sub run_ppqt {
-  my ($self) = @_;
+    my ($self) = @_;
 
-  my @cmd_args;
-  my $job_name    = $self->job_name;
-  my $working_dir = $self->working_dir();
-  my $param_file  = $working_dir . '/' . $job_name . '.ppqt_metrics';
+    my @cmd_args;
+    my $job_name    = $self->job_name;
+    my ($name,$dir) = fileparse($self->input_files->[0]);
+  
+    my $base_name   = $dir . '/' . $job_name;
+    my $param_file  = $base_name . '.ppqt_metrics';
+    my $plot_file   = $base_name . '.ppqt.pdf';
+    my $r_file      = $base_name . '.ppqt.rdata';
 
-  check_file_exists( $self->input_files->[0] );
-  check_file_does_not_exist($param_file);
+    my $file = $self->processed_file() || $self->input_files->[0];
 
-  push @cmd_args, $self->rscript_path;
-  push @cmd_args, $self->program;
+    check_file_exists($file);
+    check_file_does_not_exist($param_file);
 
-  push @cmd_args, '-c=' . $self->input_files->[0];
-  push @cmd_args, '-out=' . $param_file;
+    push @cmd_args, $self->rscript_path;
+    push @cmd_args, $self->program;
 
-  if ( $self->keep_metrics_file ) {
-    $self->output_files($param_file);
-  }
-  else {
-    $self->created_files($param_file);
-  }
+    push @cmd_args, '-c=' . $file;
+    push @cmd_args, '-out=' . $param_file;
 
-  $self->execute_command_line( join( ' ', @cmd_args ) );
+    if ( $self->keep_metrics_file ) {
+        $self->output_files($param_file);
+    }
+    else {
+        $self->created_files($param_file);
+    }
 
-  return $param_file;
+    if ( $self->keep_plot ) {
+        $self->output_files($plot_file);
+        push @cmd_args, '-savp=' . $plot_file;
+    }
+    if ( $self->keep_rdata ) {
+        $self->output_files($r_file);
+        push @cmd_args, '-savd=' . $r_file;
+    }
+
+    $self->execute_command_line( join( ' ', @cmd_args ) );
+
+    return $param_file;
 }
 
 sub parse_metrics {
-  my ( $self, $param_file ) = @_;
-  open my $fh, '<', $param_file or throw("could not open parameter file: $!");
-  my $line = <$fh>;
-  chomp $line;
+    my ( $self, $param_file ) = @_;
+    open my $fh, '<', $param_file or throw("could not open parameter file: $!");
+    my $line = <$fh>;
+    chomp $line;
 
-  my %metrics;
-  (
-    $metrics{filename},    $metrics{numReads},
-    $metrics{estFraglen},  $metrics{corr_estFragLen},
-    $metrics{phantomPeak}, $metrics{corr_phantomPeak},
-    $metrics{argmin_corr}, $metrics{min_corr},
-    $metrics{nsc},         $metrics{rsc},
-    $metrics{quality_tag}
-  ) = split /\t/, $line;
+    my %metrics;
+    (
+        $metrics{filename},    $metrics{numReads},
+        $metrics{estFraglen},  $metrics{corr_estFragLen},
+        $metrics{phantomPeak}, $metrics{corr_phantomPeak},
+        $metrics{argmin_corr}, $metrics{min_corr},
+        $metrics{nsc},         $metrics{rsc},
+        $metrics{quality_tag}
+    ) = split /\t/, $line;
 
-  my %quality_decode = (
-    '-2' => 'veryLow',
-    '-1' => 'Low',
-    '0'  => 'Medium',
-    '1'  => 'High',
-    '2'  => 'VeryHigh',
-  );
+    my %quality_decode = (
+        '-2' => 'veryLow',
+        '-1' => 'Low',
+        '0'  => 'Medium',
+        '1'  => 'High',
+        '2'  => 'VeryHigh',
+    );
 
-  $metrics{quality_label} = $quality_decode{ $metrics{quality_tag} };
+    $metrics{quality_label} = $quality_decode{ $metrics{quality_tag} };
 
-  return [\%metrics];
+    return [ \%metrics ];
 }
 
 sub run_program {
-  my ($self) = @_;
+    my ($self) = @_;
 
-  my $params_file = $self->run_ppqt;
-  my $metrics     = $self->parse_metrics($params_file);
+    $self->force_no_dups if ( $self->no_dups );
+    my $params_file = $self->run_ppqt;
+    my $metrics     = $self->parse_metrics($params_file);
 
-  return $metrics;
+    return $metrics;
+}
+
+sub force_no_dups {
+    my ($self)       = @_;
+    die "Need samtools path" (unless $self->samtools_path() && -e $self->samtools_path());
+    my $temp_dir     = $self->get_temp_dir();
+    my $base_name    = basename( $self->input_files->[0] );
+    my $dedup_target = $temp_dir . '/' . $base_name;
+    my @cmd_args     = (
+        $self->samtools_path(), 'view', '-bF', 1024, $self->input_files->[0],
+        '>', $dedup_target
+    );
+    $self->execute_command_line( join( ' ', @cmd_args ) );
+    $self->processed_file($dedup_target);
+}
+
+sub processed_file {
+    my ( $self, $arg ) = @_;
+    if ($arg) {
+        $self->{'processed_file'} = $arg;
+    }
+    return $self->{'processed_file'};
 }
 
 sub rscript_path {
-  my ( $self, $arg ) = @_;
-  if ($arg) {
-    $self->{'rscript_path'} = $arg;
-  }
-  return $self->{'rscript_path'};
+    my ( $self, $arg ) = @_;
+    if ($arg) {
+        $self->{'rscript_path'} = $arg;
+    }
+    return $self->{'rscript_path'};
+}
+
+sub samtools_path {
+    my ( $self, $arg ) = @_;
+    if ($arg) {
+        $self->{'samtools_path'} = $arg;
+    }
+    return $self->{'samtools_path'};
 }
 
 sub keep_metrics_file {
-  my ( $self, $arg ) = @_;
-  if ($arg) {
-    $self->{'keep_metrics_file'} = $arg;
-  }
-  return $self->{'keep_metrics_file'};
+    my ( $self, $arg ) = @_;
+    if ($arg) {
+        $self->{'keep_metrics_file'} = $arg;
+    }
+    return $self->{'keep_metrics_file'};
+}
+
+sub keep_plot {
+    my ( $self, $arg ) = @_;
+    if ($arg) {
+        $self->{'keep_plot'} = $arg;
+    }
+    return $self->{'keep_plot'};
+}
+
+sub keep_rdata {
+    my ( $self, $arg ) = @_;
+    if ($arg) {
+        $self->{'keep_rdata'} = $arg;
+    }
+    return $self->{'keep_rdata'};
+}
+
+sub no_dups {
+    my ( $self, $arg ) = @_;
+    if ($arg) {
+        $self->{'no_dups'} = $arg;
+    }
+    return $self->{'no_dups'};
 }
 
 1;

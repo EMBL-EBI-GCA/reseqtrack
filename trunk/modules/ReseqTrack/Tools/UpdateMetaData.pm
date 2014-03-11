@@ -180,13 +180,13 @@ sub add_ins {
   return $self->{add_ins};
 }
 
-sub verbose {
-  my ( $self, $arg ) = @_;
-  if ($arg) {
-    $self->{verbose} = $arg;
-  }
-  return $self->{verbose};
-}
+#sub verbose {
+#  my ( $self, $arg ) = @_;
+#  if ($arg) {
+#    $self->{verbose} = $arg;
+#  }
+#  return $self->{verbose};
+#}
 
 sub use_default_rsm {
   my ( $self, $arg ) = @_;

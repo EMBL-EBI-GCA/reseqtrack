@@ -7,7 +7,7 @@ use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::FileUtils qw(create_objects_from_path_list);
 use ReseqTrack::Tools::RunPeakCall::Fseq;
 use ReseqTrack::Tools::HostUtils qw(get_host_object);
-use ReseqTrack::Tools::RunMetaInfoUtils qw(create_directory_path);
+use ReseqTrack::Tools::MetaDataUtils qw(create_directory_path fetch_metadata_object);
 use ReseqTrack::Tools::GeneralUtils
   qw(execute_system_command execute_pipe_system_command);
 use ReseqTrack::Tools::FileSystemUtils qw(run_md5);
@@ -122,7 +122,7 @@ my $input_files     = $collection->others;
 my $job_name        = $name;
 my @input_filepaths = map { $_->{'name'} } @$input_files;
 
-my $run_meta_info = get_run_meta_info( $name, $rmia );
+my $meta_info = fetch_metadata_object( $name, $db );
 if ($preserve_paths) {
   my ( $filename, $basepath, $suffix ) = fileparse( $input_filepaths[0] );
   print Dumper( [ $filename, $basepath, $suffix ] );
@@ -132,12 +132,12 @@ if ($preserve_paths) {
 }
 else {
   $output_dir =
-    create_directory_path( $run_meta_info, $directory_layout, $output_dir )
+    create_directory_path( $meta_info, $directory_layout, $output_dir )
     if ($directory_layout);
 }
 
 my $control_filepaths =
-  get_control_file_paths( $name, $run_meta_info, $control_experiment_type,
+  get_control_file_paths( $name, $meta_info, $control_experiment_type,
   $control_type )
   if ($control_type);
 
@@ -169,14 +169,23 @@ my %peak_caller_args = (
 );
 
 if ($fragment_size_stat_name) {
-  my $stats = $collection->attributes();
+  
   my $fragment_size;
-  for my $stat (@$stats) {
-    if ($stat->attribute_name eq $fragment_size_stat_name) {
-      # ppqt can find multiple peaks. the first is the most likely, so we use that one
-            ($fragment_size) = split /,/, $stat->attribute_value();
+  
+  # from metadata
+  $fragment_size = lookup_property($meta_info,$fragment_size_stat_name);
+  
+  # from stats on BAM file
+  if (! defined $fragment_size){
+    my $stats = $collection->attributes();
+    for my $stat (@$stats) {
+      if ($stat->attribute_name eq $fragment_size_stat_name) {
+        # ppqt can find multiple peaks. the first is the most likely, so we use that one
+              ($fragment_size) = split /,/, $stat->attribute_value();
+      }
     }
   }
+  
   throw("Could not find statistic $fragment_size_stat_name for collection $name $type_input") unless $fragment_size;
 
   $peak_caller_args{-fragment_size} = $fragment_size;
@@ -220,7 +229,7 @@ if ( !$disable_md5 ) {
     $file_object->md5( run_md5( $file_object->name ) );
   }
 }
-my $collection = ReseqTrack::Collection->new(
+my $output_collection = ReseqTrack::Collection->new(
   -name   => $name,
   -type   => $type_output,
   -others => $file_objects
@@ -230,10 +239,10 @@ if ($do_peak_stats) {
   my @stats;
 
   while ( my ( $key, $value ) = each %peak_stats ) {
-    push @stats, create_attribute_for_object( $collection, $key, $value )
+    push @stats, create_attribute_for_object( $output_collection, $key, $value )
       if ($key);
   }
-  $collection->attributes( \@stats );
+  $output_collection->attributes( \@stats );
 
   if ($metric_type) {
     my $metrics_file = $output_dir . '/' . $name . '.region_metrics';
@@ -252,10 +261,10 @@ if ($do_peak_stats) {
     create_output_records( $name, $metric_type, [$metrics_file] );
   }
 
-  $ca->store($collection) if ($store);
+  $ca->store($output_collection) if ($store);
 }
 
-$ca->store($collection) if ($store);
+$ca->store($output_collection) if ($store);
 
 sub load_module {
   my ( $module_path, $module_name ) = @_;
@@ -351,14 +360,14 @@ sub get_run_meta_info {
 }
 
 sub get_control_file_paths {
-  my ( $name, $run_meta_info, $control_experiment_type, $control_type ) = @_;
+  my ( $name, $meta_info, $control_experiment_type, $control_type ) = @_;
 
   my @control_filepaths;
 
   my $ctrl_stmt = <<'QUERY_END';
 select distinct c.collection_id
-from run_meta_info t
-join run_meta_info ctrl on t.sample_id = ctrl.sample_id
+from run_meta_info_vw t
+join run_meta_info_vw ctrl on t.sample_id = ctrl.sample_id
 join collection c on c.name in( ctrl.run_id, ctrl.experiment_id )
 where ? in( t.run_id, t.experiment_id )
 and c.type = ?
