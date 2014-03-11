@@ -165,7 +165,7 @@ sub run_program {
 
 sub force_no_dups {
     my ($self)       = @_;
-    die "Need samtools path" (unless $self->samtools_path() && -e $self->samtools_path());
+    die "Need samtools path" unless ($self->samtools_path() && -e $self->samtools_path());
     my $temp_dir     = $self->get_temp_dir();
     my $base_name    = basename( $self->input_files->[0] );
     my $dedup_target = $temp_dir . '/' . $base_name;
