@@ -26,10 +26,8 @@ class for running GSNAP. Child class of ReseqTrack::Tools::RunAlignment
 =head1 Example
 
 my $gsnap = ReseqTrack::Tools::RunAlignment::GSNAP(
-                      -input => '/path/to/file'
-					  -map_dir => '/path/to/references',
-                      -reference => 'name of reference',
-                      -options => {'threads' => 4},
+                      -input_files => '/path/to/file'
+                      -options => {'threads' => 4, ’map_dir’ => '/path/to/map_dir' },
                       -read_group_fields => {'ID' => 1, 'LB' => 'my_lib'},
                       -first_read => 1000,
                       -last_read => 2000,
@@ -85,12 +83,12 @@ sub run_alignment {
 
   my $output_file = $self->working_dir() . '/' . $self->job_name;
   $output_file =~ s{//}{/};
-
+  
   if ( $self->fragment_file ) {
     $self->_do_alignment( $output_file . '_se', $self->fragment_file );
   }
   if ( $self->mate1_file && $self->mate2_file ) {
-    $self->_do_alignment( $output_file . '_se',
+    $self->_do_alignment( $output_file . '_pe',
       $self->mate1_file, $self->mate2_file );
   }
 }
@@ -120,7 +118,7 @@ sub _do_alignment {
     if ( $self->batch_job_count );
 
   #output options - format and read group information
-  push( @cmd_words, '-A', $output_option ) if ($output_option);
+  push( @cmd_words, '-A', lc($output_option) ) if ($output_option);
 
   my $read_group_fields = $self->read_group_fields;
   if ($read_group_fields) {
@@ -197,7 +195,8 @@ sub _do_alignment {
     if ($do_bam_conversion) {
       push( @cmd_words, '|', $self->samtools, 'view -bhS -' );
     }
-
+    
+    $output_file .= '.bam';
     push( @cmd_words, '>', $output_file );
     $self->output_files($output_file);
   }
@@ -293,6 +292,12 @@ sub escape_spaces {
   my ( $self, $string ) = @_;
   $string =~ s/ /\\ /g;
   return $string;
+}
+
+sub output_bam_files {
+  my $self = shift;
+  my @files = grep { /\.bam$/ } @{ $self->output_files };
+  return \@files;
 }
 
 1;

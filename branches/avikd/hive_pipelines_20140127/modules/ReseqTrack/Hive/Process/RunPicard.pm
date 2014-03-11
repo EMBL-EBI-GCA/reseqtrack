@@ -45,10 +45,11 @@ sub run {
 
     my $output_bams = $picard_object->output_bam_files;
     my $output_bais = $picard_object->output_bai_files;
+    my $output_matrics = $picard_object->output_metrics_files;
 
-    $self->output_param('bam', $output_bams);
-    $self->output_param('bai', $output_bais);
-
+    $self->output_param('bam', $output_bams) if ( $output_bams );
+    $self->output_param('bai', $output_bais) if ( $output_bais );
+    $self->output_param('matrics', $output_matrics) if ( $output_matrics );
 }
 
 
