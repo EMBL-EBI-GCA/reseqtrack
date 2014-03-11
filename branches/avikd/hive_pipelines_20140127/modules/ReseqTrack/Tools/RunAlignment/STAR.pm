@@ -98,7 +98,7 @@ sub run_alignment {
   if ( $self->fragment_file ) {
     $self->_do_alignment( $output_file . '_se', $self->fragment_file );
   }
-  if ( $self->mate1_file && $self->mate2_file ) {
+  elsif ( $self->mate1_file && $self->mate2_file ) {
     $self->_do_alignment( $output_file . '_pe',
     $self->mate1_file, $self->mate2_file );
   }
