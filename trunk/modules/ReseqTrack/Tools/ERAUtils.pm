@@ -28,7 +28,7 @@ use vars qw (@ISA  @EXPORT);
 
 sub get_erapro_conn{
   my ($dbuser, $dbpass) = @_;
-  my $dbname = 'ERAPRO';
+  my $dbname = 'ERAPRO_HX';
   my $dbhost = 'grappa.ebi.ac.uk';
   my $dbport = 1531;
 
