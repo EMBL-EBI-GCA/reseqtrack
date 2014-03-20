@@ -143,6 +143,8 @@ sub default_options {
         fastqc_name_file_module => 'ReseqTrack::Hive::NameFile::BaseNameFile',
         fastqc_name_file_method => 'basic',
         fastqc_name_file_params => { new_dir => '#fastqc_output_dir#/#fastqc_output_layout#' },
+        
+        era_dbname => undef,
 
     };
 }
@@ -192,6 +194,7 @@ sub pipeline_analyses {
               clobber => $self->o('clobber'),
               era_dbuser => $self->o('era_dbuser'),
               era_dbpass => $self->o('era_dbpass'),
+              era_dbname => $self->o('era_dbname'),
             },
             -flow_into => {
                 1 => [ 'store_fastq' ],
