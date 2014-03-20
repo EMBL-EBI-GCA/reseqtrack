@@ -239,7 +239,7 @@ sub target_studies {
 
 sub changed {
     my ( $archive, $copy ) = @_;
-    return ( $archive->md5 ne $copy->md5 );
+    return ( $archive->md5 ne $copy->md5 || $archive->status ne $copy->status );
 }
 
 sub fk_handlers {
@@ -332,10 +332,8 @@ sub on_update_handlers {
             return sub {
                 my ( $e, $db ) = @_;
                 my $ra = $db->get_RunAdaptor();
-                print STDERR $e->source_id.$/;
                 my $runs = $ra->fetch_by_experiment_id($e->dbID());
                 for my $r (@$runs){
-                  print STDERR $r->source_id.$/;
                   $r->md5('force_refresh');
                   $ra->update($r);
                 }                
