@@ -15,6 +15,7 @@ sub param_defaults {
     source_root_dir => undef,
     clobber => undef,
     module_options => {},
+    era_dbname => undef,
   };
 }
 
@@ -29,14 +30,15 @@ sub run {
     my $clobber = $self->param('clobber');
     my $era_dbuser = $self->param_required('era_dbuser');
     my $era_dbpass = $self->param_required('era_dbpass');
-
+		my $era_dbname = $self->param('era_dbname');
+		
     eval "require $module" or throw "cannot load module $module $@";
 
     my $db = ReseqTrack::DBSQL::DBAdaptor->new(%{$db_params});
     my $run = $db->get_RunAdaptor->fetch_by_dbID($run_id);
     throw("did not get run with dbID $run_id") if !$run;
 
-    my $era_db = get_erapro_conn($era_dbuser, $era_dbpass);
+    my $era_db = get_erapro_conn($era_dbuser, $era_dbpass, $era_dbname);
     
     my %constructor_hash;
     while (my ($key, $value) = each %{$self->param('module_options')}) {

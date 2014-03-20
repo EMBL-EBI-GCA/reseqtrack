@@ -26,6 +26,7 @@ my $output_dir;
 my $load = 0;
 my $era_dbuser;
 my $era_dbpass;
+my $era_dbname;
 my $help = 0;
 my $directory_layout = 'sample_name/archive_sequence';
 my $module = 'ReseqTrack::Tools::GetFastq';
@@ -45,6 +46,7 @@ my %module_options;
   'load!' => \$load,
   'era_dbuser=s' =>\$era_dbuser,
   'era_dbpass=s' => \$era_dbpass,
+  'era_dbname=s' => \$era_dbname,
   'help!' => \$help,
   'directory_layout=s' => \$directory_layout,
   'module=s' => \$module,
@@ -69,7 +71,7 @@ my $db = ReseqTrack::DBSQL::DBAdaptor->new(
   -pass   => $dbpass,
     );
 
-my $era_db = get_erapro_conn($era_dbuser, $era_dbpass);
+my $era_db = get_erapro_conn($era_dbuser, $era_dbpass, $era_dbname);
 
 my $run = $db->get_RunAdaptor->fetch_by_source_id($run_id);
 

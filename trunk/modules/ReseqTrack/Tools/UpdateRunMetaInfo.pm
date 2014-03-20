@@ -38,14 +38,14 @@ sub new {
 		$store_new,           $update,   $study_id_file,
 		$log_dir,             $verbose,  $collection_type,
 		$filtered_fastq_type, $ftp_root, $other_types,
-		$population_rules,    $study_ids
+		$population_rules,    $study_ids, $era_dbname,
 		)
 		= rearrange(
 		[
 			qw(ERA_DB DCC_DB ERA_DBUSER ERA_DBPASS DBNAME DBUSER DBPORT
 				DBPASS DBHOST STORE_NEW UPDATE STUDY_ID_FILE LOG_DIR VERBOSE
 				COLLECTION_TYPE FILTERED_FASTQ_TYPE FTP_ROOT OTHER_TYPES
-				POPULATION_RULES STUDY_IDS)
+				POPULATION_RULES STUDY_IDS ERA_DBNAME)
 		],
 		@args
 		);
@@ -58,6 +58,7 @@ sub new {
 	#######
 	$self->era_dbuser($era_dbuser);
 	$self->era_dbpass($era_dbpass);
+	$self->era_dbname($era_dbname);
 	$self->era_db($era_db);
 	$self->dbhost($dbhost);
 	$self->dbname($dbname);
@@ -149,13 +150,19 @@ sub era_dbpass {
 	return $self->{era_dbpass};
 }
 
+sub era_dbname {
+	my ( $self, $arg ) = @_;
+	$self->{era_dbname} = $arg if ($arg);
+	return $self->{era_dbname};
+}
+
 sub era_db {
 	my ( $self, $arg ) = @_;
 	if ($arg) {
 		$self->{era_db} = $arg;
 	}
 	unless ( $self->{era_db} ) {
-		$self->{era_db} = get_erapro_conn( $self->era_dbuser, $self->era_dbpass );
+		$self->{era_db} = get_erapro_conn( $self->era_dbuser, $self->era_dbpass, $self->era_dbname );
 	}
 }
 

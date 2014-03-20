@@ -16,6 +16,7 @@ my $dbport = 4175;
 my $dbname;
 my $era_dbuser;
 my $era_dbpass;
+my $era_dbname;
 my $run;
 my $help;
 my $store_new;
@@ -45,6 +46,7 @@ my $check_unidentified;
 	    'dbport=s'      => \$dbport,
 	    'era_dbuser=s' =>\$era_dbuser,
 	    'era_dbpass=s' => \$era_dbpass,
+	    'era_dbname=s' => \$era_dbname,
 	    'run!' => \$run,
 	    'all_checks!' => \$all_checks,
 	    'store_new!' => \$store_new,
@@ -93,7 +95,7 @@ unless($store_new || $update_existing || $update_collections || $check_sample ||
 
 
 
-my $db = get_erapro_conn($era_dbuser, $era_dbpass);
+my $db = get_erapro_conn($era_dbuser, $era_dbpass, $era_dbname);
 
 my $reseq_db = ReseqTrack::DBSQL::DBAdaptor->new(
   -host   => $dbhost,
