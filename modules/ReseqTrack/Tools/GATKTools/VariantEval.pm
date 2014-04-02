@@ -33,30 +33,35 @@ package ReseqTrack::Tools::GATKTools::VariantEval;
 
 use strict;
 use warnings;
-
 use ReseqTrack::Tools::Exception qw(throw);
 use ReseqTrack::Tools::Argument qw(rearrange);
 use ReseqTrack::Tools::FileSystemUtils qw( check_file_exists check_executable);
 use base qw(ReseqTrack::Tools::GATKTools);
+use File::Basename;
 
 =head2 new
+  Arg [-reference]: 
+      string, Reference genome
   Arg [-comps]	:
   	  string, input comparison files that contain datasets you want to compare your evaluation file to. This arg can be used multiple times 
   Arg [-dbsnp]    :
       string, dbSNP file, this is used to classify the evaluation calls into "known" and "novel"
-      
+  Arg [evalModules] :
+  	  string, additional GATK evalModules one wish to use. Use the --list option in GATK commandline to see the list of evalModules one can use
+  	       
   + Arguments for ReseqTrack::Tools::RunProgram parent class
 
   Function  : Creates a new ReseqTrack::Tools::CallByGATK::VariantEval object.
   Returntype: ReseqTrack::Tools::CallByGATK::VariantEval
   Exceptions: 
   Example   : my $varEval = ReseqTrack::Tools::CallByGATK::VariantEval->new(
-                -input_files			=> ['/path/sam1', '/path/sam2'],
-                -program				=> "/path/to/gatk",
+                -input_files			=> ['/path/sam1', '/path/sam2'], ##full path is needed
+                -program				=> "/dir/to/gatk",
                 -working_dir			=> '/path/to/dir/',
                 -reference				=> '/path/to/ref/',
                 -comps					=> '/path/to/comparison_file',
-                -dbsnp					=> '/path/to/dbsnp_file'
+                -dbsnp					=> '/path/to/dbsnp_file',
+                -evalModules			=> 'evalModule names',
                  );
 =cut
 
@@ -65,12 +70,15 @@ sub new {
   
   	my $self = $class->SUPER::new(@args);
 
-    my ( $comps, $dbsnp)
+    my ( $comps, $dbsnp, $evalModules)
         = rearrange( [ qw( 	COMPS
-        					DBSNP )], @args);
+        					DBSNP
+        					EVALMODULES )], @args);
 
 	$self->comps($comps);
 	$self->dbsnp($dbsnp);
+	$self->evalmodules($evalModules);	
+	
 	return $self;
 }
 
@@ -91,7 +99,13 @@ sub run_program {
     $cmd .= $self->gatk_path . '/' . $self->jar_file;
     $cmd .= " -T VariantEval ";
     $cmd .= "-l INFO ";
-	$cmd .= "--evalModule GenotypeConcordance ";
+    
+    if (defined $self->evalmodules ) {
+		foreach my $module ( @{$self->evalmodules} ) {
+			$cmd .= "--evalModule $module ";
+		}
+    }
+    	
     $cmd .= "-R " . $self->reference . " ";
     $cmd .= "-D " . $self->dbsnp if ($self->dbsnp);
     $cmd .= " -eval " . $self->input_files->[0] . " ";
@@ -102,7 +116,7 @@ sub run_program {
     	}
     }	           
 
-    my $outfile = $self->input_files->[0] . ".gatkreport";
+    my $outfile = $self->working_dir . "/" . basename($self->input_files->[0]) . ".gatkreport";
     
     $cmd .= "-o $outfile "; 
     
@@ -139,6 +153,36 @@ sub comps {
 
   my @files = keys %{$self->{'comps'}};
   return \@files;
+}
+
+
+=head2 evalmodules
+  Arg [1]   : ReseqTrack::Tools::GATKTools::VariantEval
+  Arg [2]   : string or arrayref of strings, User can use this function to add additional EvalModules they wish to run 
+  Function  : accessor method for evalmodules
+  Returntype: array ref of string
+  Exceptions: n/a
+  Example   : my $evalmodules = $self->evalmodules;
+=cut
+
+sub evalmodules {
+  my ( $self, $arg ) = @_;
+
+  $self->{'evalmodules'} ||= {};
+  if ($arg) {
+    foreach my $mod (@{ref($arg) eq 'ARRAY' ? $arg : [$arg]}) {
+		if ( 	$mod ne "PrintMissingComp" && 
+      		$mod ne "ThetaVariantEvaluator" &&
+      		$mod ne "MendelianViolationEvaluator" &&
+      		$mod ne "GenotypeConcordance" ) {
+	    	throw("EvalModule has to be one or more of the followings: PrintMissingComp, ThetaVariantEvaluator, MendelianViolationEvaluator,GenotypeConcordance");
+      	}  
+      $self->{'evalmodules'}->{$mod} = 1;
+    }
+  }
+  
+  my @mods = keys %{$self->{'evalmodules'}};
+  return \@mods;
 }
 
 =head2 dbsnp

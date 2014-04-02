@@ -11,27 +11,42 @@ use File::Path;
 use File::Basename;
 use ReseqTrack::Tools::GATKTools::VariantEval;
 
-my %input;
-
 my $start_time = time();
+
+my %input;
+my %hash;
+my %comp_type_hash;
+my %hash_to_print;
+my $out_h;
 
 &GetOptions( 
 	\%input, 
 	'program=s',
   	'reference:s',	
 	'comp_vcfs:s@',
-	'input_vcf=s',
+	'evalmodules:s@',
+	'eval_vcf=s',
 	'dbsnp:s',  	  	
   	'output_dir=s',
-  	'save_files_from_deletion!',
   	'help!',
 );	
-
 
 if ($input{help}) {
 	 exec('perldoc', $0);
 }
-	
+
+## Set GenotypeConcordance as one of the default evalModules
+if ( $input{evalmodules} ) {
+	my @tmp_array = qw(GenotypeConcordance);
+	foreach my $mod (@{ref($input{evalmodules}) eq 'ARRAY' ? $input{evalmodules} : [$input{evalmodules}]}) {
+    	push @tmp_array, $mod;  
+    }
+	$input{evalmodules} = \@tmp_array;
+}
+else {
+	$input{evalmodules} =  qw(GenotypeConcordance);
+}	
+
 if (!$input{output_dir} ) {
 	$input{output_dir} = `pwd` ;
 	chomp $input{output_dir};
@@ -40,37 +55,28 @@ if (!$input{output_dir} ) {
 $input{output_dir} =~ s/\/$//;
 mkpath($input{output_dir}) unless (-e $input{output_dir});
 
-$input{save_files_from_deletion} 	= 0 if (!$input{save_files_from_deletion});	
+my $outf = $input{output_dir} . "/" . basename($input{eval_vcf}) . ".summary"; 
+open ($out_h, ">", $outf) || throw("Cannot open output file $outf");
   		
 my $object = ReseqTrack::Tools::GATKTools::VariantEval->new(
 	-program					=> $input{program},
 	-reference 					=> $input{reference},
-	-input_files				=> $input{input_vcf},
+	-input_files				=> $input{eval_vcf},
 	-comps						=> $input{comp_vcfs},
 	-working_dir				=> $input{output_dir},
-	-save_files_from_deletion	=> $input{save_files_from_deletion},
 	-dbsnp						=> $input{dbsnp},
+	-evalModules				=> $input{evalmodules}
 );
 
 $object->run;
 
-my $report = $object->output_files->[0];
-
-#my $report = "/nfs/1000g-work/G1K/work/zheng/vcf_report/merged.no_select.compOmni.eval.gatkreport";
-#my $report = "/nfs/1000g-work/G1K/work/zheng/vcf_report/merged.no_select.no_dbsnp.eval.gatkreport";
-#my $report = "/nfs/1000g-work/G1K/work/zheng/vcf_report/merged.no_select.no_dbsnp.with_omni_as_comp.eval.gatkreport";
-#my $report = "/nfs/1000g-work/G1K/work/zheng/vcf_report/merged.no_select.Omni_and_HM.eval.gatkreport";
-#my $report = "/nfs/1000g-work/G1K/work/zheng/vcf_report/merged.no_select.eval.gatkreport"; # thisone is with dbSNP only
+my $report = $object->output_files->[0]; #As test:  my $report = "/nfs/1000g-work/G1K/work/zheng/vcf_report/merged.no_select.compOmni.eval.gatkreport";
 
 throw("gatk report $report doesn't exist") unless ( -e $report );
 
 $/ = "\n\n";
 
 open(my $in, "<", $report) || throw("Cannot open GATK VCF report $report");
-
-my %hash;
-my %comp_type_hash;
-my %hash_to_print;
 
 ## Store the GATK report in a hash
 while (<$in>) {
@@ -88,7 +94,6 @@ while (<$in>) {
 		}
 		else {
 			my $line_id = join("_", @line_data[0..4]);
-			#print "line id is $line_id\n";
 			foreach my $index ( 5..$#line_data ) {
 				$hash{$line_id}{$field_names[$index]} = $line_data[$index];
 				#print $index . "\t" . $field_names[$index] . "\t" . $line_data[$index] . "\n";
@@ -105,16 +110,14 @@ foreach my $key (keys %hash) {
 
 ## Pick out useful information from the GATK report, store them in a hash to print 
 foreach my $key (keys %hash) {
-	#print "first layer key is $key\n";
 	my ($analysis_type, $compRod, $evalRod, $JexlExp, $novelty) = split(/_/, $key);	
 	if ( $analysis_type =~ /CountVariants/ || $analysis_type =~ /VariantSummary/ || $analysis_type =~ /CompOverlap/) {	
 		foreach my $key2 ( keys %{$hash{$key}} ) {
-			#print "second layer key is $key2\n";
 			if ( 	( keys %comp_type_hash == 1 ) ||
 					( keys %comp_type_hash >= 2 && $compRod =~ /comp/ ) ) {	
-						## if no extra file (comp or dbSNP) was provided, store all rows 
-						## OR if there is one extra file, it is either a dbSNP file or a comp file, store all rows  
-						## OR if two or more than two extra files were provided, only store the row(s) with comp or comp2 in the hash, ignore dbSNP rows
+						## if no comp file (comp or dbSNP) was provided, store all rows 
+						## OR if only one comp file (either comp or dbSNP) was provided, store all rows  
+						## OR if two or more than two comp files (comp and dbSNP) were provided, only store the row(s) with comp or comp2 in the hash, ignore dbSNP rows
 				$hash_to_print{$compRod}{$novelty}{$key2} = $hash{$key}{$key2};
 			}
 		}
@@ -131,13 +134,6 @@ my @table1_headers = (	"nSamples",
 						"nHomVar",
 						"nSingletons",
 						);	
-								
-=head
-						"nInsertions",
-						"nDeletions",
-						"nMNPs",
-						"nComplex",
-=cut
 														
 unless (keys %comp_type_hash == 1 && defined $comp_type_hash{"none"} ) {  	# print the very basic information if no comparison files was provided, 
 																			# print more columns if one or more comparison files were provided 
@@ -148,15 +144,9 @@ unless (keys %comp_type_hash == 1 && defined $comp_type_hash{"none"} ) {  	# pri
 							"nConcordant",
 							"concordantRate"
 							);	
-}		
-
-my $out_h;
-my $outf = $input{output_dir} . "/" . basename($input{input_vcf}) . ".summary";
- 
-open ($out_h, ">", $outf) || throw("Cannot open output file $outf");				
+}						
 						
 print $out_h "Comp\tNovelty\t" . join("\t", @table1_headers) . "\n";
-
 foreach my $compRod ( keys %hash_to_print ) {
 	foreach my $nov ( ("all", "known", "novel") ) {	
 		print $out_h "$compRod\t$nov\t";			 
@@ -186,22 +176,22 @@ print "Job took $length minutes\n";
 	http://www.broadinstitute.org/gatk/guide/article?id=2361
 	
 	Note that the GATK we installed in house is an old version; the GATK report may be slightly different from what is described in the web site.
-
 	
 =head1 Arguments:
 
  Required arguments:
     
 	reference,			Reference genome
-	input_vcf, 			input VCF file to be evaluated
-	program,			Path to the GATK program
+	eval_vcf, 			input VCF file to be evaluated
+	program,			Path to the GATK program directory (Path to GATK program directory may also be provided through enviroment variable GATK)
 
  Optional arguments:
  
  	comp_vcfs,			input comparison files that contain datasets you want to compare your evaluation file to. This tag can be used multiple times.
  	dbsnp,				dbSNP file, this is used to classify the evaluation calls into "known" and "novel".
+ 	evalModules,		additional evalModules one wish to use.  Use the --list option in GATK VariantEval to see all possible modules (GenotypeConcordance is 
+						default here in addition to other default modules set by GATK) 
  	output_dir,			Where temparary file and final output file will be written to.
- 	save_files_from_deletion
   	help,
   	
 =head1	OUTPUT
@@ -219,7 +209,7 @@ dbsnp   novel   2       1583    0.91    0       0       1663    0       166     
 	Basic columns:
 	
 	Comp,				This can be "comp", "comp1", or "comp2"; when no comp_vcfs are provided, this can be "dbSNP"; it will be "none" if even dbSNP file is not provided
-	Novelty,			"all", "known", "novel"
+	Novelty,			"all", "known", "novel" based on dbSNP
 	nSamples,			Number of samples in the evaluation VCF file
 	nSNPs,				Number of SNPs in the evaluation VCF file
 	TiTvRatio,			Ti/Tv ratio
@@ -229,7 +219,7 @@ dbsnp   novel   2       1583    0.91    0       0       1663    0       166     
 	nHomRef,			Number of homozygou ref genotypes in the evaluation VCF file
 	nHomVar,			Number of homozygous alternative allele genotypes in the evaluation VCF file
 	nSingletons,		Number of sites with alternative allele in a single sample
-	
+							
 	Additional columns when comparison file(s) are provided with -comp_vcfs:
 	 
 	novelSites,			Number of sites only exist in the evaluation VCF file
@@ -242,9 +232,13 @@ dbsnp   novel   2       1583    0.91    0       0       1663    0       166     
 =head1 EXAMPLE COMMAND LINE	
 
 perl $ZHENG_RT/scripts/process/dump_vcf_report.pl \
+-program /nfs/1000g-work/G1K/work/bin/gatk/dist \
 -reference /nfs/1000g-work/G1K/work/bin/gatk_resource_bundle/human_g1k_v37.fasta \
 -dbsnp  /nfs/1000g-archive/vol1/ftp/technical/reference/phase2_mapping_resources/ALL.wgs.dbsnp.build135.snps.sites.vcf.gz  \
--input_vcf CRI4237.vcf.gz \
+-eval_vcf /nfs/1000g-work/G1K/work/zheng/vcf_report/CRI4237.vcf.gz \
 -comp_vcfs  /nfs/1000g-archive/vol1/ftp/technical/working/20131122_broad_omni/Omni25_genotypes_2141_samples.b37.v2.vcf.gz \
--comp_vcfs /nfs/1000g-work/G1K/work/bin/gatk_resource_bundle/hapmap_3.3.b37.vcf.gz
+-comp_vcfs /nfs/1000g-archive/vol1/ftp/technical/working/20110322_hapmap3_grch37/hapmap3.3.genotypes.b37_fwd.vcf.gz \
+-output_dir ~ \
+-evalmodules GenotypeConcordance \
 
+							
