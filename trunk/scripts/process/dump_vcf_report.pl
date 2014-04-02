@@ -4,8 +4,6 @@ use strict;
 use warnings;
 use ReseqTrack::Tools::Exception;
 use Getopt::Long;
-use ReseqTrack::Tools::FileUtils;
-use ReseqTrack::Tools::FileSystemUtils;
 use Time::Local;
 use File::Path;
 use File::Basename;
