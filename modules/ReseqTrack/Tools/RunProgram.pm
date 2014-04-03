@@ -69,7 +69,7 @@ use POSIX;
 # package variables:
 my $GLOBAL_ECHO_CMD_LINE;
 my $GLOBAL_save_files_from_deletion;
-my $GLOBAL_WORKING_DIR = "/tmp/";
+my $GLOBAL_WORKING_DIR;
 
 my $term_sig =  0;
 $SIG{TERM} = \&termhandler;
@@ -134,6 +134,8 @@ sub run {
   my ($self, @args) = @_;
 
   $self->_running(1);
+
+  throw("new policy for RunProgram: output directory must always be set explicity") if !$self->working_dir;
 
   my $program = $self->program;
   throw "do not have a program executable\n" if (! $program);
