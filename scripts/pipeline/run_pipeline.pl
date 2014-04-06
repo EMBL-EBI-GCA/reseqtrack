@@ -7,6 +7,7 @@ use ReseqTrack::Tools::GeneralUtils qw(execute_system_command);
 use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::Exception;
 use ReseqTrack::Tools::RunHive;
+use Cwd qw(getcwd);
 use DateTime::Format::MySQL qw(parse_datetime);
 
 my ($dbhost, $dbuser, $dbpass, $dbport, $dbname);
@@ -82,6 +83,7 @@ my $run_hive = ReseqTrack::Tools::RunHive->new(
     -hive_scripts_dir => $ensembl_cvs_dir . '/ensembl-hive/scripts',
     -hive_user => $hive_user, -hive_password => $hive_pass,
     -hive_host => $hive_host, -hive_port => $hive_port,
+    -working_dir => getcwd,
     );
 
 if ($reseed) {
