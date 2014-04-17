@@ -22,6 +22,7 @@ use warnings;
 use ReseqTrack::Tools::Exception qw(throw);
 use ReseqTrack::Tools::Argument qw(rearrange);
 use ReseqTrack::Tools::FileSystemUtils qw(check_executable check_directory_exists);
+use Cwd qw(getcwd);
 
 use base qw(ReseqTrack::Tools::RunProgram);
 
@@ -93,6 +94,8 @@ sub new {
     $self->hive_dbname($hive_dbname);
     $self->hive_user($hive_user);
     $self->hive_password($hive_password);
+
+    $self->working_dir(getcwd) if ! $self->working_dir;
 
     return $self;
 }
