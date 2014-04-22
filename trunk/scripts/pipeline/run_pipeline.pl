@@ -12,7 +12,7 @@ use DateTime::Format::MySQL qw(parse_datetime);
 
 my ($dbhost, $dbuser, $dbpass, $dbport, $dbname);
 my ($hive_user, $hive_pass);
-my ($pipeline_name, $hive_db_id, $reseed, $loop, $run, $hive_log_dir);
+my ($pipeline_name, $hive_db_id, $reseed, $loop, $run, $sync, $hive_log_dir);
 my $ensembl_cvs_dir;
 
 my %options;
@@ -35,6 +35,7 @@ my %options;
 $reseed //= 1;
 $loop //= 1;
 $run //= 1;
+$sync //= 0;
 
 my $db = ReseqTrack::DBSQL::DBAdaptor->new(
   -host   => $dbhost,
@@ -97,11 +98,11 @@ if ($reseed) {
   }
 }
 
-if ($run || $loop) {
+if ($sync) {
   $run_hive->run('sync');
-  if ($loop) {
-    $run_hive->options('loop', 1);
-  }
+}
+if ($run || $loop) {
+  $run_hive->options('loop', $loop);
   if ($hive_log_dir) {
     $run_hive->output_dir($hive_log_dir);
     $run_hive->options('use_log_dir', 1);
@@ -146,6 +147,7 @@ This script is used to do two things:
   -ensembl_cvs_dir, path to the ensembl api
   -reseed, boolean flag to add a new seed job to the pipeline. Default is 1. Use -noreseed to disable.
   -run, boolean flag to run the pipeline. Default is 1. Use -norun to disable.
+  -sync, boolean flag to sync the pipeline. Default is 0.
   -loop, boolean flag to run the pipeline continuously until nothing let to be done.  Default is 1. Use -noloop to disable.
   -hive_log_dir, optional path to a directory.
         All stdout and stderr for all hive jobs will be written to this directory
