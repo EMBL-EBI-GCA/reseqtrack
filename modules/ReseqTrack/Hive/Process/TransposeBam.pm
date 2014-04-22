@@ -13,6 +13,7 @@ sub param_defaults {
     bed => undef,
     region_overlap => 0,
     create_index => 1,
+    uniquify_rg => 0,
   };
 }
 
@@ -60,7 +61,7 @@ sub run {
           -working_dir => $self->output_dir,
           -job_name => $self->job_name,
           -regions => \@regions,
-          -options => {'build_index' => $self->param('create_index')},
+          -options => {uniquify_rg => $self->param('uniquify_rg'), build_index => $self->param('create_index')},
           );
 
     $self->run_program($bam_transposer);
