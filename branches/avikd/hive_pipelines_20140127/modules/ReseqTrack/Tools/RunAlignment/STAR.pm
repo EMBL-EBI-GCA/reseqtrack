@@ -43,7 +43,6 @@ sub DEFAULT_OPTIONS {
     'runMode'                 => 'alignReads',
     'runThreadN'              => 4,
     'genomeLoad'              => 'NoSharedMemory',
-    'outStd'                  => 'SAM',
     'outSAMstrandField'       => 'intronMotif',
     'outSAMattributes'        => 'Standard',
     'outSJfilterReads'        => 'All',
@@ -59,15 +58,8 @@ sub new {
   my $self = $class->SUPER::new(@args);
 
   #setting defaults
-  if ( !$self->program ) {
-    if ( $ENV{STAR} ) {
-      $self->program( $ENV{STAR} . '/STAR' );
-    }
-    else {
-      $self->program('STAR');
-    }
-  }
-
+  $self->program('STAR') unless $self->program ;
+  
   return $self;
 }
 
@@ -90,15 +82,14 @@ sub run_alignment {
   $output_file =~ s{//}{/};
   
   throw( "reference directory does not exist" ) unless ( -d $self->reference ); #reference is a directory for STAR
-  throw( "runMode is required" ) unless( $self->options('runMode') );
-  throw( "output format not supported, use \'outStd=SAM\'" ) unless ( $self->options('outStd') eq 'SAM' );
-  throw("unrecognised runMode:" . $self->options('runMode')) unless ( $self->options('runMode') eq 'alignReads' ) ;
+  throw( "unrecognised runMode:" . $self->options('runMode')) unless ( $self->options('runMode') eq 'alignReads' ) ;
   
+  throw( "fragment and mate-pair mixed read not allowed for RNA-seq" ) if( $self->fragment_file && $self->mate1_file && $self->mate2_file );
   
   if ( $self->fragment_file ) {
     $self->_do_alignment( $output_file . '_se', $self->fragment_file );
   }
-  elsif ( $self->mate1_file && $self->mate2_file ) {
+  if ( $self->mate1_file && $self->mate2_file ) {
     $self->_do_alignment( $output_file . '_pe',
     $self->mate1_file, $self->mate2_file );
   }
@@ -109,11 +100,13 @@ sub _do_alignment {
   my ( $self, $output_file, @input_files ) = @_;
 
   #STAR doesn't output BAM, but we can pipe the output through samtools
-  my $do_bam_conversion = 0;
-  my $output_option     = $self->output_format;
-  $do_bam_conversion = 1 if ( lc($output_option) eq 'bam' );
+  #my $do_bam_conversion = 0;
+  #my $output_option     = $self->output_format;
+  #$do_bam_conversion = 1 if ( lc($self->output_format) eq 'bam' );
   
-  my @restricted_options = qw /genomeDir outSAMattrRGline readFilesIn readFilesCommand/;
+  my $do_bam_conversion =  lc($self->output_format) eq 'bam' ? 1 : 0 ;
+  
+  my @restricted_options = qw /genomeDir outSAMattrRGline readFilesIn readFilesCommand outStd outFileNamePrefix/;
   my %restricted_option_list = map { $_ => 1 } @restricted_options;
   
   my @cmd_words;
@@ -143,46 +136,63 @@ sub _do_alignment {
   push( @cmd_words, '--readFilesIn', @input_files );
   push( @cmd_words, '--readFilesCommand', "zcat" )
     if ( $input_files[0] =~ /.gz$/ );
-
+    
+ #output
+ my $output_tmp = $self->get_temp_dir() . '/' . $self->job_name;
+ 
+ push( @cmd_words, '--outStd', "SAM" );
+ push( @cmd_words, '--outFileNamePrefix', $output_tmp );
+ 
   #other options
   if ( $self->options ) {
     OPTION:
     while (my ($tag, $value) = each %{$self->options}) {
         next OPTION if !defined $value;
-        next OPTION if (exists($restricted_option_list{$tag}));
-    }
-    
-    foreach my $tag ( keys ( %{$self->options} ) ) {
-      if (defined $self->options->{$tag}) {
-        my $value = $self->options->{$tag};
+        throw ( "$tag not permitted" ) if (exists($restricted_option_list{$tag}));
+
         push (@cmd_words, "--".$tag." ".$value);
-      }
     }
   }
-   
-
+  
     if ( $do_bam_conversion ) {
       push( @cmd_words, '|', $self->samtools, 'view -bhS -' );
     }
-    $output_file .= '.'.lc($output_option);
-    push( @cmd_words, '>', $output_file );
     
-    $self->output_files($self->working_dir() . '/' . 'Log.out');
-    $self->output_files($self->working_dir() . '/' . 'Log.progress.out');
-    $self->output_files($self->working_dir() . '/' . 'Log.std.out');
-
-
+    my $output_tmp_file = $output_tmp .'.' . lc($self->output_format);
+    my $sj_tab_tmp = $output_tmp . 'SJ.out.tab';
+    
+    push( @cmd_words, '>', $output_tmp_file );
   
-  $self->output_files($output_file);
-  my $cmd = join( ' ', @cmd_words );
+    my $cmd = join( ' ', @cmd_words );
 
-  $self->execute_command_line($cmd);
+    $self->execute_command_line($cmd);
+    
+    my $sj_tab =  $output_file.'.SJ.out.tab';
+    
+    $output_file .= '.'.lc($self->output_format);
+    move( $output_tmp_file, $output_file );
+    move($sj_tab_tmp, $sj_tab);
+     
+    $self->output_files($output_file);
+    $self->output_files($sj_tab);
   
 }
 
 sub output_bam_files {
   my $self = shift;
   my @files = grep { /\.bam$/ } @{ $self->output_files };
+  return \@files;
+}
+
+sub output_sam_files {
+  my $self = shift;
+  my @files = grep { /\.sam$/ } @{ $self->output_files };
+  return \@files;
+}
+
+sub output_sj_tab_files {
+  my $self = shift;
+  my @files = grep { /\.SJ.out.tab$/ } @{ $self->output_files };
   return \@files;
 }
 
