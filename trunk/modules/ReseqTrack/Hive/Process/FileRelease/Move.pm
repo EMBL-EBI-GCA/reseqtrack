@@ -33,6 +33,15 @@ sub param_defaults {
   };
 }
 
+# An opportunity for the derive_directory subroutine to make a last-second complaint.
+sub reject_message {
+  my ($self, $reject_message) = @_;
+  if (defined $reject_message) {
+    $self->param('reject_message', $reject_message);
+  }
+  return $self->param_is_defined('reject_message') ? $self->param('reject_message') : '';
+}
+
 sub run {
     my $self = shift @_;
 
@@ -57,6 +66,12 @@ sub run {
 
     my $dropbox_path = $file_details->{'dropbox'}->{'path'};
     my $dir = $self->derive_directory($dropbox_path, $file_object);
+    if (my $reject_message = $self->reject_message) {
+        $ps_attributes->{'message'} = $reject_message;
+        $self->output_param('ps_attributes', $ps_attributes);
+        $self->output_param('is_failed', 1);
+        return;
+    }
     my $new_path = $dir . '/' . $file_object->filename;
 
     if ($file_object->updated ne $file_details->{'db'}->{'updated'}) {
