@@ -21,7 +21,7 @@ sub create_seed_params {
   my $remote_hosts = $db->get_HostAdaptor->fetch_all_remote();
   my $fa = $db->get_FileAdaptor;
   my $psa = $db->get_PipelineSeedAdaptor;
-  my @seed_params;
+  my %seed_params_hash;
   foreach my $host (@$remote_hosts) {
     FILE:
     foreach my $file (@{$fa->fetch_by_host($host->dbID)}) {
@@ -48,10 +48,27 @@ sub create_seed_params {
       my %dropbox_details = ('path' =>$dropbox_files[0], 'ctime' => $drop_box_ctime);
       my %db_details = (dbID => $file->dbID, updated => $file->updated);
       my %output_params = (file => {dropbox => \%dropbox_details, db => \%db_details});
-      push(@seed_params, [$file, \%output_params]);
+      %seed_params_hash{$dropbox_files[0]} = [$file, \%output_params];
     }
   }
-  $self->seed_params(\@seed_params);
+
+  SEED_PARAMS:
+  while (my ($path, $seed_params) = each %seed_params_hash) {
+    my $index_seed_params;
+    if ($path =~ /\.bam$/) {
+      $index_seed_params = $seed_params_hash{"$path.bai"};
+    }
+    elsif ($path =~ /\.vcf.gz$/) {
+      $index_seed_params = $seed_params_hash{"$path.tbi"};
+    }
+    next SEED_PARAMS if !$index_seed_params;
+    my %index_details = %{$index_seed_params->[1]->{'file'}};
+    my %data_file_details = %{$seed_params->[1]->{'file'}};
+    $index_seed_params->[1]->{'linked_file'} = \%data_file_details;
+    $seed_params->[1]->{'linked_file'} = \%index_file_details;
+  }
+
+  $self->seed_params([values %seed_params]);
 }
 
 1;

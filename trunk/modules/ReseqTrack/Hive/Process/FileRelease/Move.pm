@@ -11,6 +11,7 @@ use ReseqTrack::Tools::FileSystemUtils qw(check_directory_exists move_by_rsync);
 use ReseqTrack::History;
 use File::Copy qw(move);
 use File::stat;
+use File::Spec;
 
 
 =head2 run
@@ -19,21 +20,21 @@ use File::stat;
 
 =cut
 
-sub derive_directory {
+sub derive_path {
   my ($self, $dropbox_path, $file_object) = @_;
-  my $derive_directory_options = $self->param('derive_directory_options');
-  throw("Project-specific class must implement the derive_directory subroutine");
+  my $derive_path_options = $self->param('derive_path_options');
+  throw("Project-specific class must implement the derive_path subroutine");
 }
 
 sub param_defaults {
   return {
     'ps_attributes' => {},
-    'derive_directory_options' => {},
+    'derive_path_options' => {},
     'move_by_rsync' => 0,
   };
 }
 
-# An opportunity for the derive_directory subroutine to make a last-second complaint.
+# An opportunity for the derive_path subroutine to make a last-second complaint.
 sub reject_message {
   my ($self, $reject_message) = @_;
   if (defined $reject_message) {
@@ -65,14 +66,13 @@ sub run {
     throw("did not find file $file_id in database") if !$file_object;
 
     my $dropbox_path = $file_details->{'dropbox'}->{'path'};
-    my $dir = $self->derive_directory($dropbox_path, $file_object);
+    my $destination_path = $self->derive_path($dropbox_path, $file_object);
     if (my $reject_message = $self->reject_message) {
         $ps_attributes->{'message'} = $reject_message;
         $self->output_param('ps_attributes', $ps_attributes);
         $self->output_param('is_failed', 1);
         return;
     }
-    my $new_path = $dir . '/' . $file_object->filename;
 
     if ($file_object->updated ne $file_details->{'db'}->{'updated'}) {
         $ps_attributes->{'message'} = 'file updated in db since pipeline started';
@@ -89,23 +89,31 @@ sub run {
         return;
     }
 
-    check_directory_exists($dir);
+    throw("derive_path subroutine did not return a full path: $destination_path")
+        if !File::Spec->file_name_is_absolute($destination_path);
+    my ($destination_filename, $destination_dir) = fileparse($destination_path);
+    if ($destination_filename ne fileparse($dropbox_path)) {
+      my $exists = $fa->fetch_by_filename($destination_filename);
+      throw("file already exists in db: " . $exists->[0]->name) if @$exists;
+    }
+
+    check_directory_exists($destination_dir);
     if ($self->param('move_by_rsync')) {
       $self->dbc->disconnect_when_inactive(1);
       $db->dbc->disconnect_when_inactive(1);
-      move_by_rsync($dropbox_path, $new_path);
+      move_by_rsync($dropbox_path, $destination_path);
       $self->dbc->disconnect_when_inactive(0);
       $db->dbc->disconnect_when_inactive(0);
-      throw("unexpected file size after rsync $dropbox_path $new_path") if $file_object->size != -s $new_path;
+      throw("unexpected file size after rsync $dropbox_path $destination_path") if $file_object->size != -s $destination_path;
     }
     else {
-      move($dropbox_path, $new_path) or throw("error moving to $new_path: $!");
+      move($dropbox_path, $destination_path) or throw("error moving to $destination_path: $!");
     }
     my $host = get_host_object($hostname, $db);
     my $comment = 'changed host from '. $file_object->host->name.' to '. $host->name;
     my $history = ReseqTrack::History->new(
         -other_id => $file_id, -table_name => 'file', -comment => $comment);
-    $file_object->name($new_path);
+    $file_object->name($destination_path);
     $file_object->host($host);
     $file_object->history($history);
     $fa->update($file_object);
