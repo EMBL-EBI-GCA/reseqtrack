@@ -13,7 +13,7 @@ use Cwd qw(abs_path);
 my ($dbhost, $dbuser, $dbpass, $dbport, $dbname);
 my ($hive_host, $hive_user, $hive_pass, $hive_port, $hive_name);
 my $pipeline_name;
-my ($ensembl_cvs_dir, $ensembl_hive_version);
+my ($ensembl_hive_dir, $ensembl_hive_version);
 
 my %options;
 &GetOptions( 
@@ -28,7 +28,7 @@ my %options;
   'hive_pass=s'      => \$hive_pass,
   'hive_port=i'      => \$hive_port,
   'pipeline_name=s'  => \$pipeline_name,
-  'ensembl_cvs_dir=s'  => \$ensembl_cvs_dir,
+  'ensembl_hive_dir=s'  => \$ensembl_hive_dir,
   'ensembl_hive_version=s'  => \$ensembl_hive_version,
   );
 
@@ -43,7 +43,7 @@ my $db = ReseqTrack::DBSQL::DBAdaptor->new(
 my $pipeline = $db->get_PipelineAdaptor->fetch_by_name($pipeline_name);
 throw("did not find pipeline with name $pipeline_name") if !$pipeline;
 
-$ensembl_hive_version //= (split(/\/+/, abs_path($ensembl_cvs_dir)))[-1];
+$ensembl_hive_version //= (split(/\/+/, abs_path($ensembl_hive_dir)))[-1];
 
 $hive_name //= join('_', $dbname, $pipeline_name, strftime("%Y%m%d_%H%M", localtime));
 $hive_name =~ s/\s+/_/g;
@@ -58,7 +58,7 @@ push(@init_options, '-pipeline_name', $pipeline_name);
 
 my $run_hive = ReseqTrack::Tools::RunHive->new(
     -hive_dbname => $hive_name,
-    -hive_scripts_dir => $ensembl_cvs_dir . '/ensembl-hive/scripts',
+    -hive_scripts_dir => $ensembl_hive_dir . '/scripts',
     -hive_user => $hive_user, -hive_password => $hive_pass,
     -hive_host => $hive_host, -hive_port => $hive_port,
     );
@@ -104,8 +104,8 @@ This script initialises a hive database using the configuration defined in the p
   other options:
 
   -pipeline_name, refers to a name in the pipeline table
-  -ensembl_cvs_dir, path to the ensembl api
-  -ensembl_hive_version, (optional) default is to infer it from ensembl_cvs_dir
+  -ensembl_hive_dir, path to the ensembl hive api
+  -ensembl_hive_version, (optional) default is to infer it from ensembl_hive_dir
 
 =head1 Examples
 
@@ -114,7 +114,7 @@ This script initialises a hive database using the configuration defined in the p
 
 
   perl reseqtrack/pipeline/init_hive_db.pl $DB_OPTS $HIVE_DB_OPTS
-    -ensembl_cvs_dir /path/to/ensembl-100
+    -ensembl_hive_dir /path/to/ensembl-hive-2.0
     -pipeline_name alignment
 
 =cut
