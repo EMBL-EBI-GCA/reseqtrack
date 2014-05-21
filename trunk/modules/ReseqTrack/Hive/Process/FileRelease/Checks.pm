@@ -18,6 +18,7 @@ use File::stat;
 
 # project-specific classes can override this.
 sub get_check_subs {
+  my ($self) = @_;
   return {quick => [map {$self->can($_)} qw(check_ctime check_update_time check_size check_name)],
           slow => [map {$self->can($_)} qw(check_ctime check_update_time check_md5)]};
 }

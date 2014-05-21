@@ -48,7 +48,7 @@ sub create_seed_params {
       my %dropbox_details = ('path' =>$dropbox_files[0], 'ctime' => $drop_box_ctime);
       my %db_details = (dbID => $file->dbID, updated => $file->updated);
       my %output_params = (file => {dropbox => \%dropbox_details, db => \%db_details});
-      %seed_params_hash{$dropbox_files[0]} = [$file, \%output_params];
+      $seed_params_hash{$dropbox_files[0]} = [$file, \%output_params];
     }
   }
 
@@ -65,10 +65,10 @@ sub create_seed_params {
     my %index_details = %{$index_seed_params->[1]->{'file'}};
     my %data_file_details = %{$seed_params->[1]->{'file'}};
     $index_seed_params->[1]->{'linked_file'} = \%data_file_details;
-    $seed_params->[1]->{'linked_file'} = \%index_file_details;
+    $seed_params->[1]->{'linked_file'} = \%index_details;
   }
 
-  $self->seed_params([values %seed_params]);
+  $self->seed_params([values %seed_params_hash]);
 }
 
 1;
