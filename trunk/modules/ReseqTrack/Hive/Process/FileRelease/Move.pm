@@ -93,7 +93,9 @@ sub run {
     throw("derive_path subroutine did not return a full path: $destination_path")
         if !File::Spec->file_name_is_absolute($destination_path);
     my ($destination_filename, $destination_dir) = fileparse($destination_path);
-    if ($destination_filename ne fileparse($dropbox_path)) {
+    
+    my $change_name = $destination_filename ne fileparse($dropbox_path) ? 1 : 0;
+    if ($change_name) {
       my $exists = $fa->fetch_by_filename($destination_filename);
       throw("file already exists in db: " . $exists->[0]->name) if @$exists;
     }
@@ -117,7 +119,7 @@ sub run {
     $file_object->name($destination_path);
     $file_object->host($host);
     $file_object->history($history);
-    $fa->update($file_object);
+    $fa->update($file_object,0,$change_name);
 }
 
 1;
