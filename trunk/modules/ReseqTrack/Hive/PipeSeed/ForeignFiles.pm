@@ -8,6 +8,8 @@ use base ('ReseqTrack::Hive::PipeSeed::BasePipeSeed');
 use File::Find qw(find);
 use File::stat;
 use DateTime::Format::MySQL;
+use ReseqTrack::Tools::Exception qw(throw);
+use File::Spec;
 
 sub create_seed_params {
   my ($self) = @_;
@@ -31,13 +33,16 @@ sub create_seed_params {
         next FILE if grep {$_->is_complete} @$existing_ps;
         next FILE if grep {$_->is_futile} @$existing_ps;
       }
-      my $filename = $file->filename;
-      my @dropbox_files;
-      find( sub {push(@dropbox_files, $File::Find::name) if $_ eq $filename}, $host->dropbox_dir);
-      throw("multiple files with the same name: @dropbox_files") if @dropbox_files >1;
-      next FILE if !@dropbox_files;
+      my $dropbox_file = File::Spec->rel2abs('./'.$file->name, $host->dropbox_dir);
+      next FILE if ! -e $dropbox_file;
 
-      my $st = stat($dropbox_files[0]) or throw("could not stat $dropbox_files[0]: $!");
+      #my $filename = $file->filename;
+      #my @dropbox_files;
+      #find( sub {push(@dropbox_files, $File::Find::name) if $_ eq $filename}, $host->dropbox_dir);
+      #throw("multiple files with the same name: @dropbox_files") if @dropbox_files >1;
+      #next FILE if !@dropbox_files;
+
+      my $st = stat($dropbox_file) or throw("could not stat $dropbox_file: $!");
       my $drop_box_ctime = $st->ctime;
       my $updated = DateTime::Format::MySQL->parse_datetime($file->updated)->set_time_zone('local')->epoch;
       if ($drop_box_ctime > $updated) {
@@ -45,10 +50,10 @@ sub create_seed_params {
       }
       next FILE if grep {$_ > $updated} map {DateTime::Format::MySQL->parse_datetime($_->created)->set_time_zone('local')->epoch} @$existing_ps;
 
-      my %dropbox_details = ('path' =>$dropbox_files[0], 'ctime' => $drop_box_ctime);
+      my %dropbox_details = ('path' =>$dropbox_file, 'ctime' => $drop_box_ctime);
       my %db_details = (dbID => $file->dbID, updated => $file->updated);
       my %output_params = (file => {dropbox => \%dropbox_details, db => \%db_details});
-      $seed_params_hash{$dropbox_files[0]} = [$file, \%output_params];
+      $seed_params_hash{$dropbox_file} = [$file, \%output_params];
     }
   }
 
