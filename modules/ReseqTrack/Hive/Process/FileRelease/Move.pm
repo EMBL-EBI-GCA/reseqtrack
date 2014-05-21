@@ -12,6 +12,7 @@ use ReseqTrack::History;
 use File::Copy qw(move);
 use File::stat;
 use File::Spec;
+use File::Basename qw(fileparse);
 
 
 =head2 run
