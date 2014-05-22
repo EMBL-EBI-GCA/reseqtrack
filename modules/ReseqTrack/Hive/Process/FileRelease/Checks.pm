@@ -42,6 +42,21 @@ sub check_size {
     $self->reject_message("file size is greater than expected: $db_size $file_size");
     return 0;
   }
+
+  my $file_details = $self->param('file');
+  if (my $index_dbID = $file_details->{'db'}->{'index_dbID'}) {
+    my $index_extension = $file_details->{'dropbox'}->{'index_ext'};
+    my $index_file = $file_object->adaptor->fetch_by_dbID($index_dbID);
+    throw("did not find file $index_dbID in database") if !$index_file;
+    my $index_db_size = $index_file->size;
+    my $index_file_size = -s $dropbox_path.$index_extension;
+    if (!$index_file_size || $index_file_size != $index_db_size) {
+      $self->is_reject(1);
+      $self->reject_message("index file size error: $index_db_size $index_file_size");
+      return 0;
+    }
+  }
+
   return 1;
 }
 
@@ -54,6 +69,21 @@ sub check_md5 {
     $self->reject_message("md5 does not match: $file_md5");
     return 0;
   }
+
+  my $file_details = $self->param('file');
+  if (my $index_dbID = $file_details->{'db'}->{'index_dbID'}) {
+    my $index_extension = $file_details->{'dropbox'}->{'index_ext'};
+    my $index_file = $file_object->adaptor->fetch_by_dbID($index_dbID);
+    throw("did not find file $index_dbID in database") if !$index_file;
+    my $index_db_md5 = $index_file->md5;
+    my $index_file_md5 = file_md5_hex($dropbox_path.$index_extension);
+    if ($index_file_md5 ne $index_db_md5) {
+      $self->is_reject(1);
+      $self->reject_message("index md5 does not match: $index_file_md5");
+      return 0;
+    }
+  }
+  
   return 1;
 }
 
@@ -68,6 +98,18 @@ sub check_ctime {
     $self->reject_message("file changed since pipeline job created");
     return 0;
   }
+
+  if (my $index_job_ctime = $file_details->{'dropbox'}->{'index_ctime'}) {
+    my $index_path = $dropbox_path . $file_details->{'dropbox'}->{'index_ext'};
+    my $index_st = stat($index_path) or throw("could not stat $index_path: $!");
+    my $index_ctime_now = $index_st->ctime;
+    if ($index_ctime_now != $index_job_ctime) {
+      $self->is_reject(0);
+      $self->reject_message("index file changed since pipeline job created");
+      return 0;
+    }
+  }
+
   return 1;
 }
 
@@ -80,6 +122,18 @@ sub check_update_time {
     $self->is_reject(0);
     $self->reject_message("checking job is out of date with database");
     return 0;
+  }
+
+  if (my $index_dbID = $file_details->{'db'}->{'index_dbID'}) {
+    my $index_file = $file_object->adaptor->fetch_by_dbID($index_dbID);
+    throw("did not find file $index_dbID in database") if !$index_file;
+    my $index_db_updated = $index_file->updated;
+    my $index_job_updated = $file_details->{'db'}->{'index_updated'};
+    if ($index_db_updated ne $index_job_updated) {
+      $self->is_reject(0);
+      $self->reject_message("checking job is out of date with database");
+      return 0;
+    }
   }
   return 1;
 }

@@ -66,6 +66,14 @@ sub run {
     my $file_object = $fa->fetch_by_dbID($file_id);
     throw("did not find file $file_id in database") if !$file_object;
 
+    my $index_object;
+    my $index_extension = $file_details->{'dropbox'}->{'index_ext'};
+    if ($index_extension) {
+      my $index_file_id = $file_details->{'db'}->{'index_dbID'};
+      $index_object = $fa->fetch_by_dbID($index_file_id);
+      throw("did not find file $index_file_id in database") if !$index_object;
+    }
+
     my $dropbox_path = $file_details->{'dropbox'}->{'path'};
     my $destination_path = $self->derive_path($dropbox_path, $file_object);
     if (my $reject_message = $self->reject_message) {
@@ -75,7 +83,8 @@ sub run {
         return;
     }
 
-    if ($file_object->updated ne $file_details->{'db'}->{'updated'}) {
+    if ($file_object->updated ne $file_details->{'db'}->{'updated'}
+        || ($index_object && $index_object->updated ne $file_details->{'db'}->{'index_updated'})) {
         $ps_attributes->{'message'} = 'file updated in db since pipeline started';
         $self->output_param('ps_attributes', $ps_attributes);
         $self->output_param('is_failed', 1);
@@ -83,7 +92,10 @@ sub run {
     }
 
     my $st = stat($dropbox_path) or throw("could not stat $dropbox_path: $!");
-    if ($st->ctime != $file_details->{'dropbox'}->{'ctime'}) {
+    my $index_st = $index_extension ? (stat($dropbox_path.$index_extension) or throw("could not stat $dropbox_path.$index_extension: $!"))
+                : '';
+    if ($st->ctime != $file_details->{'dropbox'}->{'ctime'}
+        || ($index_extension && $index_st->ctime != $file_details->{'dropbox'}->{'index_ctime'})) {
         $ps_attributes->{'message'} = 'file changed since pipeline started';
         $self->output_param('ps_attributes', $ps_attributes);
         $self->output_param('is_failed', 1);
@@ -97,7 +109,11 @@ sub run {
     my $change_name = $destination_filename ne fileparse($dropbox_path) ? 1 : 0;
     if ($change_name) {
       my $exists = $fa->fetch_by_filename($destination_filename);
-      throw("file already exists in db: " . $exists->[0]->name) if @$exists;
+      throw("file already exists in db: $dropbox_path $destination_filename" . $exists->[0]->name) if @$exists;
+      if ($index_extension) {
+        $exists = $fa->fetch_by_filename($destination_filename.$index_extension);
+        throw("file already exists in db: $dropbox_path$index_extension $destination_filename$index_extension" . $exists->[0]->name) if @$exists;
+      }
     }
 
     check_directory_exists($destination_dir);
@@ -105,12 +121,17 @@ sub run {
       $self->dbc->disconnect_when_inactive(1);
       $db->dbc->disconnect_when_inactive(1);
       move_by_rsync($dropbox_path, $destination_path);
+      if ($index_extension) {
+        move_by_rsync($dropbox_path.$index_extension, $destination_path.$index_extension);
+      }
       $self->dbc->disconnect_when_inactive(0);
       $db->dbc->disconnect_when_inactive(0);
       throw("unexpected file size after rsync $dropbox_path $destination_path") if $file_object->size != -s $destination_path;
+      throw("unexpected file size after rsync $dropbox_path $destination_path") if $index_extension && $index_object->size != -s $destination_path.$index_extension;
     }
     else {
       move($dropbox_path, $destination_path) or throw("error moving to $destination_path: $!");
+      move($dropbox_path.$index_extension, $destination_path.$index_extension) or throw("error moving to $destination_path.$index_extension: $!");
     }
     my $host = get_host_object($hostname, $db);
     my $comment = 'changed host from '. $file_object->host->name.' to '. $host->name;
@@ -120,6 +141,14 @@ sub run {
     $file_object->host($host);
     $file_object->history($history);
     $fa->update($file_object,0,$change_name);
+    if ($index_extension) {
+      my $index_history = ReseqTrack::History->new(
+          -other_id => $index_object->dbID, -table_name => 'file', -comment => $comment);
+      $index_object->name($destination_path.$index_extension);
+      $index_object->host($host);
+      $index_object->history($index_history);
+      $fa->update($index_object,0,$change_name);
+    }
 }
 
 1;
