@@ -88,10 +88,15 @@ sub fetch_by_study_id {
 
 sub add_ega_id {
   my ( $self, $object, $hashref ) = @_;
+  $self->add_attribute($object,$hashref,'EGA_ID','EGA_ID');
+}
+
+sub add_attribute {
+  my ( $self, $object, $hashref, $column_name, $attribute_name ) = @_;
 
   if ( $hashref->{EGA_ID} ) {
     my $attr =
-      create_attribute_for_object( $object, 'EGA_ID', $hashref->{EGA_ID} );
+      create_attribute_for_object( $object, $attribute_name, $hashref->{$column_name} );
     $object->attributes( [$attr] );
   }
 }

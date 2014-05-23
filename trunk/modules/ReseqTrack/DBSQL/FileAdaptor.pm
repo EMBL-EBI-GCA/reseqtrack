@@ -369,8 +369,7 @@ sub update{
     foreach my $history(@{$file->history}){
       $no_dbID = 1 unless($history->dbID);
     }
-    throw("All the history objects appear to already exist you need a new one")
-        unless($no_dbID);
+    throw("All the history objects appear to already exist you need a new one")         unless($no_dbID);
   }
   if(!$file->host->dbID){
     my $ha = $self->db->get_HostAdaptor;
