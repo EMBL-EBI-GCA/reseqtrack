@@ -4,6 +4,7 @@ use strict;
 use warnings;
 
 use ReseqTrack::Tools::RunPicard;
+use ReseqTrack::Tools::RunSamtools;
 use ReseqTrack::Tools::QC::PPQT;
 use ReseqTrack::Tools::HostUtils qw(get_host_object);
 use ReseqTrack::Tools::AttributeUtils;
@@ -45,12 +46,15 @@ my %commands = (
     'insert_size' => 'insert_size_metrics',
     'multi'       => 'multiple_metrics',
     'ppqt'        => 'non_picard',
+    'flagstat'    => 'flagstat'
 );
 
 my $mode                    = 'alignment';
 my $attribute_prefix_column = 'CATEGORY';
 my $ppqt_no_dups            = 1;
 my @programs;
+my $layout_check;
+my $job_name_modifier;
 
 &GetOptions(
     'dbhost=s'                  => \$dbhost,
@@ -75,7 +79,9 @@ my @programs;
     'programs=s'                => \@programs,
     'samtools_path=s'           => \$samtools_path,
     'ppqt_no_dups!'             => \$ppqt_no_dups,
-) or die ("Args error: $!");
+    'layout_check!'             => \$layout_check,
+    'job_name_modifier=s'       => \$job_name_modifier,
+) or die("Args error: $!");
 
 my $db = ReseqTrack::DBSQL::DBAdaptor->new(
     -host   => $dbhost,
@@ -109,9 +115,14 @@ if (@programs) {
 
 my $metrics_generator;
 
+my $job_name = $name;
+if ($job_name_modifier) {
+    $job_name .= $job_name_modifier;
+}
+
 if ( $mode eq 'ppqt' ) {
     $metrics_generator = ReseqTrack::Tools::QC::PPQT->new(
-        -job_name      => $name,
+        -job_name      => $job_name,
         -program       => $script_path,
         -rscript_path  => $rscript_path,
         -samtools_path => $samtools_path,
@@ -122,9 +133,16 @@ if ( $mode eq 'ppqt' ) {
         -no_dups       => $ppqt_no_dups,
     );
 }
+elsif ( $mode eq 'flagstat' ) {
+    $metrics_generator = ReseqTrack::Tools::RunSamtools->new(
+        -job_name    => $job_name,
+        -program     => $samtools_path,
+        -input_files => [ $collection->others->[0]->name ],
+    );
+}
 else {
     $metrics_generator = ReseqTrack::Tools::RunPicard->new(
-        -job_name     => $name,
+        -job_name     => $job_name,
         -program      => $java_path,
         -picard_dir   => $picard_dir,
         -jvm_options  => $jvm_options,
@@ -137,6 +155,7 @@ else {
 my @generated_metrics = $metrics_generator->run_program($command);
 my $metrics_files     = $metrics_generator->output_files;
 my $statistics        = [];
+
 for my $metrics_group (@generated_metrics) {
     for my $metrics (@$metrics_group) {
         my $prefix = $metrics->{$attribute_prefix_column};
@@ -162,7 +181,8 @@ if ($keep_metrics_file) {
 }
 else {
     for my $file (@$metrics_files) {
- #       delete_file($file);
+
+        #       delete_file($file);
     }
 }
 
