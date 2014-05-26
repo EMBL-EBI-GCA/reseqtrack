@@ -227,13 +227,13 @@ sub pipeline_analyses {
               reseqtrack_options => {
                 flows_non_factory => {
                     1 => '#run_fastqc#',
-                    2 => '#expr(!#run_fastqc)expr#',
+                    2 => '#expr(!#run_fastqc#)expr#',
                 },
               },
             },
             -flow_into => {
                 1 => { 'fastq_factory' => {'fastq' => '#file#'}},
-                2 => 'mark_seed_complete',
+                2 => ['mark_seed_complete'],
             },
       });
     push(@analyses, {
