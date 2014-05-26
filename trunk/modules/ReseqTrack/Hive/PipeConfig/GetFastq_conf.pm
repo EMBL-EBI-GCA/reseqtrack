@@ -27,6 +27,8 @@ config_options=-reference /path/to/human.fa
       -fastq_output_dir (default is your root_output_dir) Root directory for the final resting place of your fastq files
       -fastq_output_layout (default '#sample_alias#/sequence_read' ) used by the default fastq_name_file_module, sub directory of your final fastq files
 
+      -run_fastqc, (default 0), option to switch on running fastqc on each fastq file
+
       -fastqc_name_file_module, controls how you fastqc files are named (default is ReseqTrack::Hive::NameFile::BaseNameFile) override this with a project-specific module.
       -fastqc_name_file_method, (default is 'basic'), controls which subroutine of your fastqc_name_file_module is used to name your fastqc files.
       -fastqc_name_file_params. a hash ref, passed to your fastqc_name_file_module.  Change the default values to control how your final output file is named.
@@ -111,6 +113,8 @@ sub default_options {
         fastq_source_root_dir => undef, # module default is /nfs/era-pub
         clobber => 0,
         fastqc_exe => '/nfs/1000g-work/G1K/work/bin/FastQC/fastqc',
+
+        run_fastqc => 0,
 
         fastq_type => undef, # use file_type_rule table
         fastqc_summary_type => undef, # use file_type_rule table
@@ -219,9 +223,17 @@ sub pipeline_analyses {
               md5 => '#fastq_md5#',
               collection_name => '#run_source_id#',
               file => '#fastq#',
+              run_fastqc => $self->o('run_fastqc'),
+              reseqtrack_options => {
+                flows_non_factory => {
+                    1 => '#run_fastqc#',
+                    2 => '#expr(!#run_fastqc)expr#',
+                },
+              },
             },
             -flow_into => {
                 1 => { 'fastq_factory' => {'fastq' => '#file#'}},
+                2 => 'mark_seed_complete',
             },
       });
     push(@analyses, {

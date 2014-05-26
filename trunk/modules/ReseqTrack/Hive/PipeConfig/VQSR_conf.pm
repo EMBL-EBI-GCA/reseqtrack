@@ -163,6 +163,8 @@ sub default_options {
             suffix => ['.vcf.gz'],
           },
 
+        uniquify_rg => 0,
+
     };
 }
 
@@ -266,6 +268,7 @@ sub pipeline_analyses {
             -parameters    => {
                 program_file => $self->o('transpose_exe'),
                 create_index => 1,
+                uniquify_rg => $self->o('uniquify_rg'),
                 bed => $self->o('target_bed_file'),
                 region_overlap => 100,
             },
