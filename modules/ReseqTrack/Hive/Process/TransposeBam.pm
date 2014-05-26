@@ -61,7 +61,10 @@ sub run {
           -working_dir => $self->output_dir,
           -job_name => $self->job_name,
           -regions => \@regions,
-          -options => {uniquify_rg => $self->param('uniquify_rg'), build_index => $self->param('create_index')},
+          -options => {uniquify_rg => $self->param('uniquify_rg'),
+                      build_index => $self->param('create_index'),
+                      shorten_input_names => 1,
+                      },
           );
 
     $self->run_program($bam_transposer);
