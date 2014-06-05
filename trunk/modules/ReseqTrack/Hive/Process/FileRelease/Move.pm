@@ -105,8 +105,9 @@ sub run {
     throw("derive_path subroutine did not return a full path: $destination_path")
         if !File::Spec->file_name_is_absolute($destination_path);
     my ($destination_filename, $destination_dir) = fileparse($destination_path);
+    my ($dropbox_filename, $dropbox_dir) = fileparse($dropbox_path);
     
-    my $change_name = $destination_filename ne fileparse($dropbox_path) ? 1 : 0;
+    my $change_name = $destination_filename ne $dropbox_filename ? 1 : 0;
     if ($change_name) {
       my $exists = $fa->fetch_by_filename($destination_filename);
       throw("file already exists in db: $dropbox_path $destination_filename" . $exists->[0]->name) if @$exists;
@@ -134,19 +135,44 @@ sub run {
       move($dropbox_path.$index_extension, $destination_path.$index_extension) or throw("error moving to $destination_path.$index_extension: $!");
     }
     my $host = get_host_object($hostname, $db);
-    my $comment = 'changed host from '. $file_object->host->name.' to '. $host->name;
-    my $history = ReseqTrack::History->new(
-        -other_id => $file_id, -table_name => 'file', -comment => $comment);
     $file_object->name($destination_path);
     $file_object->host($host);
-    $file_object->history($history);
+
+    my $host_comment = 'changed host from '. $file_object->host->name.' to '. $host->name;
+    my $host_history = ReseqTrack::History->new(
+        -other_id => $file_id, -table_name => 'file', -comment => $host_comment);
+    $file_object->history($host_history);
+    if ($change_name) {
+      my $name_comment = "changed filename from $dropbox_filename to $destination_filename";
+      my $name_history = ReseqTrack::History->new(
+          -other_id => $file_id, -table_name => 'file', -comment => $name_comment);
+      $file_object->history($name_history);
+      my $name_attribute = ReseqTrack::Attribute->new(
+          -other_id => $file_id, -table_name => 'file',
+          -attribute_name => 'ORIG_FILENAME',
+          -attribute_value => $dropbox_filename);
+      $file_object->attributes($name_attribute);
+    }
+
     $fa->update($file_object,0,$change_name);
+
     if ($index_extension) {
-      my $index_history = ReseqTrack::History->new(
-          -other_id => $index_object->dbID, -table_name => 'file', -comment => $comment);
       $index_object->name($destination_path.$index_extension);
       $index_object->host($host);
-      $index_object->history($index_history);
+      my $index_host_history = ReseqTrack::History->new(
+          -other_id => $index_object->dbID, -table_name => 'file', -comment => $host_comment);
+      $index_object->history($index_host_history);
+      if ($change_name) {
+        my $index_name_comment = "changed filename from $dropbox_filename$index_extension to $destination_filename$index_extension";
+        my $index_name_history = ReseqTrack::History->new(
+            -other_id => $file_id, -table_name => 'file', -comment => $index_name_comment);
+        $file_object->history($index_name_history);
+        my $index_name_attribute = ReseqTrack::Attribute->new(
+            -other_id => $file_id, -table_name => 'file',
+            -attribute_name => 'ORIG_FILENAME',
+            -attribute_value => $dropbox_filename.$index_extension);
+        $file_object->attributes($index_name_attribute);
+      }
       $fa->update($index_object,0,$change_name);
     }
 }
