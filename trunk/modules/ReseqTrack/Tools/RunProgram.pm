@@ -590,24 +590,39 @@ sub get_temp_dir {
 =head2 get_short_input_names
 
   Arg [1]   : ReseqTrack::Tools::RunProgram
+  Arg [1]   : 1 or 2 to indicate to which level of shortness the name should be; with 2, the file name will be just an index.  Default is 1. 
   Function  : Uses symbolic links to allow the conversion of long file names into something shorter
               Symbolic links are created within a temporary directory
   Returntype: hash, key is the long file name, value is the short file name
   Exceptions: Throws if there is an error linking the files
   Example   : my $short_name = $self->get_short_input_names->{'/long/file/name'};
+	      OR
+              my $short_names = $self->get_short_input_names(2);
+	      my $short_name = $short_names->{'/long/file/name'};
 
 =cut
 
 
 sub get_short_input_names {
-    my ($self) = @_;
+    my ($self, $level) = @_;
+    $level = 1 if (!$level);
     my $temp_dir = $self->get_temp_dir;
     my $temp_dir_basename = fileparse($temp_dir);
     $self->{'_short_inputs'} ||= {};
+    my $cnt = 0;    
     foreach my $long_name (grep {!$self->{'_short_inputs'}->{$_}} @{$self->input_files}) {
       my ($basename, $dirname) = fileparse($long_name);
       $dirname =~ s/\/$//;
-      my $short_name = $temp_dir_basename . '/' . $basename;
+      my $short_name;
+      if ( $level == 1) { 
+      	$short_name = $temp_dir_basename . '/' . $basename;
+      }
+      elsif ($level == 2) {
+	 $short_name = $temp_dir_basename . '/' . $cnt;
+      }
+      else {
+	throw("Please use either 1 or 2 as level");
+      }
       $self->{'_short_inputs'}->{$long_name} = $short_name;
       symlink($long_name, $short_name) or throw("could not symlink $long_name to $short_name");
 
@@ -616,10 +631,11 @@ sub get_short_input_names {
         my ($extension) = $_ =~ /$basename(.+)$/;
         return if ! defined $extension;
         my $destination = $temp_dir . '/' . $_;
-        symlink($File::Find::name, $destination) or throw("could not symlink $File::Find::name to $destination $!");
+        #my $destination = $temp_dir . '/' . $cnt;
+	symlink($File::Find::name, $destination) or throw("could not symlink $File::Find::name to $destination $!");
       };
       find($link_others_sub, $dirname);
-
+      $cnt++;
     }
     return $self->{'_short_inputs'};
 }
