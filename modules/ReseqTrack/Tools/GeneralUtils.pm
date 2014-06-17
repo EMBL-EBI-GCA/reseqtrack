@@ -139,6 +139,10 @@ sub parse_movelist{
     chomp;
     my @values = split /\t/, $_;
     #print "Adding old ".$values[0]." new ".$values[1]." to the list\n";
+    $values[0] =~ s/\s+$//;
+    $values[1] =~ s/\s+$//;
+    $values[0] =~ s/^\s+//;
+    $values[1] =~ s/^\s+//;
     $hash{$values[0]} = $values[1];
   }
   return \%hash;
