@@ -61,6 +61,7 @@ sub check_status {
   my $self = shift;
   my $era_rmia = $self->db->get_ERARunMetaInfoAdaptor;
   my $status = $era_rmia->get_status($self->run_info->source_id);
+
   if ($status ne 'private' && $status ne 'public') {
     print "do not recognise status $status for ".$self->run_info->source_id."\n";
     return 0;
@@ -74,6 +75,7 @@ sub get_fastq_details {
   throw("do not have a fuse password") if !$self->fuse_password;
 
 	my $study_id = $self->run_info->experiment->study->source_id;
+	my $run_id = $self->run_info->source_id;
 
   my $string = '/' . $self->fuse_user . '/' . $study_id
             . '/' . $self->fuse_password . '/';
@@ -93,10 +95,12 @@ sub get_fastq_details {
   $root_dir =~ s{//}{/}g;
 
   my ($db_md5_hash, $db_size_hash, $name_hash) =
-      ReseqTrack::Tools::ERAUtils::get_fastq_details($study_id, $self->db, $root_dir);
+      ReseqTrack::Tools::ERAUtils::get_fastq_details($run_id, $self->db, $root_dir);
   $self->db_md5_hash($db_md5_hash);
   $self->db_size_hash($db_size_hash);
   $self->name_hash($name_hash);
+  use Data::Dumper;
+  print STDERR Dumper($db_md5_hash, $db_size_hash, $name_hash);
 }
 
 sub get_files {
@@ -124,9 +128,9 @@ sub get_files {
 sub check_fastq_available {
   my $self = shift;
   my $era_rmia = $self->db->get_ERARunMetaInfoAdaptor;
-  my $status = $era_rmia->get_status($self->run_meta_info->run_id);
+  my $status = $era_rmia->get_status($self->run_info->source_id);
   if ($status eq 'public') {
-    print "status is public for ".$self->run_meta_info->run_id."\n";
+    print "status is public for ".$self->run_info->source_id."\n";
     return 0;
   }
   return 1;
