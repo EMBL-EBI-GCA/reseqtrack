@@ -192,7 +192,7 @@ sub sanity_check_objects {
   my %changelog_hash;
   my $files = $self->file_paths;
 
-  my $archive_location = $self->archive_location;
+  my $archive_location = $self->archive_location->location;
   throw("did not find an archive_location") if !$archive_location;
 
 
