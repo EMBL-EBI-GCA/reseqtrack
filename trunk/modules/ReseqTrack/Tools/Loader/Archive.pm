@@ -192,6 +192,8 @@ sub sanity_check_objects {
   my %changelog_hash;
   my $files = $self->file_paths;
 
+  my $archive_location = $self->archive_location;
+  throw("did not find an archive_location") if !$archive_location;
 
 
   my $total_files = scalar @{$files};
@@ -216,7 +218,7 @@ sub sanity_check_objects {
 
   
     my $new_root = $self->other_location->location;
-    if ( $new_root =~ /\/nfs\/1000g-archive/ ) {
+    if ( $new_root =~ /$archive_location/ ) {
       $new_root .= "/vol1";
     }
 
