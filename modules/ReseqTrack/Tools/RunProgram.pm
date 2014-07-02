@@ -630,8 +630,13 @@ sub get_short_input_names {
         return if $File::Find::dir ne $dirname;
         my ($extension) = $_ =~ /$basename(.+)$/;
         return if ! defined $extension;
-        my $destination = $temp_dir . '/' . $_;
-        #my $destination = $temp_dir . '/' . $cnt;
+	my $destination;
+	if ( $level == 1) {
+        	$destination = $temp_dir . '/' . $_;
+        }
+	elsif ($level == 2) {
+		$destination = $temp_dir . '/' . $cnt . $extension;
+	}
 	symlink($File::Find::name, $destination) or throw("could not symlink $File::Find::name to $destination $!");
       };
       find($link_others_sub, $dirname);
