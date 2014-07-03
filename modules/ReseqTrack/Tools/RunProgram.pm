@@ -605,41 +605,26 @@ sub get_temp_dir {
 
 sub get_short_input_names {
     my ($self, $level) = @_;
-    $level = 1 if (!$level);
+    $level //= 1;
+    throw("Please use either 1 or 2 as level") if !grep {$level == $_} (1,2);
     my $temp_dir = $self->get_temp_dir;
     my $temp_dir_basename = fileparse($temp_dir);
     $self->{'_short_inputs'} ||= {};
-    my $cnt = 0;    
+    my $short_inputs_hash = $self->{'_short_inputs'};
+    my $cnt = scalar keys %{$self->{'_short_inputs'}};
     foreach my $long_name (grep {!$self->{'_short_inputs'}->{$_}} @{$self->input_files}) {
-      my ($basename, $dirname) = fileparse($long_name);
-      $dirname =~ s/\/$//;
-      my $short_name;
-      if ( $level == 1) { 
-      	$short_name = $temp_dir_basename . '/' . $basename;
-      }
-      elsif ($level == 2) {
-	 $short_name = $temp_dir_basename . '/' . $cnt;
-      }
-      else {
-	throw("Please use either 1 or 2 as level");
-      }
-      $self->{'_short_inputs'}->{$long_name} = $short_name;
-      symlink($long_name, $short_name) or throw("could not symlink $long_name to $short_name");
+      my $filename = fileparse($long_name);
+      my $short_filename = $level == 1 ? $filename : $cnt;
+      my $short_path = $temp_dir_basename . '/' . $short_filename;
 
-      my $link_others_sub = sub {
-        return if $File::Find::dir ne $dirname;
-        my ($extension) = $_ =~ /$basename(.+)$/;
-        return if ! defined $extension;
-	my $destination;
-	if ( $level == 1) {
-        	$destination = $temp_dir . '/' . $_;
-        }
-	elsif ($level == 2) {
-		$destination = $temp_dir . '/' . $cnt . $extension;
-	}
-	symlink($File::Find::name, $destination) or throw("could not symlink $File::Find::name to $destination $!");
-      };
-      find($link_others_sub, $dirname);
+      $self->{'_short_inputs'}->{$long_name} = $short_path;
+      symlink($long_name, $short_path) or throw("could not symlink $long_name to $short_path");
+
+      foreach my $other_file (glob("${long_name}?*")) {
+        my ($extension) = $other_file =~ /$long_name(.+)$/;
+        my $other_short_path = $short_path . $extension;
+        symlink($other_file, $other_short_path) or throw("could not symlink $other_file to $other_short_path");
+      }
       $cnt++;
     }
     return $self->{'_short_inputs'};
