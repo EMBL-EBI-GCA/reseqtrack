@@ -214,13 +214,12 @@ sub sanity_check_objects {
 
   
     my $new_root = $self->other_location->location;
-    if ( $new_root =~ /^\/nfs\/1000g-work/ || $new_root =~ /^\/nfs\/hipsci/ ) {
+    if ( $new_root =~ /^\/nfs\/1000g-archive/ || $new_root =~ /^\/nfs\/hipsci/ ) {
       $new_root .= "/vol1";
     }
 
     my $loc_root = $self->location_root;
     $new_file =~ s/$loc_root/$new_root/;
-
     
 
     if ( $self->archive_location->location_name eq 'staging' ) {
