@@ -65,15 +65,8 @@ sub useage{
 
 
 sub current_time{
-  my @months = qw(01 02 03 04 05 06 07 08 09 10 11 12);
-  my ($second, $minute, $hour, $dayOfMonth, $month, $yearOffset, $dayOfWeek, $dayOfYear, $daylightSavings) = localtime();
-  my $year = 1900 + $yearOffset;
-  $dayOfMonth = sprintf("%02.d", $dayOfMonth);
-  $second = sprintf("%02.d", $second);
-  $minute = sprintf("%02.d", $minute);
-  $hour = sprintf("%02.d", $hour);
-  my $theTime = "$year-$months[$month]-$dayOfMonth $hour:$minute:$second";
-  return $theTime;
+  my ($second, $minute, $hour, $day, $month, $year) = localtime();
+  return sprintf("%04d-%02d-%02d %02d:%02d:%02d", $year+1900, $month+1, $day, $hour, $minute, $second);
 }
 
 =head2 get_time_stamps
@@ -110,12 +103,12 @@ sub get_time_stamps {
 
 
 sub current_date{
-  my @months = qw(01 02 03 04 05 06 07 08 09 10 11 12);
-  my ($second, $minute, $hour, $dayOfMonth, $month, $yearOffset, $dayOfWeek, $dayOfYear, $daylightSavings) = localtime();
-  my $year = 1900 + $yearOffset;
-  my $formatted_dayOfMonth = sprintf("%02d", $dayOfMonth);
-  my $theTime = $year.$months[$month].$formatted_dayOfMonth;
-  return $theTime;
+  my (%options) = @_;
+  my ($year, $month, $day) = (localtime())[5,4,3];
+  if ($options{hyphens}) {
+    return sprintf("%04d-%02d-%02d", $year+1900, $month+1, $day);
+  }
+  return sprintf("%04d%02d%02d", $year+1900, $month+1, $day);
 }
 
 
