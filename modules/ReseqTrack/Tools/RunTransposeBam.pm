@@ -63,7 +63,6 @@ sub run_program{
     throw("do not have any input files") if !@$input_files;
     if ( $self->options('shorten_input_names')) {
        $input_files = [values %{$self->get_short_input_names}];
-       print join("\n", 'Here', @$input_files), "\n";
     }
 
     my $output_bam = $self->working_dir . '/' . $self->job_name . '.transposed.bam';
