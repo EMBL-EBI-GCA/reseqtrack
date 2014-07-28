@@ -43,18 +43,19 @@ if ( $input{evalmodules} ) {
 }
 else {
 	$input{evalmodules} =  qw(GenotypeConcordance);
-}	
+}
+###FIXME: consider as array only, check dup in the pm
+	
 
 if (!$input{output_dir} ) {
 	$input{output_dir} = `pwd` ;
+## use perl cwd
+##FIXME: make out_dir mandatory
 	chomp $input{output_dir};
 }
 
 $input{output_dir} =~ s/\/$//;
 mkpath($input{output_dir}) unless (-e $input{output_dir});
-
-my $outf = $input{output_dir} . "/" . basename($input{eval_vcf}) . ".summary"; 
-open ($out_h, ">", $outf) || throw("Cannot open output file $outf");
   		
 my $object = ReseqTrack::Tools::GATKTools::VariantEval->new(
 	-program					=> $input{program},
@@ -65,6 +66,8 @@ my $object = ReseqTrack::Tools::GATKTools::VariantEval->new(
 	-dbsnp						=> $input{dbsnp},
 	-evalModules				=> $input{evalmodules}
 );
+
+#####FIXME: print out name of the comparison files rather than just comp, comp1 (--comp:goodsnps,VCF /path/to/goodsnps.vcf.gz)
 
 $object->run;
 
@@ -99,12 +102,15 @@ while (<$in>) {
 		}	
 	}									
 }	
+####FIXME: need to treat GenotypeConcordance differently as the first 5 columns are identical
+
 
 ## Figure out how many types of comparison exist (none, dbSNP, OMNI, HapMap etc.) 
 foreach my $key (keys %hash) {
 	my ($analysis_type, $compRod, $evalRod, $JexlExp, $novelty) = split(/_/, $key);	
 	$comp_type_hash{$compRod} = 1;
 }	
+###FIXME: This can be done in the loop above
 
 ## Pick out useful information from the GATK report, store them in a hash to print 
 foreach my $key (keys %hash) {
@@ -112,7 +118,8 @@ foreach my $key (keys %hash) {
 	if ( $analysis_type =~ /CountVariants/ || $analysis_type =~ /VariantSummary/ || $analysis_type =~ /CompOverlap/) {	
 		foreach my $key2 ( keys %{$hash{$key}} ) {
 			if ( 	( keys %comp_type_hash == 1 ) ||
-					( keys %comp_type_hash >= 2 && $compRod =~ /comp/ ) ) {	
+					( keys %comp_type_hash >= 2 && $compRod =~ /comp/ ) ) {	##FIXME !~ dbSNP
+			##FIXME, move this outside the foreach		
 						## if no comp file (comp or dbSNP) was provided, store all rows 
 						## OR if only one comp file (either comp or dbSNP) was provided, store all rows  
 						## OR if two or more than two comp files (comp and dbSNP) were provided, only store the row(s) with comp or comp2 in the hash, ignore dbSNP rows
@@ -121,6 +128,9 @@ foreach my $key (keys %hash) {
 		}
 	}		
 } 
+
+my $outf = $input{output_dir} . "/" . basename($input{eval_vcf}) . ".summary"; 
+open ($out_h, ">", $outf) || throw("Cannot open output file $outf");
 	
 my @table1_headers = (	"nSamples",
 						"nSNPs",
@@ -239,4 +249,62 @@ perl $ZHENG_RT/scripts/process/dump_vcf_report.pl \
 -output_dir ~ \
 -evalmodules GenotypeConcordance \
 
-							
+=head1  EXAMPLE output from GATK VariantEval:
+
+#:GATKReport.v1.0:9
+#:GATKTable:false:11:6::%s:%s:%s:%s:%d:%d:%d:%.2f:%d:%.2f:;
+#:GATKTable:CompOverlap:The overlap between eval and comp sites
+CompOverlap  CompRod  EvalRod  JexlExpression  Novelty  nEvalVariants  novelSites  nVariantsAtComp  compRate  nConcordant  concordantRate
+CompOverlap  comp     eval     none            all              55403       22797            32606     58.85        32582           99.93
+CompOverlap  comp     eval     none            known            53820       21266            32554     60.49        32530           99.93
+CompOverlap  comp     eval     none            novel             1583        1531               52      3.28           52          100.00
+CompOverlap  dbsnp    eval     none            all              55403        1583            53820     97.14        53722           99.82
+CompOverlap  dbsnp    eval     none            known            53820           0            53820    100.00        53722           99.82
+CompOverlap  dbsnp    eval     none            novel             1583        1583                0      0.00            0            0.00
+
+#:GATKTable:false:30:6::%s:%s:%s:%s:%d:%d:%d:%d:%.8f:%.8f:%d:%d:%d:%d:%d:%d:%d:%d:%d:%d:%d:%d:%d:%.2e:%.2f:%.2f:%.2e:%.2f:%.2f:;
+#:GATKTable:CountVariants:Counts different classes of variants in the sample
+CountVariants  CompRod  EvalRod  JexlExpression  Novelty  nProcessedLoci  nCalledLoci  nRefLoci  nVariantLoci  variantRate  variantRatePerBp  nSNPs  nMNPs  nInsertions  nDeletions  nComplex  nSymbolic  nMixed  nNoCalls  nHets  nHomRef  nHomVar  nSingletons  nHomDerived  heterozygosity  heterozygosityPerBp  hetHomRatio  indelRate  indelRatePerBp  insertionDeletionRatio
+CountVariants  comp     eval     none            all          3101804739        55403         0         55403   0.00001786    55986.00000000  55403      0            0           0         0          0       0     29795  45556        0    35455        22046            0        1.47e-05             68087.00         1.28   0.00e+00            0.00                    0.00
+CountVariants  comp     eval     none            known        3101804739        53820         0         53820   0.00001735    57632.00000000  53820      0            0           0         0          0       0     28458  43893        0    35289        20820            0        1.42e-05             70667.00         1.24   0.00e+00            0.00                    0.00
+CountVariants  comp     eval     none            novel        3101804739         1583         0          1583   0.00000051  1959447.00000000   1583      0            0           0         0          0       0      1337   1663        0      166         1226            0        5.36e-07           1865186.00        10.02   0.00e+00            0.00                    0.00
+CountVariants  dbsnp    eval     none            all          3101804739        55403         0         55403   0.00001786    55986.00000000  55403      0            0           0         0          0       0     29795  45556        0    35455        22046            0        1.47e-05             68087.00         1.28   0.00e+00            0.00                    0.00
+CountVariants  dbsnp    eval     none            known        3101804739        53820         0         53820   0.00001735    57632.00000000  53820      0            0           0         0          0       0     28458  43893        0    35289        20820            0        1.42e-05             70667.00         1.24   0.00e+00            0.00                    0.00
+CountVariants  dbsnp    eval     none            novel        3101804739         1583         0          1583   0.00000051  1959447.00000000   1583      0            0           0         0          0       0      1337   1663        0      166         1226            0        5.36e-07           1865186.00        10.02   0.00e+00            0.00                    0.00
+
+#:GATKTable:false:7:342::%s:%s:%s:%s:%s:%s:;
+#:GATKTable:GenotypeConcordance:Determine the genotype concordance between the genotypes in difference tracks, and  concordance statistics
+GenotypeConcordance  CompRod  EvalRod  JexlExpression  Novelty  variable                                value
+GenotypeConcordance  comp     eval     none            all      n_true_HET_called_HET                            0
+GenotypeConcordance  comp     eval     none            all      n_true_HET_called_HOM_REF                        0
+GenotypeConcordance  comp     eval     none            all      n_true_HET_called_HOM_VAR                        0
+GenotypeConcordance  comp     eval     none            all      n_true_HET_called_MIXED                          0
+GenotypeConcordance  comp     eval     none            all      n_true_HET_called_NO_CALL                938689892
+GenotypeConcordance  comp     eval     none            all      n_true_HET_called_UNAVAILABLE                    0
+GenotypeConcordance  comp     eval     none            all      n_true_HOM_REF_called_HET                        0
+GenotypeConcordance  comp     eval     none            all      n_true_HOM_REF_called_HOM_REF                    0
+GenotypeConcordance  comp     eval     none            all      n_true_HOM_REF_called_HOM_VAR                    0
+GenotypeConcordance  comp     eval     none            all      n_true_HOM_REF_called_MIXED                      0
+GenotypeConcordance  comp     eval     none            all      n_true_HOM_REF_called_NO_CALL           3553443944
+GenotypeConcordance  comp     eval     none            all      n_true_HOM_REF_called_UNAVAILABLE                0
+GenotypeConcordance  comp     eval     none            all      n_true_HOM_VAR_called_HET                        0
+GenotypeConcordance  comp     eval     none            all      n_true_HOM_VAR_called_HOM_REF                    0
+GenotypeConcordance  comp     eval     none            all      n_true_HOM_VAR_called_HOM_VAR                    0
+GenotypeConcordance  comp     eval     none            all      n_true_HOM_VAR_called_MIXED                      0
+GenotypeConcordance  comp     eval     none            all      n_true_HOM_VAR_called_NO_CALL            625418587
+GenotypeConcordance  comp     eval     none            all      n_true_HOM_VAR_called_UNAVAILABLE                0
+GenotypeConcordance  comp     eval     none            all      n_true_MIXED_called_HET                          0
+GenotypeConcordance  comp     eval     none            all      n_true_MIXED_called_HOM_REF                      0
+GenotypeConcordance  comp     eval     none            all      n_true_MIXED_called_HOM_VAR                      0
+GenotypeConcordance  comp     eval     none            all      n_true_MIXED_called_MIXED                        0
+GenotypeConcordance  comp     eval     none            all      n_true_MIXED_called_NO_CALL                      0
+GenotypeConcordance  comp     eval     none            all      n_true_MIXED_called_UNAVAILABLE                  0
+GenotypeConcordance  comp     eval     none            all      n_true_NO_CALL_called_HET                    45556
+GenotypeConcordance  comp     eval     none            all      n_true_NO_CALL_called_HOM_REF                    0
+GenotypeConcordance  comp     eval     none            all      n_true_NO_CALL_called_HOM_VAR                35455
+GenotypeConcordance  comp     eval     none            all      n_true_NO_CALL_called_MIXED                      0
+GenotypeConcordance  comp     eval     none            all      n_true_NO_CALL_called_NO_CALL             20776745
+GenotypeConcordance  comp     eval     none            all      n_true_NO_CALL_called_UNAVAILABLE                0
+GenotypeConcordance  comp     eval     none            all      n_true_UNAVAILABLE_called_HET                    0
+.....
+.....							
