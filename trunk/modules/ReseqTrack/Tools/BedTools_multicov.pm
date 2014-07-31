@@ -29,7 +29,7 @@ my $multicov = $IR->new(
 
 =cut
 
-package ReseqTrack::Tools::BedTools_multicov_v2;
+package ReseqTrack::Tools::BedTools_multicov;
 
 use strict;
 use warnings;
