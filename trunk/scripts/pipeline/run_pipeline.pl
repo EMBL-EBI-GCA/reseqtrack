@@ -12,7 +12,7 @@ use DateTime::Format::MySQL qw(parse_datetime);
 
 my ($dbhost, $dbuser, $dbpass, $dbport, $dbname);
 my ($hive_user, $hive_pass);
-my ($pipeline_name, $hive_db_id, $reseed, $loop, $run, $sync, $hive_log_dir);
+my ($pipeline_name, $hive_db_id, $reseed, $loop, $run, $sync, $hive_log_dir, $max_seeds);
 my $ensembl_hive_dir;
 
 my %options;
@@ -27,6 +27,7 @@ my %options;
   'pipeline_name=s'  => \$pipeline_name,
   'hive_db_id=s'  => \$hive_db_id,
   'reseed!'  => \$reseed,
+  'max_seeds=i' => \$max_seeds,
   'ensembl_hive_dir=s'  => \$ensembl_hive_dir,
   'loop!' => \$loop,
   'run!' => \$run,
@@ -91,7 +92,12 @@ if ($reseed) {
     print "no need to reseed hive_db; it is already seeded\n";
   }
   else {
-    $run_hive->run('seed', 'get_seeds', '{"seed_time"=>'.time.'}');
+    my $input_id = '{"seed_time"=>'.time;
+    if (defined $max_seeds) {
+      $input_id .= ',"max_seeds" => '.$max_seeds;
+    }
+    $input_id .= '}';
+    $run_hive->run('seed', 'get_seeds', $input_id);
 
     $hive_db->is_seeded(1);
     $db->get_HiveDBAdaptor->update($hive_db);
@@ -146,6 +152,7 @@ This script is used to do two things:
   -hive_db_id, refers to a dbID in the hive_db table. Must specify either this or -pipeline_name
   -ensembl_hive_dir, path to the ensembl hive api
   -reseed, boolean flag to add a new seed job to the pipeline. Default is 1. Use -noreseed to disable.
+  -max_seeds, integer, optional maximum number of new seed jobs to add to the pipeline.
   -run, boolean flag to run the pipeline. Default is 1. Use -norun to disable.
   -sync, boolean flag to sync the pipeline. Default is 0.
   -loop, boolean flag to run the pipeline continuously until nothing let to be done.  Default is 1. Use -noloop to disable.
