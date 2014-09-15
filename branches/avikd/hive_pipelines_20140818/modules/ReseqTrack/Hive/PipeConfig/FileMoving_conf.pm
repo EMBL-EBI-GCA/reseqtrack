@@ -1,0 +1,160 @@
+=head1 NAME
+
+ ReseqTrack::Hive::PipeConfig::FileMoving_conf
+
+=head1 SYNOPSIS
+
+  This is a pipeline for a file release pipeline.
+  Files with a foreign host_id are moved from a dropbox to the project's file system.
+  Messages from the pipeline get written to the attribute table of the ReseqTrack database.
+  Rejected files get retried if they are updated in the ReseqTrack database or if their unix timestamp changes
+
+  Pipeline must be seeded by the file table of a ReseqTrack database. (foreign files only)
+  i.e. use the seeding module ReseqTrack::Hive::PipeSeed::ForeignFiles or something very similar to it
+
+  Here is an example pipeline configuration to load using reseqtrack/scripts/pipeline/load_pipeline_from_conf.pl
+
+[file release]
+table_name=file
+config_module=ReseqTrack::Hive::PipeConfig::FileRelease_conf
+config_options=-file_move_module MyProjectModules::MoveFile
+
+  Options that MUST be specified in the pipeline.config_options table/column of your ReseqTrack database:
+
+      -file_move_module, A module derived from ReseqTrack::Hive::Process::FileRelease::Move
+              This modules implements the derive_path subrouine (i.e. a project-specific subroutine)
+
+  Options that have defaults but you will often want to set them in your pipeline.cofig_options table/column:
+
+      -seeding_module, (default is ReseqTrack::Hive::PipeSeed::ForeignFiles) override this with a project-specific module
+      -seeding_options, hashref passed to the seeding module.  Default is {}.
+
+      -checking_module, (default is ReseqTrack::Hive::Process::FileRelease::Checks)
+      -hostname, (default is 1000genomes.ebi.ac.uk)
+      -derive_path_options => hashref of options passed on to your file_move_module 
+      -move_by_rsync, set to 0 if you do not care about file ownership (e.g. 1000genomes where there is an archive system)
+
+  Options that are required, but will be passed in by reseqtrack/scripts/init_pipeline.pl:
+
+      -pipeline_db -host=???
+      -pipeline_db -port=???
+      -pipeline_db -user=???
+      -pipeline_db -dbname=???
+      -password
+      -reseqtrack_db -host=???
+      -reseqtrack_db -user=???
+      -reseqtrack_db -port=???
+      -reseqtrack_db -pass=???
+      -reseqtrack_db -dbname=???
+
+=cut
+
+package ReseqTrack::Hive::PipeConfig::FileMoving_conf;
+
+use strict;
+use warnings;
+
+use base ('ReseqTrack::Hive::PipeConfig::ReseqTrackGeneric_conf');
+
+sub default_options {
+    my ($self) = @_;
+
+    return {
+        %{ $self->SUPER::default_options() },               # inherit other stuff from the base class
+
+        'pipeline_name' => 'file_release',                     # name used by the beekeeper to prefix job names on the farm
+
+        seeding_module => 'ReseqTrack::Hive::PipeSeed::ForeignFiles',
+        seeding_options => {  
+                            sticky_bai => 0,
+                           },
+
+        checking_module  => 'ReseqTrack::Hive::Process::FileRelease::Checks',
+        file_move_module => 'ReseqTrack::Hive::Process::FileRelease::Move::BlueprintMove',
+        hostname => '1000genomes.ebi.ac.uk',
+
+        derive_path_options => { 
+                                aln_base_dir => "/nfs/1000g-work/G1K/work/avikd/test_dir/file_release_bp_test/base_dir/alignment",
+                                results_base_dir => "/nfs/1000g-work/G1K/work/avikd/test_dir/file_release_bp_test/base_dir/results",
+                                species => 'homo sapiens',
+                               },
+                 
+        run_meta_data_file => '/nfs/1000g-work/ihec/work/davidr/cron/run_meta_data.tab'                        
+
+        move_by_rsync => 0,
+
+    };
+}
+
+sub resource_classes {
+    my ($self) = @_;
+    return {
+            %{$self->SUPER::resource_classes},  # inherit 'default' from the parent class
+            '200Mb' => { 'LSF' => '-C0 -M200 -q '.$self->o('lsf_queue').' -R"select[mem>200] rusage[mem=200]"' },
+    };
+}
+
+sub pipeline_analyses {
+    my ($self) = @_;
+
+    my @analyses;
+    push(@analyses, {
+            -logic_name    => 'get_seeds',
+            -module        => 'ReseqTrack::Hive::Process::SeedFactory',
+            -meadow_type => 'LOCAL',
+            -parameters    => {
+                seeding_module => $self->o('seeding_module'),
+                seeding_options => $self->o('seeding_options'),
+            },
+            -flow_into => {
+                2 => [ 'quick_checks' ],
+            },
+      });
+    push(@analyses, {
+            -logic_name    => 'quick_checks',
+            -module        => $self->o('checking_module'),
+            -meadow_type => 'LOCAL',     # do not bother the farm with such a simple task (and get it done faster)
+            -parameters    => {
+              check_class => 'quick',
+              reseqtrack_options => {
+                flows_non_factory => [1,2],
+                flows_do_count => {
+                  1 => '0',
+                  2 => '1+',
+                },
+                flows_do_count_param => 'is_failed',
+              },
+            },
+            -flow_into => {
+                1 => [ 'move_to_archive' ],
+                2 => [ 'seed_complete' ],
+            },
+      });
+    push(@analyses, {
+            -logic_name    => 'move_to_archive',
+            -module        => $self->o('file_move_module'),
+            -parameters    => {
+                hostname => $self->o('hostname'),
+                derive_path_options => $self->o('derive_path_options'),
+                run_meta_data_file => $self->o('run_meta_data_file')
+                move_by_rsync => $self->o('move_by_rsync'),
+            },
+            -flow_into => {
+                1 => ['seed_complete'],
+            },
+            -rc_name => '200Mb',
+            -hive_capacity  =>  50,
+      });
+    push(@analyses, {
+            -logic_name    => 'seed_complete',
+            -module        => 'ReseqTrack::Hive::Process::UpdateSeed',
+            -parameters    => {
+              delete_seeds  => '#expr(#is_failed# ? 0 : 1)expr#',
+            },
+            -meadow_type => 'LOCAL',
+      });
+
+    return \@analyses;
+}
+
+1;
