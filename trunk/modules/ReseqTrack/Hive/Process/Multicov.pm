@@ -10,13 +10,12 @@ use IPC::System::Simple qw(system);
 
 sub param_defaults {
   return {
-    bams => undef,
-    site_vcf => undef,
-    sample => undef,
-    program => undef,
-    stream_out => undef,
-    options => undef,
-    save_files_from_deletion => 0,
+    bams 		=> undef,
+    site_vcf 	=> undef,
+    sample 		=> undef,
+    program 	=> undef,
+    stream_out 	=> undef,
+    options 	=> undef,
   };
 }
 
@@ -26,6 +25,7 @@ sub run {
     $self->param_required('bams');
     my $bams =  $self->param_as_array('bams');   
     
+    throw("As part of the HIVE pipeline to build depth matrix, this module can take one BAM a time only") if ( scalar @$bams > 1);
     my $site_vcf = $self->param_required('site_vcf');
 	my $sample = $self->param('sample');
 	
@@ -42,7 +42,6 @@ sub run {
 		-working_dir				=> $self->output_dir,
 		-options					=> $options,
 		-job_name					=> $sample,
-		-save_files_from_deletion	=> $save_files_from_deletion,
 	);
 
 	$self->run_program($run_multicov);
