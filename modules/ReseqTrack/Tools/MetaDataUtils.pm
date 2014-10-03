@@ -79,14 +79,14 @@ sub lookup_property {
       if $attributes->{$property};
 
     if ( $meta_data->isa('ReseqTrack::Run') ) {
-        my $v = _lookup_property( $meta_data->experiment(), $property );
+        my $v = lookup_property( $meta_data->experiment(), $property );
         if ( !defined $v ) {
-            $v = _lookup_property( $meta_data->sample(), $property );
+            $v = lookup_property( $meta_data->sample(), $property );
         }
         return $v;
     }
     if ( $meta_data->isa('ReseqTrack::Experiment') ) {
-        return _lookup_property( $meta_data->study(), $property );
+        return lookup_property( $meta_data->study(), $property );
     }
     if ( $meta_data->isa('ReseqTrack::Sample') ) {
         return undef;

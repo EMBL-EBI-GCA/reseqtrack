@@ -4,8 +4,8 @@
 
 =head1 SYNOPSIS
 
-  Pipeline must be seeded by the collection table of a ReseqTrack database (collection of genotype VCF files, one chromosome per collection)
-  A multicov matrix .txt file will be created for each collection (chromosome), containing coverage info for all samples, and stored in the ReseqTrack database
+  Pipeline must be seeded by the file table of a ReseqTrack database (input vcf file that contains all sample genotypes)
+  A multicov matrix .txt file will be created for each chromosome, containing coverage info for all samples, and stored in the ReseqTrack database
 
   Here is an example pipeline configuration to load using reseqtrack/scripts/pipeline/load_pipeline_from_conf.pl
 
@@ -36,7 +36,6 @@ config_options=-root_output_dir /path/to/dir
 
       -root_output_dir, (default is your current directory) This is where working files go, i.e. not necessarily the final resting place of your output vcf
       
-
       Paths of executables:
       -tabix, (default is /nfs/1000g-work/G1K/work/bin/tabix/tabix)
       -BedTools_program, (default is /nfs/1000g-work/G1K/work/bin/BEDTools/bin/multiBamCov)
@@ -89,7 +88,6 @@ sub default_options {
         'require_file_attributes' => {},
         'exclude_file_attributes' => {},
 
-
         final_output_dir => $self->o('root_output_dir'),
         #final_output_layout => '#final_output_dir#/#vcf_base_name#',
         name_file_module => 'ReseqTrack::Hive::NameFile::BaseNameFile',
@@ -100,8 +98,6 @@ sub default_options {
             add_datestamp => 1,
             suffix => ['.matrix'],
         },
-
-    
     };
 }
 
@@ -169,8 +165,8 @@ sub pipeline_analyses {
             -meadow_type => 'LOCAL',
             -parameters    => {
                 tabix => $self->o('tabix'),
-                #vcf => '#name#',  ### This is for situation when a full genotype VCF is provided as seed, rather than just the site files
-                vcf => '/nfs/1000g-archive/vol1/ftp/technical/working/20130723_phase3_wg/shapeit2/ALL.chr22.phase3_shapeit2_integrated.20130502.snps_indels_svs.genotypes.vcf.gz', 
+                vcf => '#name#',  ### This is for situation when a full genotype VCF, rather than a site VCF file, is provided as seed
+                #vcf => '/nfs/1000g-archive/vol1/ftp/technical/working/20130723_phase3_wg/shapeit2/ALL.chr22.phase3_shapeit2_integrated.20130502.snps_indels_svs.genotypes.vcf.gz', 
             	### FIXME: change to the upper line in other cases
             },
             -flow_into => {
@@ -184,7 +180,7 @@ sub pipeline_analyses {
             -meadow_type => 'LOCAL',      
             -parameters    => {
                 bam_type => $self->o('bam_type'),
-                output_param => 'bam',
+                #output_param => 'bam',  ### This is not necessary
             },	
   			-flow_into => {
                 1 => { 'calculate_depth' => {'bams'=>'#bam#', 'site_vcf'=>'#site_vcf#', 'fan_index' => '#fan_index#' } },
@@ -197,7 +193,7 @@ sub pipeline_analyses {
                 program => $self->o('BedTools_program'),
                 sample => '#sample#',
                 stream_out => 0,
-                output_param => 'sample_depth_file',
+                #output_param => 'sample_depth_file', ### This is not necessary
             },
             -hive_capacity  =>  200,
   			-flow_into => {
@@ -211,7 +207,7 @@ sub pipeline_analyses {
               program => $self->o('paste_exe'),
               files => '#sample_depth_file#',
               site_vcf => '#site_vcf#',
-              output_param => 'matrix',
+              #output_param => 'matrix', ### This is not necessary
               reseqtrack_options => {
                 delete_param => ['sample_depth_file', 'site_vcf'],
               }
