@@ -386,9 +386,11 @@ sub diff_hashes {
         }
         elsif ($new_md5 eq $NULL) {
           $self->log_error("$path: Not in old tree. No md5 in new tree. Recording it as a new file");
+          $self->log_change('new', $path);
         }
         elsif ($bad_md5s->{$new_md5}) {
           $self->log_error("$path: Not in old tree. Bad md5 in new tree. Recording it as a new file");
+          $self->log_change('new', $path);
         }
         else {
           $self->log_change('new', $path);
