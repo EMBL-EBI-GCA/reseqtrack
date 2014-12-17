@@ -148,8 +148,8 @@ void update_stats(rg_stats_t *rg_stats, bam1_t *bam_line) {
     rg_stats->num_mapped_reads ++;
     rg_stats->num_bases_in_mapped_reads += bam_line->core.l_qseq;
     for (i=0; i < bam_line->core.n_cigar; i++){
-      int op = bam_cigar_op(cigar[i]);
-      int oplen = bam_cigar_oplen(cigar[i]);
+      int op = cigar[i] & BAM_CIGAR_MASK;
+      int oplen = cigar[i] >> BAM_CIGAR_SHIFT;
       if (op == BAM_CMATCH || op == BAM_CEQUAL || op == BAM_CDIFF)
         rg_stats->num_mapped_bases += oplen;
       if (op != BAM_CDEL && op != BAM_CREF_SKIP) {
