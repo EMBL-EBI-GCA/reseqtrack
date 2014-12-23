@@ -211,7 +211,8 @@ sub run_init_pipeline {
 
     my $script = $self->hive_scripts_dir . '/init_pipeline.pl';
 
-    my @cmd_words = ( 'perl', $script, $module);
+    my @cmd_words = ( sprintf('PATH=%s:$PATH', $self->hive_scripts_dir));
+    push(@cmd_words, 'perl', $script, $module);
     push(@cmd_words, $init_options);
     push(@cmd_words, '-host', $self->hive_host);
     push(@cmd_words, '-password', $self->hive_password);
