@@ -22,7 +22,8 @@ use warnings;
 use ReseqTrack::Tools::Exception qw(throw);
 use ReseqTrack::Tools::Argument qw(rearrange);
 use File::Basename qw(fileparse);
-use ReseqTrack::Tools::FileSystemUtils qw(check_file_exists);
+use File::Copy qw(move);
+use ReseqTrack::Tools::FileSystemUtils qw(check_executable check_file_exists);
 
 use base qw(ReseqTrack::Tools::RunProgram);
 
@@ -59,11 +60,11 @@ sub CMD_MAPPINGS {
       string, options for java, default is '-Xmx4g'
   
   Function  : Creates a new ReseqTrack::Tools::RunCramtools object.
-  Returntype: ReseqTrack::Tools::RunPicard
+  Returntype: ReseqTrack::Tools::RunCramtools
   Exceptions: 
-  Example   : my $run_picard = ReseqTrack::Tools::RunCramtools->new(
+  Example   : my $run_cramtools = ReseqTrack::Tools::RunCramtools->new(
                 -input_files => ['/path/cram1', '/path/cram2'],
-                -program_file => '/path/to/cramtools.jar',
+                -program => '/path/to/cramtools.jar',
                 -working_dir => '/path/to/dir/',
                 -library_layout => 'PAIRED',
                );
@@ -136,22 +137,30 @@ sub get_valid_commands {
 =cut
 
 
-sub run_mark_duplicates {
+sub run_convert_fastq {
   my $self = shift;
-  
-  my $prefix = $self->working_dir . '/' . $self->job_name ;
+ 
+  throw( "expecting single input" ) unless scalar @{ $self->input_files } == 1;
+  my $input = ${ $self->input_files }[0];
+ 
+  my $job_name = $self->job_name;
+ 
+  my $prefix = $self->working_dir . '/' . $job_name ;
   $prefix =~ s{//}{/}g;
+
+  my $temp_prefix = $self->get_temp_dir;  
+  $temp_prefix = $temp_prefix . '/' . $job_name;
+  $temp_prefix =~ s{//}{/}g;
   
   my @cmd_words = ( $self->java_exe );
   push( @cmd_words, $self->jvm_options ) if ( $self->jvm_options );
-  push( @cmd_words, '-jar', $self->program );
-  
-  throw( "expecting one input cram" ) unless scalar @$input == 1 ;
-  push( @cmd_words, '-I' . $input );
-  
+  push( @cmd_words, '-jar', $self->program , 'fastq' );
+ 
+  push( @cmd_words, '-I' , $input );
+  push( @cmd_words, '-F', $temp_prefix );
+
   push( @cmd_words, '--enumerate'  ) if $self->options('enumerate');
   push( @cmd_words, '-z' ) if $self->options('gzip');
-  push( @cmd_words, '-F', $prefix );
   push( @cmd_words, '--skip-md5-check' ) if $self->options('skip-md5-check');
   push( @cmd_words, '--reverse' ) if $self->options('reverse');
   
@@ -164,32 +173,49 @@ sub run_mark_duplicates {
   
   my $cmd = join( ' ', @cmd_words );
   
+  $self->execute_command_line($cmd);
+
+  
   my $library_layout = $self->library_layout;
   $library_layout = uc($library_layout);
   
-  my $output;
+  my $from_output;
+  my $to_output;
   
   if( $library_layout eq 'SINGLE' ){
-    $output = $prefix.'.fastq';
-    $output = $output . '.gz' if $self->options('gzip');
+    $from_output = $temp_prefix.'.fastq';
+    $from_output = $from_output. '.gz' if $self->options('gzip');
+ 
+    $to_output = $prefix.'.fastq';
+    $to_output = $to_output . '.gz' if $self->options('gzip');
+
+    move( $from_output, $to_output ) or throw("could not move $from_output to $to_output $!");
   }
   elsif ( $library_layout eq 'PAIRED' ){
-    my $output_1 = $prefix.'_1.fastq';
-    my $output_2 = $prefix.'_2.fastq';
+    my $from_output_1 = $temp_prefix.'_1.fastq';
+    my $from_output_2 = $temp_prefix.'_2.fastq';
+
+    my $to_output_1 = $prefix.'_1.fastq';
+    my $to_output_2 = $prefix.'_2.fastq';
     
-    if $self->options('gzip') {
-      $output_1 = $output_1 .'.gz';
-      $output_2 = $output_2 .'.gz';
+    if ( $self->options('gzip') ){
+      $from_output_1 = $from_output_1 .'.gz';
+      $from_output_2 = $from_output_2 .'.gz';
+    
+      $to_output_1 = $to_output_1 .'.gz';
+      $to_output_2 = $to_output_2 .'.gz';
       
-      push @{$output}, $output_1, $output_2;
+      move( $from_output_1, $to_output_1 ) or throw("could not move $from_output_1 to $to_output_1 $!");
+      move( $from_output_2, $to_output_2 ) or throw("could not move $from_output_2 to $to_output_2 $!");
+      
+      push @{$to_output}, $to_output_1, $to_output_2;
     }
     else {
      throw( "library_layout $library_layout not recognized" );
     }
   }
   
-  $self->output_files($output);
-  $self->execute_command_line($cmd);
+  $self->output_files($to_output);
   
   return;
 }
