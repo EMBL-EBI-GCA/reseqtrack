@@ -43,6 +43,7 @@ sub DEFAULT_OPTIONS {
      'skip-md5-check'  => 0,
      'reverse' => 0,
      'reference-fasta-file' => '',
+     'prefix' => '',
     };
 }    
 
@@ -58,6 +59,8 @@ sub CMD_MAPPINGS {
       string, the java executable, default is 'java'
   Arg [-jvm_options]   :
       string, options for java, default is '-Xmx4g'
+  Arg [-library_layout]  :
+      string, sequencing library type
   
   Function  : Creates a new ReseqTrack::Tools::RunCramtools object.
   Returntype: ReseqTrack::Tools::RunCramtools
@@ -145,7 +148,16 @@ sub run_convert_fastq {
  
   my $job_name = $self->job_name;
  
-  my $prefix = $self->working_dir . '/' . $job_name ;
+  my $prefix_name = $self->options('prefix');
+  my $prefix;
+ 
+  if ( $prefix_name ) {
+    $prefix = $self->working_dir . '/' . $prefix_name;
+  }
+  else {
+    $prefix = $self->working_dir . '/' . $job_name ;
+  }
+
   $prefix =~ s{//}{/}g;
 
   my $temp_prefix = $self->get_temp_dir;  
