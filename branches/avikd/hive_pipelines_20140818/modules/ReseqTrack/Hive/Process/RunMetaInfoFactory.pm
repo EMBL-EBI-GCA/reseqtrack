@@ -105,11 +105,71 @@ sub libraries_factory {
 }
 
 
+sub experiments_factory {
+    my ($self) = @_;
+    my $experiment_source_id = $self->param_required('experiment_source_id');
+    my $require_experiment_columns = $self->param('require_experiment_columns') || param_defaults()->{'require_experiment_columns'};
+    my $require_experiment_attributes = $self->param('require_experiment_attributes') || param_defaults()->{'require_experiment_attributes'};
+    my $exclude_experiment_attributes = $self->param('exclude_experiment_attributes') || param_defaults()->{'exclude_experiment_attributes'};
+    my $require_study_columns = $self->param('require_study_columns') || param_defaults()->{'require_study_columns'};
+    my $require_study_attributes = $self->param('require_study_attributes') || param_defaults()->{'require_study_attributes'};
+    my $exclude_study_attributes = $self->param('exclude_study_attributes') || param_defaults()->{'exclude_study_attributes'};
+
+    my $db = ReseqTrack::DBSQL::DBAdaptor->new(%{$self->param('reseqtrack_db')});
+    my $sta = $db->get_StudyAdaptor;
+    my $ea = $db->get_ExperimentAdaptor;
+    my %library_names;
+    
+      my $experiment = $ea->fetch_by_source_id($experiment_source_id) ;
+      foreach my $column_name (keys %$require_experiment_columns) {
+        my $required = $require_experiment_columns->{$column_name};
+        $required = [$required] if !ref($required);
+        my $val = &{$ea->column_mappings($experiment)->{$column_name}}();
+      }
+      foreach my $attr_name (keys %$require_experiment_attributes) {
+        my ($attribute) = grep {$_->attribute_name eq $attr_name} @{$experiment->attributes};
+        my $required = $require_experiment_attributes->{$attr_name};
+        $required = [$required] if !ref($required);
+      }
+      ATTR:
+      foreach my $attr_name (keys %$exclude_experiment_attributes) {
+        my ($attribute) = grep {$_->attribute_name eq $attr_name} @{$experiment->attributes};
+        next ATTR if !$attribute;
+        my $excluded = $exclude_experiment_attributes->{$attr_name};
+        $excluded = [$excluded] if !ref($excluded);
+      }
+
+      my $study = $sta->fetch_by_dbID($experiment->study_id);
+      foreach my $column_name (keys %$require_study_columns) {
+        my $required = $require_study_columns->{$column_name};
+        $required = [$required] if !ref($required);
+        my $val = &{$sta->column_mappings($study)->{$column_name}}();
+      }
+      foreach my $attr_name (keys %$require_study_attributes) {
+        my ($attribute) = grep {$_->attribute_name eq $attr_name} @{$study->attributes};
+        my $required = $require_study_attributes->{$attr_name};
+        $required = [$required] if !ref($required);
+      }
+      ATTR:
+      foreach my $attr_name (keys %$exclude_study_attributes) {
+        my ($attribute) = grep {$_->attribute_name eq $attr_name} @{$study->attributes};
+        next ATTR if !$attribute;
+        my $excluded = $exclude_study_attributes->{$attr_name};
+        $excluded = [$excluded] if !ref($excluded);
+      }
+
+      $library_names{$experiment->library_name} = 1;
+
+      foreach my $library_name (keys %library_names) {
+        $self->prepare_factory_output_id({'library_name' => $library_name});
+    }
+}
+
 
 sub runs_factory {
     my ($self) = @_;
     my $library_name = $self->param_required('library_name');
-    my $sample_id = $self->param_required('sample_id');
+    #my $sample_id = $self->param_required('sample_id');                  
     my $output_run_columns = $self->param('output_run_columns') || [];
     my $output_run_attributes = $self->param('output_run_attributes') || [];
     my $output_experiment_columns = $self->param('output_experiment_columns') || [];
@@ -183,7 +243,8 @@ sub runs_factory {
 
       RUN:
       foreach my $run (@{$ra->fetch_by_experiment_id($experiment->dbID)}) {
-        next RUN if $run->sample_id != $sample_id;
+     #   next RUN if $run->sample_id != $sample_id;
+warn $run->sample_id ,"\n";
 
         foreach my $column_name (keys %$require_run_columns) {
           my $required = $require_run_columns->{$column_name};
@@ -209,7 +270,7 @@ sub runs_factory {
 
 
         my %output_hash = (run_id => $run->dbID);
-
+warn $run->dbID,"\n";
         foreach my $column_name (@$output_run_columns) {
           $output_hash{$column_name} = &{$ra->column_mappings($run)->{$column_name}}();
         }
@@ -251,6 +312,7 @@ sub run {
     my %factories = (
         'run' => \&runs_factory,
         'library' => \&libraries_factory,
+        'experiment' => \&experiments_factory,
         );
 
     &{$factories{$self->param_required('factory_type')}}($self);

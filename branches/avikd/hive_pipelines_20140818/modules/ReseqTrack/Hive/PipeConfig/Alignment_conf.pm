@@ -21,8 +21,12 @@ config_options=-known_snps_vcf /nfs/1000g-archive/vol1/ftp/technical/reference/p
 config_options=-realign_intervals_file /path/to/realigner.intervals
 config_options=-realign_level 1
 config_options=-recalibrate_level 1
+config_options=-markduplicate_level 0
+config_options=-collection_name '#experiment_source_id#'
+config_options=-build_collection 1
+config_options=-library_factory_name 'library'
 config_options=-require_experiment_columns library_strategy=WGS
-config_options=-sample_attributes POPULATION
+onfig_options=-sample_attributes POPULATION
 config_options=-final_output_layout '#POPULATION#/#sample_alias#/alignment'
 
   Options that MUST be specified in the pipeline.config_options table/column of your ReseqTrack database:
@@ -33,6 +37,9 @@ config_options=-final_output_layout '#POPULATION#/#sample_alias#/alignment'
 
       -seeding_module, (default is ReseqTrack::Hive::PipeSeed::BasePipeSeed) override this with a project-specific module
       -seeding_options, hashref passed to the seeding module.  Override the defaults only if using a different seeding module.
+  
+      -library_factory_name, (default is 'library'), can be 'library' or 'experiment'
+      -dir_label_params_list, lists of params used for directory label, (default "sample_source_id", "library_name", "run_source_id", "chunk_label" )
 
       -name_file_module, (default is ReseqTrack::Hive::NameFile::BaseNameFile) override this with a project-specific module. Controls how your output bam file is named.
       -name_file_method, (default is 'basic'), controls which subroutine of your name_file_module is used to name your bam file.
@@ -48,7 +55,9 @@ config_options=-final_output_layout '#POPULATION#/#sample_alias#/alignment'
       -type_fastq, type of fastq files to look for in the reseqtrack database, default FILTERED_FASTQ
 
       -chunk_max_reads, (default 5000000) controls how fastq files are split up into chunks for parallel alignment
-
+      MarkDuplicate option:
+      -markduplicate_level, can be 0 ( don't runmark duplicate reads ) or 1 ( run markduplicate )
+     
       Recalibration and Realignment options:
       -realign_level, can be 0 (don't realign), 1 (fast realignment around known indels only at lane level), 2 (full realignment at sample level).
       -recalibrate_level, can be 0 (don't recalibrate), 1 (fast recalibration at lane level, e.g. 1000genomes), 2 (slower recalibration at sample level for better accuracy)
@@ -56,6 +65,10 @@ config_options=-final_output_layout '#POPULATION#/#sample_alias#/alignment'
       -known_indels_vcf, used for indel realignment (default undefined).  Optional if realign_level=2; mandatory if realign_level=1.
       -known_snps_vcf, used for recalibration (default undefined). Mandatory if recalibrate_level != 0.
       -realign_intervals_file, should be given if realign_level=1.  Can be generated using gatk RealignerTargetCreator
+      
+      Collection option:
+      -collection_name, name of the collection for stored files (e.g. '#experiment_source_id#')
+      -build_collection, can be 0 ( don't prepare collection for stored files ) or 1 ( make collection for stored files )
 
       Various options for reheadering a bam file:
       -header_lines_file should contain any @PG and @CO lines you want written to your bam header.
@@ -159,6 +172,7 @@ sub default_options {
 
         'realign_level' => 0,
         'recalibrate_level' => 2,
+        'markduplicate_level' => 1,
         'run_calmd' => 1,
 
         'bam_type' => undef,
@@ -170,6 +184,12 @@ sub default_options {
 
         'RGSM' => '#sample_source_id#',
         'RGPU' => '#run_source_id#',
+
+        'library_factory_name' => 'library',
+
+        'collection_name' => undef, 
+        'build_collection' => 0,
+
 
         'sample_attributes' => [],
         'sample_columns' => ['sample_id', 'sample_source_id', 'sample_alias'],
@@ -193,7 +213,8 @@ sub default_options {
         require_study_columns => {},
         require_sample_columns => {},
         exclude_sample_columns => {},
-
+ 
+        'dir_label_params_list' => ["sample_source_id", "library_name", "run_source_id", "chunk_label"],
 
         final_output_dir => $self->o('root_output_dir'),
         final_output_layout => '#sample_source_id#/alignment',
@@ -223,7 +244,8 @@ sub pipeline_wide_parameters {
     return {
         %{$self->SUPER::pipeline_wide_parameters},
 
-        dir_label_params => ["sample_source_id", "library_name", "run_source_id", "chunk_label"],
+#        dir_label_params => ["sample_source_id", "library_name", "run_source_id", "chunk_label"], 
+         dir_label_params => $self->o('dir_label_params_list'),
     };
 }
 
@@ -265,7 +287,7 @@ sub pipeline_analyses {
             -module        => 'ReseqTrack::Hive::Process::RunMetaInfoFactory',
             -meadow_type => 'LOCAL',
             -parameters    => {
-                factory_type => 'library',
+                factory_type => $self->o('library_factory_name'),
                 require_experiment_columns => $self->o('require_experiment_columns'),
                 require_study_columns => $self->o('require_study_columns'),
                 require_experiment_attributes => $self->o('require_experiment_attributes'),
@@ -569,13 +591,20 @@ sub pipeline_analyses {
           -meadow_type=> 'LOCAL',
           -parameters => {
               reseqtrack_options => {
-                denestify => 'bam',
+                denestify => [ 'bam', 'bai' ],
                 flows_do_count_param => 'bam',
-                flows_do_count => { 1 => '1+', },
+                flows_non_factory => { 
+                                        1 => '#expr(#markduplicate_level#==1)expr#',
+                                        2 => '#expr(#markduplicate_level#==0)expr#',
+                                     },
+                flows_do_count => { 1 => '1+',
+                                    2 => '1+', 
+                                  },
               }
           },
           -flow_into => {
-              1 => [ 'mark_duplicates', ':////accu?fastq=[]'],
+              1 => [ 'mark_duplicates', ':////accu?fastq=[]' ],
+              2 => [ ':////accu?fastq=[]', ':////accu?bam=[]', ':////accu?bai=[]' ],
           },
       });
     push(@analyses, {
@@ -768,7 +797,7 @@ sub pipeline_analyses {
                 'SQ_species' => $self->o('ref_species'),
                 'SQ_uri' => $self->o('reference_uri'),
                 reseqtrack_options => {
-                  denestify => 'fastq',
+                  denestify => [ 'fastq', 'bam', 'bai' ],
                   delete_param => ['bam', 'bai'],
                 },
             },
@@ -800,6 +829,8 @@ sub pipeline_analyses {
               name_file_params => $self->o('name_file_params'),
               final_output_dir => $self->o('final_output_dir'),
               final_output_layout => $self->o('final_output_layout'),
+              collection_name => $self->o('collection_name'),
+              collect => $self->o('build_collection'),
             },
             -rc_name => '200Mb',
             -hive_capacity  =>  200,
