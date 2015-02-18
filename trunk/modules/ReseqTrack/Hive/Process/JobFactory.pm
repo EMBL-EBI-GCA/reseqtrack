@@ -16,8 +16,8 @@ use ReseqTrack::Tools::Exception qw(throw);
 sub run {
     my $self = shift @_;
 
-    my $values = $self->param_required('factory_value');
-
+    my $values = $self->param_as_array('factory_value');
+    
     foreach my $value (@$values) {
       $self->prepare_factory_output_id({'factory_value' => $value});
     }
