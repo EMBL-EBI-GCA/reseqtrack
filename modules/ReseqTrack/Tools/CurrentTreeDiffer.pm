@@ -419,7 +419,7 @@ sub diff_hashes {
           $self->log_change('withdrawn', $path);
         }
         elsif (@new_files_match_filename >1) {
-          $self->log_error("$path: Duplicated file name and md5 in new tree. Not in new tree Recording it as a new file");
+          $self->log_error("$path: Duplicated file name and md5 in new tree. Not in new tree Recording it as a withdrawn file");
           $self->log_change('withdrawn', $path);
         }
         elsif (!@new_files_match_filename) {
@@ -428,7 +428,7 @@ sub diff_hashes {
             $self->log_change('withdrawn', $path);
           }
           elsif ($bad_md5s->{$old_md5}) {
-            $self->log_error("$path: No md5 in old tree. Bad md5 in new tree. Recording it as a withdrawn file");
+            $self->log_error("$path: Bad md5 in old tree. Not in new tree. Recording it as a withdrawn file");
             $self->log_change('withdrawn', $path);
           }
           else {
