@@ -360,9 +360,14 @@ sub _get_new_path {
   warning ( "CHANGED file name:",$filename," : ",$new_file_name );
  }
       
- $$meta_data_entry{sample_desc_1} = "NO_TISSUE" unless $meta_data_entry->{sample_desc_1};
- $$meta_data_entry{sample_desc_2} = "NO_SOURCE" unless $meta_data_entry->{sample_desc_2};
- $$meta_data_entry{sample_desc_3} = "NO_CELL_TYPE" unless $meta_data_entry->{sample_desc_3};
+ $$meta_data_entry{sample_desc_1} = "NO_TISSUE" 
+              if $meta_data_entry->{sample_desc_1} eq "-";
+
+ $$meta_data_entry{sample_desc_2} = "NO_SOURCE" 
+              if $meta_data_entry->{sample_desc_2} eq "-";
+
+ $$meta_data_entry{sample_desc_3} = "NO_CELL_TYPE" 
+              if $meta_data_entry->{sample_desc_3} eq "-";
 
  my @dir_tokens = (  $output_base_dir,                 
                      $species,
