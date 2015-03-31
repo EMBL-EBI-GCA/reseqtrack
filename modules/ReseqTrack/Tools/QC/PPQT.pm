@@ -118,9 +118,15 @@ sub run_ppqt {
         $self->output_files($r_file);
         push @cmd_args, '-savd=' . $r_file;
     }
-
+    
+    my $path = $ENV{PATH};
+    
+    $ENV{PATH} = dirname($self->samtools_path).':'.$path;
+    
     $self->execute_command_line( join( ' ', @cmd_args ) );
-
+    
+    $ENV{PATH} = $path;
+    
     return $param_file;
 }
 
