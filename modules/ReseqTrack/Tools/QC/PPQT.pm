@@ -95,11 +95,11 @@ sub run_ppqt {
     my $file = $self->processed_file() || $self->input_files->[0];
 
     check_file_exists($file);
-    check_file_does_not_exist($param_file);
 
     push @cmd_args, $self->rscript_path;
     push @cmd_args, $self->program;
 
+    push @cmd_args, '-rf';
     push @cmd_args, '-c=' . $file;
     push @cmd_args, '-out=' . $param_file;
 
