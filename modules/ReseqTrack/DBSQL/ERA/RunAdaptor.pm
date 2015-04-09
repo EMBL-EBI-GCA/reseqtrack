@@ -8,17 +8,17 @@ use ReseqTrack::Tools::Exception qw(throw);
 use ReseqTrack::Tools::AttributeUtils qw(create_attribute_for_object);
 
 sub table_name {
-    return "run, run_sample, cv_status, submission";
+    return "run, experiment,  cv_status, submission";
 }
 
 sub columns {
     return
-"run.run_id, run.experiment_id, run_sample.sample_id, run.run_alias, cv_status.status, run.md5, run.center_name, run.run_center_name, run.instrument_platform, run.instrument_model, submission.submission_id, to_char(submission.submission_date, 'YYYY-MM-DD HH24:MI')   submission_date,run.ega_id,replace(EXTRACTVALUE(run.run_xml, '/RUN_SET/RUN/\@run_date'),'T',' ') run_date";
+"run.run_id, run.experiment_id, EXTRACTVALUE(experiment_xml, '//EXPERIMENT/DESIGN/SAMPLE_DESCRIPTOR/\@accession') sample_id, run.run_alias, cv_status.status, run.md5, run.center_name, run.run_center_name, run.instrument_platform, run.instrument_model, submission.submission_id, to_char(submission.submission_date, 'YYYY-MM-DD HH24:MI')   submission_date,run.ega_id,replace(EXTRACTVALUE(run.run_xml, '/RUN_SET/RUN/\@run_date'),'T',' ') run_date";
 }
 
 sub where {
     return
-"run.status_id = cv_status.status_id and run.run_id = run_sample.run_id and run.submission_id = submission.submission_id";
+"run.status_id = cv_status.status_id and run.submission_id = submission.submission_id and experiment.experiment_id = run.experiment_id";
 }
 
 sub object_from_hashref {
@@ -105,10 +105,10 @@ sub attribute_tag {
 sub fetch_by_study_id {
     my ( $self, $study_id ) = @_;
     my $sql = "select " . $self->columns . " from " . $self->table_name;
-    $sql .= ", experiment ";
     $sql .= " where " . $self->where;
     $sql .= " and experiment.study_id =  ?";
-    $sql .= " and experiment.experiment_id = run.experiment_id";
+
+    print STDERR $sql.$/;
 
     my @objects;
     my $sth = $self->prepare($sql);
