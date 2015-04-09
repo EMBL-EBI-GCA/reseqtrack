@@ -334,6 +334,7 @@ sub run_insert_size_metrics {
     $self->execute_command_line($cmd);
 
     push @metrics, $self->parse_metrics_file($output);
+
   }
   return ( \@metrics );
 }
