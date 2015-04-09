@@ -53,9 +53,9 @@ sub new {
     my ( $class, @args ) = @_;
     my $self = $class->SUPER::new(@args);
 
-    my ( $output_format, $bedGraphToBigWig_path, $chrom_sizes_file, $dedupe, $clobber ) =
+    my ( $output_format, $bedGraphToBigWig_path, $chrom_sizes_file, $dedupe, $clobber, $samtools_path ) =
       rearrange(
-        [qw(OUTPUT_FORMAT BEDGRAPHTOBIGWIG_PATH CHROM_SIZES_FILE DEDUPE CLOBBER)],
+        [qw(OUTPUT_FORMAT BEDGRAPHTOBIGWIG_PATH CHROM_SIZES_FILE DEDUPE CLOBBER SAMTOOLS_PATH)],
         @args );
 
     $self->output_format($output_format);
@@ -63,6 +63,7 @@ sub new {
     $self->chrom_sizes_file($chrom_sizes_file);
     $self->dedupe($dedupe);
     $self->clobber($clobber);
+    $self->samtools_path($samtools_path);
 
     return $self;
 }
@@ -100,7 +101,7 @@ sub run_program {
         for ( my $i = 0 ; $i < scalar(@input_files) ; $i++ ) {
             my $file      = $input_files[$i];
             my $temp_file = "$temp_dir/temp$i.bam";
-            $self->execute_command_line(                "samtools view -b -F 1024 $file > $temp_file");
+            $self->execute_command_line($self->samtools_path()." view -b -F 1024 $file > $temp_file");
             $input_files[$i] = $temp_file;
 
         }
@@ -180,6 +181,14 @@ sub clobber {
     }
 
     return $self->{'clobber'};
+}
+sub samtools_path {
+    my ( $self, $arg ) = @_;
+    if ($arg) {
+        $self->{'samtools_path'} = $arg;
+    }
+
+    return $self->{'samtools_path'};
 }
 
 1;
