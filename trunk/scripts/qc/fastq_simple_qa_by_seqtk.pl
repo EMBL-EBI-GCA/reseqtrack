@@ -192,13 +192,15 @@ foreach my $out ( @$outs ) {
 	if ($max_len != $min_len) {
 		print "Run $run_id failed QA as the reads have different length in $out";
 		$new_collection_type = "VAR_READ_LEN";
-		store_new_collection($new_collection_type);  
+		store_new_collection($new_collection_type); 
+		unlink($out);	 
 		exit(0);
 	}
 	elsif ($avg_len < $min_length) {
 		print "Run $run_id failed QA as the reads are shorter than $min_length bp";
 		$new_collection_type = "TOO_SHORT";
 		store_new_collection($new_collection_type);  
+		unlink($out);	
     	exit(0);
 	}	
 	unlink($out);	
