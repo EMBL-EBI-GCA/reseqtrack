@@ -18,12 +18,13 @@ It is a sub class of a ReseqTrack::Tools::RunProgram.
 package ReseqTrack::Tools::RunPicard;
 use strict;
 use warnings;
+use Data::Dump qw(dump); ## fix
 
 use ReseqTrack::Tools::Exception qw(throw);
 use ReseqTrack::Tools::Argument qw(rearrange);
 use ReseqTrack::Tools::FileSystemUtils qw(check_executable check_file_exists);
 use File::Basename qw(fileparse);
-use File::Copy qw(move);
+use File::Copy qw(move copy);
 
 use base qw(ReseqTrack::Tools::RunProgram);
 
@@ -234,8 +235,10 @@ sub run_mark_duplicates {
       }
       $self->output_files($bai);
     }
+   $self->output_metrics_object( \@metrics_data );
 
-  return ( \@metrics_data );
+   my $new_metrics = $self->output_metrics_object;
+   return ( \@metrics_data );
 }
 
 =head2 run_alignment_metrics
@@ -473,52 +476,85 @@ sub run_merge {
 
   my $input_bam_list = $self->options('shorten_input_names') ? [values %{$self->get_short_input_names}]
                   : $self->input_files;
-  throw("need more than two or more files to merge")
-    if ( @$input_bam_list < 2 );
+  throw("need at least one file to merge")
+    if ( @$input_bam_list < 1 );
 
   my $prefix = $self->working_dir . '/' . $self->job_name . ".merge";
   $prefix =~ s{//}{/}g;
   my $bam = "$prefix.bam";
 
-  my $jar = $self->_jar_path('MergeSamFiles.jar');
-
-  my $sort_order = $self->options('sort_order');
-  if ( $sort_order ne 'coordinate' && $sort_order ne 'queryname' ) {
-    $sort_order = 'null';
-  }
-
-  my @cmd_words = ( $self->java_exe );
-  push( @cmd_words, $self->jvm_options ) if ( $self->jvm_options );
-  push( @cmd_words, '-jar', $jar );
-  push( @cmd_words, $self->_get_standard_options );
-  push( @cmd_words, map { "INPUT=$_" } @$input_bam_list );
-  push( @cmd_words, 'OUTPUT=' . $bam );
-  push( @cmd_words,
-    'CREATE_INDEX=' . ( $self->create_index ? 'true' : 'false' ) );
-  push( @cmd_words, 'SORT_ORDER=' . $sort_order );
-  push( @cmd_words,
-    'ASSUME_SORTED=' . ( $self->options('assume_sorted') ? 'true' : 'false' ) )
-    if defined $self->options('assume_sorted');
-  push( @cmd_words,
-    'USE_THREADING=' . ( $self->options('use_threading') ? 'true' : 'false' ) );
-
-  my $cmd = join( ' ', @cmd_words );
-
-  $self->output_files($bam);
-  $self->created_files("$prefix.bai") if $self->create_index;
-
-  $self->execute_command_line($cmd);
-
-  if ( $self->create_index ) {
-    my $bai       = "$prefix.bai";
-    my $index_ext = $self->options('index_ext');
-    if ( $index_ext && $index_ext ne '.bai' ) {
-      my $corrected_bai = "$prefix" . $index_ext;
-      move( $bai, $corrected_bai )
-        or throw "move failed: $!";
-      $bai = $corrected_bai;
+  if ( @$input_bam_list < 2 ) {
+    my $input_single_bam = $$input_bam_list[0];
+    copy( $input_single_bam, $bam );
+    $self->output_files($bam);
+     
+    if ( $self->create_index ) {
+       my $bai   = "$prefix.bai";
+      
+       my $jar = $self->_jar_path('BuildBamIndex.jar');
+       my @cmd_words = ( $self->java_exe );
+       push( @cmd_words, $self->jvm_options ) if ( $self->jvm_options );
+       push( @cmd_words, '-jar', $jar );
+       push( @cmd_words, $self->_get_standard_options );
+       push( @cmd_words, "INPUT=". $bam);
+       push( @cmd_words, 'OUTPUT=' . $bai );
+       my $cmd = join( ' ', @cmd_words );
+       
+       $self->created_files("$prefix.bai");
+       $self->execute_command_line($cmd);
+       
+       my $index_ext = $self->options('index_ext');
+       if ( $index_ext && $index_ext ne '.bai' ) {
+         my $corrected_bai = "$prefix" . $index_ext;
+         move( $bai, $corrected_bai )
+           or throw "move failed: $!";
+         $bai = $corrected_bai;
+       }
+       $self->output_files($bai);
     }
-    $self->output_files($bai);
+  }
+  else {
+
+    my $jar = $self->_jar_path('MergeSamFiles.jar');
+
+    my $sort_order = $self->options('sort_order');
+    if ( $sort_order ne 'coordinate' && $sort_order ne 'queryname' ) {
+      $sort_order = 'null';
+    }
+
+    my @cmd_words = ( $self->java_exe );
+    push( @cmd_words, $self->jvm_options ) if ( $self->jvm_options );
+    push( @cmd_words, '-jar', $jar );
+    push( @cmd_words, $self->_get_standard_options );
+    push( @cmd_words, map { "INPUT=$_" } @$input_bam_list );
+    push( @cmd_words, 'OUTPUT=' . $bam );
+    push( @cmd_words,
+      'CREATE_INDEX=' . ( $self->create_index ? 'true' : 'false' ) );
+    push( @cmd_words, 'SORT_ORDER=' . $sort_order );
+    push( @cmd_words,
+      'ASSUME_SORTED=' . ( $self->options('assume_sorted') ? 'true' : 'false' ) )
+      if defined $self->options('assume_sorted');
+    push( @cmd_words,
+      'USE_THREADING=' . ( $self->options('use_threading') ? 'true' : 'false' ) );
+
+    my $cmd = join( ' ', @cmd_words );
+
+    $self->output_files($bam);
+    $self->created_files("$prefix.bai") if $self->create_index;
+
+    $self->execute_command_line($cmd);
+
+    if ( $self->create_index ) {
+      my $bai       = "$prefix.bai";
+      my $index_ext = $self->options('index_ext');
+      if ( $index_ext && $index_ext ne '.bai' ) {
+        my $corrected_bai = "$prefix" . $index_ext;
+        move( $bai, $corrected_bai )
+          or throw "move failed: $!";
+        $bai = $corrected_bai;
+      }
+      $self->output_files($bai);
+    }
   }
 
   return;
@@ -928,6 +964,15 @@ sub keep_metrics {
     $self->{'keep_metrics'} = (shift) ? 1 : 0;
   }
   return $self->{'keep_metrics'};
+}
+
+sub output_metrics_object {
+  my ( $self, $arg ) = @_;
+
+  if ($arg) {
+    $self->{'output_metrics_object'} = $arg;;
+  }
+  return $self->{'output_metrics_object'};
 }
 
 1;

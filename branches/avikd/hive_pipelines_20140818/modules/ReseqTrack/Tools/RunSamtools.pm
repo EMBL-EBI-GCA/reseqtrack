@@ -47,6 +47,10 @@ sub DEFAULT_OPTIONS {
         'attach_RG_tag'       => 0,    # used by samtools merge
         'compute_BQ_tag'      => 1,    # used by samtools calmd
         'ext_BAQ_calc'        => 1,    # used by samtools calmd
+        'flag_value'          => undef, # used by samtools view (filter)
+        'keep_flag'           => 0,     # used by samtools view (filter)
+        'remove_flag'         => 0,     # used by samtools view (filter)
+        'mapq_threshold'      => 0,     # used by samtools view (filter)
     };
 }
 
@@ -143,6 +147,47 @@ sub run_calmd {
 
         $self->output_files($output_bam);
         $self->execute_command_line($cmd);
+    }
+}
+
+sub run_bam_filter {
+    my ($self) = @_;
+    foreach my $input ( @{ $self->input_files } ) {
+       my $prefix     = fileparse( $input, qr/\.[sb]am/ );
+       my $output_bam = $self->working_dir . "/$prefix.filtered.bam";
+       $output_bam =~ s{//}{/}g;
+       
+       my $keep_flag   = $self->options('keep_flag');
+       my $remove_flag = $self->options('remove_flag');
+       my $flag_value  = $self->options('flag_value');
+       my $uncompressed = $self->options('uncompressed_output');
+ 
+       throw('required option keep_flag or remove_flag when flag_value is provided ') 
+            if ($flag_value && !$keep_flag && !$remove_flag);
+            
+       throw('mutually exclusive options keep_flag and remove_flag')  
+            if ($keep_flag && $remove_flag);
+       
+       my $mapq_threshold = $self->options('mapq_threshold');
+       
+       my @cmd_words = ( $self->program, 'view' );
+       push( @cmd_words, $uncompressed ? '-u' : '-b' );
+       push( @cmd_words, '-o', $output_bam ); 
+       push( @cmd_words, '-f', $flag_value ) if ( $flag_value && $keep_flag  );    
+       push( @cmd_words, '-F', $flag_value ) if ( $flag_value && $remove_flag  );
+       push( @cmd_words, '-q', $mapq_threshold ) if $mapq_threshold;
+       
+       if ( $input =~ /\.sam$/ ){
+         push( @cmd_words, '-S', $input )  
+       }
+       else {
+         push( @cmd_words, $input );
+       }
+ 
+       my $cmd = join( ' ', @cmd_words );
+
+       $self->output_files($output_bam);
+       $self->execute_command_line($cmd);
     }
 }
 
@@ -310,6 +355,7 @@ sub run_flagstat {
         push @metrics, \%data;
 
     }
+    $self->output_metrics_object( \@metrics );
     return ( \@metrics );
 }
 
@@ -383,6 +429,7 @@ sub run_program {
         'calmd'         => \&run_calmd,
         'sam_to_bam'    => \&run_sam_to_bam,
         'flagstat'      => \&run_flagstat,
+        'filter'        => \&run_bam_filter,
     );
 
     throw("Did not recognise command $command") if ( !defined $subs{$command} );
@@ -512,6 +559,14 @@ sub reference_index {
         $self->{'reference_index'} = $reference_index;
     }
     return $self->{'reference_index'};
+}
+
+sub output_metrics_object {
+  my ( $self, $arg ) = @_;
+  if ($arg) {
+    $self->{'output_metrics_object'} = $arg;;
+  }
+  return $self->{'output_metrics_object'};
 }
 
 1;
