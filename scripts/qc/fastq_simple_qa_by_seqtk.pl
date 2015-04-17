@@ -148,6 +148,10 @@ print "Have ".@$others." from ".$collection->name."\n";
 my $read_cnt_for_the_run = $rmi->archive_read_count;
 print "From archive: read cnt for the run is $read_cnt_for_the_run\n";
 
+unless ($read_cnt_for_the_run) {
+	throw("Run $run_id have NULL as archive_read_count");
+}
+
 my @inputs;
 
 if($mate1) {
@@ -175,6 +179,8 @@ my $outs = $run_seqtk_fqchk->output_files;
 ### the run passes seqtk fqchk QA.
 
 my $read_cnt_for_the_collection = 0;
+my $mate1_read_cnt;
+my $mate2_read_cnt;
 foreach my $out ( @$outs ) {
 	
 	my $lines = get_lines_from_file($out);
@@ -189,6 +195,8 @@ foreach my $out ( @$outs ) {
 	my $total_reads = $total_bases/$avg_len;
 	print "By seqtk: read cnt is $total_reads\n";
 	$read_cnt_for_the_collection += $total_reads if ($out !~ /\_2\.fastq\.gz/);
+	$mate1_read_cnt = $total_reads if ($out =~ /\_1\.fastq\.gz/);
+	$mate2_read_cnt = $total_reads if ($out =~ /\_2\.fastq\.gz/);
 	if ($max_len != $min_len) {
 		print "Run $run_id failed QA as the reads have different length in $out";
 		$new_collection_type = "VAR_READ_LEN";
@@ -203,11 +211,18 @@ foreach my $out ( @$outs ) {
 		unlink($out);	
     	exit(0);
 	}	
+	
 	unlink($out);	
 }	
 	
-print "From seqtk: read cnt for the fastq files in the collection is $read_cnt_for_the_collection\n";
+if ($mate1 && ($mate1_read_cnt != $mate2_read_cnt)) {
+	print "$run_id have different read cnt in mate1 and mate2 files";
+	$new_collection_type = "VAR_READ_CNT_MATES";
+	store_new_collection($new_collection_type);
+	exit(0);  
+}	
 
+print "From seqtk: read cnt for the fastq files in the collection is $read_cnt_for_the_collection\n";
 if ($read_cnt_for_the_collection == $read_cnt_for_the_run) {
 	print "Run $run_id passed QA\n";
 	store_new_collection($new_collection_type);  
