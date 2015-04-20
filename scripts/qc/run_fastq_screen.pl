@@ -87,17 +87,6 @@ if (! -d $output_dir) {
 }
 
 
-#my @files = assign_files($collection->others);
-
-#if (defined $files[0] && defined $files[1]) {
-#	@files = ($files[0],$files[1]);
-#}
-#else {#
-#	@files = ($files[2]);
-#}
-
-
-
 my @input_files = map {$_->name} @{$collection->others};
 
 
