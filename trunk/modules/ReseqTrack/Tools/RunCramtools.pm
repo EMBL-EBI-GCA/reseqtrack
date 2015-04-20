@@ -26,6 +26,7 @@ use File::Copy qw(move);
 use ReseqTrack::Tools::FileSystemUtils qw(check_executable check_file_exists);
 
 use base qw(ReseqTrack::Tools::RunProgram);
+use Carp;
 
 =head2 DEFAULT_OPTIONS
 
@@ -157,6 +158,8 @@ sub run_convert_fastq {
   else {
     $prefix = $self->working_dir . '/' . $job_name ;
   }
+
+  carp("Converting CRAM to fastq without using reverse - this probably an error, consider setting the reverse option") if (!$self->options('reverse'));
 
   $prefix =~ s{//}{/}g;
 
