@@ -108,8 +108,6 @@ sub fetch_by_study_id {
     $sql .= " where " . $self->where;
     $sql .= " and experiment.study_id =  ?";
 
-    print STDERR $sql.$/;
-
     my @objects;
     my $sth = $self->prepare($sql);
     $sth->bind_param( 1, $study_id );
