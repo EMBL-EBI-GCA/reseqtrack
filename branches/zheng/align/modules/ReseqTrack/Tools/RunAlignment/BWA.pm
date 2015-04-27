@@ -44,22 +44,20 @@ sub DEFAULT_OPTIONS { return {
         'max_gap_opens' => undef,
         'max_gap_extensions' => undef,
         'z_best' => undef,
-	'threads' => 1,
+		'threads' => 1,
         'load_fm_index' => 1,
         'disable_smith_waterman' => 0,
-        'algorithm' => 'mem', # to run bwa-mem or bwa-backtrack or bwa-sw
-	
+        'algorithm' => 'mem', # to run bwa-mem or bwa-backtrack or bwa-sw or alt-bwamem
         'mark_secondary_hits' => 1, # for compatibility with gatk indel realigner
-
+		'hla_typing' => 0, # this only applies to alt-bwamem
         };
 }
 
 sub new {
 	my ( $class, @args ) = @_;
 	my $self = $class->SUPER::new(@args);
-
 	#setting defaults
-        if (!$self->program) {
+        if (!$self->program) {  ## When run alt_bwamem, need to specify program=>bwakit dir.
           if ($ENV{BWA}) {
             $self->program($ENV{BWA} . '/bwa');
           }
@@ -75,7 +73,7 @@ sub run_alignment {
     my ($self) = @_;
 
     my $algorithm = $self->options('algorithm');
-    
+
     if ($algorithm eq 'backtrack') {
       if ( $self->fragment_file ) {
           $self->run_samse_alignment();
@@ -85,11 +83,14 @@ sub run_alignment {
           $self->run_sampe_alignment();
       }
     }
-    elsif ($algorithm = 'mem') {
+    elsif ($algorithm eq 'mem') {
       $self->run_bwa_mem();
     }
-    elsif ($algorithm = 'sw') {
+    elsif ($algorithm eq 'sw') {
       $self->run_bwa_sw();
+    }
+    elsif ($algorithm eq 'alt-bwamem') {
+      $self->run_alt_bwamem();
     }
 
     return;
@@ -218,6 +219,99 @@ sub run_aln_mode {
     return $output_file;
 }
 
+
+sub run_alt_bwamem {
+    my ($self) = @_;
+	
+	TYPE:
+    foreach my $aln_type ('MATE', 'FRAG') {
+      next TYPE if $aln_type eq 'MATE' && (!$self->mate1_file || !$self->mate2_file);
+      next TYPE if $aln_type eq 'FRAG' && !$self->fragment_file;
+
+      my $output_file = $self->working_dir() . '/' . $self->job_name;
+      $output_file .= ($aln_type eq 'MATE' ? '_pe' : '_se');
+      $output_file .= ($self->output_format eq 'BAM' ? '.bam' : '.sam');
+      $output_file =~ s{//}{/};
+
+      my @cmd_words;
+      my $bwa_exec = $self->program . "/bwa";
+      push(@cmd_words, $bwa_exec, 'mem');
+      push(@cmd_words, '-t', $self->options('threads') || 1);
+      push(@cmd_words, '-P') if $aln_type eq 'MATE' && $self->options('disable_smith_waterman');
+      push(@cmd_words, '-B', $self->options('mismatch_penalty'))
+              if ($self->options('mismatch_penalty'));
+      push(@cmd_words, '-O', $self->options('gap_open_penalty'))
+              if ($self->options('gap_open_penalty'));
+      push(@cmd_words, '-E', $self->options('gap_extension_penalty'))
+              if ($self->options('gap_extension_penalty'));
+
+      push(@cmd_words, '-M') if $self->options('mark_secondary_hits');
+	
+      if ($self->read_group_fields->{'ID'}) {
+        my $rg_string = q("@RG\tID:) . $self->read_group_fields->{'ID'};
+        RG:
+        while (my ($tag, $value) = each %{$self->read_group_fields}) {
+          next RG if ($tag eq 'ID');
+          next RG if (!$value);
+          $rg_string .= '\t' . $tag . ':' . $value;
+        }
+        $rg_string .= q(");
+        push(@cmd_words, '-R', $rg_string);
+      }
+
+      push(@cmd_words, $self->reference);
+      push(@cmd_words, $aln_type eq 'MATE'
+            ? ($self->get_fastq_cmd_string('mate1'), $self->get_fastq_cmd_string('mate2'))
+            : ($self->get_fastq_cmd_string('frag')));
+     
+      my $k8_exec = $self->program . "/k8"; 
+      my $postalt_exec = $self->program . "/bwa-postalt.js";
+      
+      my $prefix_hla_hit = $self->job_name . ($aln_type eq 'MATE' ? '_pe' : '_se') . ".hla";   
+     
+      push(@cmd_words, "|", $k8_exec, $postalt_exec, "-p" , $prefix_hla_hit);
+     
+      my $ref_alt = $self->reference . ".alt";
+      push(@cmd_words,  $ref_alt);
+     
+      my $samtools_exec = $self->program . "/samtools";
+  
+      if ($self->output_format eq 'BAM') {
+         push(@cmd_words, '|', $samtools_exec, 'view -1 -');
+      }
+      push(@cmd_words, '>', $output_file);
+
+      my $cmd = join(' ', @cmd_words);
+
+      $self->output_files($output_file);
+      $self->execute_command_line($cmd);
+  
+      if ($self->options('hla_typing')) {    
+	      my @hla_cmd_words;
+	      my $hla_exec = $self->program . "/run-HLA";
+	      push (@hla_cmd_words, $hla_exec, $prefix_hla_hit);
+	      my $hla_top = $self->working_dir() . '/' . $prefix_hla_hit . ".top";
+	      push (@hla_cmd_words, ">", $hla_top);
+	      
+	      my $hla_cmd = join(' ', @hla_cmd_words);
+	      $self->output_files($hla_top);
+	      $self->execute_command_line($hla_cmd);
+	      
+	      my $hla_all = $self->working_dir() . '/' . $prefix_hla_hit . ".all";
+	      my $misc_cmd = "touch " . $self->working_dir() . '/' . $prefix_hla_hit . ".HLA-dummy.gt;";
+	      $misc_cmd .= "cat " . $self->working_dir() . '/' . $prefix_hla_hit . ".HLA*.gt" . "| grep ^GT | cut -f2- > $hla_all";
+		  
+	      $self->output_files($hla_all);
+	      $self->execute_command_line($misc_cmd);
+	      
+	      my $misc_cmd2 = "rm -f " . $self->working_dir() . '/' . $prefix_hla_hit . ".HLA*";
+	      $self->execute_command_line($misc_cmd2);
+    }        
+  } 
+  return;   
+}
+      
+	
 sub run_bwa_mem {
     my ($self) = @_;
 
@@ -233,7 +327,6 @@ sub run_bwa_mem {
       $output_file .= ($aln_type eq 'MATE' ? '_pe' : '_se');
       $output_file .= ($self->output_format eq 'BAM' ? '.bam' : '.sam');
       $output_file =~ s{//}{/};
-
 
       my @cmd_words;
       push(@cmd_words, $self->program, 'mem');
@@ -274,7 +367,6 @@ sub run_bwa_mem {
       $self->output_files($output_file);
       $self->execute_command_line($cmd);
     }
-
     return;
 }
 

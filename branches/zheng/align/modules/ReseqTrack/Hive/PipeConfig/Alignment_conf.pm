@@ -56,6 +56,8 @@ config_options=-final_output_layout '#POPULATION#/#sample_alias#/alignment'
       -known_indels_vcf, used for indel realignment (default undefined).  Optional if realign_level=2; mandatory if realign_level=1.
       -known_snps_vcf, used for recalibration (default undefined). Mandatory if recalibrate_level != 0.
       -realign_intervals_file, should be given if realign_level=1.  Can be generated using gatk RealignerTargetCreator
+      -recalibration_chromosomes, run recalibration_run_level for specified chromosomes; default is for GRCh38 recalibration_chromosomes=>join(',', (map {'chr'.$_} (1..22, 'X', 'Y', 'M'))). 
+	For earlier reference genomes, can be recalibration_chromosomes=>join(',', 1..22, 'X', 'Y', 'MT')
 
       Various options for reheadering a bam file:
       -header_lines_file should contain any @PG and @CO lines you want written to your bam header.
@@ -72,6 +74,7 @@ config_options=-final_output_layout '#POPULATION#/#sample_alias#/alignment'
       -squeeze_exe => (default /nfs/1000g-work/G1K/work/bin/bamUtil/bin/bam)
       -gatk_dir => (default /nfs/1000g-work/G1K/work/bin/gatk/dist/)
       -picard_dir => (default /nfs/1000g-work/G1K/work/bin/picard)
+      -biobambam_dir => (default /nfs/1000g-work/G1K/work/bin/biobambam/bin)
 
       -sample_columns, default is ['sample_id', 'sample_source_id', 'sample_alias'].
       -run_columns, default is ['run_source_id', 'center_name', 'run_alias'],
@@ -142,13 +145,13 @@ sub default_options {
         'bwa_exe' => '/nfs/1000g-work/G1K/work/bin/bwa/bwa',
         'samtools_exe' => '/nfs/1000g-work/G1K/work/bin/samtools/samtools',
         'squeeze_exe' => '/nfs/1000g-work/G1K/work/bin/bamUtil/bin/bam',
-        'gatk_dir' => '/nfs/1000g-work/G1K/work/bin/gatk/dist/',
+        'gatk_dir' => '/nfs/1000g-work/G1K/work/bin/gatk/',
         'picard_dir' => '/nfs/1000g-work/G1K/work/bin/picard',
+        'biobambam_dir' => '/nfs/1000g-work/G1K/work/bin/biobambam/bin',
         'known_indels_vcf' => [],
         'known_snps_vcf' => undef,
         'realign_intervals_file' => undef,
         'max_paired_length' => undef,
-
 
         #various options for overriding defaults in reheadering bam
         'dict_file' => undef,
@@ -156,6 +159,8 @@ sub default_options {
         'ref_assembly' => undef,
         'ref_species' => undef,
         'header_lines_file' => undef,
+
+	recalibration_chromosomes => join(',', (map {'chr'.$_} (1..22, 'X', 'Y', 'M'))),
 
         'realign_level' => 0,
         'recalibrate_level' => 2,
@@ -209,7 +214,6 @@ sub default_options {
     };
 }
 
-
 sub pipeline_create_commands {
     my ($self) = @_;
 
@@ -233,15 +237,17 @@ sub resource_classes {
             %{$self->SUPER::resource_classes},  # inherit 'default' from the parent class
             '200Mb' => { 'LSF' => '-C0 -M200 -q '.$self->o('lsf_queue').' -R"select[mem>200] rusage[mem=200]"' },
             '500Mb' => { 'LSF' => '-C0 -M500 -q '.$self->o('lsf_queue').' -R"select[mem>500] rusage[mem=500]"' },
+            '800Mb' => { 'LSF' => '-C0 -M800 -q '.$self->o('lsf_queue').' -R"select[mem>800] rusage[mem=800]"' },
             '1Gb'   => { 'LSF' => '-C0 -M1000 -q '.$self->o('lsf_queue').' -R"select[mem>1000] rusage[mem=1000]"' },
             '2Gb' => { 'LSF' => '-C0 -M2000 -q '.$self->o('lsf_queue').' -R"select[mem>2000] rusage[mem=2000]"' },
+            '3Gb' => { 'LSF' => '-C0 -M3000 -q '.$self->o('lsf_queue').' -R"select[mem>3000] rusage[mem=3000]"' },
             '4Gb' => { 'LSF' => '-C0 -M4000 -q '.$self->o('lsf_queue').' -R"select[mem>4000] rusage[mem=4000]"' },
             '5Gb' => { 'LSF' => '-C0 -M5000 -q '.$self->o('lsf_queue').' -R"select[mem>5000] rusage[mem=5000]"' },
             '6Gb' => { 'LSF' => '-C0 -M6000 -q '.$self->o('lsf_queue').' -R"select[mem>6000] rusage[mem=6000]"' },
             '8Gb' => { 'LSF' => '-C0 -M8000 -q '.$self->o('lsf_queue').' -R"select[mem>8000] rusage[mem=8000]"' },
+	    '10Gb' => { 'LSF' => '-C0 -M10000 -q '.$self->o('lsf_queue').' -R"select[mem>10000] rusage[mem=10000]"' },
     };
 }
-
 
 
 sub pipeline_analyses {
@@ -352,12 +358,14 @@ sub pipeline_analyses {
                   delete_param => 'fastq',
                 },
             },
-            -rc_name => '6Gb', # Note the 'hardened' version of BWA may need 8Gb RAM or more
+            -rc_name => '8Gb', # Note the 'hardened' version of BWA may need 8Gb RAM or more
             -hive_capacity  =>  100,
             -flow_into => {
                 1 => ['sort_chunks'],
             },
       });
+      
+=head    
     push(@analyses, {
             -logic_name => 'sort_chunks',
             -module        => 'ReseqTrack::Hive::Process::RunPicard',
@@ -387,6 +395,31 @@ sub pipeline_analyses {
                 1 => [ ':////accu?bam=[]', ':////accu?bai=[]']
             },
       });
+=cut      
+
+### As BioBamBam seems like not having a function called add_or_replace_read_groups, cannot do that for bwa-sw. When bwa-sw is used, one needs to switch to 
+### the picard sort (above) for sorting.
+### the resource requirement is 2G for BioBamBam Bamsort as well; no saving in memory comparing with Picard
+
+      push(@analyses, {
+            -logic_name => 'sort_chunks',
+            -module        => 'ReseqTrack::Hive::Process::RunBioBamBam',
+            -parameters => {
+                biobambam_dir => $self->o('biobambam_dir'),
+                command => "bamsort",
+                options => { fixmates => 1 },
+                create_index => 1,
+                reseqtrack_options => {
+                  delete_param => 'bam',
+                },
+            },
+            -rc_name => '2Gb',
+            -hive_capacity  =>  200,
+            -flow_into => {
+                1 => [ ':////accu?bam=[]', ':////accu?bai=[]']
+            },
+      });
+        
     push(@analyses, {
           -logic_name => 'decide_merge_chunks',
           -module        => 'ReseqTrack::Hive::Process::BaseProcess',
@@ -435,22 +468,21 @@ sub pipeline_analyses {
       });
     push(@analyses, {
           -logic_name => 'merge_chunks',
-          -module        => 'ReseqTrack::Hive::Process::RunPicard',
+          -module        => 'ReseqTrack::Hive::Process::RunBioBamBam',
           -parameters => {
-              picard_dir => $self->o('picard_dir'),
-              jvm_args => '-Xmx2g',
-              command => 'merge',
+              biobambam_dir => $self->o('biobambam_dir'),
+              command => 'bammerge',
               create_index => 1,
               reseqtrack_options => {
                 delete_param => ['bam', 'bai'],
               }
           },
-          -rc_name => '2Gb',
+          -rc_name => '500Mb',
           -hive_capacity  =>  200,
           -flow_into => {
               1 => [ ':////accu?bam=[]', ':////accu?bai=[]'],
           },
-    });
+    });       
     push(@analyses, {
             -logic_name => 'realign_knowns_only',
             -module        => 'ReseqTrack::Hive::Process::RunBamImprovement',
@@ -507,7 +539,7 @@ sub pipeline_analyses {
                 2 => [ 'tag_strip_run_level'],
                 3 => [ ':////accu?bam=[]', ':////accu?bai=[]'],
             },
-      });
+      });      
     push(@analyses, {
           -logic_name => 'index_recalibrate_run_level',
           -module        => 'ReseqTrack::Hive::Process::RunSamtools',
@@ -531,7 +563,8 @@ sub pipeline_analyses {
               jvm_args => '-Xmx2g',
               known_sites_vcf => $self->o('known_snps_vcf'),
               realign_level => $self->o('realign_level'),
-              reseqtrack_options => {
+              gatk_module_options => {intervals => $self->o('recalibration_chromosomes')},
+	      reseqtrack_options => {
                 delete_param => ['bam', 'bai'],
                 flows_non_factory => {
                     1 => '#expr(#realign_level#!=2)expr#',
@@ -539,20 +572,21 @@ sub pipeline_analyses {
                 }
               }
           },
-          -rc_name => '2Gb',
+          -rc_name => '3Gb',
           -hive_capacity  =>  200,
           -flow_into => {
               1 => [ 'tag_strip_run_level'],
               2 => [ ':////accu?bam=[]', ':////accu?bai=[]'],
           },
     });
+ 
     push(@analyses, {
             -logic_name => 'tag_strip_run_level',
             -module        => 'ReseqTrack::Hive::Process::RunSqueezeBam',
             -parameters => {
                 program_file => $self->o('squeeze_exe'),
                 'rm_OQ_fields' => 1,
-                'rm_tag_types' => ['XM:i', 'XG:i', 'XO:i'],
+                'rm_tag_types' => ['XM:i', 'XG:i', 'XO:i', 'pa:f'],
                 reseqtrack_options => {
                   delete_param => ['bam'],
                 }
@@ -563,6 +597,7 @@ sub pipeline_analyses {
                 1 => [ ':////accu?bam=[]', ':////accu?bai=[]'],
             },
       });
+## remove_tag_type pa:f is most likely from biobambam, it messes up with bam validate, the step that generates bas      
     push(@analyses, {
           -logic_name => 'decide_mark_duplicates',
           -module        => 'ReseqTrack::Hive::Process::BaseProcess',
@@ -580,19 +615,17 @@ sub pipeline_analyses {
       });
     push(@analyses, {
             -logic_name => 'mark_duplicates',
-            -module        => 'ReseqTrack::Hive::Process::RunPicard',
+            -module        => 'ReseqTrack::Hive::Process::RunBioBamBam',
             -parameters => {
-                picard_dir => $self->o('picard_dir'),
-                jvm_args => '-Xmx4g',
-                command => 'mark_duplicates',
-                options => {'shorten_input_names' => 1},
+                biobambam_dir => $self->o('biobambam_dir'),
+                command => 'bammarkduplicates',
                 create_index => 1,
                 reseqtrack_options => {
                   delete_param => ['bam', 'bai'],
                   denestify => ['bam', 'bai'],
                 }
             },
-            -rc_name => '5Gb',
+            -rc_name => '800Mb',
             -hive_capacity  =>  100,
             -flow_into => {
                 1 => [ ':////accu?bam=[]', ':////accu?bai=[]'],
@@ -639,22 +672,22 @@ sub pipeline_analyses {
     });
     push(@analyses, {
           -logic_name => 'merge_libraries',
-          -module        => 'ReseqTrack::Hive::Process::RunPicard',
+          -module        => 'ReseqTrack::Hive::Process::RunBioBamBam',
           -parameters => {
-              picard_dir => $self->o('picard_dir'),
-              jvm_args => '-Xmx2g',
-              command => 'merge',
+              biobambam_dir => $self->o('biobambam_dir'),
+              command => 'bammerge',
               create_index => 1,
               reseqtrack_options => {
                 delete_param => ['bam', 'bai'],
               },
           },
-          -rc_name => '2Gb',
+          -rc_name => '500Mb',
           -hive_capacity  =>  200,
           -flow_into => {
               1 => [ ':////accu?bam=[]', ':////accu?bai=[]'],
           },
     });
+        
     push(@analyses, {
             -logic_name => 'realign_full',
             -module        => 'ReseqTrack::Hive::Process::RunBamImprovement',
@@ -745,7 +778,7 @@ sub pipeline_analyses {
             -parameters => {
                 program_file => $self->o('squeeze_exe'),
                 'rm_OQ_fields' => 1,
-                'rm_tag_types' => ['XM:i', 'XG:i', 'XO:i'],
+                'rm_tag_types' => ['XM:i', 'XG:i', 'XO:i', 'pa:f'],
                 reseqtrack_options => {
                   delete_param => ['bam'],
                 },
