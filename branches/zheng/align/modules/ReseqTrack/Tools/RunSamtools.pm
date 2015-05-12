@@ -22,7 +22,7 @@ use warnings;
 
 use ReseqTrack::Tools::Exception qw(throw);
 use ReseqTrack::Tools::Argument qw(rearrange);
-use File::Basename qw(fileparse);
+use File::Basename qw(fileparse basename);
 use ReseqTrack::Tools::FileSystemUtils qw(check_file_exists);
 
 use base qw(ReseqTrack::Tools::RunProgram);
@@ -218,8 +218,27 @@ sub run_sam_to_bam {
         $self->created_files($bam);
         $self->execute_command_line($cmd);
     }
-
 }
+
+sub run_bam_to_cram {
+    my ($self) = @_;
+
+    foreach my $input ( @{ $self->input_files } ) {
+        my $cram = $self->working_dir . basename($input) . ".cram";
+        $cram =~ s{//}{/}g;	
+        
+        my @cmd_words = ($self->program, 'view', '-h', '-C');
+        push @cmd_words, '-T', $self->reference;
+        push @cmd_words, $input;
+        push @cmd_words, ">", $cram;
+        
+        my $cmd = join(" ", @cmd_words);
+        
+        $self->output_files($cram);
+        $self->execute_command_line($cmd);
+    }
+}        
+	
 
 sub run_sort {
     my ($self) = @_;
@@ -244,10 +263,20 @@ sub run_index {
     my ($self) = @_;
 
     foreach my $file ( @{ $self->input_files } ) {
-        my $output_bai = $file . ".bai";
-        my $cmd        = $self->program . " index " . $file;
+        my $index;
+        if ($file =~ /\.cram/) {
+            $index = $file . ".crai";
+        }
+        elsif ($file =~ /\.bam/ ) {
+        	$index = $file . ".bai";
+    	}
+    	else {
+    		throw("Cannot decide what index file to create");
+    	}
+    	
+        my $cmd = $self->program . " index " . $file;
 
-        $self->output_files($output_bai);
+        $self->output_files($index);
         $self->execute_command_line($cmd);
     }
 }
@@ -382,6 +411,7 @@ sub run_program {
         'fix_and_calmd' => \&run_fix_and_calmd,
         'calmd'         => \&run_calmd,
         'sam_to_bam'    => \&run_sam_to_bam,
+        'bam_to_cram'	=> \&run_bam_to_cram,
         'flagstat'      => \&run_flagstat,
     );
 

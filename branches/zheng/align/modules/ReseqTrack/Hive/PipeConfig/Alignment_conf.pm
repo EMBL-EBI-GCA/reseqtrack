@@ -4,7 +4,7 @@
 
 =head1 SYNOPSIS
 
-  This is a pipeline for aligning fastq reads to make a bam file.
+  This is a pipeline for aligning fastq reads to make a bam and a cram file.
 
   Pipeline must be seeded by the sample table of a ReseqTrack database.
   Bam/bai/bas files will be created for each sample and stored in the ReseqTrack database
@@ -833,6 +833,7 @@ sub pipeline_analyses {
               name_file_params => $self->o('name_file_params'),
               final_output_dir => $self->o('final_output_dir'),
               final_output_layout => $self->o('final_output_layout'),
+              clobber => 1,
             },
             -rc_name => '200Mb',
             -hive_capacity  =>  200,
@@ -847,6 +848,7 @@ sub pipeline_analyses {
               name_file_module => 'ReseqTrack::Hive::NameFile::BaseNameFile',
               name_file_method => 'basic',
               name_file_params => {new_full_path => '#bam#.bai'},
+               clobber => 1,
             },
             -rc_name => '200Mb',
             -hive_capacity  =>  200,
@@ -872,9 +874,72 @@ sub pipeline_analyses {
               name_file_module => 'ReseqTrack::Hive::NameFile::BaseNameFile',
               name_file_method => 'basic',
               name_file_params => {new_full_path => '#bam#.bas'},
+               clobber => 1,
             },
-            -flow_into => {1 => {'mark_seed_complete' => {'bas' => '#file#'}}},
+            -flow_into => { 1 => ['bam_to_cram']},
+      });    
+    push(@analyses, {
+            -logic_name => 'bam_to_cram',
+            -module        => 'ReseqTrack::Hive::Process::RunSamtools',
+            -parameters => {
+                bam => '#bam#',
+                program_file => $self->o('samtools_exe'),
+                command => 'bam_to_cram',
+                reference => $self->o('reference'),
+            },
+            -hive_capacity  =>  200,
+            -flow_into => {
+                1 => {'store_cram' => {'file'=>'#cram#'}},
+            },
       });
+    push(@analyses, {
+            -logic_name    => 'store_cram',
+            -module        => 'ReseqTrack::Hive::Process::LoadFile',
+            -parameters    => {
+              type => $self->o('cram_type'),
+              file => '#cram#',
+              name_file_module => $self->o('name_file_module'),
+              name_file_method => $self->o('name_file_method'),
+              name_file_params =>  {new_full_path => '#bam#.cram'},
+              final_output_dir => $self->o('final_output_dir'),
+              final_output_layout => $self->o('final_output_layout'),
+              clobber => 1,
+            },
+            -rc_name => '200Mb',
+            -hive_capacity  =>  200,
+            -flow_into => {
+            	1 => {'index_cram' => {'bam'=>'#file#'}},
+            },
+      });   
+    push(@analyses, {
+          -logic_name => 'index_cram',
+          -module        => 'ReseqTrack::Hive::Process::RunSamtools',
+          -parameters => {
+              bam => '#file#',
+              program_file => $self->o('samtools_exe'),
+              command => 'index',
+          },
+          -rc_name => '200Mb',
+          -hive_capacity  =>  200,
+            -flow_into => { 
+                1 => {'store_crai'=> {'file'=>'#crai#','cram'=>'#file#'}},
+            },
+    });   
+    push(@analyses, {
+            -logic_name    => 'store_crai',
+            -module        => 'ReseqTrack::Hive::Process::LoadFile',
+            -parameters    => {
+              type => $self->o('crai_type'),
+              file => '#crai#',
+              name_file_module => 'ReseqTrack::Hive::NameFile::BaseNameFile',
+              name_file_method => 'basic',
+              name_file_params => {new_full_path => '#crai#'},
+               clobber => 1,
+            },
+            -rc_name => '200Mb',
+            -hive_capacity  =>  200,
+            -flow_into => {1 => {'mark_seed_complete' => {'crai' => '#file#'}}},
+      });    
     push(@analyses, {
             -logic_name    => 'mark_seed_complete',
             -module        => 'ReseqTrack::Hive::Process::UpdateSeed',
@@ -891,8 +956,6 @@ sub pipeline_analyses {
             },
             -meadow_type => 'LOCAL',
       });
-
-
     return \@analyses;
 }
 
