@@ -42,7 +42,7 @@ sub DEFAULT_OPTIONS {
      'gzip'      => 1,
      'ignore-md5-mismatch' => 0,
      'skip-md5-check'  => 0,
-     'reverse' => 0,
+     'reverse' => 1,
      'reference-fasta-file' => '',
      'prefix' => '',
     };
@@ -159,7 +159,7 @@ sub run_convert_fastq {
     $prefix = $self->working_dir . '/' . $job_name ;
   }
 
-  carp("Converting CRAM to fastq without using reverse - this probably an error, consider setting the reverse option") if (!$self->options('reverse'));
+  warn("Converting CRAM to fastq without using reverse - this probably an error, consider setting the reverse option") if (!$self->options('reverse'));
 
   $prefix =~ s{//}{/}g;
 
