@@ -7,6 +7,7 @@ use base ('ReseqTrack::Hive::Process::BaseProcess');
 use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::Exception qw(throw);
 use ReseqTrack::Tools::RunPeakCall::Macs2;
+use ReseqTrack::Tools::FileSystemUtils qw(check_file_exists );
 
 sub param_defaults {
   return {
@@ -14,7 +15,7 @@ sub param_defaults {
      samtools_path  => undef,
      control_files  => undef,
      fragment_size  => undef,
-     options        => {},
+     options        => { 'nomodel' => 1, }, ## Macs2 tools module also setting it 
   };
 }
 
@@ -22,27 +23,36 @@ sub param_defaults {
 sub run {
   my $self = shift @_;
   
-  $self->param_required( 'bed' );
-  my $beds             =  $self->param_as_array( 'bed' );
+  $self->param_required( 'bam' );
+  $self->param_required( 'broad' );
+  
+  my $bams             =  $self->param_as_array( 'bam' );
   my $samtools_path    =  $self->param( 'samtools_path' );
   my $control_files    =  $self->param( 'control_files' );
   my $fragment_size    =  $self->param( 'fragment_size' );
+  my $broad            =  $self->param( 'broad' );
+  my $options          = $self->param('options');
+
+  #$$options{ 'broad' => $broad };
+  $$options{'broad'}=$broad;
+
+  my ( $fragment_size_stat ) = split /,/, $fragment_size; # ppqt can find multiple peaks. the first is the most likely, so we use that one 
   
-  
-  foreach my $bed ( @$beds ) {
-    check_file_exists( $bed );
+  foreach my $bam ( @$bams ) {
+    check_file_exists( $bam );
   }
   
   
-  my $macs = ReseqTrack::Tools::RunPeakCall::Macs2(
-					-input_files   => $beds,
+  my $macs = ReseqTrack::Tools::RunPeakCall::Macs2->new(
+					-input_files   => $bams,
 					-working_dir   => $self->output_dir,
 					-options       => $self->param('options'),
 					-program       => $self->param('program_file'),
 					-job_name      => $self->job_name,
-					-fragment_size => $fragment_size,
+					-fragment_size => $fragment_size_stat,
 					-control_files => $control_files,
 					-samtools_path => $samtools_path,
+                                        -options       => $options,
                     );
 
 
