@@ -83,8 +83,9 @@ sub run {
       throw('no file found');
     }  
     elsif ( scalar @existing_file_objects > 0) { ## implement methods for existing files collection
-      throw('not suported yet');
+      throw("existing collection found, not suported yet: $collection_name & $collection_type :". scalar @existing_file_objects . ":". $$input_bams[0] .":". $$input_bams[1]);
     } 
+    $db->dbc->disconnect_when_inactive(1);
 }
 
 sub _create_collection {

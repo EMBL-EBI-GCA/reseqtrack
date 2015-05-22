@@ -92,9 +92,16 @@ sub create_seed_params {
           my ($attribute) = grep {$_->attribute_name eq $attribute_name} @$experiment_attributes;
           next ATTRIBUTE if !$attribute;
           my $attribute_value = $attribute->attribute_value;
-          $attribute_value=~ s/Histone\s+//g
-              if( $attribute_name eq 'EXPERIMENT_TYPE' );    ## fix for blueprint file name
 
+          $attribute_value=~ s/Histone\s+//g
+              if( $attribute_name eq 'EXPERIMENT_TYPE' );    ## fix for blueprint ChIP file name
+ 
+          $attribute_value=~ s/ChIP-Seq\s+//g
+              if( $attribute_name eq 'EXPERIMENT_TYPE' );    ## fix for blueprint ChIP file name
+
+          $attribute_value=~ s/Chromatin\sAccessibility/Dnase/
+              if( $attribute_name eq 'EXPERIMENT_TYPE' );    ## fix for blueprint Dnase file name 
+           
           $output_hash->{$attribute_name} = $attribute_value;
         }
      }

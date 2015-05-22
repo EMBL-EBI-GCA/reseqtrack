@@ -57,9 +57,9 @@ sub run {
     );
 
   $self->run_program( $metrics_generator );
-  $self->output_param( 'metrics', $metrics_generator->output_metrics_files ) if $keep_rdata;
-  $self->output_param( 'pdf', $metrics_generator->output_pdf_files ) if $keep_plot; 
-  $self->output_param( 'rdata', $metrics_generator->output_rdata_files ) if $keep_rdata;
+  $self->output_param( 'ppqt_metrics', $metrics_generator->output_metrics_files ) if $keep_metrics_file;
+  $self->output_param( 'ppqt_pdf', $metrics_generator->output_pdf_files ) if $keep_plot; 
+  $self->output_param( 'ppqt_rdata', $metrics_generator->output_rdata_files ) if $keep_rdata;
  
   if ( $add_attributes ) {
     my $generated_metrics = $metrics_generator->output_metrics_object;
