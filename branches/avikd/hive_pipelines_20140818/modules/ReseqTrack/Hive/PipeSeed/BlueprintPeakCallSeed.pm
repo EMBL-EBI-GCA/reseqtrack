@@ -49,7 +49,6 @@ sub create_seed_params {
       foreach my $collection_attribute (@$collection_attributes) {
         $output_hash->{ $collection_attribute->attribute_name } = $collection_attribute->attribute_value;    ## adding all collection attributes to pipeline
       }
-     
       my $experiment_name = $collection->name;
       my $experiment = $ea->fetch_by_source_id( $experiment_name );
       my $experiment_attributes = $experiment->attributes;
@@ -70,6 +69,7 @@ sub create_seed_params {
 
       $output_hash->{$attribute_name} = $attribute_value;
       $output_hash->{'experiment_source_id'} = $experiment_name;
+
 
       my $broad = assign_peak_call_type( $attribute_value )
                       if( $attribute_name eq 'EXPERIMENT_TYPE' );
