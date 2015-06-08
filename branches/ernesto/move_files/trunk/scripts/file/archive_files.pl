@@ -7,7 +7,6 @@ use Getopt::Long;
 use ReseqTrack::Tools::Loader;
 use ReseqTrack::Tools::Loader::Archive;
 use ReseqTrack::Tools::GeneralUtils;
-print "hello\n";
 
 my $dbhost;
 my $dbuser;
