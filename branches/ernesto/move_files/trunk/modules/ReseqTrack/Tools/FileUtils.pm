@@ -32,7 +32,7 @@ use File::Basename;
 use File::Path;
 use File::Find ();
 use ReseqTrack::Tools::GeneralUtils;
-use ReseqTrack::Tools::FileSystemUtils qw(check_directory_exists);
+use ReseqTrack::Tools::FileSystemUtils qw(check_directory_exists move_by_rsync);
 use vars qw (@ISA  @EXPORT);
 
 @ISA = qw(Exporter);
@@ -403,6 +403,7 @@ sub assign_type_by_filename {
   Arg [2]   : directory name where the files should be moved to
   Arg [3]   : new file type
   Arg [4]   : db object
+  Arg [5]   : use rsync for moving. Default=0
  
   Function  : move files to a specified directory and make the change in file table of the tracking db
   Returntype: a reference to an array of new file objects (new path and new file type); with this, new collection can be created if necessary
@@ -413,7 +414,7 @@ sub assign_type_by_filename {
 =cut
 
 sub move_file_in_db_and_dir { 
-  my ($file_objects, $dir, $new_f_type, $db) = @_;
+  my ($file_objects, $dir, $new_f_type, $db, $use_rsync) = @_;
   
   my @new_file_objects;
   
@@ -432,8 +433,13 @@ sub move_file_in_db_and_dir {
     #`mv $file_path $dir`;
     
     my $new_path = $dir . "/" . $base_name;
-    move($file_path, $new_path) or throw("Could not move $file_path to $new_path: $!"); 
+    if ($use_rsync) {
+	move_by_rsync($file_path, $new_path) or throw("Could not rsync move $file_path to $new_path: $!");
+    } else {
+	move($file_path, $new_path) or throw("Could not move $file_path to $new_path: $!"); 
+    }
     throw("Failed to move ".$file_path." to ".$new_path) unless(-e $new_path);
+
     $f_obj->name($new_path);
     $f_obj->type($new_f_type);
     

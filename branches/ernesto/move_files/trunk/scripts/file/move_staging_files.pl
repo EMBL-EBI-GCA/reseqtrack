@@ -22,6 +22,7 @@ my $run = 0;
 my $from;
 my $to;
 my $clobber = 0;
+my $use_rsync=0;
 
 &GetOptions( 
 	    'dbhost=s'      => \$dbhost,
@@ -33,6 +34,7 @@ my $clobber = 0;
 	    'from=s' => \$from,
 	    'to=s' => \$to,
 	    'run!' => \$run,
+            'rsync' => \ $use_rsync,
 	    'clobber!' => \$clobber,
     );
 
@@ -72,7 +74,7 @@ foreach my $path(keys(%$hash)){
 #    throw("Can't rename files using this script".$path." to ".$new_path.
 #	  " is not possible");
 #  }
-  move_file_in_db_and_dir([$file], $new_dir, $file->type, $db);
+  move_file_in_db_and_dir([$file], $new_dir, $file->type, $db, $use_rsync);
   unless(-e $new_path){
     throw("Failed to move ".$path." to ".$new_path);
   }
