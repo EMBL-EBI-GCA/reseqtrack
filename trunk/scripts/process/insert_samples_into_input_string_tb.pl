@@ -39,7 +39,7 @@ throw("Seq index file $input{seq_index} does not exist") if (!$lines || @$lines=
 my @tmp = split(/\./, basename($input{seq_index}));
 my $date;
 foreach my $piece ( @tmp ) {
-	if ( $piece =~ /\d+/) {
+	if ( $piece =~ /\d+/ && $piece !~ /\D+/ ) {
 		$date = $piece;
 	}
 }

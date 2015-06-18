@@ -98,7 +98,8 @@ my $outfile = $input{output_dir} . "/$pop/" . basename($bubble_file) . ".branche
 
 `rm $outfile` if (-e $outfile);
 
-my $cmd = "/nfs/1000g-work/G1K/work/bin/cortex/scripts/analyse_variants/make_branch_fasta.pl --callfile $bubble_file --kmer " . $input{kmer_size};
+#my $cmd = "/nfs/1000g-work/G1K/work/bin/cortex/scripts/analyse_variants/make_branch_fasta.pl --callfile $bubble_file --kmer " . $input{kmer_size};
+my $cmd = "/nfs/production/reseq-info/work/bin/cortex/scripts/analyse_variants/make_branch_fasta.pl --callfile $bubble_file --kmer " . $input{kmer_size};
 print "command line is \n$cmd\n";
 system($cmd);
 

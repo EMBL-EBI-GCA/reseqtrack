@@ -86,7 +86,8 @@ if (!$input{output_file_type} && $input{store} ) {
 }	
 
 if (!$input{tabix_dir}) {
-	$input{tabix_dir}= "/nfs/1000g-work/G1K/work/bin/tabix/";
+	#$input{tabix_dir}= "/nfs/1000g-work/G1K/work/bin/tabix/";
+	$input{tabix_dir}= "/nfs/production/reseq-info/work/bin/tabix/";
 }	
 
 my $db = ReseqTrack::DBSQL::DBAdaptor->new(
@@ -109,8 +110,16 @@ if ( 	$input{collection} && $input{collection_type} ) {
 	    print "list: " . $list->name . "\n";
 	    push @inputs, $list->name;
 	}
-	#my ($samples_to_look_for, $sample_to_pop_mapping) = parse_seq_index($input{seq_index});
-	$pop = $sample_to_pop_mapping->{$input{collection}};
+	my @tmp = split(/\./, $input{collection});
+	my $possible_sam_name = $tmp[0]; 
+	if ($sample_to_pop_mapping->{$possible_sam_name} ) {
+		$pop = $sample_to_pop_mapping->{$possible_sam_name};
+	}
+	else {
+		my @tmp2 = split(/\_/, $input{collection});
+		$pop = $tmp2[0] if ($input{collection} !~ /ref/);
+	}	
+	#$pop = $sample_to_pop_mapping->{$input{collection}}; #### FIXME:  BUG, this won't get pop as most collection name is not a sample name
 }
 elsif ( $input{colour_list} ) {
 	push @inputs, $input{colour_list};
