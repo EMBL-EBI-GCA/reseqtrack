@@ -224,7 +224,7 @@ sub run_bam_to_cram {
     my ($self) = @_;
 
     foreach my $input ( @{ $self->input_files } ) {
-        my $cram = $self->working_dir . basename($input) . ".cram";
+        my $cram = $self->working_dir . "/" . basename($input) . ".cram";
         $cram =~ s{//}{/}g;	
         
         my @cmd_words = ($self->program, 'view', '-h', '-C');

@@ -144,6 +144,8 @@ sub default_options {
         'validate_bam_exe' => $self->o('ENV', 'RESEQTRACK').'/c_code/validate_bam/validate_bam',
         'bwa_exe' => '/nfs/1000g-work/G1K/work/bin/bwa/bwa',
         'samtools_exe' => '/nfs/1000g-work/G1K/work/bin/samtools/samtools',
+        'cramtools_dir' => '/nfs/1000g-work/G1K/work/bin/crammer',
+        'cramtools_jar_file' => 'cramtools-2.1.jar',
         'squeeze_exe' => '/nfs/1000g-work/G1K/work/bin/bamUtil/bin/bam',
         'gatk_dir' => '/nfs/1000g-work/G1K/work/bin/gatk/',
         'picard_dir' => '/nfs/1000g-work/G1K/work/bin/picard',
@@ -169,7 +171,10 @@ sub default_options {
         'bam_type' => undef,
         'bai_type' => undef,
         'bas_type' => undef,
-
+		
+		'cram_type' => undef,
+		'crai_type' => undef,
+		
         'bwa_algorithm' => 'mem',
         'bwa_options' => {algorithm => $self->o('bwa_algorithm')},
 
@@ -235,17 +240,17 @@ sub resource_classes {
     my ($self) = @_;
     return {
             %{$self->SUPER::resource_classes},  # inherit 'default' from the parent class
-            '200Mb' => { 'LSF' => '-C0 -M200 -q '.$self->o('lsf_queue').' -R"select[mem>200] rusage[mem=200]"' },
-            '500Mb' => { 'LSF' => '-C0 -M500 -q '.$self->o('lsf_queue').' -R"select[mem>500] rusage[mem=500]"' },
-            '800Mb' => { 'LSF' => '-C0 -M800 -q '.$self->o('lsf_queue').' -R"select[mem>800] rusage[mem=800]"' },
-            '1Gb'   => { 'LSF' => '-C0 -M1000 -q '.$self->o('lsf_queue').' -R"select[mem>1000] rusage[mem=1000]"' },
-            '2Gb' => { 'LSF' => '-C0 -M2000 -q '.$self->o('lsf_queue').' -R"select[mem>2000] rusage[mem=2000]"' },
-            '3Gb' => { 'LSF' => '-C0 -M3000 -q '.$self->o('lsf_queue').' -R"select[mem>3000] rusage[mem=3000]"' },
-            '4Gb' => { 'LSF' => '-C0 -M4000 -q '.$self->o('lsf_queue').' -R"select[mem>4000] rusage[mem=4000]"' },
-            '5Gb' => { 'LSF' => '-C0 -M5000 -q '.$self->o('lsf_queue').' -R"select[mem>5000] rusage[mem=5000]"' },
-            '6Gb' => { 'LSF' => '-C0 -M6000 -q '.$self->o('lsf_queue').' -R"select[mem>6000] rusage[mem=6000]"' },
-            '8Gb' => { 'LSF' => '-C0 -M8000 -q '.$self->o('lsf_queue').' -R"select[mem>8000] rusage[mem=8000]"' },
-	    '10Gb' => { 'LSF' => '-C0 -M10000 -q '.$self->o('lsf_queue').' -R"select[mem>10000] rusage[mem=10000]"' },
+            '200Mb' => { 'LSF' => '-C0 -M200 -q '.$self->o('lsf_queue').' -R"select[mem>200] rusage[mem=200] select[' .$self->o('lsf_resource') . ']"' },
+            '500Mb' => { 'LSF' => '-C0 -M500 -q '.$self->o('lsf_queue').' -R"select[mem>500] rusage[mem=500] select[' .$self->o('lsf_resource') . ']"' },
+            '800Mb' => { 'LSF' => '-C0 -M800 -q '.$self->o('lsf_queue').' -R"select[mem>800] rusage[mem=800] select[' .$self->o('lsf_resource') . ']"' },
+            '1Gb'   => { 'LSF' => '-C0 -M1000 -q '.$self->o('lsf_queue').' -R"select[mem>1000] rusage[mem=1000] select[' .$self->o('lsf_resource') . ']"' },
+            '2Gb' => { 'LSF' => '-C0 -M2000 -q '.$self->o('lsf_queue').' -R"select[mem>2000] rusage[mem=2000] select[' .$self->o('lsf_resource') . ']"' },
+            '3Gb' => { 'LSF' => '-C0 -M3000 -q '.$self->o('lsf_queue').' -R"select[mem>3000] rusage[mem=3000] select[' .$self->o('lsf_resource') . ']"' },
+            '4Gb' => { 'LSF' => '-C0 -M4000 -q '.$self->o('lsf_queue').' -R"select[mem>4000] rusage[mem=4000] select[' .$self->o('lsf_resource') . ']"' },
+            '5Gb' => { 'LSF' => '-C0 -M5000 -q '.$self->o('lsf_queue').' -R"select[mem>5000] rusage[mem=5000] select[' .$self->o('lsf_resource') . ']"' },
+            '6Gb' => { 'LSF' => '-C0 -M6000 -q '.$self->o('lsf_queue').' -R"select[mem>6000] rusage[mem=6000] select[' .$self->o('lsf_resource') . ']"' },
+            '8Gb' => { 'LSF' => '-C0 -M8000 -q '.$self->o('lsf_queue').' -R"select[mem>8000] rusage[mem=8000] select[' .$self->o('lsf_resource') . ']"' },
+	    '10Gb' => { 'LSF' => '-C0 -M10000 -q '.$self->o('lsf_queue').' -R"select[mem>10000] rusage[mem=10000] select[' .$self->o('lsf_resource') . ']"' },
     };
 }
 
@@ -494,7 +499,8 @@ sub pipeline_analyses {
                 intervals_file => $self->o('realign_intervals_file'),
                 gatk_module_options => {knowns_only => 1},
                 recalibrate_level => $self->o('recalibrate_level'),
-                run_calmd => $self->o('run_calmd'),
+                java_exe => $self->o('java_exe'),
+		run_calmd => $self->o('run_calmd'),
                 reseqtrack_options => {
                   delete_param => ['bam', 'bai'],
                   flows_non_factory => {
@@ -561,10 +567,11 @@ sub pipeline_analyses {
               reference => $self->o('reference'),
               gatk_dir => $self->o('gatk_dir'),
               jvm_args => '-Xmx2g',
+	      	  java_exe => $self->o('java_exe'),
               known_sites_vcf => $self->o('known_snps_vcf'),
               realign_level => $self->o('realign_level'),
               gatk_module_options => {intervals => $self->o('recalibration_chromosomes')},
-	      reseqtrack_options => {
+	     	  reseqtrack_options => {
                 delete_param => ['bam', 'bai'],
                 flows_non_factory => {
                     1 => '#expr(#realign_level#!=2)expr#',
@@ -695,7 +702,8 @@ sub pipeline_analyses {
                 command => 'realign',
                 reference => $self->o('reference'),
                 gatk_dir => $self->o('gatk_dir'),
-                known_sites_vcf => $self->o('known_indels_vcf'),
+                java_exe => $self->o('java_exe'),
+				known_sites_vcf => $self->o('known_indels_vcf'),
                 gatk_module_options => {knowns_only => 0},
                 recalibrate_level => $self->o('recalibrate_level'),
                 run_calmd => $self->o('run_calmd'),
@@ -761,7 +769,8 @@ sub pipeline_analyses {
               reference => $self->o('reference'),
               gatk_dir => $self->o('gatk_dir'),
               jvm_args => '-Xmx2g',
-              known_sites_vcf => $self->o('known_snps_vcf'),
+              java_exe => $self->o('java_exe'),
+	      known_sites_vcf => $self->o('known_snps_vcf'),
               reseqtrack_options => {
                 delete_param => ['bam', 'bai'],
               },
@@ -880,13 +889,17 @@ sub pipeline_analyses {
       });    
     push(@analyses, {
             -logic_name => 'bam_to_cram',
-            -module        => 'ReseqTrack::Hive::Process::RunSamtools',
+            -module        => 'ReseqTrack::Hive::Process::RunCramtools',
             -parameters => {
-                bam => '#bam#',
-                program_file => $self->o('samtools_exe'),
-                command => 'bam_to_cram',
-                reference => $self->o('reference'),
+                bam 				=> '#bam#',
+                java_exe 			=> $self->o('java_exe'),
+                jvm_args 			=> '-Xmx4g',
+                program_file 		=> $self->o('cramtools_dir'),                
+                cramtools_jar_file 	=> $self->o('cramtools_jar_file'),
+                reference 			=> $self->o('reference'),
+                cramtools_options 	=> {'capture-all-tags' => 1, 'ignore-tags' => 'OQ:CQ:BQ','lossy-quality-score-spec' => '\'*8\''},
             },
+	    	-rc_name => '4Gb',
             -hive_capacity  =>  200,
             -flow_into => {
                 1 => {'store_cram' => {'file'=>'#cram#'}},
@@ -896,14 +909,14 @@ sub pipeline_analyses {
             -logic_name    => 'store_cram',
             -module        => 'ReseqTrack::Hive::Process::LoadFile',
             -parameters    => {
-              type => $self->o('cram_type'),
-              file => '#cram#',
-              name_file_module => $self->o('name_file_module'),
-              name_file_method => $self->o('name_file_method'),
-              name_file_params =>  {new_full_path => '#bam#.cram'},
-              final_output_dir => $self->o('final_output_dir'),
-              final_output_layout => $self->o('final_output_layout'),
-              clobber => 1,
+              type 					=> $self->o('cram_type'),
+              file 					=> '#cram#',
+              name_file_module 		=> $self->o('name_file_module'),
+              name_file_method 		=> $self->o('name_file_method'),
+              name_file_params 		=>  {new_full_path => '#bam#.cram'},
+              final_output_dir 		=> $self->o('final_output_dir'),
+              final_output_layout 	=> $self->o('final_output_layout'),
+              clobber 				=> 1,
             },
             -rc_name => '200Mb',
             -hive_capacity  =>  200,
@@ -913,16 +926,18 @@ sub pipeline_analyses {
       });   
     push(@analyses, {
           -logic_name => 'index_cram',
-          -module        => 'ReseqTrack::Hive::Process::RunSamtools',
+          -module        => 'ReseqTrack::Hive::Process::RunCramtools',
           -parameters => {
-              bam => '#file#',
-              program_file => $self->o('samtools_exe'),
-              command => 'index',
+              bam 					=> '#file#',
+              java_exe 				=> $self->o('java_exe'),
+              jvm_args				=> '-Xmx2g',
+              program_file 			=> $self->o('cramtools_dir'),                
+              cramtools_jar_file 	=> $self->o('cramtools_jar_file'),
           },
-          -rc_name => '200Mb',
+          -rc_name => '2Gb',
           -hive_capacity  =>  200,
             -flow_into => { 
-                1 => {'store_crai'=> {'file'=>'#crai#','cram'=>'#file#'}},
+                1 => {'store_crai'=> {'file'=>'#crai#'}},
             },
     });   
     push(@analyses, {
