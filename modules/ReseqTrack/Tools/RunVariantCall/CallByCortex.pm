@@ -1,4 +1,3 @@
-#package RunVariantCall::CallByCortex;
 package ReseqTrack::Tools::RunVariantCall::CallByCortex;
 
 use strict;
@@ -77,7 +76,8 @@ sub new {
   
   ## Set defaults
   #$self->program("/nfs/1000g-work/G1K/work/bin/cortex/bin/") if (! $self->program);
-  $self->program("/nfs/production/reseq-info/work/bin/cortex/bin/") if (! $self->program);
+  $self->program("/nfs/production/reseq-info/work/bin/cortex/bin/") if (!$self->program);
+  
   if ( !$executable ) {
       throw("Please provide cortex executable");
   } 
@@ -201,7 +201,8 @@ sub _process_input {
 		elsif (	$self->collection_type =~ /SAMPLE_CTX_TO_CLEAN/i || 
 	    		$self->collection_type eq "SAMPLE_CTX_CLEAN_TO_OL_BUBBLE") { 
 			if 	($list =~ /.cleaned_pool.ctx/i || 
-				($list =~ /bubble/i && $list =~ /.ctx/i ) ) {
+				($list =~ /bubble/i && $list =~ /.ctx/i ) ||
+				($list =~ /union/i && $list =~ /.ctx/i )  ) {
 				$self->_multi_colour_ctx($list);
 			}
 			else {	
@@ -303,6 +304,7 @@ sub run_program {
 	my $cleaning_threshold;
 	    
     my $cortex = $self->program . "/" . $self->executable;
+    print "cortex executable is $cortex\n";
     check_executable($cortex);
 
 	$self->_process_input; ## This sub generates se_list, pe1_list, pe2_list, colour_list and multi_colour_ctx from $self->input_files
@@ -377,7 +379,7 @@ sub run_program {
     		$self->collection_type eq "SAMPLE_CTX_CLEAN_TO_OL_BUBBLE" 	 ) { 
     	my $per_sample_colours = get_lines_from_file($self->_colour_list);
     	foreach my $per_sample_colour ( @$per_sample_colours ) {
-    	    my $output = $self->working_dir . "/" . $self->population    . "/" . basename($per_sample_colour) . "_" . $suffix . ".ctx";
+		    my $output = $self->working_dir . "/" . $self->population    . "/" . basename($per_sample_colour) . "_" . $suffix . ".ctx";
     	    $self->output_files($output);
     	    print "output of per sample cleaning is $output\n";
     	}    
@@ -402,9 +404,9 @@ sub run_program {
         $cmd .= "--dump_binary $bubble_colour \\\n";
     	$self->output_files($bubble_colour);
     }
-    elsif ( $self->collection_type eq "SAMPLE_CTX_CLEAN_BUBBLED_POOL" ) {
+    elsif ( $self->collection_type eq "SAMPLE_CTX_CLEAN_BUBBLED_POOL" ) {        
         my $mcolour_graph_to_genotype = $self->working_dir . "/" . $self->population    . "/" . $self->collection . ".multiColour_ctx";
-        $mcolour_graph_to_genotype =~ s/_to_pool//;
+		$mcolour_graph_to_genotype =~ s/_to_pool//;
         $cmd .= "--dump_binary $mcolour_graph_to_genotype \\\n";
         $self->output_files($mcolour_graph_to_genotype);
     }  
