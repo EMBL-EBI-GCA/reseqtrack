@@ -4,17 +4,24 @@
 
 =head1 SYNOPSIS
 
-  Pipeline must be seeded by the collection table of a ReseqTrack database (collection of genotype VCF files, one chromosome per collection)
-  A AnnoVcf matrix .txt file will be created for each collection (chromosome), containing coverage info for all samples, and stored in the ReseqTrack database
+  Pipeline must be seeded by the file table of a ReseqTrack database (input light weighted genotype VCF files to be annotated with additional information )
+  The final results are VCF files containing the following annotation:
+	1. Per site total depth (from pre-calculated depth matrices)
+	2. Allele frequency by continental super population (and global AF if not already in the light weighted VCF file) per site. AF for multi-allelic variants are 
+		calculated and reported for each allele independently
+	3. When the 'gl_flag' is set and GL files are provided at run time, genotype likehood for each genotype are added 
+	4. When "per_sample_dp_flag' is set, per sample per site depth is added to the GT columns
 
   Here is an example pipeline configuration to load using reseqtrack/scripts/pipeline/load_pipeline_from_conf.pl
 
-[AnnoVcf]
+[anno_vcf]
 table_name=file
-config_options=-file_type VCF
-config_options=-bam_type EXOME
 config_module=ReseqTrack::Hive::PipeConfig::AnnoVcf_conf
-config_options=-root_output_dir /path/to/dir
+config_options=-root_output_dir /nfs/1000g-work/G1K/scratch/zheng/annotate_vcf
+config_options=-file_type VCF
+config_options=-max_variants 10000
+config_options=-gl_flag 0
+config_options=-per_sample_dp_flag 0
   
   Options that MUST be specified in the pipeline.config_options table/column of your ReseqTrack database:
 
@@ -36,12 +43,23 @@ config_options=-root_output_dir /path/to/dir
 
       -root_output_dir, (default is your current directory) This is where working files go, i.e. not necessarily the final resting place of your output vcf
       
-
       Paths of executables:
       -tabix, (default is /nfs/1000g-work/G1K/work/bin/tabix/tabix)
-      -BedTools_program, (default is /nfs/1000g-work/G1K/work/bin/BEDTools/bin/multiBamCov)
-	  -paste_exe (default is /usr/bin/paste)
+      -bgzip_exe (default is '/nfs/1000g-work/G1K/work/bin/tabix/bgzip')
+      
+      Options for the annotate_vcf analysis:
+      
+      -depth_matrix_dir 		(default is  '/nfs/1000g-work/G1K/work/zheng/annotate_p3_vcf/depth_matrix')  
+      -supp_dp_mx_dir 			(default is  '/nfs/1000g-work/G1K/work/zheng/annotate_p3_vcf/supp_depth_matrix')
+	  -sample_panel				(default is  '/nfs/1000g-archive/vol1/ftp/release/20130502/integrated_call_samples.20130502.ALL.panel')
+	  -related_sample_list		(default is  '/nfs/1000g-archive/vol1/ftp/release/20130502/20140625_related_individuals.txt')
+	  -simple_var_gl_file_dir	(default is  '/nfs/1000g-work/G1K/scratch/zheng/add_gl_to_vcf')
+	  -complex_var_gl_file_dir	(default is  '/nfs/1000g-archive/vol1/ftp/technical/working/20130723_phase3_wg/mvncall')
 
+      -reference 				the index reference fasta file (fai) is used for slicing the genome into chunks (default is  '/nfs/1000g-work/G1K/work/REFERENCE/aligners_reference/bwa/grc37/human_g1k_v37.fa') 
+	  -gl_flag					the flag to indicate whether to add GL or not. Default is '1'
+	  -per_sample_dp_flag		the flag to indicate whether to add depth to indiviudal GT columns. Default is '1'
+	  
   Options that are required, but will be passed in by reseqtrack/scripts/init_pipeline.pl:
 
       -pipeline_db -host=???
@@ -87,15 +105,18 @@ sub default_options {
 
         'tabix'	=> '/nfs/1000g-work/G1K/work/bin/tabix/tabix',
 		'bgzip_exe'	=> '/nfs/1000g-work/G1K/work/bin/tabix/bgzip',
+		
 		'transpose_window_size' => 0,
 		
 		'depth_matrix_dir' 			=> '/nfs/1000g-work/G1K/work/zheng/annotate_p3_vcf/depth_matrix',  
 		'supp_dp_mx_dir' 			=> '/nfs/1000g-work/G1K/work/zheng/annotate_p3_vcf/supp_depth_matrix',
-		'sample_panel'				=> '/nfs/1000g-archive/vol1/ftp/release/20130502/integrated_call_samples.20130502.ALL.panel',
+		'sample_panel'				=> '/nfs/1000g-archive/vol1/ftp/release/20130502/integrated_call_samples_v3.20130502.ALL.panel',
 		'related_sample_list'		=> '/nfs/1000g-archive/vol1/ftp/release/20130502/20140625_related_individuals.txt',
 		'simple_var_gl_file_dir'	=> '/nfs/1000g-work/G1K/scratch/zheng/add_gl_to_vcf',
 		'complex_var_gl_file_dir'	=> '/nfs/1000g-archive/vol1/ftp/technical/working/20130723_phase3_wg/mvncall',
-
+		'gl_flag'					=> 1,
+		'per_sample_dp_flag'		=> 1,
+		
         'reference' => '/nfs/1000g-work/G1K/work/REFERENCE/aligners_reference/bwa/grc37/human_g1k_v37.fa',        
         'fai' => $self->o('reference') . '.fai',
         
@@ -174,7 +195,8 @@ sub pipeline_analyses {
                 									'CHROM_start' => '#CHROM_start#', 
                 									'CHROM_end' => '#CHROM_end#',
                 									'input_vcf' => '#name#',
-                 									'vcf_base_name' => '#expr( ($vcf =~ /([^\/]*)\.vcf(\.gz)?$/)[0] )expr#' }}
+                 									#'vcf_base_name' => '#expr( ($vcf =~ /([^\/]*)\.vcf(\.gz)?$/)[0] )expr#' }} ### FIXME, can be more specific in real runs
+                 									'vcf_base_name' => '#expr( ($vcf =~ /([^\/]*)\.phase3_shapeit2_mvncall_integrated_v4\.20130502.genotypes\.vcf(\.gz)?$/)[0] )expr#' }}
            },
       });
       push(@analyses, {
@@ -211,6 +233,8 @@ sub pipeline_analyses {
 				related_sample_list		=> $self->o('related_sample_list'),
 				simple_var_gl_file_dir	=> $self->o('simple_var_gl_file_dir'),
 				complex_var_gl_file_dir	=> $self->o('complex_var_gl_file_dir'),
+				gl_flag					=> $self->o('gl_flag'),
+				per_sample_dp_flag		=> $self->o('per_sample_dp_flag'),
                 output_param 			=> 'vcf',
             },
             -rc_name 		=> '2Gb',

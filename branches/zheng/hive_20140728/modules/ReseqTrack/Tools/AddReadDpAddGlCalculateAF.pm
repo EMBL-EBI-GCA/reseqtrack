@@ -11,9 +11,12 @@ This is the core module to annotate a light weighted VCF genotype files with the
 1. Per sample per site read depth and total depth (from a pre-calculated depth matrix)
 2. Allele frequency by continental super population (and global AF if not already in the light weighted VCF file) per site. AF for multi-allelic variants are 
 calculated and reported for each allele independently
-3. Genotype likehood for each genotype (from two GL files, one for simple variants, one for complex variants including SV and STR etc.; GL from the simple 
-variant GL file takes precedent if a site show up in both simple and complex variant GL list)
+3. Optional.  Genotype likehood for each genotype (from two GL files, one for simple variants, one for complex variants including SV and STR etc.; GL from the simple 
+variant GL file takes precedent if a site show up in both simple and complex variant GL list).  Do this when the 'gl_flag' is set
 
+when 'gl_flag' is set, GL will be added to the GT columns; when 'per_sample_dp_flag' is set, per sample dp will be added to individual GT columns. However, the total dp will be added to the INFO field 
+regardless of this flag.
+ 
 example
 
 	my $object = AddReadDpAddGlCalculateAF->new (
@@ -27,13 +30,14 @@ example
 		-related_samples			=> /path/to/list/of/samples/that/are/related
 		-simple_var_gl_file			=> /path/to/simple_var_gl_file,
 		-complex_var_gl_file		=> /path/to/complex_var_gl_file,
-		-save_files_from_deletion	=> save_files_from_deletion,
+		-gl_flag					=> 0,
+		-per_sample_dp_flag			=> 0,
+		-save_files_from_deletion	=> 0,
 	);
 
 =cut
 
 package ReseqTrack::Tools::AddReadDpAddGlCalculateAF;
-#package AddReadDpAddGlCalculateAF;
 use strict;
 use warnings;
 use ReseqTrack::Tools::Exception qw(throw warning);
@@ -55,7 +59,9 @@ sub new {
 			$sample_panel, 
 			$related_sample_list, 
 			$simple_var_gl_file, 
-			$complex_var_gl_file) = rearrange(
+			$complex_var_gl_file,
+			$gl_flag,
+			$per_sample_dp_flag ) = rearrange(
 		[
 			qw(
 			  DEPTH_MATRIX
@@ -65,6 +71,8 @@ sub new {
 			  RELATED_SAMPLE_LIST
 			  SIMPLE_VAR_GL_FILE
 			  COMPLEX_VAR_GL_FILE
+			  GL_FLAG
+			  PER_SAMPLE_DP_FLAG
 			  )
 		],
 		@args
@@ -75,8 +83,11 @@ sub new {
 	$self->region($region);
 	$self->sample_panel($sample_panel);
 	$self->related_sample_list($related_sample_list);	
-	$self->simple_var_gl_file($simple_var_gl_file);	
-	$self->complex_var_gl_file($complex_var_gl_file);	
+	$self->simple_var_gl_file($simple_var_gl_file) if ($simple_var_gl_file && $gl_flag);	
+	$self->complex_var_gl_file($complex_var_gl_file) if ($complex_var_gl_file  && $gl_flag);	
+	$self->gl_flag($gl_flag) if ($gl_flag);
+	$self->per_sample_dp_flag($per_sample_dp_flag) if ($per_sample_dp_flag);
+	
 	return $self;
 }
 
@@ -86,6 +97,8 @@ sub run_program {
 	print "input vcf file is " ;
 	print join (" ", @{$self->input_files}) . "\n";
 	print "depth matrix file is " . $self->depth_matrix . "\n";
+	
+	#print "gl_flag is " . $self->gl_flag . "\n";
 	
 	foreach (@{$self->input_files}) {
 		check_file_exists($_);
@@ -100,17 +113,20 @@ sub run_program {
 			
 	check_file_exists($self->sample_panel);
 	
-	check_file_exists($self->simple_var_gl_file);
-	check_file_exists($self->simple_var_gl_file . ".tbi");	
-	check_file_exists($self->complex_var_gl_file);
-	check_file_exists($self->complex_var_gl_file . ".tbi");
-	
 	check_executable($self->program); ### tabix
 	
 	$self->find_sample_spop;
 	$self->get_related_samples;
 
-	$self->get_complex_var_gl_for_a_region;
+	if ( $self->gl_flag ) {
+		throw("please provide GL files when -gl_flag is set") unless ($self->simple_var_gl_file && $self->complex_var_gl_file);
+		check_file_exists($self->simple_var_gl_file);
+		check_file_exists($self->simple_var_gl_file . ".tbi");	
+		check_file_exists($self->complex_var_gl_file);
+		check_file_exists($self->complex_var_gl_file . ".tbi");
+		$self->get_complex_var_gl_for_a_region;
+	}
+	
 	$self->get_supp_depth_for_a_region;  ## this is for the supplement depth matrix
 	
 	$self->run_annotation;
@@ -129,7 +145,7 @@ sub run_annotation {
 
 	my $open_vcf = $self->get_tabix_file_handler($self->input_files->[0]);	
 	my $open_dp_matrix = $self->get_tabix_file_handler($self->depth_matrix);
-	my $open_simple_gl_file = $self->get_tabix_file_handler($self->simple_var_gl_file);
+	my $open_simple_gl_file = $self->get_tabix_file_handler($self->simple_var_gl_file) if ($self->gl_flag);
 				
 	my @vcf_header;	
 	my @mx_header;
@@ -152,10 +168,25 @@ sub run_annotation {
 		chomp $vcf_line;
 		
 		if ($vcf_line =~ /^\#\#/) {
+			if ($vcf_line =~ /^\#\#bcftools_annotate/) {
+				next;
+			}
 			print $ofh $vcf_line . "\n";
 			next;
 		}	
 		elsif ($vcf_line =~ /^\#CHROM/) {
+			
+			print $ofh "\#\#INFO=<ID=SAS_AF,Number=A,Type=Float,Description=\"Allele frequency in the SAS populations calculated from AC and AN, in the range (0,1)\">\n";
+			print $ofh "\#\#INFO=<ID=EUR_AF,Number=A,Type=Float,Description=\"Allele frequency in the EUR populations calculated from AC and AN, in the range (0,1)\">\n";
+			print $ofh "\#\#INFO=<ID=AFR_AF,Number=A,Type=Float,Description=\"Allele frequency in the AFR populations calculated from AC and AN, in the range (0,1)\">\n";
+			print $ofh "\#\#INFO=<ID=AMR_AF,Number=A,Type=Float,Description=\"Allele frequency in the AMR populations calculated from AC and AN, in the range (0,1)\">\n";
+			print $ofh "\#\#INFO=<ID=EAS_AF,Number=A,Type=Float,Description=\"Allele frequency in the EAS populations calculated from AC and AN, in the range (0,1)\">\n";
+			print $ofh "\#\#INFO=<ID=DP,Number=1,Type=Integer,Description=\"Total read depth\">\n";
+			print $ofh "\#\#FORMAT=<ID=DP,Number=1,Type=String,Description=\"Per sample read depth\">\n" if ($self->per_sample_dp_flag);
+			print $ofh "\#\#FORMAT=<ID=GL,Number=1,Type=String,Description=\"Genotype likelihood\">\n" if ($self->gl_flag);
+			print $ofh "\#\#FORMAT=<ID=CNL,Number=1,Type=String,Description=\"Genotype likelihood for CNVs\">\n" if ($self->gl_flag);
+			print $ofh "\#\#FORMAT=<ID=PL,Number=1,Type=String,Description=\"Genotype likelihood for STRs\">\n" if ($self->gl_flag);
+			
 			print $ofh $vcf_line . "\n";
 			@vcf_header = split(/\t/, $vcf_line);
 			next;
@@ -166,8 +197,8 @@ sub run_annotation {
 		my $vcf_chrom = $vcf_data[0];
 		my $vcf_start = $vcf_data[1];
 		my $vcf_allele = $vcf_data[4];
-		print STDERR ("site is $vcf_chrom _ $vcf_start\n");
-			
+		print STDERR ("site is $vcf_chrom _ $vcf_start\n");	
+		
 		if ($vcf_chrom ne $user_chrom ) {
 			throw("Wrong chromosome chosen for " . $self->region . "\n");
 		}	
@@ -211,17 +242,19 @@ sub run_annotation {
 		my $mx_chrom = shift @mx_depth_all_samples;
 		my $mx_start = shift @mx_depth_all_samples;	
 		
-		throw("matrix file on chrom $mx_chrom, input vcf file on $vcf_chrom") if ($vcf_chrom ne $mx_chrom);
+		if ($vcf_chrom ne $mx_chrom) {
+			print STDERR "matrix file on chrom $mx_chrom, input vcf file on $vcf_chrom\n";
+		}
+		
 		
 		my %depth_hash_by_line;
 		if ($vcf_chrom eq $mx_chrom && $vcf_start == $mx_start) {	
 			for (my $i=0; $i < $num_of_samples_in_mx; $i++) {
-				#print "matrix pos is $chrom _ $start, sample is $h[$i], dpeth is $mx_depth_all_samples[$i]\n";
 				$depth_hash_by_line{$mx_header[$i]} = $mx_depth_all_samples[$i];
 			}
 		}
 		elsif ( (	$vcf_chrom eq $mx_chrom && $vcf_start < $mx_start ) || 
-					$mx_line =~ /^$/ ) { ## if the mx file reach the end in the batix block and doesn't have a matching site
+					!$mx_line ) {		##if the mx file reach the end in the tatix block and doesn't have a matching site		
 			print STDERR "New site $vcf_chrom $vcf_start, get dp from a separate matrix\n";
 			for (my $i=9; $i <= $#vcf_header; $i++) {
 				my $dp = $self->supp_dp_hash->{$vcf_chrom . "_" . $vcf_start}->{$vcf_header[$i]};
@@ -243,78 +276,94 @@ sub run_annotation {
 			throw("What's wrong with the vcf file $vcf_chrom $vcf_start and matrix file $mx_chrom $mx_start");
 		}	
 		
-		
-		GL:
-		if ($gl_cursor_wait==1) {
-			$gl_cursor_wait = 0;
-		}
-		else {
-			$gl_line = <$open_simple_gl_file>;  ### at the end of document, this returns an empty line
-			chomp $gl_line;
-		}
-	
-		if ($gl_line =~ /^##/) {
-			HEADER:
-			$gl_line = <$open_simple_gl_file>;
-			if ($gl_line =~ /^##/) {
-				goto HEADER;
-			}	
-			chomp $gl_line;	
-		}	
-				
-		if ($gl_line =~ /^\#CHROM/) {
-			@gl_header = split(/\t/, $gl_line);
-			$gl_line = <$open_simple_gl_file>;
-			chomp $gl_line;	
-		}
-		
-		my @gl_data = split(/\t/, $gl_line);
-		my $gl_chrom = $gl_data[0];
-		my $gl_start = $gl_data[1];
-		
-		throw("simple var GL file on chrom $gl_chrom, input vcf file on $vcf_chrom") if ($vcf_chrom ne $gl_chrom);		
-		
 		my %gl_hash_by_line;
-		if ( $vcf_chrom eq $gl_chrom && $vcf_start == $gl_start ) {
-			$self->get_gl_hash_for_a_line($gl_line, \@gl_header);
-			%gl_hash_by_line = %{$self->gl_hash};
-		}
-		elsif ( (	$vcf_chrom eq $gl_chrom && $vcf_start < $gl_start) || 
-					$gl_line =~ /^$/) {  ## if the gl file reach the end in the batix block and doesn't have a matching site
-			print STDERR "site $vcf_chrom $vcf_start, see if the site is in the complex var gl file\n";
-			for (my $i=9; $i <= $#gl_header; $i++) {				
-				if ($self->complex_var_gl_hash->{$vcf_chrom . "_" . $vcf_start}->{$vcf_allele}->{$vcf_header[$i]})  {  ### adding the allele is to make sure the allele is identical in the complex VAR gl file and the input vcf file, like chr11:90692
-					my $complex_var_gl = $self->complex_var_gl_hash->{$vcf_chrom . "_" . $vcf_start}->{$vcf_allele}->{$vcf_header[$i]};
-					$gl_hash_by_line{$gl_header[$i]} = $complex_var_gl;
-					#print STDERR ("Found complex var GL: $gl_header[$i] $complex_var_gl\n");
-				}
-				else {
-					print STDERR ("No simple or complex var GL for site $vcf_chrom  _  $vcf_start\n");
-					$gl_hash_by_line{$gl_header[$i]} = "."; ### FIXME, check if . is a good representation for no GL data
-				}												  
+		if ($self->gl_flag) {
+			GL:
+			if ($gl_cursor_wait==1) {
+				$gl_cursor_wait = 0;
+			}
+			else {
+				$gl_line = <$open_simple_gl_file>;  ### at the end of document, this returns an empty line
+				chomp $gl_line;
+			}
+		
+			if ($gl_line =~ /^##/) {
+				HEADER:
+				$gl_line = <$open_simple_gl_file>;
+				if ($gl_line =~ /^##/) {
+					goto HEADER;
+				}	
+				chomp $gl_line;	
 			}	
-			$gl_cursor_wait = 1;
-		}	
-		elsif ( $vcf_chrom eq $gl_chrom && $vcf_start > $gl_start ) {
-			print STDERR "Skip a site $gl_chrom $gl_start in the simple var gl file\n";
-			goto GL;
-		}	
-		else {
-			throw("What's wrong with the vcf file $vcf_chrom $vcf_start and simple var gl file $gl_chrom $gl_start");
+					
+			if ($gl_line =~ /^\#CHROM/) {
+				@gl_header = split(/\t/, $gl_line);
+				$gl_line = <$open_simple_gl_file>;
+				chomp $gl_line;	
+			}
+			
+			my @gl_data = split(/\t/, $gl_line);
+			my $gl_chrom = $gl_data[0];
+			my $gl_start = $gl_data[1];
+			
+			print STDERR ("simple var GL file on chrom $gl_chrom, input vcf file on $vcf_chrom") if ($vcf_chrom ne $gl_chrom);		
+			
+			if ( $vcf_chrom eq $gl_chrom && $vcf_start == $gl_start ) {
+				$self->get_gl_hash_for_a_line($gl_line, \@gl_header);
+				%gl_hash_by_line = %{$self->gl_hash};
+			}
+			elsif ( (	$vcf_chrom eq $gl_chrom && $vcf_start < $gl_start) || 
+						!$gl_line ) { ## if the gl file reach the end in the batix block and doesn't have a matching site
+				print STDERR "site $vcf_chrom $vcf_start, see if the site is in the complex var gl file\n";
+				for (my $i=9; $i <= $#gl_header; $i++) {				
+					if ($self->complex_var_gl_hash->{$vcf_chrom . "_" . $vcf_start}->{$vcf_allele}->{$vcf_header[$i]})  {  ### adding the allele is to make sure the allele is identical in the complex VAR gl file and the input vcf file, like chr11:90692
+						my $complex_var_gl = $self->complex_var_gl_hash->{$vcf_chrom . "_" . $vcf_start}->{$vcf_allele}->{$vcf_header[$i]};
+						$gl_hash_by_line{$gl_header[$i]} = $complex_var_gl;
+						#print STDERR ("Found complex var GL: $gl_header[$i] $complex_var_gl\n");
+					}
+					else {
+						print STDERR ("No simple or complex var GL for site $vcf_chrom  _  $vcf_start\n");
+						$gl_hash_by_line{$gl_header[$i]} = "."; 
+					}												  
+				}	
+				$gl_cursor_wait = 1;
+			}	
+			elsif ( $vcf_chrom eq $gl_chrom && $vcf_start > $gl_start ) {
+				print STDERR "Skip a site $gl_chrom $gl_start in the simple var gl file\n";
+				goto GL;
+			}	
+			else {
+				throw("What's wrong with the vcf file $vcf_chrom $vcf_start and simple var gl file $gl_chrom $gl_start");
+			}	
+	
+			if ($vcf_data[7] =~ /SVTYPE=CNV/) {
+				$vcf_data[8] .= ":DP:CNL";
+			}
+			elsif ($vcf_data[7] =~ /VT=STR/) {
+				$vcf_data[8] .= ":DP:PL";
+			}
+			else {	
+				$vcf_data[8] .= ":DP:GL";  
+			}
+	
+		}
+		elsif ($self->per_sample_dp_flag) {
+			if ($vcf_data[7] =~ /SVTYPE=CNV/) {
+				$vcf_data[8] .= ":DP";
+			}
+			elsif ($vcf_data[7] =~ /VT=STR/) {
+				$vcf_data[8] .= ":DP";
+			}
+			else {	
+				$vcf_data[8] .= ":DP";  
+			}
+		}
+		else {	
+			
 		}	
 			
 		my @multi_alt_alleles = split(/,/, $vcf_data[4]);  ### this is to help calculating AF for multi-allelic sites 
 		my $multi_allelic_levels = $#multi_alt_alleles + 1;
-		
-		if ($vcf_data[7] =~ /SVTYPE=CNV/) {
-			$vcf_data[8] .= ":DP:CNL";
-		}
-		elsif ($vcf_data[7] =~ /VT=STR/) {
-			$vcf_data[8] .= ":DP:PL";
-		}
-		else {	
-			$vcf_data[8] .= ":DP:GL";  
-		}
 		
 		my $sum_d = 0;
 		$self->init_allele_cnts_per_site($multi_allelic_levels);
@@ -329,28 +378,30 @@ sub run_annotation {
 				$d = "."; 
 			}
 			$sum_d += $d if ($d ne ".");
-			$vcf_data[$j] .= ":" . $d; 
-			
+			$vcf_data[$j] .= ":" . $d if ($self->per_sample_dp_flag); 
+		
 			### GL ###
-			my $gl = $gl_hash_by_line{$vcf_header[$j]};
-			if (!$gl) {
-				print STDERR ($vcf_data[0] . "_" . $vcf_data[1] . "_" . $vcf_header[$j] . " does not have GL\n");  
-				$gl = ".";  ### FIXME, check
-			}			
-			$vcf_data[$j] .= ":" . $gl ;
+			if ($self->gl_flag)	{
+				my $gl = $gl_hash_by_line{$vcf_header[$j]};
+				if (!$gl) {
+					print STDERR ($vcf_data[0] . "_" . $vcf_data[1] . "_" . $vcf_header[$j] . " does not have GL\n");  
+					$gl = ".";
+				}			
+				$vcf_data[$j] .= ":" . $gl ;
+			}
 			
 			#### AF ###
-			if ( $self->related_sample_hash->{$vcf_header[$j]} ) { 			#### FIXME - uncomment this after testing
+			if ( $self->related_sample_hash->{$vcf_header[$j]} ) { 			
 				#print STDERR ("skipping sample $vcf_header[$j] for allele frq calculation as it is one of the related samples\n");
 			}
 			else {	
 				$self->populate_allele_cnt_per_site_hash($vcf_header[$j], $multi_allelic_levels, $vcf_data[$j]);		
 			}
 		}
-		if ($sum_d == 0 ) {
+		if ($sum_d == 0 && $self->region !~ /Y/i ) {
 			$vcf_data[7] .= ";DP=" . ".";	
 		}
-		else {
+		elsif ($self->region !~ /Y/i) {
 			$vcf_data[7] .= ";DP=" . $sum_d;
 		}	 	
 		$vcf_data[7] .= ";" . $self->calculate_AF_per_site->AF;  
@@ -393,7 +444,6 @@ sub get_supp_depth_for_a_region {
 	$self->supp_dp_hash(\%depth_hash);
 	return $self;
 }		
-
 
 sub get_gl_hash_for_a_line {
 	my ($self, $line, $header) = @_;
@@ -562,7 +612,7 @@ sub find_sample_spop {
 sub init_allele_cnts_per_site {
 	my ($self, $allelic_levels) = @_;
 	my %allele_cnt_pop;
-	my @super_pops = qw(ALL AFR AMR ASN EUR SAN);	
+	my @super_pops = qw(ALL AFR AMR SAS EUR EAS);	
 	foreach my $p ( @super_pops ) {
 		$allele_cnt_pop{$p}{'ref'}{0} = 0;
 		for (my $l = 1; $l <= $allelic_levels; $l++) {
@@ -637,7 +687,7 @@ sub calculate_AF_per_site {
 				$af_by_allelic_level = 0;
 			}
 			else {	
-				$af_by_allelic_level = sprintf("%.8f", $alt_cnt_by_allelic_level{$allelic_level2}/$all_allele_cnt);
+				$af_by_allelic_level = sprintf("%.4f", $alt_cnt_by_allelic_level{$allelic_level2}/$all_allele_cnt);
 			}
 			
 			#print STDERR "ordered allelic level is $allelic_level2\n";
@@ -645,9 +695,9 @@ sub calculate_AF_per_site {
 		}	
 	
 		my $af_string_by_spop = join(',', @af_array);
-		#if ($spop ne 'ALL') {  ### FIXME: add this condition back if the GT file already has global AF
+		if ($spop ne 'ALL') {  ### FIXME: comment this out if the GT file doesn't have global AF
 			push @af_fields, "$spop" . "_AF=" . $af_string_by_spop;
-		#}		
+		}		
 	}	
 
 	my $af_string = join(";", @af_fields);	
@@ -755,6 +805,22 @@ sub gl_hash {
   return $self->{gl_hash};
 }
 
+sub gl_flag {
+  my ( $self, $arg ) = @_;
+  if ($arg) {
+    $self->{gl_flag} = $arg;
+  }
+  return $self->{gl_flag};
+}
+
+sub per_sample_dp_flag {
+  my ( $self, $arg ) = @_;
+  if ($arg) {
+    $self->{per_sample_dp_flag} = $arg;
+  }
+  return $self->{per_sample_dp_flag};
+}
+
 sub supp_dp_hash {
   my ( $self, $arg ) = @_;
   if ($arg) {
@@ -771,5 +837,3 @@ sub complex_var_gl_hash {
   return $self->{complex_var_gl_hash};
 }
 
-#### FIXME: need to fix the header for the final VCF file so it contains the new fields.
-#### FIXME, need to remove inherited global AF if it was calculated with 2535 samples including the related ones.

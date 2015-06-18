@@ -9,7 +9,6 @@ use ReseqTrack::Hive::Utils::SequenceSliceUtils qw(fai_to_slices);
 sub param_defaults {
   return {
 	overlap => 0,
-    save_files_from_deletion => 1,  ### FIXME, check this to 0
   };
 }
 
@@ -30,9 +29,10 @@ sub run {
     my $related_sample_list = $self->param_required('related_sample_list');
     my $simple_var_gl_file_dir = $self->param_required('simple_var_gl_file_dir');
     my $complex_var_gl_file_dir = $self->param_required('complex_var_gl_file_dir');
+    my $gl_flag = $self->param_required('gl_flag');
+    my $per_sample_dp_flag = $self->param_required('per_sample_dp_flag');
     
     my $tabix =  $self->param_required('tabix');   
-	my $save_files_from_deletion = $self->param('save_files_from_deletion');
 
     my $slices = fai_to_slices(
           fai => $fai,
@@ -54,7 +54,7 @@ sub run {
 	my $chunk = $chrom . ":" . $s . "-" . $e;
 
 	my $depth_matrix = $depth_matrix_dir . "/" . "ALL.chr" . $chrom . ".20140717.matrix.gz";
-	my $supp_dp_mx = $supp_dp_mx_dir . "/" . "chr" . $chrom . ".20140718.matrix.gz";
+	my $supp_dp_mx = $supp_dp_mx_dir . "/" . "chr" . $chrom . ".extra_sites.20140801.matrix.gz";
 	my $simple_var_gl_file = $simple_var_gl_file_dir . "/" . "ALL.chr" . $chrom . ".phase3_bc_union.20130502.biallelic_svm_snps_indelsAF0.005_svs.gl.vcf.gz";
 	my $complex_var_gl_file = $complex_var_gl_file_dir . "/" . "ALL.chr" . $chrom . ".mvncall_sorted_off_by_one.20130502.non_biallelic_snps_svs_microsat.genotypes.vcf.gz";
 
@@ -69,7 +69,8 @@ sub run {
 		-related_sample_list		=> $related_sample_list,
 		-simple_var_gl_file			=> $simple_var_gl_file,
 		-complex_var_gl_file		=> $complex_var_gl_file,
-		-save_files_from_deletion	=> $save_files_from_deletion,
+		-gl_flag					=> $gl_flag,
+		-per_sample_dp_flag			=> $per_sample_dp_flag,
 	);
 	
 	$self->run_program($object);
