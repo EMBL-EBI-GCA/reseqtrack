@@ -13,7 +13,7 @@ use ReseqTrack::Collection;
 use ReseqTrack::History;
 use Digest::MD5::File qw(file_md5_hex);
 use File::Copy qw( move );
-use File::Basename qw( dirname );
+use File::Basename qw( dirname basename );
 use Cwd qw( abs_path);
 
 
