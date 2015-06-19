@@ -220,7 +220,7 @@ for my $output (@files) {
 
 print "Peak calling complete$/" if $verbose;
 
-my %peak_stats = gather_peak_stats( $peak_caller->bed_file, \@input_filepaths )
+my %peak_stats = gather_peak_stats( $peak_caller->bed_file, \@input_filepaths, $samtools_path )
   if ( $do_peak_stats && $peak_caller->bed_file );
 
 if ($gzip_output) {
@@ -304,7 +304,7 @@ sub get_allowed_options {
 }
 
 sub get_total_reads {
-    my ($input_filepaths) = @_;
+    my ($input_filepaths, $samtools_path) = @_;
 
     my $read_count = 0;
 
@@ -314,14 +314,14 @@ sub get_total_reads {
             $cmd = "cat $f | grep -v \\# | wc -l";
         }
         elsif ( $f =~ m/\.bam$/ ) {
-            $cmd = "samtools view -c $f";
+            $cmd = "$samtools_path view -c $f";
         }
         else {
             throw("Cannot get read count for $f");
         }
 
         print "Executing pipe command: $cmd $/" if $verbose;
-        $read_count = +execute_pipe_system_command($cmd);
+        $read_count = execute_pipe_system_command($cmd);
 
         print "Read count $read_count$/" if $verbose;
     }
@@ -437,9 +437,9 @@ QUERY_END
 }
 
 sub gather_peak_stats {
-    my ( $bed_file, $input_filepaths ) = @_;
+    my ( $bed_file, $input_filepaths, $samtools_path) = @_;
 
-    my $total_reads = get_total_reads($input_filepaths);
+    my $total_reads = get_total_reads($input_filepaths, $samtools_path);
     my $reads_in_peaks =
       get_reads_in_peaks( $input_filepaths, $bed_file, $intersect_bed_path );
 
