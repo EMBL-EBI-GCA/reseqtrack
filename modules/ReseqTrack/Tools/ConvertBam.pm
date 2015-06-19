@@ -58,9 +58,9 @@ sub new {
   my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
 
-  my ( $chromosome_file, $format, $output_file, $reference_fasta ) =
+  my ( $chromosome_file, $format, $output_file, $reference_fasta, $bed_graph_to_big_wig ) =
     rearrange(
-    [qw( CHROMOSOME_FILE OUTPUT_FORMAT OUTPUT_FILE REFERENCE_FASTA )], @args );
+    [qw( CHROMOSOME_FILE OUTPUT_FORMAT OUTPUT_FILE REFERENCE_FASTA BED_GRAPH_TO_BIG_WIG)], @args );
 
   $self->chromosome_file($chromosome_file) if $chromosome_file;
   $self->output_format($format);
@@ -68,6 +68,7 @@ sub new {
   $self->reference_fasta($reference_fasta) if $reference_fasta;
 
   $self->program('genomeCoverageBed') unless $self->program();
+  $self->bed_graph_to_big_wig($bed_graph_to_big_wig);
 
   return $self;
 }
@@ -98,7 +99,7 @@ sub convert_bed_graph {
     "Chromsome file (2 columns, name and length, tab separated) is required")
     unless ( $self->chromosome_file );
 
-  my @bed_graph_cmd = ( 'genomeCoverageBed', '-bg' );
+  my @bed_graph_cmd = ( $self->program, '-bg' );
   my $chromosome_file = $self->chromosome_file;
 
   push @bed_graph_cmd, '-split' if ( $self->options('split_reads') );
@@ -161,7 +162,7 @@ sub convert_big_wig {
   $self->convert_bed_graph( $input_file, $temp_file, 1 );
 
   my @big_wig_cmd =
-    ( 'bedGraphToBigWig', $temp_file, $self->chromosome_file, $output_file );
+    ( $self->bed_graph_to_big_wig, $temp_file, $self->chromosome_file, $output_file );
 
   my $bw_cmd = join ' ', @big_wig_cmd;
 
@@ -285,6 +286,14 @@ sub reference_fasta {
     $self->{'reference_fasta'} = $arg;
   }
   return $self->{'reference_fasta'};
+}
+
+sub bed_graph_to_big_wig {
+  my ( $self, $arg ) = @_;
+  if ($arg) {
+    $self->{'bed_graph_to_big_wig'} = $arg;
+  }
+  return $self->{'bed_graph_to_big_wig'};
 }
 
 1;
