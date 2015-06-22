@@ -32,6 +32,7 @@ sub param_defaults {
     'ps_attributes' => {},
     'derive_path_options' => {},
     'move_by_rsync' => 0,
+    'collect' => 0,
   };
 }
 
@@ -51,7 +52,8 @@ sub run {
     my $db_params = $self->param_required('reseqtrack_db');
     my $hostname = $self->param_required('hostname');
     my $ps_attributes = $self->param('ps_attributes');
-
+    my $collect = $self->param('collect');
+    
     throw("input_id not correctly formulated") if ! defined $file_details->{'dropbox'};
     throw("input_id not correctly formulated") if ! defined $file_details->{'db'};
     throw("input_id not correctly formulated") if ! defined $file_details->{'dropbox'}->{'path'};
@@ -66,6 +68,7 @@ sub run {
     my $file_object = $fa->fetch_by_dbID($file_id);
     throw("did not find file $file_id in database") if !$file_object;
 
+    my $collection_name = undef;
     my $index_object;
     my $index_extension = $file_details->{'dropbox'}->{'index_ext'};
     if ($index_extension) {
@@ -75,7 +78,10 @@ sub run {
     }
 
     my $dropbox_path = $file_details->{'dropbox'}->{'path'};
-    my $destination_path = $self->derive_path($dropbox_path, $file_object);
+    my $destination_path;
+    ($destination_path, $collection_name) = $self->derive_path($dropbox_path, $file_object); ## get collection name if provided
+    throw('collection name not found') if $collect && !$collection_name;                        ## collection name is required for creating collection
+
     if (my $reject_message = $self->reject_message) {
         $ps_attributes->{'message'} = $reject_message;
         $self->output_param('ps_attributes', $ps_attributes);
@@ -132,7 +138,10 @@ sub run {
     }
     else {
       move($dropbox_path, $destination_path) or throw("error moving to $destination_path: $!");
-      move($dropbox_path.$index_extension, $destination_path.$index_extension) or throw("error moving to $destination_path.$index_extension: $!");
+      
+      if( $index_extension ) {
+        move($dropbox_path.$index_extension, $destination_path.$index_extension) or throw("error moving to $destination_path.$index_extension: $!");
+      }
     }
     my $host = get_host_object($hostname, $db);
     $file_object->name($destination_path);
@@ -155,6 +164,17 @@ sub run {
     }
 
     $fa->update($file_object,0,$change_name);
+
+    if ($collect) {
+       my $collection = ReseqTrack::Collection->new(
+                          -name       => $collection_name, 
+                          -type       => $file_object->type, 
+                          -others     => $file_object, 
+                          -table_name => 'file',
+                        );
+
+      $db->get_CollectionAdaptor->store($collection);
+    }
 
     if ($index_extension) {
       $index_object->name($destination_path.$index_extension);

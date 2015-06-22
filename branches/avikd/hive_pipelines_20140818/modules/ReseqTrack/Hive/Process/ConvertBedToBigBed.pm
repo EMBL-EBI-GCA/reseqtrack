@@ -101,7 +101,7 @@ sub run {
     _convert_to_big_bed($bedToBigBedPath, $tmp_file_name, $out_file, $chr_file, $verbose );
     delete_file($tmp_file_name);
   }
-  $self->output_param( 'bigbed', \@output_files );
+  $self->output_param( 'bigbed', $output_files[0] );
 }
 
 sub _check_column_mapping_indices {
@@ -194,7 +194,7 @@ sub _transform_input_file {
         if ( defined $rescale_scores ) {
             if ( $rescale_scores eq 'iqr' ) {
                 $entry{score} =
-                  rescale_score_iqr( $entry{score}, $q1, $q3, $min_score,
+                  _rescale_score_iqr( $entry{score}, $q1, $q3, $min_score,
                     $max_score );
             }
             if ( isnum($rescale_scores) ) {
@@ -217,7 +217,7 @@ sub _transform_input_file {
       if $verbose;
 }
 
-sub rescale_score_iqr {
+sub _rescale_score_iqr {
     my ( $original_score, $q1, $q3, $min_score, $max_score ) = @_;
 
     if ( $original_score <= $q1 ) {

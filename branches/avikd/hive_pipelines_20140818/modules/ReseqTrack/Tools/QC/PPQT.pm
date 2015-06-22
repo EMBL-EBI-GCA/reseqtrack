@@ -238,19 +238,19 @@ sub no_dups {
 
 sub output_metrics_files {
   my $self = shift;
-  my @files = grep { /metrics$/ } @{ $self->output_files };
+  my @files = grep { /\.ppqt_metrics$/ } @{ $self->output_files };
   return \@files;
 }
 
 sub output_pdf_files {
   my $self = shift;
-  my @files = grep { /pdf$/ } @{ $self->output_files };
+  my @files = grep { /\.pdf$/ } @{ $self->output_files };
   return \@files;
 }
 
 sub output_rdata_files {
   my $self = shift;
-  my @files = grep { /rdata$/ } @{ $self->output_files };
+  my @files = grep { /\.rdata$/ } @{ $self->output_files };
   return \@files;
 }
 

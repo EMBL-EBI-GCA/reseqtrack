@@ -45,7 +45,6 @@ my $cram = ReseqTrack::Tools::RunWiggler->new (
 
 sub DEFAULT_OPTIONS {
     return {
-
     };
 }
 
@@ -53,9 +52,9 @@ sub new {
     my ( $class, @args ) = @_;
     my $self = $class->SUPER::new(@args);
 
-    my ( $output_format, $bedGraphToBigWig_path, $chrom_sizes_file, $dedupe, $clobber ) =
+    my ( $output_format, $bedGraphToBigWig_path, $chrom_sizes_file, $dedupe, $clobber, $mcr_root, $samtools ) =
       rearrange(
-        [qw(OUTPUT_FORMAT BEDGRAPHTOBIGWIG_PATH CHROM_SIZES_FILE DEDUPE CLOBBER)],
+        [qw(OUTPUT_FORMAT BEDGRAPHTOBIGWIG_PATH CHROM_SIZES_FILE DEDUPE CLOBBER MCR_ROOT SAMTOOLS)],
         @args );
 
     $self->output_format($output_format);
@@ -63,6 +62,8 @@ sub new {
     $self->chrom_sizes_file($chrom_sizes_file);
     $self->dedupe($dedupe);
     $self->clobber($clobber);
+    $self->mcr_root($mcr_root);
+    $self->samtools($samtools);
 
     return $self;
 }
@@ -84,7 +85,21 @@ sub run_program {
     my $temp_dir      = $self->get_temp_dir();
     my $final_dir     = $self->working_dir();
     my $format_suffix = $self->output_format();
+    my $mcr_root      = $self->mcr_root();
+    my $samtools      = $self->samtools ? $self->samtools : 'samtools';
 
+    my $mcr_jre      = "$mcr_root/sys/java/jre/glnxa64/jre/lib/amd64";
+    my $xapplres_dir = "$mcr_root/X11/app-defaults";
+    my $ld_lib_path  = join( ':',
+       $ENV{LD_LIBRARY_PATH},     "$mcr_root/runtime/glnxa64",
+       "$mcr_root/bin/glnxa64",   "$mcr_root/sys/os/glnxa64",
+       "$mcr_jre/native_threads", "$mcr_jre/server",
+       $mcr_jre );
+
+    $ENV{MCRROOT}         = $mcr_root;
+    $ENV{MCRJRE}          = $mcr_jre;
+    $ENV{XAPPLRESDIR}     = $xapplres_dir;
+    $ENV{LD_LIBRARY_PATH} = $ld_lib_path; 
     $ENV{MCR_CACHE_ROOT} = $temp_dir . '/MCR_CACHE';
     make_path( $ENV{MCR_CACHE_ROOT} );
 
@@ -100,7 +115,7 @@ sub run_program {
         for ( my $i = 0 ; $i < scalar(@input_files) ; $i++ ) {
             my $file      = $input_files[$i];
             my $temp_file = "$temp_dir/temp$i.bam";
-            $self->execute_command_line(                "samtools view -b -F 1024 $file > $temp_file");
+            $self->execute_command_line( "$samtools view -b -F 1024 $file > $temp_file" );
             $input_files[$i] = $temp_file;
 
         }
@@ -180,6 +195,24 @@ sub clobber {
     }
 
     return $self->{'clobber'};
+}
+
+sub mcr_root {
+    my ( $self, $arg ) = @_;
+    if ($arg) {
+        $self->{'mcr_root'} = $arg;
+    }
+
+    return $self->{'mcr_root'};
+}
+
+sub samtools {
+    my ( $self, $arg ) = @_;
+    if ($arg) {
+        $self->{'samtools'} = $arg;
+    }
+
+    return $self->{'samtools'};
 }
 
 1;

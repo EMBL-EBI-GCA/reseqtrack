@@ -33,7 +33,6 @@ sub run {
   my $broad            =  $self->param( 'broad' );
   my $options          = $self->param('options');
 
-  #$$options{ 'broad' => $broad };
   $$options{'broad'}=$broad;
 
   my ( $fragment_size_stat ) = split /,/, $fragment_size; # ppqt can find multiple peaks. the first is the most likely, so we use that one 
@@ -58,7 +57,8 @@ sub run {
 
   $self->run_program( $macs ); 
   $self->output_param( 'bed', $macs->bed_file ); 
-  
+  $self->output_param( 'bed_xls', $macs->output_bed_xls );
+  $self->output_param( 'support_bed', $macs->output_support_bed );
 }
 
 
