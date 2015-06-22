@@ -10,25 +10,22 @@ use File::Basename qw(fileparse);
 
 use base qw(ReseqTrack::Tools::RunAlignment);
 
-sub DEFAULT_OPTIONS { return {
-        'threads' => 1,
-        };
-}
-
 sub new {
 
     my ( $class, @args ) = @_;
     my $self = $class->SUPER::new(@args);
 
-    my ( $index_prefix, $build_index_flag, $ref_index_file)
+    my ( $index_prefix, $build_index_flag, $se_options, $pe_options)
         = rearrange( [
-            qw( INDEX_PREFIX BUILD_INDEX_FLAG REF_INDEX_FILE
-                )], @args);
+            qw( INDEX_PREFIX BUILD_index_FLAG SE_OPTIONS PE_OPTIONS )
+                ], @args);
+
 
 
     $self->index_prefix($index_prefix);
     $self->build_index_flag($build_index_flag);
-    $self->ref_index_file($ref_index_file);
+    $self->se_options($se_options);
+    $self->pe_options($pe_options);
 
 
     return $self;
@@ -37,23 +34,26 @@ sub new {
 #################################################################
 
 
-sub run_alignment {
+sub run {
     my ($self) = @_;
 
-    throw("need a ref_index file to output in the bam format")
-      if($self->output_format eq 'BAM' && (! $self->ref_index_file));
+    $self->change_dir();
 
     if ($self->build_index_flag){
         $self->build_index();
     }
 
     if ($self->fragment_file) {
-        $self->run_se_alignment();
+        my $sam = $self->run_se_alignment();
+        $self->sam_files($sam);
     }
 
     if ($self->mate1_file && $self->mate2_file) {
-        $self->run_pe_alignment();
+        my $sam = $self->run_pe_alignment();
+        $self->sam_files($sam);
     }
+
+    $self->run_samtools(0);
 
     return;
 }
@@ -61,70 +61,55 @@ sub run_alignment {
 sub run_se_alignment {
     my $self = shift;
 
-    my $output_file = $self->working_dir() . '/'
-        . $self->job_name . '_se';
-    $output_file .= ($self->output_format eq 'BAM' ? '.bam' : '.sam');
-    $output_file =~ s{//}{/};
+    my $sam = $self->working_dir() . '/'
+        . $self->job_name
+        . '_se.sam';
+    $sam =~ s{//}{/};
 
-    my $fastq = $self->fragment_file;
-    my $fastq_cmd_string = ($self->first_read || $self->last_read) ? $self->get_fastq_cmd_string('frag')
-          : ($fastq =~ /\.gz(?:ip)$/) ? "<(gunzip -c $fastq )"
-          : $fastq;
-		
-		my @cmd_words;
-    push(@cmd_words, $self->program, 'map');
-    push(@cmd_words, '-n', $self->options('threads') || 1);
-    push(@cmd_words, '-f', 'sam');
-    push(@cmd_words, $self->index_prefix, $fastq_cmd_string);
-
-    if ($self->output_format eq 'BAM') {
-      push(@cmd_words, '|', $self->samtools, 'view -bS -');
-      push(@cmd_words, '-t', $self->ref_index_file);
+    my $frag_file = $self->fragment_file;
+    if ($frag_file =~ /\.gz$/) {
+        $frag_file = $self->decompress_file($frag_file);
     }
-    push(@cmd_words, '>', $output_file);
 
-    my $cmd_line = join(' ', @cmd_words);
+    my $cmd_line = $self->program . ' map';
+    $cmd_line .= ' ' . $self->se_options if $self->se_options;
+    $cmd_line .= ' -f sam -o ' . $sam;
+    $cmd_line .= ' ' . $self->index_prefix;
+    $cmd_line .= ' ' . $frag_file;
 
-    $self->output_files($output_file);
     $self->execute_command_line($cmd_line);
 
-    return $output_file ;
+    return $sam ;
 }
 
 sub run_pe_alignment {
     my $self = shift;
 
-    my $output_file = $self->working_dir() . '/'
-        . $self->job_name . '_pe';
-    $output_file .= ($self->output_format eq 'BAM' ? '.bam' : '.sam');
-    $output_file =~ s{//}{/};
+    my $sam = $self->working_dir() . '/'
+        . $self->job_name
+        . '_pe.sam';
+    $sam =~ s{//}{/};
 
-    my $fastq_mate1 = $self->mate1_file;
-    my $fastq_mate2 = $self->mate2_file;
-
-    my $fastq_cmd_string_mate1 = ($self->first_read || $self->last_read) ? $self->get_fastq_cmd_string('mate1')
-          : ($fastq_mate1 =~ /\.gz(ip)?$/) ? "<(gunzip -c $fastq_mate1 )"
-          : $fastq_mate1;
-    my $fastq_cmd_string_mate2 = ($self->first_read || $self->last_read) ? $self->get_fastq_cmd_string('mate2')
-          : ($fastq_mate2 =~ /\.gz(ip)?$/) ? "<(gunzip -c $fastq_mate2 )"
-          : $fastq_mate2;
-
-    my @cmd_words = ($self->program, 'map');
-    push(@cmd_words, '-n', $self->options('threads') || 1);
-    push(@cmd_words, '-f', 'sam');
-    push(@cmd_words, $self->index_prefix, $fastq_cmd_string_mate1, $fastq_cmd_string_mate2);
-    if ($self->output_format eq 'BAM') {
-      push(@cmd_words, '|', $self->samtools, 'view -bS -');
-      push(@cmd_words, '-t', $self->ref_index_file);
+    my $mate1_file = $self->mate1_file;
+    if ($mate1_file =~ /\.gz$/) {
+        $mate1_file = $self->decompress_file($mate1_file);
     }
-    push(@cmd_words, '>', $output_file);
 
-    my $cmd_line = join(' ', @cmd_words);
+    my $mate2_file = $self->mate2_file;
+    if ($mate2_file =~ /\.gz$/) {
+        $mate2_file = $self->decompress_file($mate2_file);
+    }
 
-    $self->output_files($output_file);
+
+    my $cmd_line = $self->program . ' map';
+    $cmd_line .= ' ' . $self->se_options if $self->se_options;
+    $cmd_line .= ' -f sam -o ' . $sam;
+    $cmd_line .= ' ' . $self->index_prefix;
+    $cmd_line .= ' ' . $mate1_file . ' ' . $mate2_file;
+
     $self->execute_command_line($cmd_line);
 
-    return $output_file ;
+    return $sam ;
 }
 
 sub build_index {
@@ -135,21 +120,38 @@ sub build_index {
     $index_prefix =~ s{//}{/};
 
     my $reference = $self->reference;
-    my $reference_cmd_string = ($reference =~ /\.gz(ip)?$/) ? "<(gunzip -c $reference)" : $reference;
+    if ($reference =~ /\.gz$/) {
+        $reference = $self->decompress_file($reference);
+    }
 
     my $cmd_line = $self->program;
-    $cmd_line .= ' index ' . $index_prefix . ' ' . $reference_cmd_string;
+    $cmd_line .= ' index ' . $index_prefix . ' ' . $reference;
+
+    $self->execute_command_line($cmd_line);
 
     $self->index_prefix($index_prefix);
 
     my $sma = $index_prefix . '.sma';
     my $smi = $index_prefix . '.smi';
 
-    $self->created_files([$sma, $smi]);
-    $self->execute_command_line($cmd_line);
+    $self->files_to_delete([$sma, $smi]);
 
     return;
 
+}
+
+sub decompress_file {
+    my ($self, $file) = @_;
+
+    my $name =  fileparse($file, qr/\.gz/);
+    my $file_gunzipped = $self->working_dir . '/' . $name;
+    $file_gunzipped =~ s{//}{/}g;
+
+    my $gunzip_cmd = 'gunzip -c ' . $file . ' > ' . $file_gunzipped;
+    $self->execute_command_line($gunzip_cmd);
+    
+    $self->files_to_delete($file_gunzipped);
+    return $file_gunzipped;
 }
 
 
@@ -174,13 +176,22 @@ sub build_index_flag {
     return $self->{build_index_flag};
 }
 
-sub ref_index_file {
+sub pe_options {
+    my $pelf = shift;
+
+    if (@_) {
+        $pelf->{pe_options} = shift;
+    }
+    return $pelf->{pe_options};
+}
+
+sub se_options {
     my $self = shift;
 
     if (@_) {
-        $self->{ref_index_file} = shift;
+        $self->{se_options} = shift;
     }
-    return $self->{ref_index_file};
+    return $self->{se_options};
 }
 
 

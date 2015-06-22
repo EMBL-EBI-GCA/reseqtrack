@@ -1,7 +1,6 @@
-#!/usr/bin/env perl
+#!/sw/arch/bin/perl 
 
 use strict;
-use warnings;
 use ReseqTrack::Tools::Exception;
 use ReseqTrack::Tools::UpdateRunMetaInfo;
 use ReseqTrack::Tools::ERAUtils;
@@ -16,7 +15,6 @@ my $dbport = 4175;
 my $dbname;
 my $era_dbuser;
 my $era_dbpass;
-my $era_dbname;
 my $run;
 my $help;
 my $store_new;
@@ -46,7 +44,6 @@ my $check_unidentified;
 	    'dbport=s'      => \$dbport,
 	    'era_dbuser=s' =>\$era_dbuser,
 	    'era_dbpass=s' => \$era_dbpass,
-	    'era_dbname=s' => \$era_dbname,
 	    'run!' => \$run,
 	    'all_checks!' => \$all_checks,
 	    'store_new!' => \$store_new,
@@ -69,8 +66,7 @@ my $check_unidentified;
 
 
 if($help){
-  exec('perldoc', $0);
-  exit(0);
+  useage();
 }
 my $original_run = $run;
 $summary = 1 if($verbose);
@@ -84,8 +80,12 @@ if($all_checks){
   $check_unidentified = 1;
 }
 
-unless($store_new || $update_existing || $update_collections || $check_sample || 
-    $check_status || $check_unidentified){
+if($update_existing || $store_new){
+  $update_collections = 1;
+}
+
+if(($store_new + $update_existing + $update_collections + $check_sample + 
+    $check_status + $check_unidentified) == 0){
   print STDERR "There script has nothing to do you need to specify at least ".
     "one of -store_new, -update_existing, -update_collections, -check_sample ".
       "-check_status or -all to have everything run\n";
@@ -95,7 +95,7 @@ unless($store_new || $update_existing || $update_collections || $check_sample ||
 
 
 
-my $db = get_erapro_conn($era_dbuser, $era_dbpass, $era_dbname);
+my $db = get_erapro_conn($era_dbuser, $era_dbpass);
 
 my $reseq_db = ReseqTrack::DBSQL::DBAdaptor->new(
   -host   => $dbhost,
@@ -231,7 +231,7 @@ if there are associated public files, if there are they are withdrawn
 -collection_type, this is the type of collection object the runs should be grouped
                   into
 
--study_id_file, this is the study id list which defined what makes up a collection
+-study_id_list, this is the study id list which defined what makes up a collection
 
 -help, this is a binary flag to print out the help
 

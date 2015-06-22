@@ -7,6 +7,7 @@ use vars qw(@ISA);
 use ReseqTrack::Tools::Exception qw(throw warning);
 use ReseqTrack::Tools::Argument qw(rearrange);
 use ReseqTrack::Tools::RunAlignment;
+use Data::Dumper;
 
 @ISA = qw(ReseqTrack::Tools::RunAlignment);
 
@@ -14,320 +15,197 @@ use ReseqTrack::Tools::RunAlignment;
 
 =head1 NAME
 
-ReseqTrack::Tools::RunAlignment::BWA
-
 =head1 SYNOPSIS
-
-class for running BWA. Child class of ReseqTrack::Tools::RunAlignment
 
 =head1 Example
 
-my $bwa = ReseqTrack::Tools::RunAlignment::BWA(
+=head2 new
+
+  Arg [1]   : ReseqTrack:Tools::RunAlignment::BWA
+  Arg [2]   : string, options for the single ended bwa mod
+  Arg [3]   : string, options for paired end bwa mod
+  Function  : create a BWA object, defaults program name to bwa and
+  defaults to using ReseqTrack::Tools::RunAlignment::options for sampe options 
+  if sampe options aren't defined and options are
+  Returntype: ReseqTrack::Tools::RunAlignment::BWA
+  Exceptions: n/a
+  Example   : my $bwa = ReseqTrack::Tools::RunAlignment::BWA(
+                      -program => "bwa",
                       -input => '/path/to/file'
                       -reference => '/path/to/reference',
-                      -options => {'threads' => 4},
-                      -paired_length => 3000,
-                      -read_group_fields => {'ID' => 1, 'LB' => 'my_lib'},
-                      -first_read => 1000,
-                      -last_read => 2000,
+                      -samtools => '/path/to/samtools',
                       );
-$bwa->run;
-my $output_file_list = $bwa->output_files;
 
 =cut
-
-sub DEFAULT_OPTIONS { return {
-        'read_trimming' => 15,
-        'mismatch_penalty' => undef,
-        'gap_open_penalty' => undef,
-        'gap_extension_penalty' => undef,
-        'max_gap_opens' => undef,
-        'max_gap_extensions' => undef,
-        'z_best' => undef,
-	'threads' => 1,
-        'load_fm_index' => 1,
-        'disable_smith_waterman' => 0,
-        'algorithm' => 'mem', # to run bwa-mem or bwa-backtrack or bwa-sw
-	'band_width'	=> undef,
-	
-        'mark_secondary_hits' => 1, # for compatibility with gatk indel realigner
-
-        };
-}
 
 sub new {
 	my ( $class, @args ) = @_;
 	my $self = $class->SUPER::new(@args);
 
+	my ( $samse_options, $sampe_options, $aln_options) =
+	  rearrange( [qw(SAMSE_OPTIONS SAMPE_OPTIONS ALN_OPTIONS)], @args );
+
 	#setting defaults
-        if (!$self->program) {
-          if ($ENV{BWA}) {
-            $self->program($ENV{BWA} . '/bwa');
-          }
-          else {
-            $self->program('bwa');
-          }
-        }
+	$self->program('bwa') unless ( $self->program );
+	$self->aln_options("-q 15 ") unless ($aln_options);
+
+	
+	$self->samse_options($samse_options);
+	$self->sampe_options($sampe_options);
+	$self->aln_options($aln_options);
 
 	return $self;
 }
 
-sub run_alignment {
-    my ($self) = @_;
+=head2 accessor methods
 
-    my $algorithm = $self->options('algorithm');
+  Arg [1]   : ReseqTrack::Tools::RunAlignment::BWA
+  Arg [2]   : string, options string
+  Function  : samse_options and sampe_options are specific bwa commandline
+  options and these are the accessor methods for those variables
+  Returntype: string
+  Exceptions: n/a
+  Example   : my $options = $self->samse_options;
+
+=cut
+
+
+sub run {
+    my ($self) = @_;
+    $self->change_dir();
     
-    if ($algorithm eq 'backtrack') {
-      if ( $self->fragment_file ) {
-          $self->run_samse_alignment();
-      }
-      
-      if ( $self->mate1_file && $self->mate2_file ) {
-          $self->run_sampe_alignment();
-      }
+    if ( $self->fragment_file ) {
+        my $sam = $self->run_samse_alignment();
+        $self->sam_files($sam);
     }
-    elsif ($algorithm = 'mem') {
-      $self->run_bwa_mem();
+    
+    if ( $self->mate1_file && $self->mate2_file ) {
+        my $sam = $self->run_sampe_alignment();
+        $self->sam_files($sam);
     }
-    elsif ($algorithm = 'sw') {
-      $self->run_bwa_sw();
-    }
+
+    $self->run_samtools(1);
 
     return;
 }
 
 sub run_sampe_alignment {
-    my ($self) = @_;
-    my $mate1_sai =
-      $self->run_aln_mode( "mate1" );
-    my $mate2_sai =
-      $self->run_aln_mode( "mate2" );
-    my $output_file = $self->working_dir() . '/'
-        . $self->job_name . '_pe';
-    $output_file .= ($self->output_format eq 'BAM' ? '.bam' : '.sam');
-    $output_file =~ s{//}{/};
+	my ($self) = @_;
+	my $mate1_sai =
+	  $self->run_aln_mode( $self->mate1_file, $self->aln_options, "mate1" );
+	my $mate2_sai =
+	  $self->run_aln_mode( $self->mate2_file, $self->aln_options, "mate2" );
+	my $output_sam = $mate1_sai;
+	$output_sam =~ s/\.mate1\.sai/\_pe\.sam/;
 
-    my @cmd_words;
-    push(@cmd_words, $self->program, 'sampe');
-    push(@cmd_words, '-P') if $self->options('load_fm_index');
-    push(@cmd_words, '-s') if $self->options('disable_smith_waterman');
-    if ($self->paired_length) {
-      my $max_insert_size = 3 * $self->paired_length;
-      push(@cmd_words, '-a', $max_insert_size);
-    }
 
-    if ($self->read_group_fields->{'ID'}) {
-      my $rg_string = q("@RG\tID:) . $self->read_group_fields->{'ID'};
-      RG:
-      while (my ($tag, $value) = each %{$self->read_group_fields}) {
-        next RG if ($tag eq 'ID');
-        next RG if (!$value);
-        $rg_string .= '\t' . $tag . ':' . $value;
-      }
-      $rg_string .= q(");
-      push(@cmd_words, '-r', $rg_string);
-    }
-    push(@cmd_words, $self->reference, $mate1_sai, $mate2_sai);
-    push(@cmd_words, $self->get_fastq_cmd_string('mate1'));
-    push(@cmd_words, $self->get_fastq_cmd_string('mate2'));
-    if ($self->output_format eq 'BAM') {
-      push(@cmd_words, '|', $self->samtools, 'view -bS -');
-    }
-    push(@cmd_words, '>', $output_file);
+	if ( $self->paired_length() ) {
+		my $paired_length = " -a " . $self->paired_length;
+		$self->sampe_options($paired_length);
+	}
 
-    my $sampe_cmd = join(' ', @cmd_words);
+	my $sampe_cmd =
+	    $self->program
+	  . " sampe "
+	  . $self->sampe_options . " "
+	  . $self->reference . " "
+	  . $mate1_sai . " "
+	  . $mate2_sai . " "
+	  . $self->mate1_file . " "
+	  . $self->mate2_file . " > "
+	  . $output_sam;
 
-    $self->output_files($output_file);
-    $self->execute_command_line($sampe_cmd);
+	print $sampe_cmd. "\n";
+      
+        $self->execute_command_line($sampe_cmd);
 
-    return $output_file;
+	$self->files_to_delete($mate1_sai);
+	$self->files_to_delete($mate2_sai);
+
+	return $output_sam;
 }
 
 sub run_samse_alignment {
-    my ($self) = @_;
+	my ($self) = @_;
 
-    my $sai_file =
-      $self->run_aln_mode( "frag" );
+	my $sai_file =
+	  $self->run_aln_mode( $self->fragment_file, $self->aln_options, "frag" );
 
-    my $output_file = $self->working_dir() . '/'
-        . $self->job_name . '_se';
-    $output_file .= ($self->output_format eq 'BAM' ? '.bam' : '.sam');
-    $output_file =~ s{//}{/};
+	my $output_sam = $sai_file;
 
-    my @cmd_words;
-    push(@cmd_words, $self->program, 'samse');
+	$output_sam =~ s/\.frag\.sai/\_se\.sam/;
 
-    if ($self->read_group_fields->{'ID'}) {
-      my $rg_string = q("@RG\tID:) . $self->read_group_fields->{'ID'};
-      RG:
-      while (my ($tag, $value) = each %{$self->read_group_fields}) {
-        next RG if ($tag eq 'ID');
-        next RG if (!$value);
-        $rg_string .= '\t' . $tag . ':' . $value;
-      }
-      $rg_string .= q(");
-      push(@cmd_words, '-r', $rg_string);
-    }
-    push(@cmd_words, $self->reference, $sai_file);
-    push(@cmd_words, $self->get_fastq_cmd_string('frag'));
+	my $samse_cmd =
+	    $self->program
+	  . " samse "
+	  . $self->samse_options . " "
+	  . $self->reference . " "
+	  . $sai_file . " "
+	  . $self->fragment_file . " > "
+	  . $output_sam;
+	  
+        $self->execute_command_line($samse_cmd);
 
-    if ($self->output_format eq 'BAM') {
-      push(@cmd_words, '|', $self->samtools, 'view -bS -');
-    }
-    push(@cmd_words, '>', $output_file);
+	$self->files_to_delete($sai_file);
 
-    my $samse_cmd = join(' ', @cmd_words);
-      
-    $self->output_files($output_file);
-    $self->execute_command_line($samse_cmd);
-
-    return $output_file;
+	return $output_sam;
 }
 
 sub run_aln_mode {
-    my ( $self, $fastq_type ) = @_;
+	my ( $self, $input_file, $options, $file_ext ) = @_;
 
-    my $output_file = $self->working_dir . "/" . $self->job_name;
-    $output_file .= ".$fastq_type.sai";
+	my $bwa_log_file =  $self->working_dir. '/'. $$ .".log";
+	$bwa_log_file =~ s/\/\//\//;
+	my $do_bwa_log_file = "2>> ". $bwa_log_file;
 
-    my @cmd_words;
-    push(@cmd_words, $self->program, 'aln');
+	$options = $self->aln_options unless ($options);
 
-    push(@cmd_words, '-q', $self->options('read_trimming'))
-            if ($self->options('read_trimming'));
-    push(@cmd_words, '-M', $self->options('mismatch_penalty'))
-            if ($self->options('mismatch_penalty'));
-    push(@cmd_words, '-O', $self->options('gap_open_penalty'))
-            if ($self->options('gap_open_penalty'));
-    push(@cmd_words, '-E', $self->options('gap_extension_penalty'))
-            if ($self->options('gap_extension_penalty'));
-    push(@cmd_words, '-o', $self->options('max_gap_opens'))
-            if ($self->options('max_gap_opens'));
-    push(@cmd_words, '-e', $self->options('max_gap_extensions'))
-            if ($self->options('max_gap_extensions'));
+	my $output_file = $self->working_dir . "/" . $self->job_name;
+	$output_file .= "." . $file_ext if ($file_ext);
+	$output_file .= ".sai";
 
-    push(@cmd_words, '-t', $self->options('threads') || 1);
-    push(@cmd_words, $self->reference);
-    push(@cmd_words, $self->get_fastq_cmd_string($fastq_type));
-    push(@cmd_words, '>', $output_file);
+	my $aln_command;
+	$aln_command .= $self->program;
+	$aln_command .= " aln ";
+	$aln_command .= $options . "  " if $options;
+	$aln_command .= $self->reference . " ";
+	$aln_command .= $input_file . " $do_bwa_log_file > ";
+	$aln_command .= $output_file;
 
-    my $aln_command = join(' ', @cmd_words);
+        $self->execute_command_line($aln_command);
 
-    $self->created_files($output_file);
-    $self->execute_command_line($aln_command);
+	$self->files_to_delete($bwa_log_file);
 
-    return $output_file;
+	return $output_file;
 }
 
-sub run_bwa_mem {
-    my ($self) = @_;
-
-    #my $ref_prefix = $self->reference;
-    #$ref_prefix =~ s/\.fa(?:sta)?(:?\.gz)?$//;
-
-    TYPE:
-    foreach my $aln_type ('MATE', 'FRAG') {
-      next TYPE if $aln_type eq 'MATE' && (!$self->mate1_file || !$self->mate2_file);
-      next TYPE if $aln_type eq 'FRAG' && !$self->fragment_file;
-
-      my $output_file = $self->working_dir() . '/' . $self->job_name;
-      $output_file .= ($aln_type eq 'MATE' ? '_pe' : '_se');
-      $output_file .= ($self->output_format eq 'BAM' ? '.bam' : '.sam');
-      $output_file =~ s{//}{/};
-
-
-      my @cmd_words;
-      push(@cmd_words, $self->program, 'mem');
-      push(@cmd_words, '-t', $self->options('threads') || 1);
-      push(@cmd_words, '-P') if $aln_type eq 'MATE' && $self->options('disable_smith_waterman');
-      push(@cmd_words, '-B', $self->options('mismatch_penalty'))
-              if ($self->options('mismatch_penalty'));
-      push(@cmd_words, '-O', $self->options('gap_open_penalty'))
-              if ($self->options('gap_open_penalty'));
-      push(@cmd_words, '-E', $self->options('gap_extension_penalty'))
-              if ($self->options('gap_extension_penalty'));
-      push(@cmd_words, '-w', $self->options('band_width'))
-              if ($self->options('band_width'));
-      
-      push(@cmd_words, '-M') if $self->options('mark_secondary_hits');
-
-      if ($self->read_group_fields->{'ID'}) {
-        my $rg_string = q("@RG\tID:) . $self->read_group_fields->{'ID'};
-        RG:
-        while (my ($tag, $value) = each %{$self->read_group_fields}) {
-          next RG if ($tag eq 'ID');
-          next RG if (!$value);
-          $rg_string .= '\t' . $tag . ':' . $value;
-        }
-        $rg_string .= q(");
-        push(@cmd_words, '-R', $rg_string);
-      }
-
-      push(@cmd_words, $self->reference);
-      push(@cmd_words, $aln_type eq 'MATE'
-            ? ($self->get_fastq_cmd_string('mate1'), $self->get_fastq_cmd_string('mate2'))
-            : ($self->get_fastq_cmd_string('frag')));
-      if ($self->output_format eq 'BAM') {
-        push(@cmd_words, '|', $self->samtools, 'view -bS -');
-      }
-      push(@cmd_words, '>', $output_file);
-
-      my $cmd = join(' ', @cmd_words);
-
-      $self->output_files($output_file);
-      $self->execute_command_line($cmd);
+sub samse_options {
+    my ( $self, $arg ) = @_;
+    unless ( $self->{samse_options} ) {
+        $self->{samse_options} = '';
     }
-
-    return;
-}
-
-sub run_bwa_sw {
-    my ($self) = @_;
-
-    TYPE:
-    foreach my $aln_type ('MATE', 'FRAG') {
-      next TYPE if $aln_type eq 'MATE' && (!$self->mate1_file || !$self->mate2_file);
-      next TYPE if $aln_type eq 'FRAG' && !$self->fragment_file;
-
-      my $output_file = $self->working_dir() . '/' . $self->job_name;
-      $output_file .= ($aln_type eq 'MATE' ? '_pe' : '_se');
-      $output_file .= ($self->output_format eq 'BAM' ? '.bam' : '.sam');
-      $output_file =~ s{//}{/};
-
-
-      my @cmd_words;
-      push(@cmd_words, $self->program, 'bwasw');
-      push(@cmd_words, '-t', $self->options('threads') || 1);
-      push(@cmd_words, '-b', $self->options('mismatch_penalty'))
-              if ($self->options('mismatch_penalty'));
-      push(@cmd_words, '-q', $self->options('gap_open_penalty'))
-              if ($self->options('gap_open_penalty'));
-      push(@cmd_words, '-r', $self->options('gap_extension_penalty'))
-              if ($self->options('gap_extension_penalty'));
-      push (@cmd_words, '-z', $self->options('z_best'))
-	      if ($self->options('z_best'));
-      push (@cmd_words, '-w', $self->options('band_width'))
-              if ($self->options('band_width'));
-      
-      push(@cmd_words, '-M') if $self->options('mark_secondary_hits');
-
-      push(@cmd_words, $self->reference);
-      push(@cmd_words, $aln_type eq 'MATE'
-            ? ($self->get_fastq_cmd_string('mate1'), $self->get_fastq_cmd_string('mate2'))
-            : ($self->get_fastq_cmd_string('frag')));
-      if ($self->output_format eq 'BAM') {
-        push(@cmd_words, '|', $self->samtools, 'view -bS -');
-      }
-      push(@cmd_words, '>', $output_file);
-
-      my $cmd = join(' ', @cmd_words);
-
-      $self->output_files($output_file);
-      $self->execute_command_line($cmd);
+    if ($arg) {
+        $self->{samse_options} = $arg;
     }
-
-    return;
+    return $self->{samse_options};
 }
+
+sub sampe_options {
+    my ( $self, $arg ) = @_;
+    if ($arg) {
+        $self->{sampe_options} = $arg;
+    }
+    return $self->{sampe_options};
+}
+
+sub aln_options {
+    my ( $self, $arg ) = @_;
+    if ($arg) {
+        $self->{aln_options} = $arg;
+    }
+    return $self->{aln_options};
+}
+
 
 1;
 

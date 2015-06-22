@@ -56,16 +56,8 @@ sub new {
     my $self = $class->SUPER::new(@args);
     my ( $name, $type, $others, $other_ids, $table_name ) =
       rearrange( [qw(NAME TYPE OTHERS OTHER_IDS TABLE_NAME)], @args );
-
-    if (!$table_name && $others) {
-      if ( ref($others) eq 'ARRAY') {
-          $table_name = $others->[0]->object_table_name if (@$others);
-      }
-      else {
-        $table_name = $others->object_table_name;
-      }
-    }
     ####error checking
+
     throw("Can't create a ReseqTrack::Collection object without a name")
       unless ($name);
     throw("Can't create a ReseqTrack::Collection object without a type")
@@ -80,8 +72,7 @@ sub new {
           unless ( $table_name eq 'file'
             || $table_name eq 'alignment_meta_info'
             || $table_name eq 'collection'
-            || $table_name eq 'run_meta_info'
- 			|| $table_name eq 'input_string' );
+            || $table_name eq 'run_meta_info' );
     }
     #########
 
@@ -241,9 +232,6 @@ sub get_other_adaptor {
     elsif ( $self->table_name eq 'collection' ) {
         return $self->adaptor->db->get_CollectionAdaptor;
     }
-	elsif ($self->table_name eq 'input_string' ) {
-		return $self->adaptor->db->get_InputStringAdaptor;
-	}
     else {
         throw(
             "Don't know what sort of adaptor to get for " . $self->table_name );

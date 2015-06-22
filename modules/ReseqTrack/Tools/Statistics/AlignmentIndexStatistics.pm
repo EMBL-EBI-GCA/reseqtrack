@@ -88,7 +88,7 @@ sub new_index{
     throw("AlignmentIndexStatistics:new_index ".$new_index." should exist")
       unless(-e $new_index);
     throw("AlignmentIndexStatistcs:new_index ".$new_index." must match pattern ".
-	  "YYYYMMDD.alignment.index.bas.gz") unless($new_index =~ /\d+\.alignment\.index\.bas\.gz/ ||$new_index =~ /\d+\.low_coverage\.alignment\.index\.bas\.gz/ ||  $new_index =~ /\d+\.exome\.alignment\.index\.bas\.gz/);
+	  "YYYYMMDD.alignment.index.bas.gz") unless($new_index =~ /\d+\.alignment\.index\.bas\.gz/ || $new_index =~ /\d+\.exome\.alignment\.index\.bas\.gz/);
     $self->{new_index} = $new_index;
   }
   return $self->{new_index};
@@ -392,16 +392,10 @@ sub parse_bas {
   			my $population = $individual_to_pop->{$individual};
   			my $study = $values[2];
 			
-  			#next if ( $line =~ /20101123/ && $line =~ /chrom20/);  ## FIXME: change date!! This line produce the right results 
+  			next if ( $line =~ /20101123/ && $line =~ /chrom20/);  ## FIXME: change date!! This line produce the right results 
   														# this way chrom20 data are not double counted in alignment starting from 20101123 
   														# also chrom20 data can be slightly out of date
-  			
-  			next if ( $line =~ /chrom/ );
-  			next if ( $line =~ /exon_targetted|high_coverage/i);
   			my $platform = $values[4];
-  			if ($platform eq "illumina") {
-  				$platform = "ILLUMINA";
-  			}
   			my $mapped_bp = $values[8];
 		    $bp_hash{$platform}->{$individual} += $mapped_bp;
 		    $bp_hash{$platform}->{'total'} += $mapped_bp;

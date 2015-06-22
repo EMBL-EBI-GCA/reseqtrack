@@ -1,8 +1,8 @@
 package ReseqTrack::Tools::RunVerifyBamID;
-
+ 
 use strict;
 use warnings;
-
+ 
 use Data::Dumper;
 use ReseqTrack::Tools::Exception qw(throw warning);
 use ReseqTrack::Tools::Argument qw(rearrange);
@@ -14,210 +14,209 @@ use vars qw(@ISA);
 @ISA = qw(ReseqTrack::Tools::RunProgram);
 
 sub new {
-	my ( $class, @args ) = @_;
-	my $self = $class->SUPER::new(@args);
+  my ( $class, @args ) = @_;
+  my $self = $class->SUPER::new(@args);
 
-	my ( $vcf, $out_prefix, $options,$debug,$run_mode ) = rearrange(
-		[
-		 qw(
-			  VCF		 
-			  OUT_PREFIX
-			  OPTIONS
-              DEBUG
-              RUN_MODE
-			)
-		],
-		@args
-	);
+  my ( $reference, $claimed_sample, $bimp, $selfonly, $out_prefix,
+     $options) =
+    rearrange(
+	      [
+	       qw(
+			  REFERENCE
+			  CLAIMED_SAMPLE
+			  BIMP
+			  SELFONLY
+			  OUT_PREFIX                       
+                          OPTIONS
+			  )
+	      ],
+	      @args
+	     );
 
-	$self->vcf($vcf);
-	$self->out_prefix($out_prefix);
-	$self->options($options);
-	$self->debug($debug);
-	$self->run_mode($run_mode);
-	$self->construct_run_cmd();
-	$self->add_outfiles();
 
-	return $self;
+  $self->reference($reference);
+  $self->bimp($bimp);
+  $self->selfonly($selfonly);
+  $self->out_prefix($out_prefix);
+  $self->options($options);
+ 
+  return $self;
 }
 
 sub run {
+  
+  my $self = shift;
 
-	my $self = shift;
+  $self->construct_run_cmd();
 
-	$self->change_dir();
-	$self->execute_command_line( $self->command_line );
+  $self->change_dir();
 
-	return;
+  $self->add_outfiles();
+ 
+  $self->execute_command_line($self->command_line);
+ 
+
+
+  return;
 
 }
 
 ######################
 
 sub construct_run_cmd {
-	my $self = shift;
-	my $cmd;
-	my $out_prefix;
+  my $self = shift;
+  my $cmd;
+  my $out_prefix;
 
-	my $files = $self->input_files;
-	my $bam   = @{$files}[0];
-	throw "No bam file name passed\n" if ( !$bam );
+  my $files =  $self->input_files;
+  my $bam   = @{$files}[0];
 
-	$cmd .= $self->program . " ";
+  throw "No bam file name passed\n" if ( ! $bam);
 
-	$cmd .= "--vcf " . $self->vcf . " ";
-	$cmd .= "--bam " . $bam . " ";
-	
-	if (defined $self->options ) {
-				
-		foreach my $option (  keys %{$self->options} ) {
-			if ( $self->options->{$option} == 1 ) {
-				$cmd .= $option . " ";
-			}
-			else {
-				$cmd .= $option . " " . $self->options->{$option} . " ";	
-			}	
-			print "option is $option, value is " . $self->options->{$option} . "\n";
-		}
+  $cmd .= $self->program . " ";
 
-	}
+  $cmd .= "--reference " . $self->reference . " ";
 
-	$cmd .= "--" . $self->run_mode . " " if ( defined $self->run_mode) ;
+  $cmd .= "--in " . $bam . " ";
 
-	if (defined $self->debug){
-	  $cmd .= " --verbose "
-	}
+  $cmd .= "--bfile " . $self->bimp . " " if ( $self->bimp );
 
-	if ( !defined( $self->out_prefix ) ) {
-		$out_prefix = $self->working_dir . "\/" . basename($bam);
-		$out_prefix =~ s/\.bam//;
-		$out_prefix =~ s/\/\//\//g;
-	}
-	else {
-		$out_prefix = $self->out_prefix;
-	}
+  $cmd .= "--selfonly "  if ( $self->selfonly );
 
-	$cmd .= "--out " . $out_prefix;
-	print "\n$cmd\n" 	if (defined $self->debug);
-	
-	$self->command_line($cmd);
-	return;
+  $cmd .=  $self->options  . " "  if ($self->options);
+
+  if ( !defined( $self->out_prefix ) ) {
+    $out_prefix = $self->working_dir . "\/" . basename( $bam );
+    $out_prefix =~ s/\.bam//; 
+    $out_prefix =~ s/\/\//\//g;
+  } else {
+    $out_prefix = $self->out_prefix;
+  }
+
+  $cmd .= "--out " . $out_prefix . " --verbose ";
+
+  print $cmd,"\n";
+ 
+  $self->command_line($cmd);
+
+  return;
 }
 
 ######################
 sub command_line {
-	my ( $self, $arg ) = @_;
-	if ($arg) {
-		$self->{command_line} = $arg;
-	}
-	return $self->{command_line};
+  my ( $self, $arg ) = @_;
+  if ($arg) {
+    $self->{command_line} = $arg;
+  }
+  return $self->{command_line};
 }
 
 sub add_outfiles {
 
-	my $self = shift;
-	my @output_files;
-	my @extensions;
+  my $self = shift;
+  my @output_files;
+  my @extensions;
 
-	my $work_dir = $self->working_dir;
-	$work_dir =~ s/\/$//;
+  my $work_dir = $self->working_dir;
+  $work_dir =~ s/\/$//;
 
-	my $bam = basename( @{ $self->input_files }[0] );
-	$bam =~ s /\.bam$//;
-	my $file_base = $work_dir . '/' . $bam;
+  my $bam = basename( @{$self->input_files}[0] );
+  $bam =~ s /\.bam$//;
+  my $file_base = $work_dir . '/' . $bam;
+
+  if ( $self->selfonly ) {
+    @extensions = qw (selfSM selfRG );
+  } else {
+    @extensions = qw (selfSM selfRG bestSM bestRG );
+  }
+
+  foreach my $ext (@extensions) {
+   
+    my $x = $ext . "\_file";
+    my $filename =  $file_base . ".$ext";
+    $self->$x($filename);
+    print $self->$x,"\n";
+    push( @output_files, $filename );
+  }
 
 
-	@extensions = qw (selfSM selfRG bestSM bestRG );
-	
-	print "used output files\n";
-	foreach my $ext (@extensions) {
-		my $filename = $file_base . ".$ext";
-		print $self->{$ext} = $filename,"\n";
-	}
 
-	return;
+
+  $self->output_files( \@output_files );
+ 
+  return;
 }
 
-sub vcf {
-	my ( $self, $arg ) = @_;
-	if ($arg) {
-		$self->{'vcf'} = $arg;
-	}
-	return $self->{'vcf'};
+sub reference {
+  my ( $self, $arg ) = @_;
+  if ($arg) {
+    $self->{'reference'} = $arg;
+  }
+  return $self->{'reference'};
+}
+
+sub bimp {
+  my ( $self, $arg ) = @_;
+  if ($arg) {
+    $self->{bimp} = $arg;
+  }
+  return $self->{bimp};
 }
 
 sub out_prefix {
-	my ( $self, $arg ) = @_;
-	if ($arg) {
-		$self->{out_prefix} = $arg;
-	}
-	return $self->{out_prefix};
+  my ( $self, $arg ) = @_;
+  if ($arg) {
+    $self->{out_prefix} = $arg;
+  }
+  return $self->{out_prefix};
 }
 
-sub selfSM {
-	my ( $self, $arg ) = @_;
-	if ($arg) {
-		$self->{selfSM} = $arg;
-	}
-	return $self->{selfSM};
+sub selfonly {
+  my ( $self, $arg ) = @_;
+  if ($arg) {
+    $self->{selfonly} = $arg;
+  }
+  return $self->{selfonly};
 }
 
-sub selfRG {
-	my ( $self, $arg ) = @_;
-	if ($arg) {
-		$self->{selfRG} = $arg;
-	}
-	return $self->{selfRG};
+sub selfSM_file {
+  my ( $self, $arg ) = @_;
+  if ($arg) {
+    $self->{selfSM_file} = $arg;
+  }
+  return $self->{selfSM_file};
 }
 
-sub bestRG {
-	my ( $self, $arg ) = @_;
-	if ($arg) {
-		$self->{bestRG} = $arg;
-	}
-	return $self->{bestRG};
+sub selfRG_file {
+  my ( $self, $arg ) = @_;
+  if ($arg) {
+    $self->{selfRG_file} = $arg;
+  }
+  return $self->{selfRG_file};
 }
 
-sub bestSM {
-	my ( $self, $arg ) = @_;
-	if ($arg) {
-		$self->{bestSM} = $arg;
-	}
-	return $self->{bestSM};
+sub bestRG_file {
+  my ( $self, $arg ) = @_;
+  if ($arg) {
+    $self->{bestRG_file} = $arg;
+  }
+  return $self->{bestRG_file};
+}
+sub bestSM_file {
+  my ( $self, $arg ) = @_;
+  if ($arg) {
+    $self->{bestSM_file} = $arg;
+  }
+  return $self->{bestSM_file};
 }
 
-=head
 sub options {
-	my ( $self, $arg ) = @_;
-	 $self->{'options'} ||= {};
-	if ($arg) {
-		if ( ref($arg) eq 'HASH' ) {
-			foreach my $option_name ( keys %$arg ) {
-				my $option_value =~ s/^\s+|\s+$//g;
-				$self->{'options'}->{$option_name} = $option_value;
-			}
-		} 	
-	}
-	my %options = %{$self->{'options'}};
-	return \%options;
-}
-=cut
-
-sub debug {
   my ( $self, $arg ) = @_;
   if ($arg) {
-    $self->{debug} = $arg;
+    $self->{options} = $arg;
   }
-  return $self->{debug};
-
+  return $self->{options};
 }
 
-sub run_mode {
-  my ( $self, $arg ) = @_;
-  if ($arg) {
-    $self->{run_mode} = $arg;
-  }
-  return $self->{run_mode};
 
-}
 1;

@@ -1,7 +1,6 @@
-#!/usr/bin/env perl
+#!/sw/arch/bin/perl -w
 
 use strict;
-use warnings;
 use Getopt::Long;
 use File::Basename;
 
@@ -81,29 +80,13 @@ if($output_file){
          next;
      }  
      
-     if ($file->type =~ /PHASE1/) {
-         print "Don't process phase1 files " . $file->name . " type " . $file->type . "\n";
-         next;
-     }  
-    
-     if ($file->name =~ /cram/) {
-		print "File " . $file->name . " is cram, don't process\n";
-		next;
-     }
-
-     if ($file->name =~ /csra/) {
-		print "File " . $file->name . " is csra, don't process\n";
-		next;
-     }
-      
      if ($file->type =~ /WITHDRAWN/i) {
          print "Don't process withdrawn file " . $file->name . "\n";
          next;
      }
          
      next if ($file->name =~ /technical\/working\//); # won't include 
-     next if ($file->type =~ /P2b_/i);
-     
+           
      #print $file->filename."\n";
      my $name = $file->filename;
      $name =~ s/\.bam//;
@@ -127,7 +110,7 @@ if($output_file){
         throw("Not sure what to do with ".$file->filename);
       }
     }
-    if( (!$bas || !$bai || !$bam)  && $bam->type ne "NCBI_BAM"){
+    if(!$bas || !$bai || !$bam){
     #if(!$bas && !$bai && !$bam){
       #throw("Not sure what to do for ".$key." don't have bas, bai or bam ".
       #      "files for it") if ($bam->type ne "EXOME_BI_BAM" && $bam->type ne "EXOME_BCM_BAM" && $bam->type ne "NCBI_BAM");  ### FIXME, change this when exome_bi_bam have bas files
@@ -147,26 +130,24 @@ sub print_index_line{
   my $bam_md5 = $bam->md5;
   my $bai_path = $bai->name;
   my $bai_md5 = $bai->md5;
-  my $bas_path = $bas->name if ($bas);
+  my $bas_path = $bas->name;
   #my $bas_path = $bas->name if ($bam->type ne "EXOME_BI_BAM" && $bam->type ne "EXOME_BCM_BAM" && $bam->type ne "NCBI_BAM"); ### FIXME
-  my $bas_md5 = $bas->md5 if ($bas);
+  my $bas_md5 = $bas->md5;
   #my $bas_md5 = $bas->md5 if ($bam->type ne "EXOME_BI_BAM" && $bam->type ne "EXOME_BCM_BAM" && $bam->type ne "NCBI_BAM"); ### FIXME
   if($ftp_root){
     $bam_path =~ s/$ftp_root//;
     $bai_path =~ s/$ftp_root//;
-    $bas_path =~ s/$ftp_root// if ($bas);
+    $bas_path =~ s/$ftp_root//;
   #  $bas_path =~ s/$ftp_root// if ($bam->type ne "EXOME_BI_BAM" && $bam->type ne "EXOME_BCM_BAM" && $bam->type ne "NCBI_BAM"); ### FIXME
   }
-  if ($bam->type ne "EXOME_BI_BAM" && $bam->type ne "EXOME_BCM_BAM" && $bam->type ne "NCBI_BAM") {### FIXME,
+  #if ($bam->type ne "EXOME_BI_BAM" && $bam->type ne "EXOME_BCM_BAM" && $bam->type ne "NCBI_BAM") {### FIXME,
 	  print $fh $bam_path."\t".$bam_md5."\t".$bai_path."\t".$bai_md5."\t".$bas_path.
     	  "\t".$bas_md5."\n";
   		#print $bam_path."\t".$bam_md5."\t".$bai_path."\t".$bai_md5."\t".$bas_path.
   		#    "\t".$bas_md5."\n";
-  }
-  else {
-      print $fh $bam_path."\t".$bam_md5."\t".$bai_path."\t".$bai_md5."\n";
-  }    		
+  #}
+  #else {
+  #    print $fh $bam_path."\t".$bam_md5."\t".$bai_path."\t".$bai_md5."\n";
+  #}    		
 }
 
-=head EXAMPLE
-perl $ZHENG_RT/scripts/process/dump_alignment_index.pl $WRITE_DB_ARGS -dbname g1k_archive_staging_track -type BAM -output_file 20111114.alignment.index -ftp_root /nfs/1000g-archive/vol1/ftp/ > 20111114.alignment.index.log &

@@ -24,7 +24,6 @@ use warnings;
 use Exporter;
 use ReseqTrack::Job;
 use ReseqTrack::Tools::Exception qw(throw warning stack_trace_dump);
-use ReseqTrack::Tools::FileSystemUtils qw(check_directory_exists);
 use File::Path;
 use File::Basename;
 use Sys::Hostname;
@@ -86,10 +85,10 @@ sub get_inputs{
   my ($db, $event) = @_;
 
   my $inputs =
-      $event->table_name eq 'file' ? get_file_inputs($db, $event->type)
-      : $event->table_name eq 'collection' ? get_collection_inputs($db, $event->type)
-      : $event->table_name eq 'run_meta_info' ? get_run_meta_info_inputs($db, $event->type)
-      : $event->table_name eq 'input_string' ? get_input_string_inputs($db, $event->type)
+      $event->table_name eq 'file' ? get_file_inputs($db, $event)
+      : $event->table_name eq 'collection' ? get_collection_inputs($db, $event)
+      : $event->table_name eq 'run_meta_info' ? get_run_meta_info_inputs($db, $event)
+      : $event->table_name eq 'input_string' ? get_input_string_inputs($db, $event)
       : throw("Don't know what sort of inputs to fetch for " . $event->name . " " . $event->table_name);
   
   return $inputs
@@ -225,24 +224,6 @@ sub get_incomplete_input_string_inputs{
     return \@inputs;
 }
 
-=head2 get_complete_inputs
-
-  Arg [1]  : database Adaptor
-  Arg [2]  : ReseqTrack::Event
-  Function : return the input strings for completed events
-  Returns  : ref to a list of strings
-
-=cut
-
-sub get_complete_inputs {
-	my ($db, $event) = @_;
-	my $csa = $db->get_EventCompleteAdaptor;
-	my $completed = $csa->fetch_by_event($event);
-	    
-	my @completed_inputs = map {$_->other->name} @$completed;
-	
-	return \@completed_inputs; 
-}
 
 =head2 create_event_commandline
 
@@ -455,8 +436,7 @@ sub check_workflow{
       $input_type_hash->{$condition->table_name}->{$condition->type} = $condition_inputs;
     }
 
-    my $completed_inputs = get_complete_inputs($db,$condition);
-    
+    my $completed_inputs = $csa->fetch_by_event($condition);
     my $total_inputs = $input_type_hash->{$condition->table_name}->{$condition->type};
     if(@$total_inputs != @$completed_inputs){
       print "Total inputs don't match the number of completed strings can't run\n" 
@@ -472,10 +452,8 @@ sub check_workflow{
         );
     my $only_input = $input_set->not($completed_set);
     if(@{$only_input->list}){
-      print "There are too many ids which are only on the input set can't run\n"
+      print "There are to many ids which are only on the input set can't run\n"
           if($verbose);
-      use Data::Dumper;
-      print Dumper({total => $total_inputs, completed => $completed_inputs});    
       return [];
     }
   }
@@ -507,15 +485,12 @@ sub check_existing_jobs{
     if ($job) {
       print "Have job ".$job->dbID." ".$job->current_status."\n" if ($verbose);
       if ($job->current_status eq 'FAILED' || $job->current_status eq 'AWOL') {
-        if (defined $job->retry_count && $job->retry_count >= $retry_max) {
+        if ($job->retry_count && $job->retry_count >= $retry_max) {
           print "Job ".$job->dbID." has reached retry_max\n" if ($verbose);
           next INPUT;
         }
       }
       elsif ($job->current_status ne 'CREATED') {
-        next INPUT;
-      }
-      elsif ($job->current_status(undef, 1) ne 'CREATED') {
         next INPUT;
       }
     }
@@ -548,7 +523,7 @@ sub create_job_object{
                                                 $input_string);
   my $update = 0;
   if($job){
-    if(defined $job->retry_count && $job->retry_count >= $retry_max){
+    if($job->retry_count && $job->retry_count >= $retry_max){
       #print STDERR $job->input_string." ".$job->event->name." has been retried too "
       #    "many times\n";
       return undef;
@@ -600,7 +575,14 @@ sub create_job_output_stem{
   my $name = basename($input_string);
   my $num = int(rand($num_output_dirs));
   my $dir = $event->output_path . "/$num/";
-  check_directory_exists($dir);
+  if(! -e $dir){
+    eval{
+      mkpath($dir);
+    };
+    if($@){
+      throw("Failed to create ".$dir." $@");
+    }
+  }
   my $ident = int(rand(10000));
   my $stem = $dir."/".$name."_".$event->name."_".$ident;
   $stem =~ s/\/\//\//;

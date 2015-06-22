@@ -94,7 +94,7 @@ sub new {
     
     # value of the LSF parameter MAX_JOB_ARRAY_SIZE (check using bparams -l | grep ARRAY)
     if (! defined $max_array_size) {
-        $max_array_size = 20000;
+        $max_array_size = 50000;
     }
 
     ######

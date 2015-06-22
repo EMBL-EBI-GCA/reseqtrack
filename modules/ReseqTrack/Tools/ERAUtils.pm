@@ -27,14 +27,100 @@ use vars qw (@ISA  @EXPORT);
 
 
 sub get_erapro_conn{
-  my ($dbuser, $dbpass, $dbname) = @_;
-  
+  my ($dbuser, $dbpass) = @_;
+  my $dbname = 'ERAPRO';
+  my $dbhost = 'ERAPRO';
+  my $dbport = 1561;
   my $db = ReseqTrack::DBSQL::ERADBAdaptor->new(
+    -host   => $dbhost,
     -user   => $dbuser,
-    -dbname => $dbname // 'ERAPRO_HX',
+    -port   => $dbport,
+    -dbname => $dbname,
     -pass   => $dbpass,
       );
   return $db;
+}
+
+
+sub get_era_fastq{
+  my ($run_id, $output_dir, $ftp_server, $clobber, $copy_program, 
+      $copy_options, $era_db) = @_;
+  #check for existing files
+  throw("Can't get fastq files if no run_id is specified") unless($run_id);
+  $copy_program = "cp" unless($copy_program);
+  $copy_options = '' unless($copy_options);
+  $output_dir = getcwd() unless($output_dir);
+  #check to see if files already exist;
+  my $existing_files = find_file($run_id."*", $output_dir);
+  if($existing_files && @$existing_files > 0){
+    if($clobber){
+      print STDERR "Deleting files associated with ".$run_id." in ".$output_dir."\n";
+      foreach my $path(@$existing_files){
+        print STDERR "Deleting ".$path."\n";
+        unlink $path;
+      }
+    }else{
+      print STDERR @$existing_files." files already exist starting with ".
+          $run_id."\n";
+      my %hash;
+      foreach my $path(@$existing_files){
+        print STDERR $path."\n";
+      }
+      
+      #print STDERR "Can not continue with existing files\n";
+      return ;
+    }
+  }
+  #get fastq paths/md5s/sizes
+  my ($md5hash, $sizehash, $namehash) = get_fastq_details($run_id, $era_db, $ftp_server);
+  my @paths = keys(%$md5hash);
+  if(!@paths || @paths == 0){
+    throw("Failed to find any paths for ".$run_id." in ".$era_db->dbc->dbname);
+  }
+
+  foreach my $path(@paths){
+	my ($src_filename, $src_dir, $src_suffix) = fileparse($path);
+	my $dest_filepath = $output_dir.'/'.$src_filename;
+	
+	my $cmd = $copy_program.' '.$copy_options.' '.$path.' '.$dest_filepath;
+	
+    my $exit = system($cmd);
+    if($exit >= 1){
+      throw("Failed to run ".$cmd." exited with ".$exit);
+    }
+
+	chmod 0644, $dest_filepath;
+  }
+  my ($list, $hash) = list_files_in_dir($output_dir, 1);
+  my %md5_hash;
+
+  foreach my $file(@$list){
+    next unless($file =~ /$run_id/);
+    my $name = basename($file);
+    my $srcpath = $namehash->{$name};
+    foreach my $name(keys(%$namehash)){
+      print $name." ".$namehash->{$name}."\n";
+    }
+    if(!$srcpath){
+      throw("Failed to find a source path for ".$name);
+    }
+    my $md5 = $md5hash->{$srcpath};
+    print "Getting size using src path ".$srcpath."\n";
+    my $size = $sizehash->{$srcpath};
+    my $output_size = -s $file;
+    unless($size == $output_size){
+      throw("There is a problem with the output from ".$srcpath." the database ".
+            "gives ".$size." but perl gives ".$output_size);
+    }
+    my $output_md5 = run_md5($file);
+    unless($output_md5 eq $md5){
+       throw("There is a problem with the output from ".$srcpath." the database ".
+            "gives ".$md5." but run_md5 gives ".$output_md5);
+    }
+    $md5_hash{$file} = $md5;
+  }
+  #return md5 hash
+  return \%md5_hash;
 }
 
 
@@ -198,6 +284,8 @@ sub get_fastq_details{
   my %sizehash;
   my %namehash;
   $sth->execute($run_id);
+  #print $sql."\n";
+  #prunt $run_id."\n";
   while(my ($filename, $dirname, $md5, $vol, $bytes) = $sth->fetchrow){
     my $ftp_path = $ftp_root;
     $ftp_path .= "/" unless($ftp_path =~ /\/$/);

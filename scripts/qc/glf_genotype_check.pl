@@ -1,4 +1,4 @@
-#!/usr/bin/env perl
+#!/usr/bin/perl
 use strict;
 use warnings;
 
@@ -66,10 +66,6 @@ $prev_result = check_previous_result ($gr, $input{name}, $input{update});
 my ($platform,$claimed_sample, $paired_length, $collection) =
   get_run_meta_info ( $rmi_a,$ca, $input{name}, $input{type});
 
-
-if($platform eq 'COMPLETE_GENOMICS'){
-  exit(0);
-}
 
 #for event_complete entries. 'skip_platform' listed in cfg file
 if (defined $input{skip_platform}){
@@ -176,7 +172,7 @@ if ( ! $ALIGNER ) {
 
 $run_alignment = $ALIGNER->new( %alignment_hash );
 
-$run_alignment->created_files($tmp_dir);
+$run_alignment->files_to_delete($tmp_dir);
 
 $run_alignment->run();
 

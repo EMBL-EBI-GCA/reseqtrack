@@ -13,7 +13,7 @@ CREATE TABLE file(
        KEY file_path_idx (name),
        UNIQUE (name, md5)
   
-) ENGINE=MYISAM;
+);
 
 CREATE TABLE host(
        host_id int(10) unsigned NOT NULL AUTO_INCREMENT,
@@ -22,17 +22,17 @@ CREATE TABLE host(
        dropbox_dir VARCHAR(200),
        PRIMARY KEY(host_id),
        UNIQUE(name)
-) ENGINE=MYISAM;
+);
 
 create table history(
    history_id int(10) unsigned NOT NULL AUTO_INCREMENT,
    other_id int(10) unsigned NOT NULL,
-   table_name enum('file','collection','event','run_meta_info','alignment_meta_info','study','sample','experiment','run','pipeline') NOT NULL,
-   comment VARCHAR(65000) NOT NULL,  
+   table_name enum('file', 'collection', 'event', 'run_meta_info', 'alignment_meta_info'),
+   comment VARCHAR(255) NOT NULL,  
    time   datetime NOT NULL, 
    PRIMARY KEY(history_id), 
    key(other_id, table_name)
-) ENGINE=MYISAM;
+);
 
 
 
@@ -54,7 +54,7 @@ CREATE TABLE event(
        
        PRIMARY KEY(event_id),
        UNIQUE(name)   
-) ENGINE=MYISAM;
+);
 
 
 CREATE TABLE event_complete(
@@ -69,7 +69,7 @@ CREATE TABLE event_complete(
    exec_host varchar(20),
 
    unique(event_id, other_id, table_name)
-) ENGINE=MYISAM;
+);
 
 CREATE TABLE input_string(
    input_string_id  int(10) unsigned NOT NULL AUTO_INCREMENT,
@@ -78,20 +78,22 @@ CREATE TABLE input_string(
    
    primary key(input_string_id),
    unique(name, type)
-) ENGINE=MYISAM;
+);
 CREATE TABLE workflow_goal(
     workflow_id int(10) unsigned NOT NULL AUTO_INCREMENT,
     goal_event_id int(10) unsigned NOT NULL,
     PRIMARY KEY(workflow_id),
     KEY(goal_event_id),
     UNIQUE(goal_event_id)
-) ENGINE=MYISAM;
+);
 
 CREATE TABLE workflow_conditions(
     workflow_id int(10) unsigned NOT  NULL,
     conditional_event_id int( 10) unsigned NOT NULL,
-    PRIMARY KEY(workflow_id,conditional_event_id)
-) ENGINE=MYISAM;
+    PRIMARY KEY(workflow_id),
+    KEY(conditional_event_id),
+    KEY workflow_condition(workflow_id, conditional_event_id)
+);
 
 CREATE TABLE collection(
    collection_id int(10) unsigned NOT  NULL AUTO_INCREMENT,
@@ -101,13 +103,43 @@ CREATE TABLE collection(
    PRIMARY KEY (collection_id),
    key(name),
    unique(name, table_name, type)
-) ENGINE=MYISAM;
+);
 
 CREATE TABLE collection_group(
   collection_id int(10) unsigned NOT  NULL,
   other_id int(10) unsigned NOT  NULL,
   unique(collection_id, other_id)
-) ENGINE=MYISAM;
+);
+
+
+CREATE TABLE  run_meta_info(
+       run_meta_info_id int(10) unsigned NOT NULL AUTO_INCREMENT,
+       run_id VARCHAR(15) NOT NULL,
+       study_id VARCHAR(20) NOT NULL,
+       study_name VARCHAR(500),
+       center_name VARCHAR(15),
+       submission_id VARCHAR(20) NOT NULL,
+       submission_date datetime,
+       sample_id VARCHAR(20) NOT NULL,
+       sample_name VARCHAR(20) NOT NULL,
+       population VARCHAR(50),
+       experiment_id VARCHAR(20) NOT NULL,
+       instrument_platform VARCHAR(50) NOT NULL,
+       instrument_model VARCHAR(100),
+       library_name VARCHAR(255) NOT NULL,
+       run_name VARCHAR(255),
+       run_block_name VARCHAR(255),
+       paired_length int(10),
+       library_layout VARCHAR(10),
+       status VARCHAR(50),     
+       archive_base_count bigint,
+       archive_read_count bigint,
+	   library_strategy varchar(32),
+       PRIMARY KEY(run_meta_info_id),
+       KEY (run_id),
+       KEY sample_run_idx(run_id, sample_name),
+       UNIQUE(run_id)           
+);
 
 
 create table alignment_meta_info(
@@ -123,7 +155,7 @@ create table alignment_meta_info(
       PRIMARY KEY(alignment_meta_info_id),
       KEY(file_id),
       KEY sample_file_idx(sample_name, file_id)
-) ENGINE=MYISAM;
+);
 
 
 CREATE TABLE job(
@@ -141,7 +173,7 @@ CREATE TABLE job(
    KEY(input_string),
    KEY(event_id)
 
-) ENGINE=MYISAM;
+);
 
 CREATE TABLE job_status (
   job_id            int(10) unsigned NOT NULL,
@@ -152,7 +184,19 @@ CREATE TABLE job_status (
   KEY (job_id),
   KEY (status),
   KEY (is_current)
-) ENGINE=MYISAM;
+);
+
+CREATE TABLE statistics(
+   statistics_id int(10) unsigned NOT  NULL AUTO_INCREMENT,
+   table_name  enum('file', 'event', 'run_meta_info', 'alignment_meta_info', 'collection'),
+   other_id int(10) unsigned NOT  NULL,      
+   attribute_name VARCHAR(50) NOT NULL,
+   attribute_value VARCHAR(255) NOT NULL,
+   PRIMARY KEY (statistics_id),
+   key(attribute_name),
+   key(other_id, table_name),
+   unique(other_id, table_name, attribute_name, attribute_value)
+); 
 
 CREATE TABLE archive(
        archive_id int(10) unsigned NOT NULL AUTO_INCREMENT,
@@ -175,24 +219,24 @@ CREATE TABLE archive(
        PRIMARY KEY (archive_id),
        KEY file_name_idx (name),
        UNIQUE (name, relative_path)
-) ENGINE=MYISAM;
+);
 
 CREATE TABLE archive_action(
       archive_action_id int(10) unsigned NOT NULL,
       action VARCHAR(50)
-) ENGINE=MYISAM;
+);
 
 CREATE TABLE archive_location(
       archive_location_id int(10) unsigned NOT NULL,
       location VARCHAR(50),
       location_name VARCHAR(10)
-) ENGINE=MYISAM;
+);
 
 
 CREATE TABLE era_meta_info( 
        id_string VARCHAR(50),  
        column_name VARCHAR(50)
-       ) ENGINE=MYISAM;
+       );
 
 CREATE TABLE meta (
 
@@ -203,7 +247,16 @@ CREATE TABLE meta (
   PRIMARY  KEY (meta_id),    
   unique (meta_key)
 
-)  ENGINE=MYISAM;
+) ;
+
+CREATE TABLE reject_log (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    file_id INT NOT NULL,
+    is_reject enum("y", "n") NOT NULL DEFAULT "n",
+    reject_reason VARCHAR(500),
+    created TIMESTAMP(8)
+    );
+
 
 CREATE TABLE `genotype_results` (
   `genotype_results_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
@@ -226,7 +279,7 @@ CREATE TABLE `genotype_results` (
   `performed` datetime NOT NULL,
   PRIMARY KEY (`genotype_results_id`),
   UNIQUE KEY `name` (`name`)
-)  ENGINE=MYISAM;
+) ;
 
 CREATE TABLE file_type_rule (
        rule_block_order int(10) unsigned NOT NULL,
@@ -235,19 +288,19 @@ CREATE TABLE file_type_rule (
        match_regex  VARCHAR(1000),
 
        PRIMARY KEY (rule_block_order, rule_order)
-) ENGINE=MYISAM;
+);
 
 CREATE TABLE population_rule (
        rule_order int(10) unsigned NOT NULL,
        population  VARCHAR(50),
        match_regex  VARCHAR(1000),
        PRIMARY KEY (rule_order)
-) ENGINE=MYISAM;
+);
 
 CREATE TABLE study_id (
        study_id  VARCHAR(50),
        PRIMARY KEY (study_id)
-) ENGINE=MYISAM;
+);
 
 
 CREATE TABLE `verifybamid_readgroup` (
@@ -262,7 +315,7 @@ CREATE TABLE `verifybamid_readgroup` (
   `status` tinyint(1) DEFAULT '0',
   PRIMARY KEY (`verifybamid_readgroup_id`),
   UNIQUE KEY `other_id` (`other_id`,`run_id`)
-) ENGINE=MYISAM;
+);
 
 
 CREATE TABLE `verifybamid_sample` (
@@ -290,182 +343,8 @@ CREATE TABLE `verifybamid_sample` (
   `performed` datetime NOT NULL,
   PRIMARY KEY (`verifybamid_sample_id`),
   UNIQUE KEY `other_id` (`other_id`)
-) ENGINE=MYISAM;
+);
 
-
-CREATE TABLE  verifybamid(
-        verifybamid_id          INT  unsigned    NOT NULL AUTO_INCREMENT,
-        file_id                 INT  unsigned    NOT NULL,
-        sample                  VARCHAR (15)     NOT NULL,
-        read_group              VARCHAR (15)     NOT NULL,
-        chip_id                 VARCHAR (15),
-        snps                    INT ,
-        num_reads               INT ,
-        avg_depth               float,
-        free_contam             float,
-        free_mlogl_est_contam   float ,
-        free_mlogl_zero_contam  float,
-        free_ref_bias_ref_het   float,
-        free_ref_bias_refhomalt float,
-        chip_contam             float,
-        chip_mlogl_est_contam   float,
-        chip_mlogl_zero_contam  float,
-        chip_ref_bias_ref_het   float,
-        chip_ref_bias_refhomalt float,
-        depth_homref_site       float,
-        rel_depth_het_site      float ,
-        rel_depth_homalt_site   float,
-        run_mode                VARCHAR(10),
-        used_genotypes          INT,
-        target_region           VARCHAR(15),
-        vcf                     VARCHAR(50) NOT NULL ,
-        verdict                 VARCHAR(20) ,
-        performed               datetime    NOT NULL,
-
-     PRIMARY KEY (verifybamid_id),
-     UNIQUE(file_id, read_group)
-) ENGINE=MYISAM;
-
-CREATE TABLE pipeline(
-       pipeline_id int(10) unsigned NOT NULL AUTO_INCREMENT,
-       name VARCHAR(100) NOT NULL,
-       table_name VARCHAR(50) NOT NULL,
-       config_module VARCHAR(255) NOT NULL,
-       config_options VARCHAR(30000),
-       created   datetime NOT NULL,
-       PRIMARY KEY(pipeline_id),
-       UNIQUE(name)   
-) ENGINE=MYISAM;
-
-CREATE TABLE hive_db(
-       hive_db_id int(10) unsigned NOT NULL AUTO_INCREMENT,
-       pipeline_id int(10) unsigned NOT NULL,
-       name VARCHAR(255) NOT NULL,
-       host VARCHAR(255) NOT NULL,
-       port smallint unsigned NOT NULL,
-       created   datetime NOT NULL,
-       retired   datetime,
-       hive_version VARCHAR(255) NOT NULL,
-       is_seeded tinyint NOT NULL DEFAULT 0,
-       PRIMARY KEY(hive_db_id),
-       UNIQUE(name,host,port,created)   
-) ENGINE=MYISAM;
-
-CREATE TABLE pipeline_seed(
-       pipeline_seed_id int(10) unsigned NOT NULL AUTO_INCREMENT,
-       seed_id int(10) unsigned NOT NULL,
-       hive_db_id int(10) unsigned NOT NULL,
-       is_running tinyint NOT NULL,
-       is_complete tinyint NOT NULL default 0,
-       is_failed tinyint NOT NULL default 0,
-       is_futile tinyint NOT NULL default 0,
-       created datetime NOT NULL,
-       completed datetime,
-       PRIMARY KEY(pipeline_seed_id)
-) ENGINE=MYISAM;
-
-CREATE TABLE pipeline_output(
-       pipeline_output_id int(10) unsigned NOT NULL AUTO_INCREMENT,
-       pipeline_seed_id int(10) unsigned NOT NULL,
-       table_name VARCHAR(50) NOT NULL,
-       output_id int(10) unsigned NOT NULL,
-       action VARCHAR(50) NOT NULL,     
-       PRIMARY KEY(pipeline_output_id)
-) ENGINE=MYISAM;
-
-CREATE TABLE attribute(
-   attribute_id int(10) unsigned NOT  NULL AUTO_INCREMENT,
-   table_name enum('file','event','run_meta_info','alignment_meta_info','collection','run','sample','experiment','study','pipeline_seed') not null,
-   other_id int(10) unsigned NOT  NULL,      
-   attribute_name VARCHAR(100) NOT NULL,
-   attribute_value VARCHAR(4000) NOT NULL,
-   PRIMARY KEY (attribute_id),
-   key(attribute_name),
-   key(other_id, table_name),
-   unique(other_id, table_name, attribute_name)
-) ENGINE=MYISAM; 
-
-create table study(
-    study_id int(10) unsigned primary key auto_increment, 
-    study_source_id  varchar(15) not null,
-    status varchar(50) not null ,
-    md5     varchar(32),
-    type      varchar(100) not null ,
-    submission_id varchar(15),
-    submission_date datetime,
-    title varchar(2000),
-    study_alias varchar(500)
-) ENGINE=MYISAM;
-
-create unique index study_src_idx on study(study_source_id);
-
-create table experiment (
-    experiment_id int(10) unsigned primary key auto_increment,
-    experiment_source_id varchar(15) not null,
-    study_id  int(10) unsigned not null ,
-    status varchar(50) not null ,
-    md5     varchar(32),
-    center_name           varchar(100) ,
-    experiment_alias      varchar(500) ,
-    instrument_platform   varchar(50) not null ,
-    instrument_model      varchar(50) ,
-    library_layout        varchar(50) not null ,
-    library_name          varchar(500) ,
-    library_strategy      varchar(50) ,
-    library_source        varchar(50) not null ,
-    library_selection     varchar(50) not null ,
-    paired_nominal_length int(10) ,
-    paired_nominal_sdev   int(10),
-    submission_id varchar(15),
-    submission_date datetime,
-    constraint foreign key (study_id) references study(study_id)
-) ENGINE=MYISAM;
-
-create unique index experiment_src_idx on experiment(experiment_source_id);
-create index experiment_fk1 on experiment(study_id);
-
-create table sample
-(
-    sample_id int(10) unsigned primary key auto_increment,
-    sample_source_id varchar(15) not null,
-    status varchar(50),
-    md5     varchar(32),
-    center_name     varchar(100) ,
-    sample_alias    varchar(500) ,
-    tax_id          varchar(15) ,
-    scientific_name varchar(500) ,
-    common_name     varchar(4000) ,
-    anonymized_name varchar(4000) ,
-    individual_name varchar(4000) ,
-    submission_id varchar(15),
-    submission_date datetime,
-    sample_title varchar(4000)
-) ENGINE=MYISAM;
-
-create unique index sample_src_idx on sample(sample_source_id);
-
-create table run
-(
-    run_id        int(10) unsigned primary key auto_increment,
-    run_source_id	varchar(15) not null,
-    experiment_id  int(10) unsigned not null,
-    sample_id  int(10) unsigned not null,
-    run_alias varchar(500) not null ,
-    status varchar(50) not null ,
-    md5 varchar(32),
-    center_name         varchar(100),
-    run_center_name     varchar(100),
-    instrument_platform varchar(50),
-    instrument_model    varchar(50),
-    submission_id varchar(15),
-    submission_date datetime,
-    constraint foreign key (sample_id) references sample(sample_id),
-    constraint foreign key (experiment_id) references experiment(experiment_id)
-  ) ENGINE=MYISAM;
-
-create index run_fk1 on run(sample_id);
-create index run_fk2 on run(experiment_id);
-create unique index run_src_idx on run(run_source_id);
 
 #Now to add entries to the two standard tables
 

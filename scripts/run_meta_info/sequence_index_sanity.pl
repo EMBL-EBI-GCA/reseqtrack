@@ -1,7 +1,6 @@
-#!/usr/bin/env perl
+#!/sw/arch/bin/perl -w
 
 use strict;
-use warnings;
 
 use Getopt::Long;
 
@@ -9,7 +8,6 @@ use ReseqTrack::Tools::Exception;
 use ReseqTrack::Tools::SequenceIndexUtils;
 use ReseqTrack::Tools::SequenceIndexSanity;
 use ReseqTrack::Tools::RunMetaInfoUtils;
-use ReseqTrack::DBSQL::DBAdaptor;
 
 $| = 1;
 
@@ -23,12 +21,6 @@ my $ftp_path_must_contain = 'sequence_read';
 my $dir_must_contain = 'ftp/data';
 my $help;
 my $log;
-my $dbhost;
-my $dbuser;
-my $dbpass;
-my $dbport = 4175;
-my $dbname;
-
 my @command_args = @ARGV;
 
 
@@ -42,21 +34,16 @@ my @command_args = @ARGV;
     
 
 &GetOptions( 
-	    'index_file=s' => \$index_file,
-	    'ftp_root=s' => \$ftp_root,
-	    'verbose!' => \$verbose,
-	    'syntax!' => \$syntax,
-	    'filesystem!' => \$filesystem,
-	    'log' => \$log,
-	    'ftp_path_must_contain=s' => \$ftp_path_must_contain,
-	    'dir_must_contain=s' => \$dir_must_contain,
-	    'help!' => \$help,
-	    'dbhost=s'      => \$dbhost,
-	    'dbname=s'      => \$dbname,
-	    'dbuser=s'      => \$dbuser,
-	    'dbpass=s'      => \$dbpass,
-	    'dbport=s'      => \$dbport,
-	   )or useage(@command_args);
+  'index_file=s' => \$index_file,
+  'ftp_root=s' => \$ftp_root,
+  'verbose!' => \$verbose,
+  'syntax!' => \$syntax,
+  'filesystem!' => \$filesystem,
+  'log' => \$log,
+  'ftp_path_must_contain=s' => \$ftp_path_must_contain,
+   'dir_must_contain=s' => \$dir_must_contain,
+  'help!' => \$help,
+    )or useage(@command_args);
 
 
 if(!$syntax && !$filesystem){
@@ -240,7 +227,7 @@ if($syntax){
     my $count;
     foreach my $key(keys(%$has_trailing_hash)){
       my $entries = $has_trailing_hash->{$key};
-      print $key." has ".@$entries." columns with trailing spaces\n";
+      print $key." has ".@$entries." columns with NULL values\n";
       foreach my $index(@$entries){
         print $index."\n";
       }
@@ -288,14 +275,7 @@ if($syntax){
       last if($count >= 10);
     }
   }
-  my $db = ReseqTrack::DBSQL::DBAdaptor->new(
-  -host   => $dbhost,
-  -user   => $dbuser,
-  -port   => $dbport,
-  -dbname => $dbname,
-  -pass   => $dbpass,
-    );
-  my $population_results = check_population($index_file, $db);
+  my $population_results = check_population($index_file);
   print "There are ".keys(%$population_results)." lines with problems for the ".
       "population column\n";
   if($verbose){

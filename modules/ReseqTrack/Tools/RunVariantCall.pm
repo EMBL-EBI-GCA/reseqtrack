@@ -23,11 +23,11 @@ use base qw(ReseqTrack::Tools::RunProgram);
   Returntype: ReseqTrack::Tools::RunVariantCall
   Exceptions: 
   Example   : my $run_varCall = ReseqTrack::Tools::RunVariantCall->new(
-                -program         => "variant call program name or path",
-                -working_dir     => '/path/to/dir/',
-                -reference         => '/path/to/ref.fa',
-                -chrom            => 20,
-                -region            => 1000000-2000000 );
+                -program 		=> "variant call program name or path",
+                -working_dir 	=> '/path/to/dir/',
+                -reference 		=> '/path/to/ref.fa',
+				-chrom			=> 20,
+				-region			=> 1000000-2000000 );
 
 =cut
 
@@ -35,30 +35,15 @@ sub new {
   my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
 
-  my ( $reference, $chrom, $region_start, $region_end)
-        = rearrange( [ qw( REFERENCE CHROM REGION_START REGION_END ) ], @args);
+  my ( $reference, $chrom, $region)
+        = rearrange( [ qw( REFERENCE CHROM REGION ) ], @args);
 
   $self->reference($reference);
   $self->chrom($chrom);
-  $self->region_start($region_start);
-  $self->region_end($region_end);
+  $self->region($region);
 
   return $self;
 }
-
-sub generate_job_name {
-    my $self = shift;
-    my $chrom = $self->chrom;
-    if ($self->chrom =~ /\s+/) {   ## when multiple chroms are input, seperated by white space
-        $chrom =~ s/\s+/_/g;
-    }       
-    my $job_name = $chrom;
-    if ($self->region_start && $self->region_end) {
-      $job_name .= "." . $self->region_start . '-' . $self->region_end;
-    }
-    return $self->job_name($job_name);
-}
-
 
 =head2 reference
 
@@ -91,7 +76,7 @@ sub reference {
 =cut
 
 sub chrom {
-    my ($self, $chr) = @_;
+	my ($self, $chr) = @_;
     if ($chr) {
         $self->{'chrom'} = $chr;
     }
@@ -110,23 +95,15 @@ sub chrom {
 
 =cut
 
-sub region_start {
-    my ($self, $region_start) = @_;
-    if ($region_start) {
-        $self->{'region_start'} = $region_start;
+sub region {
+	my ($self, $region) = @_;
+    if ($region) {
+        $self->{'region'} = $region;
     }
-    return $self->{'region_start'};
+    return $self->{'region'};
 }
 
-sub region_end {
-    my ($self, $region_end) = @_;
-    if ($region_end) {
-        $self->{'region_end'} = $region_end;
-    }
-    return $self->{'region_end'};
-}
-
-=head2 run_program
+=head2 run
 
   Arg [1]   : ReseqTrack::Tools::RunVariantCall
   Function  : each child object should implement a run method
@@ -136,12 +113,60 @@ sub region_end {
 
 =cut
 
-sub run_program {
+sub run {
   my ($self) = @_;
   throw(  $self
-          . " must implement a run_program method as ReseqTrack::Tools::RunVariantCall "
+          . " must implement a run method as ReseqTrack::Tools::RunVariantCall "
           . "does not provide one" );
 }
+
+=head2 options							
+
+  Arg [1]   : ReseqTrack::Tools::CallBySamtools or CallByUmake or CallByGATK
+  Arg [2]   : string, name of key e.g. "mpileup" 
+  Arg [3]   : string, optional, options to be used on command line e.g. "-m 100000000"
+  Function  : accessor method for command line options
+  Returntype: string, command line options
+  Exceptions: n/a
+  Example   : my $mpileup_options = $self->options{'mpileup'};
+
+=cut
+
+sub options {
+    my ($self, $option_name, $option_value) = @_;
+
+    if (! $self->{'options'}) {
+        $self->{'options'} = {};
+    }
+
+    throw( "option_name not specified")
+        if (! $option_name);
+
+    if ($option_value) {
+        $self->{'options'}->{$option_name} = $option_value;
+    }
+
+    return $self->{'options'}->{$option_name};
+}
+
+=head2 intermediate_output_file
+
+  Arg [1]   : ReseqTrack::Tools::RunVariantCall
+  Function  : stores/gets intermediate output file such as raw vcf
+  Returntype: filepaths
+  Exceptions: 
+  Example   : my $bcf = $self->intermediate_output_file;
+
+=cut
+
+sub intermediate_output_file { ### FIXME: should this be an array?
+	my ($self, $file) = @_;
+	if ($file) {
+		$self->{'intermediate_output_file'} = $file;
+	}
+	return 	$self->{'intermediate_output_file'};
+}	
+
 
 1;
 

@@ -9,13 +9,9 @@ use File::Copy;
 use File::Basename;
 use File::Find ();
 use File::stat;
-use File::Path qw(remove_tree make_path);
-use Digest::MD5::File qw(file_md5_hex);
+use File::Path;
 use File::Temp qw/ tempfile tempdir /;
 use Time::localtime;
-use List::Util qw (first);
-use Env qw( @PATH );
-use File::Rsync;
 
 use vars qw (@ISA  @EXPORT);
 
@@ -29,15 +25,35 @@ use vars qw (@ISA  @EXPORT);
   run_md5
   find_file
   check_md5
+  dump_dirtree_summary
   delete_directory
   delete_file
   check_file_exists
-  check_file_does_not_exist
   check_directory_exists
-  check_executable
-  create_tmp_process_dir
-  move_by_rsync
-  );
+  make_directory
+  create_tmp_process_dir  );
+
+=head2 get_filenames
+
+  Arg [1]   : string, directory path
+  Function  : returns a list of files in given directory, this is a utility method
+  to descend directory trees for list_files_in_dir
+  Returntype: arrayref of filepaths
+  Exceptions: none
+  Example   : my $list = get_filenames($dir);
+
+=cut
+
+sub get_filenames {
+ my ($dir) = @_;
+ no strict;
+ sub find(&@) { &File::Find::find }
+ *name = *File::Find::name;
+ my @files;
+ find { push( @files, $name ) } $dir;
+ use strict;
+ return \@files;
+}
 
 =head2 list_files_in_dir
 
@@ -54,17 +70,39 @@ use vars qw (@ISA  @EXPORT);
 
 sub list_files_in_dir {
  my ( $dir, $get_full_paths ) = @_;
- throw( "Must pass list_files_in_dir a directory not " . $dir ) if ( !-d $dir );
+ my $name = $File::Find::name;
+ throw( "Must pass list_files_in_dir a directory not " . $dir )
+   unless ( -d $dir );
+ my $list = get_filenames($dir);
 
+ #find { push(@list, $name)} $dir;
  my %hash;
  my @files;
- File::Find::find( sub{
-      return if /^\./;
-      return if -d $_;
-      push(@files, $File::Find::name);
-      my $filename = $get_full_paths ? $File::Find::name : $_;
-      push(@{$hash{$File::Find::dir}}, $filename);
-  }, $dir);
+ foreach my $element (@$list) {
+  next if ( !$element );
+  if ( -d $element ) {
+   if ( !$hash{$element} ) {
+    $hash{$element} = [];
+   }
+  }
+  else {
+   my $file;
+   my $dir_path = dirname($element);
+   if ($get_full_paths) {
+    $file = $element;
+   }
+   else {
+    $file = basename($element);
+   }
+   my $name = basename($element);
+   next if ( $name =~ /^\./ );
+   push( @files, $file );
+   if ( !$hash{$dir_path} ) {
+    $hash{$dir_path} = [];
+   }
+   push( @{ $hash{$dir_path} }, $file );
+  }
+ }
 
  return undef if ( @files == 0 );
  return ( \@files, \%hash );
@@ -83,21 +121,23 @@ sub list_files_in_dir {
 
 sub get_lines_from_file {
  my ($file) = @_;
- throw( $file . " must exist in order to be read" ) if ! -e $file;
+ unless ( -e $file ) {
+  throw( $file . " must exist in order to be read" );
+ }
  my @return;
- open( my $fh, '<', $file ) || throw("Cannot open the file $file $!");
+ open( FILE, $file ) || throw("Cannot open the file $file");
 
- while (my $line = <$fh>) {
+ foreach my $line (<FILE>) {
   chomp($line);
-  next if ( $line =~ /^\s*$/ );
+  next if ( $line =~ /^\s+$/ );
   push @return, $line;
  }
- close($fh) or throw( "Failed to close $file $!");
+ close(FILE) or throw( "Failed to close " . $file );
  warning( $file . " contained no lines" ) if ( @return == 0 );
  return \@return;
 }
 
-=head2 get_md5hash
+=head2 get_Md5hash
 
   Arg [1]   : String, filename
   Function  : parse file to produce hash of filenames
@@ -113,25 +153,33 @@ sub get_lines_from_file {
 
 sub get_md5hash {
  my ( $file, $trim ) = @_;
- throw( $file . " must exist in order to be read" ) if ! -e $file;
- open( my $fh, '<', $file ) or throw( "Failed to open $file $!");
+ unless ( -e $file ) {
+  throw( $file . " must exist in order to be read" );
+ }
+ open( FH, $file ) or throw( "Failed to open " . $file );
  my %filehash;
  my %md5hash;
- while (<$fh>) {
+ while (<FH>) {
   chomp;
   my ( $md5, $filename ) = split;
-  throw("line does not contain md5 and file") if !$filename || ! length($filename);
-  throw("md5 is not valid: $md5") if $md5 !~ /^[a-f0-9]{32}$/;
+  throw( $filename . " has zero md5 in " . $file )
+    if ( !$md5 || ( $md5 =~ /^\d+$/ && $md5 == 0 ) );
+  warning( $filename . " already existing in hash" )
+    if ( $filehash{$filename} );
 
+  #warning($md5." is a duplicate") if($md5hash{$md5});
+  if ( !$md5 || length($md5) == 0 ) {
+   print $_. " doesn't have an md5\n";
+  }
+  if ( !$filename || length($filename) == 0 ) {
+   print $_. " doesn't have a filename\n";
+  }
   my $name = $filename;
   $name = basename($filename) if ($trim);
-  warning( $name . " already existing in hash" )
-    if ( $filehash{$name} );
-
   $filehash{$name} = $md5;
   $md5hash{$md5}   = $filename;
  }
- close($fh) or throw( "Failed to close $file $!" );
+ close(FH) or throw( "Failed to close " . $file );
  return \%filehash;
 }
 
@@ -149,14 +197,17 @@ sub get_md5hash {
 
 sub get_hash_from_tab_file {
  my ( $file, $column ) = @_;
- open( my $fh, '<', $file ) or throw( "Failed to open " . $file . " $!" );
+ open( FH, $file ) or throw( "Failed to open " . $file . " $!" );
  my %hash;
- while (my $string = <$fh>) {
-  chomp $string;
-  my @values = split("\t", $string);
+ while (<FH>) {
+  chomp;
+  my $string = $_;
+  my @values = split /\t/, $string;
+  if ( !$hash{ $values[$column] } ) {
+   $hash{ $values[$column] } = [];
+  }
   push( @{ $hash{ $values[$column] } }, $string );
  }
- close $fh;
  return \%hash;
 }
 
@@ -174,11 +225,12 @@ sub get_hash_from_tab_file {
 
 sub get_columns_from_tab_file {
  my ( $file, $key_column, $value_column ) = @_;
- open( my $fh, '<', $file ) or throw( "Failed to open " . $file . " $!" );
+ open( FH, $file ) or throw( "Failed to open " . $file . " $!" );
  my %hash;
- while (my $string = <$fh>) {
-  chomp $string;
-  my @values = split("\t", $string);
+ while (<FH>) {
+  chomp;
+  my $string = $_;
+  my @values = split /\t/, $string;
   if ( $hash{ $values[$key_column] } ) {
    warning(   "ReseqTrack::Tools::FileUtils::get_columns_from_tab_file "
             . "assumes that the contents of "
@@ -191,7 +243,6 @@ sub get_columns_from_tab_file {
   }
   $hash{ $values[$key_column] } = $values[$value_column];
  }
- close $fh;
  return \%hash;
 }
 
@@ -207,47 +258,157 @@ sub get_columns_from_tab_file {
 =cut
 
 sub run_md5 {
- my ( $file ) = @_;
- throw("Can't run md5sum on a non existent file $file") if ( !-e $file );
- my $md5 = file_md5_hex($file);
+ my ( $file, $program ) = @_;
+ $program = 'md5sum' if ( !$program );
+ throw("Can't run md5sum on a non existent file $file") unless ( -e $file );
+ my $cmd = $program . " " . $file;
+ open( FH, $cmd . " | " ) or throw( "Failed to open " . $cmd );
+ my $md5;
+ while (<FH>) {
+  chomp;
+  my @values = split;
+  $md5 = $values[0];
+ }
+ close(FH);
  return $md5;
 }
 
 =head2 find_file
 
-  Arg [1]   : string, pattern/regex
+  Arg [1]   : string, name/pattern
   Arg [2]   : string, directory to start search in
   Arg [3]   : binary flag verbosity
   Function  : run unix find
   Returntype: arrayref of paths which match pattern
   Exceptions: throws if can't run find command
-  Example   : my $fastqs = find('.*\.fastq.gz', "/nfs/1000g-work/");
+  Example   : my $fastqs = find("*fastq.gz", "/nfs/1000g-work/");
 
 =cut
 
 sub find_file {
  my ( $name, $dir, $verbose ) = @_;
+ my $cmd = "find $dir -name \"" . $name . "\" -print";
+ print STDERR $cmd . "\n" if ($verbose);
+ open( CMD, $cmd . " | " ) or throw( "Failed to open " . $cmd . " $!" );
  my @paths;
- File::Find::find( sub{ push(@paths, $File::Find::name) if ( /$name/ ); }, $dir);
+ while (<CMD>) {
+  chomp;
+  push( @paths, $_ );
+ }
+ close(CMD);
  return \@paths;
 }
 
 =head2 check_md5
 
-  Arg [1]   : filepath to file
-  Arg [2]   : md5 to check against
-  Function  : runs md5sum to see if it equals the given md5
+  Arg [1]   : filepath to file containing md5
+  Arg [2]   : path to md5 program, defaults to md5sum
+  Function  : runs md5sum -c with given file and checks md5s in file match md5s of
   actual files
-  Returntype: 0/1, if 0, also return the md5s 
+  Returntype: 0/1 
+  Exceptions: throws if failed to run cmd
   Example   : 
 
 =cut
 
 sub check_md5 {
- my ( $file, $md5 ) = @_;
+ my ( $file, $hash ) = @_;
+ my $name           = basename($file);
+ my $md5            = $hash->{$name};
  my $calculated_md5 = run_md5($file);
- return 1 if $md5 eq $calculated_md5;
- return 0;
+ unless ( $md5 eq $calculated_md5 ) {
+  return 0;
+ }
+ else {
+  return 1;
+ }
+ print STDERR "Shouldn't of reached this point in FileUtils check_md5\n";
+}
+
+sub dump_dirtree_summary{
+  my ($input_dir, $output_file, $skip_regex, $fa, $file_list) = @_;
+  my $no_md5s = 0;
+  $skip_regex = 'current.tree';
+
+  my ($files, $hash);# = list_files_in_dir($input_dir, 1);
+
+  #provide file list from 'find $input_dur > file.list'
+  if ($file_list){
+    $files = get_lines_from_file($file_list);
+  }
+  else{
+    ($files, $hash) = list_files_in_dir($input_dir, 1);
+  }
+
+
+  my $fh;
+  if($output_file){
+    open(FH, ">".$output_file) or throw("Failed to open ".$output_file." $!");
+    $fh = \*FH;
+  }else{
+    $fh = \*STDOUT;
+  }
+  my %dirs;
+  my %file_md5s;
+  if($fa){
+    my $file_objects = $fa->fetch_all_like_path($input_dir);
+    foreach my $file_object(@$file_objects){
+      my $md5 = $file_object->md5;
+      $md5 = "................................" unless($md5);
+      $file_md5s{$file_object->name} = $md5;
+    }
+  }
+  my $trim = $input_dir;
+  $trim =~ s/ftp//;
+  $trim =~ s/\/\/$/\//;
+  foreach my $file(@$files){
+    next if($file =~ /$skip_regex/);
+    my $dir = dirname($file);
+    my $label;
+    my $md5;
+    if($fa){
+      $md5 = $file_md5s{$files};
+    }
+    my $mod_dir = $dir;
+    $mod_dir =~ s/$trim//;
+    unless($dirs{$mod_dir}){
+      my $dir_size = -s $dir;
+      my $dir_stamp = ctime(stat($dir)->mtime);
+      $label = 'directory';
+      $dir =~ s/$input_dir//;   
+      print $fh join("\t", $mod_dir, $label, $dir_size, $dir_stamp);
+      print $fh "\t " if($fa);
+      print $fh "\n";
+      $dirs{$mod_dir} = 1;
+    }
+
+    my $md5sum = '';
+    $md5sum = $file_md5s{$file};
+
+    #warning($file." has no md5") unless($md5sum);
+    if (!$md5sum){
+      print STDERR  "$file has no md5\n";
+      $no_md5s++;
+    }
+
+    my $size = -s $file;
+    my $date_string = ctime(stat($file)->mtime);
+    $label = 'file';
+    $file =~ s/$trim//;
+    print $fh join("\t", $file, $label, $size, $date_string);
+
+   # print $fh "\t".$md5sum if($fa);
+   # print $fh "\n";
+
+    if  ($md5sum){
+      print $fh "\t". $md5sum;
+    }
+    else{
+      print $fh "\t";
+    }
+    print $fh "\n";
+  }
+  close($fh);
 }
 
 =head2 delete_directory
@@ -261,18 +422,30 @@ sub check_md5 {
 =cut
 
 sub delete_directory {
-  my ($dir, $verbose) = @_;
+    my $dir = shift;
 
-  remove_tree($dir, {error => \my $err, verbose=>$verbose});
-  if (@$err) {
-    my @error_strings;
-    foreach my $err_hash (@$err) {
-      my ($err_file, $message) = %$err_hash;
-      push(@error_strings, "Error creating $err_file: $message.");
+    #remove directory contents first
+    opendir (my $dir_handle, $dir)
+        or throw("could not open $dir: $!");
+    my @files = grep !/^\.\.?$/, readdir($dir_handle);
+    foreach my $file (@files) {
+        $file = $dir . "/" . $file;
+        $file =~ s{//}{/};
+
+        if (-d $file){
+            delete_directory($file);
+        }
+        else {
+            delete_file($file);
+        }
+
     }
-    throw join(' ', @error_strings);
-  }
-  return 1;
+
+    rmdir($dir)
+        or throw( "directory not deleted: $dir $!");
+
+    return 1;
+
 }
 
 =head2 delete_file
@@ -286,24 +459,15 @@ sub delete_directory {
 =cut
 
 sub delete_file {
-    my ($file, $verbose) = @_;
+    my $file = shift;
 
-    throw ("no file name") if (!$file);
-    print "Deleting $file\n" if ($verbose);
-
-    if ( ! -e $file ){
-      if ( ! -l $file ) {
-      	print "$file does not exist. Skipping delete\n" if $verbose;
-      	return 1;
-      }
+    if ( ! -e $file){
+      print "$file does not exist. Skipping delete\n";
+      return 1;
     }
 
-    my $result = unlink($file);
-
-    # no need to throw if file has been delete by another process
-    if (!$result && -e $file) {
-      throw( "file not deleted: $file $!");
-    }
+    unlink($file)
+        or throw( "file not deleted: $file $!");
 
     return 1;
 }
@@ -313,25 +477,18 @@ sub delete_file {
   Arg [1]   : path to directory
   Function  : checks that the directory exists
   Returntype: 0/1 
-  Exceptions: throws if directory cannot be created
+  Exceptions: throws if directory does not exist
   Example   : check_directory_exists('/path/to/directory');
 
 =cut
 
 sub check_directory_exists {
   my $dir = shift;
-
-  return 1 if (-d $dir);
-  throw("$dir is not a directory") if (-e $dir);
-
-  make_path($dir, {mode => 0775, error => \my $err});
-  if (@$err) {
-    my @error_strings;
-    foreach my $err_hash (@$err) {
-      my ($err_dir, $message) = %$err_hash;
-      push(@error_strings, "Error creating $err_dir: $message.");
-    }
-    throw join(' ', @error_strings);
+ 
+ throw( "$dir is a file, not a directory") if ( -e $dir && ! -d $dir );
+ throw( "$dir does not exist")     if ( !-e $dir );
+ if ( !( $dir =~ /^\// ) && -e $dir){
+  warn "Not full path to $dir. But it exists";
   }
   return 1;
 }
@@ -349,116 +506,49 @@ sub check_directory_exists {
 sub check_file_exists {
   my $file = shift;
  
-  throw( "$file is a directory, not a file") if ( -d $file );
-  throw( "$file does not exist")     if ( !-e $file );
-  if ( $file !~ /^\// ){
-    warning("Not full path to $file. But it exists");
+ throw( "$file is a directory, not a file") if ( -d $file );
+ throw( "$file does not exist")     if ( !-e $file );
+ if ( !( $file =~ /^\// ) && -e $file){
+  warn "Not full path to $file. But it exists";
   }
   return 1;
 }
 
-=head2 check_file_does_not_exist
+=head2 make_directory
 
-  Arg [1]   : path to file
-  Function  : checks that the file does not exist
+  Arg [1]   : path to new directory
+  Function  : creates new directory if it does not already exist
   Returntype: 0/1 
-  Exceptions: throws if file exists.
-  Example   : check_file_does_not_exist('/path/to/file');
+  Exceptions: throws if failed to create directory
+  Example   : make_directory('/path/to/directory');
 
 =cut
 
-sub check_file_does_not_exist {
-  my $file = shift;
+sub make_directory {
+    my $dir = shift;
 
-  throw("$file already exists") if (-e $file);
- 
-  if ( $file !~ /^\// ){
-    warning("Not full path to $file. But it does not exist");
-  }
-  return 1;
+    if ( ! -d $dir) {
+        eval { mkpath($dir, 0, 0775)};
+        if ($@) {
+            throw ($@);
+        }
+    }
+
+    return 1;
 }
-
-=head2 check_executable
-
-  Arg [1]   : path to file, or name of executable in path
-  Function  : checks that the file is an executable
-  Returntype: 0/1 
-  Exceptions: throws if file is not an executable
-  Example   : check_file_exists('/path/to/executable');
-  Example   : check_file_exists('executable_in_path');
-
-=cut
-
-sub check_executable {
-  my $executable = shift;
-  throw "executable not given" if !$executable;
-
-  if ($executable =~ m{/}) {
-    throw "executable does not exist: $executable" if (! -e $executable);
-    throw "executable is not executable: $executable" if (! -x $executable);
-  }
-  elsif (! first {-x $_} map {$_.'/'.$executable} @PATH) {
-      throw "cannot find executable in path: $executable";
-  }
-  return 1;
-}
-
-=head2 create_tmp_process_dir
-
-  Arg [1]   : path to parent directory in which to make temp dir
-  Arg [2]   : basename of the tempdirectory (can be undefined)
-  Arg [3]   : cleanup 0/1.  Directory can  be automatically deleted when it goes out of scope in perl
-  Function  : checks that the file is an executable
-  Returntype: path to temp directory
-  Exceptions: throws if no parent directory is given
-              throws if can't create a temp directory
-              throws if can't chmod the temp directory
-  Example   : create_tmp_process_dir('/path/to/dir', 'temp', 1);
-
-=cut
 
 
 sub create_tmp_process_dir {
-  my ($parent_dir, $basename, $cleanup) = @_;
+  my ($parent_dir) = @_;
  
   throw "No parent directory specified" if ( ! $parent_dir );
-  my $template = $basename ? "$basename." : '';
-  $template .= 'XXXXXXXXXX';
   
-  my $temp_dir;
-  eval{$temp_dir = tempdir( $template, DIR => $parent_dir , CLEANUP => $cleanup);};
-  if (!$temp_dir) {
-      throw("error creating a temp directory in $parent_dir: $!");
-  }
+  my $temp_dir = tempdir( DIR => $parent_dir );
 
-  print "created temp dir $temp_dir \n";
+  print "processing in would be $temp_dir \n";
 
-  chmod 0775, $temp_dir or throw("could not chmod $temp_dir $!");
-  return $temp_dir;
-}
-
-=head2 move_by_rsync
-
-  Arg [1]   : from - path of the file to be moved
-  Arg [2]   : to - path of the destination file or directory
-  Function  : moves the file using rsync.
-  Exceptions: throws if arguments are missing
-              throws if rsync encounters an error
-  Example   : move_by_rsync('/path/to/file1', '/new/path/to/file1')
-
-=cut
-
-
-sub move_by_rsync {
-  my ($from, $to) = @_;
-  throw("no from") if !$from;
-  throw("no to") if !$to;
-  my $rsyncer = File::Rsync->new({'remove-sent-files' => 1});
-  my $success = $rsyncer->exec({src => $from, dest => $to});
-  if (!$success) {
-    throw(join('', "move_by_rsync failed from $from to $to ", $rsyncer->err));
-  }
-  return 1;
+  `chmod -R  775 $temp_dir`;
+  return ($temp_dir);
 }
 
 1;

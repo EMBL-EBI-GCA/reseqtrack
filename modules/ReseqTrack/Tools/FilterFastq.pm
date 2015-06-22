@@ -327,6 +327,7 @@ sub filter_frag{
   $self->filtered_frag_basecount($frag_basecount);
 }
 
+
 =head2 filter_matepairs
 
   Arg [1]   : ReseqTrack::Tools::FilterFastq
@@ -496,12 +497,6 @@ sub check_read{
     #print "Empty strings returning 0\n";
     return 0;
   }
-
-  # throw if have non-printing characters in seq or qual lines
-   $self->non_printing_char_check ($header, $seq , "seq_line") ;
-   $self->non_printing_char_check ($header, $qual, "qual_line") ;
-
-
   $run_id = $self->run_id unless($run_id);
   unless($header =~ /^\@/){
     throw($header." from ".$filename." does not start with @ like it should");
@@ -979,42 +974,6 @@ sub error_hash{
   }
   return $self->{error_hash};
 }
-
-
-=head2 non_printing_char_check
-  Arg [1]   : ReseqTrack::Tools::FilterFastq
-  Arg [2]   : string to check for nonprinting chars
-  Arg [3]   : header of read
-  Arg [4]   : line type ( seq or qual)
-  Function  : check for characters in ascii range 3-127
-  Returntype: boolean
-  Exceptions: NULL string passed, non printing characters in string
-  Example   :   $self->non_printing_char_check ($seq ,$header, "seq_line");
-
-=cut
-
-sub  non_printing_char_check{
-
-  my ( $self, $header, $input_string , $descriptor)= @_;
-
-  throw ("NULL string passed\n") if (!defined $input_string);
-
-  $input_string =~ /([\x80-\xFF]|[\x00-\x20])/;
-
-  if ( $1 ){
-    my $bad_char_ord = ord($1);
-    my $msg = "read: $header ";
-    $msg .= "contains nonprinting character $descriptor (ascii = $bad_char_ord)\n";
-    throw ("$msg");
-  }
-
- return 0;
-}
-
-
-
-
-
 
 =head2 accessor methods
 

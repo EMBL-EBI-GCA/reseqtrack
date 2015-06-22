@@ -258,13 +258,10 @@ sub standard_index_methods{
 sub assign_files{
   my ($files, $regexs) = @_;
   if (! $regexs) {
-      my @regexs = (qr/[ES]RR\d+_1\.(\w+\.)*f(?:ast)?q(?:\.gz)?/i,
-                    qr/[ES]RR\d+_2\.(\w+\.)*f(?:astq)?(?:\.gz)?/i,
-                    qr/[ES]RR\d+\.(\w+\.)*f(?:ast)?q(?:\.gz)?/i);
-#     my @regexs = (qr/(_1\.fastq\.gz)/i,
-#		   qr/(_2\.fastq\.gz)/i,
-#		   qr/(\.fastq\.gz)/i);
-     $regexs = \@regexs;
+      my @regexs = (qr/[E|S]RR\d+_1\.(\w+\.)*fastq\.gz/i,
+                    qr/[E|S]RR\d+_2\.(\w+\.)*fastq\.gz/i,
+                    qr/[E|S]RR\d+\.(\w+\.)*fastq\.gz/i);
+      $regexs = \@regexs;
   }
 
   my @return_files;
@@ -273,7 +270,6 @@ sub assign_files{
     my $match_found = 0;
     REGEX:
     foreach my $i (0..@$regexs-1) {
-	#print "pattern " . $regexs->[$i] . "\n";
         if ($filename =~ $regexs->[$i]) {
             throw("More than one file matched " . $regexs->[$i]) if $return_files[$i];
             $return_files[$i] = $file;

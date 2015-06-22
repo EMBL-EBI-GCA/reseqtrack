@@ -5,174 +5,319 @@ use warnings;
 
 use ReseqTrack::Tools::Exception qw(throw);
 use ReseqTrack::Tools::Argument qw(rearrange);
-use ReseqTrack::Tools::FileSystemUtils qw(check_file_exists check_executable);
-use POSIX qw(ceil);
+use File::Basename qw(basename fileparse);
 
 use base qw(ReseqTrack::Tools::RunVariantCall);
 
 =head2 new
 
-  Arg [-bcftools_path]    :
-          string, optional, path to bcftools if it cannot be worked out from samtools path
-  Arg [-vcfutils_path]    :
-          string, optional, path to vcfutils.pl if it cannot be worked out from samtools path         
-  Arg [-parameters]   :
-      hashref, command line options to use with "samtools mpileup", "bcftools view" and "vcfutils.pl"
+  Arg [-bcftools_path]	:
+  		string, optional, path to bcftools if it cannot be worked out from samtools path
+  Arg [-vcfutils_path]	:
+  		string, optional, path to vcfutils.pl if it cannot be worked out from samtools path 		
+  Arg [-mpileup]   :
+      string, command line options to use with "samtools mpileup"
       Here is a list of options: samtools mpileup [-EBug] [-C capQcoef]  [-l list] [-M capMapQ] [-Q minBaseQ] [-q minMapQ] 
+  Arg [-bcfview]   :
+      string, command line options to use with "bcftools view"
       Here is a list of options: bcftools view [-AbFGNQSucgv] [-D seqDict] [-l listLoci] [-i gapSNPratio] [-t mutRate] [-p varThres] [-P prior] [-1 nGroup1] [-d minFrac] [-U nPerm] [-X permThres] [-T trioType] 
-  Arg [-super_pop_name]    :
-      string, default is "unknownPop", used in output file name and collection name
-      
+  Arg [-vcfutils]   :
+      string, command line options to use with "vcfutils.pl"
+
   + Arguments for ReseqTrack::Tools::RunProgram parent class
 
   Function  : Creates a new ReseqTrack::Tools::RunVariantCall::CallBySamtools object.
   Returntype: ReseqTrack::Tools::RunVariantCall::CallBySamtools
   Exceptions: 
   Example   : my $varCall_bySamtools = ReseqTrack::Tools::RunVariantCall::CallBySamtools->new(
-                -input_files             => ['/path/sam1', '/path/sam2'],
-                -program                 => "/path/to/samtools",
-                -working_dir             => '/path/to/dir/',  ## this is working dir and output dir
-                -bcftools_path           => '/path/to/bcftools/',
-                -vcfutils_path           => '/path/to/vcfutils.pl/',
-                -reference               => '/path/to/ref/',
-                -parameters              => {	'mpileup'=>'-ug', 
-                								'bcfview'=>'-bvcg', 
-                								'vcfutils'=>'-D 100' }
-                -chrom                   => '1',
-                -region                  => '1-1000000',
-                -output_name_prefix      => PHASE1,
-                -super_pop_name          => EUR (or all)
-                );
+                -input_files 			=> ['/path/sam1', '/path/sam2'],
+                -program 				=> "/path/to/samtools",
+                -working_dir 			=> '/path/to/dir/',
+                -bcftools_path 			=> '/path/to/bcftools/',
+                -vcfutils_path 			=> '/path/to/vcfutils.pl/',
+                -reference				=> '/path/to/ref/',
+                -mpileup 				=> '-ug',
+                -bcfview 				=> '-bvcg',
+                -vcfutils 				=> '-D 100',
+                -chrom					=> '1',
+                -region					=> '1-1000000',
+                -output_to_working_dir 	=> 1 );
 
 =cut
-
-sub DEFAULT_OPTIONS { return {
-        mpileup => '-EDS -e20 -h100 -L250 -o40 -C50 -m1 -F0.002 -d 250 -P ILLUMINA -ug', # mainly the defaults
-        bcfview => '-p 0.5 -vcg', #default options
-        vcfutils => '-D 10000000 -d 2 -a 2 -Q 10 -w 3 -W 10 -1 1e-4 -2 1e-100 -3 0 -4 1e-4 -e 1e-4', # vcfutils defaults
-        depth_of_coverage => undef,
-        };
-}
 
 sub new {
   my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
 
-  my ( $bcftools, $vcfutils, $bgzip)
-    = rearrange([ qw(
-    BCFTOOLS VCFUTILS BGZIP
-    )], @args);    
+  my ( 	$bcftools_path, 
+  		$vcfutils_path, 
+  		$mpileup, 
+  		$bcfview, 
+  		$vcfutils)
+    = rearrange( [
+         qw( 	BCFTOOLS_PATH 
+         		VCFUTILS_PATH 
+         		MPILEUP 
+         		BCFVIEW 
+         		VCFUTILS)
+		], @args);	
   
   ## Set defaults
-  $self->program('samtools') if (! $self->program);
-  $self->bcftools($bcftools|| 'bcftools');
-  $self->vcfutils($vcfutils|| 'vcfutils.pl');
-  $self->bgzip($bgzip|| 'bgzip');
+  $self->program("/nfs/1000g-work/G1K/work/bin/samtools/samtools") if (! $self->program);
+  $self->reference("/nfs/1000g-work/G1K/scratch/zheng/reference_genomes/human_g1k_v37.fasta") if (! $self->reference);
+  
+  $self->{'options'}->{'mpileup'} = '-ug' unless ($mpileup);
+  $self->{'options'}->{'bcfview'} = '-bvcg' unless ($bcfview);
+  $self->{'options'}->{'vcfutils'} = '-D 100' unless ($vcfutils);
+  
+  my $samtools_path = $self->program; 
+  my ($tool, $dir) = fileparse($samtools_path);	
+  if ( !$bcftools_path ) {
+	my $derived_bcftools_path = $dir . "/bcftools/bcftools";
+	if ( -e  $derived_bcftools_path ) {
+		$self->bcftools_path($derived_bcftools_path);
+  	}
+  	else {
+  		throw("Cannot find bcftools in the samtools installation. Please provide path to the program.");
+  	}        
+  }	
+  else {
+  	$self->bcftools_path($bcftools_path);
+  }
+  
+  if ( !$vcfutils_path ) {
+  	my $derived_vcfutils_path = $dir . "/bcftools/vcfutils.pl";
+  	if (-e $derived_vcfutils_path) {
+	  	$self->vcfutils_path($derived_vcfutils_path);
+  	}
+  	else {
+  	    throw("Cannot find bcftools/vcfutils.pl in the samtools installation. Please provide path to the program.");
+  	}    
+  }
+  else {
+	  $self->vcfutils_path($vcfutils_path);
+  }
+
+  print "input mpileup option is $mpileup\n"; 	
+  $self->options('mpileup', $mpileup);
+  $self->options('bcfview', $bcfview);
+  $self->options('vcfutils', $vcfutils); 
+  
+  if (! $self->job_name) {
+      $self->generate_job_name;
+  }
 
   return $self;
 }
 
-=head
-sub DEFAULT_OPTIONS { return {
-        'mpileup' => '-ug',
-        'bcfview' => '-bvcg',
-        'vcfutils' => '-d 2',
-        };
-}
+
+=head2 run_variant_calling
+
+  Arg [1]   : ReseqTrack::Tools::RunVariantCall::CallBySamtools
+  Arg [2]   : string, paths of bam files
+  Function  : uses samtools mpileup and bcftools view to call variants
+  Returntype: string, path of raw vcf file before filtering
+  Exceptions: 
+  Example   : my $raw_vcf = $self->run_variant_calling($bams);
+
 =cut
 
-=head2 run_program
+sub run_variant_calling {
+    my ($self, $input_bams, $output_raw_bcf) = @_;  # $input_bams can be an array ref
+
+    my $cmd = $self->program . " mpileup";
+
+    if ($self->options('mpileup')) {
+        $cmd .= " " . $self->options('mpileup');
+        print "mpileup option is " . $self->options('mpileup') . "\n";
+    }           
+
+	$cmd .= " -f " . $self->reference;
+	
+	foreach my $bam ( @$input_bams ) {  ## FIXME: use -b FILE to take a list of bam files. one bam per line
+		$cmd .= " " . $bam;
+	}	
+	
+	if ($self->chrom) {
+        $cmd .= " -r " . $self->chrom;
+    	if ($self->region) {
+    	    $cmd .= ":" . $self->region;
+    	}
+    }	
+	
+	$cmd .= " | " . $self->bcftools_path . " view";
+	
+	if ($self->options('bcfview')) {
+        $cmd .= " " . $self->options('bcfview');
+        print "bcfview option is " . $self->options('bcfview') . "\n";
+    }  
+
+	$cmd .= " - > $output_raw_bcf";
+	print "Running command.................................\n";
+	my $exit;
+	eval{
+		$exit = $self->execute_command_line($cmd);
+	};
+	if($exit > 0){
+		throw("Failed to run command\n$cmd\n". @_  . " exit code $exit");
+	}
+
+	return $self->intermediate_output_file($output_raw_bcf);
+}
+
+=head2 run_variant_filtering
+
+  Arg [1]   : ReseqTrack::Tools::RunVariantCall::CallBySamtools
+  Arg [2]   : string, paths of raw bcf file generated by run_variant_calling
+  Arg [3]	: string, path to reference genome
+  Function  : uses samtools mpileup and bcftools view to call variants
+  Returntype: string, path of raw vcf file before filtering
+  Exceptions: 
+  Example   : my $filtered_vcf = $self->run_variant_filtering($raw_bcf);
+
+=cut
+
+#bcftools view var.raw.bcf | vcfutils.pl varFilter -D 100 > var.flt.vcf
+
+sub run_variant_filtering {
+    my ($self, $input_raw_bcf, $output_filtered_vcf) = @_;  
+
+
+    my $cmd = $self->bcftools_path . " view $input_raw_bcf | ";
+	$cmd .= $self->vcfutils_path . " varFilter";
+
+    if ($self->options('vcfutils')) {
+        $cmd .= " " . $self->options('vcfutils');
+    }   
+    
+    $cmd .= " > $output_filtered_vcf ";
+	
+	print "Running command.................................\n";
+	my $exit;
+	eval{
+		$exit = $self->execute_command_line($cmd);
+	};
+	if( $exit > 0 ){
+		throw("Failed to run command\n$cmd\n". @_  . " exit code $exit");
+	} 
+
+	return $self;
+}
+    
+
+=head2 run
 
   Arg [1]   : ReseqTrack::Tools::RunVariantCall::CallBySamtools
   Function  : uses samtools to call variants in $self->input_files.
-              Output is files are stored in $self->output_files
-              This method is called by the RunProgram run method
+  Output is files are stored in $self->output_files
   Returntype: 
   Exceptions: 
   Example   : $self->run();
 
 =cut
 
-sub run_program {
+sub run {
     my ($self) = @_;
-
-    throw("do not have have a reference") if !$self->reference;
-    check_file_exists($self->reference);
-    check_executable($self->bcftools);
-    check_executable($self->vcfutils);
-    check_executable($self->bgzip);
-
-    throw("Please provide parameters for running mpileup") if !$self->options('mpileup');
-    throw("Please provide parameters for running bcfview") if !$self->options('bcfview');
-    throw("Please provide parameters for running vcfutils") if !$self->options('vcfutils');
-
-    my $output_vcf = $self->working_dir .'/'. $self->job_name . '.vcf.gz';
-    $output_vcf =~ s{//}{/};
-
-    my @cmd_words;
-    push(@cmd_words, $self->program, 'mpileup');
-    push(@cmd_words, $self->options->{'mpileup'});
-
-    if (my $coverage = $self->options->{'depth_of_coverage'}) {
-      push(@cmd_words, '-d', ceil(5.5*$coverage)); # should exceed the -D flag for vcfutils
-    }
-
-    push(@cmd_words, '-f', $self->reference);
-
-    if (my $region = $self->chrom) {
-      if (defined $self->region_start && defined $self->region_end) {
-        $region.= ':' . $self->region_start . '-' . $self->region_end;
-      }
-      push(@cmd_words, '-r', $region);
-    }    
-    push(@cmd_words, @{$self->input_files});
-
-    push(@cmd_words, '|', $self->bcftools, 'view');
-    push(@cmd_words, $self->options->{'bcfview'});
-    push(@cmd_words, '-', '|');
-
-    push(@cmd_words, $self->vcfutils, 'varFilter');
-    push(@cmd_words, $self->options->{'vcfutils'});
-
-    if (my $coverage = $self->options->{'depth_of_coverage'}) {
-      push(@cmd_words, '-D', ceil(5*$coverage));
-    }
-
-    push(@cmd_words, '|', $self->bgzip, '-c');
-    push(@cmd_words, '>', $output_vcf);
-
-    my $cmd = join(' ', @cmd_words);
-    $self->output_files($output_vcf);
-    $self->execute_command_line ($cmd);
+	
+	my $dir = $self->working_dir;
+	my $input_bams = $self->input_files;
+	my $chr = $self->chrom;
+	my $r = $self->region;
+	
+	my $region;
+	if ($r) {
+		$region = "chr" . $chr . "_" . $r; 
+	}
+	elsif ($chr) {
+		$region = "chr" . $chr;
+	}	
+		
+	my $flt_out = $self->derive_output_file_name->[0];
+	
+	my $raw_out = $flt_out;
+	$raw_out =~ s/flt/raw/;
+	$raw_out =~ s/vcf/bcf/;
+	
+	$self->run_variant_calling($input_bams, $raw_out);
+	$self->run_variant_filtering($raw_out, $flt_out);
+	
+	$self->files_to_delete($self->intermediate_output_file);
 
     return $self;
 
 }
 
+=head2 bcftools_path
 
-sub bcftools{
-  my ($self, $bcftools) = @_;
-  if ($bcftools) {
-    $self->{'bcftools'} = $bcftools;
+  Arg [1]   : ReseqTrack::Tools::RunVariantCall::CallBySamtools
+  Arg [2]   : string, optional, path of bcftools program
+  Function  : accessor method for bcftools
+  Returntype: string
+  Exceptions: n/a
+  Example   : my $bcftools_path = $self->bcftools_path;
+
+=cut
+
+
+sub bcftools_path {
+  my ($self, $bcftools_path) = @_;
+  if ($bcftools_path) {
+    $self->{'bcftools_path'} = $bcftools_path;
   }
-  return $self->{'bcftools'};
+  return $self->{'bcftools_path'};
 }
 
-sub vcfutils{
-  my ($self, $vcfutils) = @_;
-  if ($vcfutils) {
-    $self->{'vcfutils'} = $vcfutils;
+=head2 vcfutils_path
+
+  Arg [1]   : ReseqTrack::Tools::RunVariantCall::CallBySamtools
+  Arg [2]   : string, optional, path of vcfutils program
+  Function  : accessor method for vcfutils
+  Returntype: string
+  Exceptions: n/a
+  Example   : my $vcfutils_path = $self->vcfutils_path;
+
+=cut
+
+
+sub vcfutils_path {
+  my ($self, $vcfutils_path) = @_;
+  if ($vcfutils_path) {
+    $self->{'vcfutils_path'} = $vcfutils_path;
   }
-  return $self->{'vcfutils'};
+  return $self->{'vcfutils_path'};
 }
 
-sub bgzip{
-  my ($self, $bgzip) = @_;
-  if ($bgzip) {
-    $self->{'bgzip'} = $bgzip;
-  }
-  return $self->{'bgzip'};
-}
+
+=head2 derive_output_file_name 
+
+  Arg [1]   : ReseqTrack::Tools::RunVariantCall::CallBySamtools object
+  Function  : create an output VCF name based on input file information
+  Returntype: file path
+  Exceptions: 
+  Example   : my $output_file = $self->derive_output_file_name->[0];
+
+=cut
+
+
+sub derive_output_file_name {  
+	my ( $self ) = @_;		
+	my $first_bam = basename($self->input_files->[0]);
+	my @tmp = split(/\./, $first_bam);
+	my $first_sample = $tmp[0];
+	my $sample_cnt = @{$self->input_files} - 1;
+	
+	my $output_file;
+
+
+	if ($self->region) {
+		$output_file = $self->working_dir . "/$first_sample" . "_and_" . $sample_cnt . "_others.chr" . $self->chrom . "_" . $self->region . ".samtools.flt.vcf";
+	}
+	else {
+		$output_file = $self->working_dir . "/$first_sample" . "_and_" . $sample_cnt . "_others.samtools.flt.vcf";
+	}
+
+	return $self->output_files($output_file);
+}	
 
 1;
 
@@ -201,7 +346,7 @@ and with ploidy 1 for chrY and non-pseudosomal regions of male chrX
 (1-60000 and 2699521-154931043). Ploidy can be set as an additional
 column to -s option of bcftools view, the accepted values are 1 or 2.
 
-For exome studies, extract on-target sites at the end using a tabix command (see mpileup web site use case example)
+=cut
 
 
 
