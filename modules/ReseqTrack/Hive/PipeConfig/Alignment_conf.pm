@@ -149,14 +149,13 @@ sub default_options {
         'realign_intervals_file' => undef,
         'max_paired_length' => undef,
 
+
         #various options for overriding defaults in reheadering bam
         'dict_file' => undef,
         'reference_uri' => undef,
         'ref_assembly' => undef,
         'ref_species' => undef,
         'header_lines_file' => undef,
-
-	recalibration_chromosomes => join(',', (map {'chr'.$_} (1..22, 'X', 'Y', 'M'))),
 
         'realign_level' => 0,
         'recalibrate_level' => 2,
@@ -240,7 +239,6 @@ sub resource_classes {
             '5Gb' => { 'LSF' => '-C0 -M5000 -q '.$self->o('lsf_queue').' -R"select[mem>5000] rusage[mem=5000]"' },
             '6Gb' => { 'LSF' => '-C0 -M6000 -q '.$self->o('lsf_queue').' -R"select[mem>6000] rusage[mem=6000]"' },
             '8Gb' => { 'LSF' => '-C0 -M8000 -q '.$self->o('lsf_queue').' -R"select[mem>8000] rusage[mem=8000]"' },
-	    '10Gb' => { 'LSF' => '-C0 -M10000 -q '.$self->o('lsf_queue').' -R"select[mem>10000] rusage[mem=10000]"' },
     };
 }
 
@@ -533,8 +531,7 @@ sub pipeline_analyses {
               jvm_args => '-Xmx2g',
               known_sites_vcf => $self->o('known_snps_vcf'),
               realign_level => $self->o('realign_level'),
-              gatk_module_options => {intervals => $self->o('recalibration_chromosomes')},
-	      reseqtrack_options => {
+              reseqtrack_options => {
                 delete_param => ['bam', 'bai'],
                 flows_non_factory => {
                     1 => '#expr(#realign_level#!=2)expr#',

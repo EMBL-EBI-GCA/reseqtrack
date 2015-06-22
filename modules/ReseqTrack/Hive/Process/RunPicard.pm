@@ -29,16 +29,6 @@ sub run {
     throw( "Don't recognise command $command. Acceptable commands are: @allowed_cmds")
       if ( !grep { $command eq $_ } @allowed_cmds );
 
-    my %options = (validation_stringency => 'SILENT');
-    my $bam_name_length = 0;
-    foreach my $bam_name (@$bams) {
-      $bam_name_length += length($bam_name);
-    }
-    if ($bam_name_length > 120000) {
-      $options{'shorten_input_names'} => 1;
-    }
-    %options = (%options, %{$self->param('options')});
-
     my $picard_object = ReseqTrack::Tools::RunPicard->new(
       -input_files  => $bams,
       -working_dir  => $self->output_dir,
@@ -46,7 +36,7 @@ sub run {
       -java_exe     => $self->param('java_exe'),
       -jvm_options  => $self->param('jvm_args'),
       -picard_dir     => $self->param('picard_dir'),
-      -options      => \%options,
+      -options      => {validation_stringency => 'SILENT', %{$self->param('options')}},
       -create_index => $self->param('create_index'),
       -keep_metrics => 0,
     );
@@ -55,10 +45,11 @@ sub run {
 
     my $output_bams = $picard_object->output_bam_files;
     my $output_bais = $picard_object->output_bai_files;
+    my $output_matrics = $picard_object->output_metrics_files;
 
-    $self->output_param('bam', $output_bams);
-    $self->output_param('bai', $output_bais);
-
+    $self->output_param('bam', $output_bams) if ( $output_bams );
+    $self->output_param('bai', $output_bais) if ( $output_bais );
+    $self->output_param('matrics', $output_matrics) if ( $output_matrics );
 }
 
 

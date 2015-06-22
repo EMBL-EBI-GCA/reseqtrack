@@ -22,7 +22,6 @@ use warnings;
 use ReseqTrack::Tools::Exception qw(throw);
 use ReseqTrack::Tools::Argument qw(rearrange);
 use ReseqTrack::Tools::FileSystemUtils qw(check_executable check_directory_exists);
-use Cwd qw(getcwd);
 
 use base qw(ReseqTrack::Tools::RunProgram);
 
@@ -94,8 +93,6 @@ sub new {
     $self->hive_dbname($hive_dbname);
     $self->hive_user($hive_user);
     $self->hive_password($hive_password);
-
-    $self->working_dir(getcwd) if ! $self->working_dir;
 
     return $self;
 }
@@ -211,8 +208,7 @@ sub run_init_pipeline {
 
     my $script = $self->hive_scripts_dir . '/init_pipeline.pl';
 
-    my @cmd_words = ( sprintf('PATH=%s:$PATH', $self->hive_scripts_dir));
-    push(@cmd_words, 'perl', $script, $module);
+    my @cmd_words = ( 'perl', $script, $module);
     push(@cmd_words, $init_options);
     push(@cmd_words, '-host', $self->hive_host);
     push(@cmd_words, '-password', $self->hive_password);

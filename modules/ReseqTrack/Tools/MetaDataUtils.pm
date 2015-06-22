@@ -7,26 +7,11 @@ use ReseqTrack::Tools::Exception qw(throw warning stack_trace_dump);
 use Exporter;
 use vars qw (@ISA  @EXPORT);
 
-@ISA    = qw(Exporter);
+@ISA = qw(Exporter);
 @EXPORT = qw(
-  create_directory_path fetch_metadata_object lookup_property
-);
-
-sub fetch_metadata_object {
-    my ( $identifier, $db ) = @_;
-
-    my @adaptors = (
-        $db->get_RunAdaptor(),    $db->get_ExperimentAdaptor(),
-        $db->get_SampleAdaptor(), $db->get_StudyAdaptor(),
-    );
-
-    for my $a (@adaptors) {
-        my $m = $a->fetch_by_source_id($identifier);
-        return $m if $m;
-    }
-    return undef;
-}
-
+        create_directory_path );
+        
+        
 =head2 create_directory_path
 
   Arg [1]   : A metadata object (ReseqTrack::Run,Experiment,Sample or Study)
@@ -39,88 +24,59 @@ sub fetch_metadata_object {
 
 =cut
 
-sub create_directory_path {
-    my ( $meta_data, $directory_layout, $base_directory ) = @_;
-    my $dir_path       = $base_directory;
-    my @layout_chunks  = split( /\//, $directory_layout );
-    my $method_matches = 0;
+sub create_directory_path{
+  my ($meta_data, $directory_layout, $base_directory) = @_;
+  my $dir_path = $base_directory;
+  my @layout_chunks =  split( /\//, $directory_layout);
+  my $method_matches = 0;
 
-    foreach my $layout_chunk (@layout_chunks) {
-        my $value = lookup_property( $meta_data, $layout_chunk );
-        $dir_path .= '/' if ($dir_path);
+  foreach my $layout_chunk (@layout_chunks) {
+    my $value = _lookup_property($meta_data,$layout_chunk);
+    $dir_path .= '/' if ($dir_path);
+		
+		if (defined $value){
+			$method_matches++; 
+			$dir_path .= $value;	
+		}
+		else{
+			$dir_path .= $layout_chunk;
+		}
+  }
 
-        if ( defined $value ) {
-            $method_matches++;
-            $dir_path .= $value;
-        }
-        else {
-            $dir_path .= $layout_chunk;
-        }
-    }
+  throw "Directory layout ($directory_layout) did not call any meta data methods or match any attributes"
+    if (@layout_chunks && ! $method_matches);
 
-    throw
-"Directory layout ($directory_layout) did not call any meta data methods or match any attributes"
-      if ( @layout_chunks && !$method_matches );
-
-    $dir_path =~ s/\/\//\//g;
-    $dir_path =~ s/\s+/_/g;
-    return $dir_path;
+  $dir_path =~ s/\/\//\//g;
+  $dir_path =~ s/\s+/_/g;
+  return $dir_path;
 }
 
-sub lookup_property {
-    my ( $meta_data, $property ) = @_;
-    throw("no property given")  unless $property;
-    throw("no meta data given") unless $meta_data;
-print STDERR join(" ",ref($meta_data),$property).$/;
-    if ( $property eq 'run_id' ) {
-        $property = 'run_source_id';
-    }
-    if ( $property eq 'study_id' ) {
-        $property = 'study_source_id';
-    }
-    if ( $property eq 'experiment_id' ) {
-        $property = 'experiment_source_id';
-    }
-    if ( $property eq 'sample_id' ) {
-        $property = 'sample_source_id';
-    }
-
-    my $method = $meta_data->can($property);
-    return &$method($meta_data) if ($method);
-
-    my $attributes = $meta_data->attributes_hash;
-
-    if ( $attributes->{$property} ) {
-        return $attributes->{$property}->attribute_value();
-    }
-
-    if ( $meta_data->isa('ReseqTrack::Run') ) {
-        my $v = lookup_property( $meta_data->experiment(), $property );
-        if ( !defined $v ) {
-            $v = lookup_property( $meta_data->sample(), $property );
-        }
-        return $v;
-    }
-    if ( $meta_data->isa('ReseqTrack::Experiment') ) {
-        my $v = lookup_property( $meta_data->study(), $property );
-
-        if ( !defined $v ) {
-            my %samples;
-            my $runs = $meta_data->runs;
-            # if there is just one sample, it's safe to look at it for an experiment
-            map { $samples{$_->sample_id}++ } @{$runs};
-print STDERR join(" ",'Samples',scalar( keys %samples )).$/;            
-            if ( scalar( keys %samples ) == 1 ) {
-                $v = lookup_property( $runs->[0]->sample(), $property );
-            }
-        }
-        return $v;
-    }
-    if ( $meta_data->isa('ReseqTrack::Sample') ) {
-        return undef;
-    }
-    if ( $meta_data->isa('ReseqTrack::Study') ) {
-        return undef;
-    }
-
+sub _lookup_property {
+	my ($meta_data,$property) = @_;
+	throw("no property given") unless $property;
+	throw("no meta data given") unless $meta_data;
+	my $method = $meta_data->can($property);
+	return &$method($meta_data) if ($method);
+	
+	my $attributes = $meta_data->attributes_hash;
+	return $attributes->{$property}->attribute_value() if $attributes->{$property};
+	
+	if ($meta_data->isa('ReseqTrack::Run')){
+		my $v = _lookup_property($meta_data->experiment(),$property);
+		if (!defined $v){
+			$v = _lookup_property($meta_data->sample(),$property);
+		}
+		return $v;
+	}
+	if ($meta_data->isa('ReseqTrack::Experiment')){
+		return _lookup_property($meta_data->study(),$property);
+	}
+	if ($meta_data->isa('ReseqTrack::Sample')){
+		return undef;
+	}
+	if ($meta_data->isa('ReseqTrack::Study')){
+		return undef;
+	}
+	
+	
 }

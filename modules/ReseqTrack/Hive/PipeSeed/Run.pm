@@ -39,6 +39,7 @@ sub create_seed_params {
 
   $self->SUPER::create_seed_params();
 
+  #foreach my $seed_params (@{$seed->seed_params}) {
   foreach my $seed_params (@{$self->seed_params}) {
     my ($run, $output_hash) = @$seed_params;
     if (scalar @$output_sample_columns || scalar @$output_sample_attributes) {

@@ -23,7 +23,7 @@ use ReseqTrack::Tools::Exception qw(throw);
 use ReseqTrack::Tools::Argument qw(rearrange);
 use ReseqTrack::Tools::FileSystemUtils qw(check_executable check_file_exists);
 use File::Basename qw(fileparse);
-use File::Copy qw(move);
+use File::Copy qw (move);
 
 use base qw(ReseqTrack::Tools::RunProgram);
 
@@ -334,7 +334,6 @@ sub run_insert_size_metrics {
     $self->execute_command_line($cmd);
 
     push @metrics, $self->parse_metrics_file($output);
-
   }
   return ( \@metrics );
 }
@@ -814,15 +813,15 @@ sub run_add_or_replace_read_groups{
             . ($self->create_index ? 'true' : 'false'));
 
     my $rg_fields = $self->options('read_group_fields');
-    push(@cmd_words, "RGID='" . $rg_fields->{'ID'} . "'");
-    push(@cmd_words, "RGLB='" . $rg_fields->{'LB'} . "'");
-    push(@cmd_words, "RGPL='" . $rg_fields->{'PL'} . "'");
-    push(@cmd_words, "RGPU='" . $rg_fields->{'PU'} . "'");
-    push(@cmd_words, "RGSM='" . $rg_fields->{'SM'} . "'");
-    push(@cmd_words, "RGCN='" . $rg_fields->{'CN'} . "'") if $rg_fields->{'CN'};
-    push(@cmd_words, "RGDS='" . $rg_fields->{'DS'} . "'") if $rg_fields->{'DS'};
-    push(@cmd_words, "RGDT='" . $rg_fields->{'DT'} . "'") if $rg_fields->{'DT'};
-    push(@cmd_words, "RGPI='" . $rg_fields->{'PI'} . "'") if $rg_fields->{'PI'};
+    push(@cmd_words, 'RGID=' . $rg_fields->{'ID'});
+    push(@cmd_words, 'RGLB=' . $rg_fields->{'LB'});
+    push(@cmd_words, 'RGPL=' . $rg_fields->{'PL'});
+    push(@cmd_words, 'RGPU=' . $rg_fields->{'PU'});
+    push(@cmd_words, 'RGSM=' . $rg_fields->{'SM'});
+    push(@cmd_words, 'RGCN=' . $rg_fields->{'CN'}) if $rg_fields->{'CN'};
+    push(@cmd_words, 'RGDS=' . $rg_fields->{'DS'}) if $rg_fields->{'DS'};
+    push(@cmd_words, 'RGDT=' . $rg_fields->{'DT'}) if $rg_fields->{'DT'};
+    push(@cmd_words, 'RGPI=' . $rg_fields->{'PI'}) if $rg_fields->{'PI'};
 
     my $cmd = join(' ', @cmd_words);
   
@@ -864,7 +863,6 @@ sub _get_standard_options {
     if ( $self->options('validation_stringency') );
   push( @option_strings, 'QUIET=' . $self->options('quiet') )
     if ( $self->options('quiet') );
-    push( @option_strings, 'CREATE_MD5_FILE='.$self->options('create_md5_file')) if $self->options('create_md5_file');
 
   return join( ' ', @option_strings );
 }

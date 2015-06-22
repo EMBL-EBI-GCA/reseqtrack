@@ -250,7 +250,7 @@ sub store_others{
   }
   foreach my $other(@$others){
     unless($other->dbID){
-      $other = $oa->store($other,1);#TODO remove
+      $other = $oa->store($other);
       throw($oa.":store has failed to generate a dbID for the object this ".
             "means we can't associate it with the collection ") unless($other->dbID);
     }

@@ -61,9 +61,11 @@ sub fetch_by_study_id {
   my $sql = "select " . $self->columns . " from " . $self->table_name;
   $sql .= " where " . $self->where;
   $sql .= " and sample.sample_id in ("; 
-  $sql .= "  select EXTRACTVALUE(experiment_xml, '//EXPERIMENT/DESIGN/SAMPLE_DESCRIPTOR/\@accession') from";
-  $sql .= "  experiment";
+  $sql .= "  select sample_id from";
+  $sql .= "  experiment, run, run_sample ";
   $sql .= "  where experiment.study_id = ?";
+  $sql .= "  and experiment.experiment_id = run.experiment_id"; 
+  $sql .= "  and run_sample.run_id = run.run_id";
   $sql .= ")";  
 
   my @objects;

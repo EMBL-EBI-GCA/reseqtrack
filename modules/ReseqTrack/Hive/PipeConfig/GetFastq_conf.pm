@@ -27,8 +27,6 @@ config_options=-reference /path/to/human.fa
       -fastq_output_dir (default is your root_output_dir) Root directory for the final resting place of your fastq files
       -fastq_output_layout (default '#sample_alias#/sequence_read' ) used by the default fastq_name_file_module, sub directory of your final fastq files
 
-      -run_fastqc, (default 0), option to switch on running fastqc on each fastq file
-
       -fastqc_name_file_module, controls how you fastqc files are named (default is ReseqTrack::Hive::NameFile::BaseNameFile) override this with a project-specific module.
       -fastqc_name_file_method, (default is 'basic'), controls which subroutine of your fastqc_name_file_module is used to name your fastqc files.
       -fastqc_name_file_params. a hash ref, passed to your fastqc_name_file_module.  Change the default values to control how your final output file is named.
@@ -114,8 +112,6 @@ sub default_options {
         clobber => 0,
         fastqc_exe => '/nfs/1000g-work/G1K/work/bin/FastQC/fastqc',
 
-        run_fastqc => 0,
-
         fastq_type => undef, # use file_type_rule table
         fastqc_summary_type => undef, # use file_type_rule table
         fastqc_report_type => undef, # use file_type_rule table
@@ -131,9 +127,9 @@ sub default_options {
         'experiment_columns' => [],
         require_run_columns => { status => ['public'], },
         exclude_run_attributes => {},
-        require_run_attributes => {},
         run_attributes => [],
         exclude_run_columns => {},
+        require_run_attributes => {},
 
         'fastq_output_dir' => $self->o('root_output_dir'),
         'fastq_output_layout' => '#sample_alias#/sequence_read',
@@ -147,8 +143,6 @@ sub default_options {
         fastqc_name_file_module => 'ReseqTrack::Hive::NameFile::BaseNameFile',
         fastqc_name_file_method => 'basic',
         fastqc_name_file_params => { new_dir => '#fastqc_output_dir#/#fastqc_output_layout#' },
-        
-        era_dbname => undef,
 
     };
 }
@@ -159,7 +153,6 @@ sub resource_classes {
     return {
             %{$self->SUPER::resource_classes},  # inherit 'default' from the parent class
             '200Mb' => { 'LSF' => '-C0 -M200 -q '.$self->o('lsf_queue').' -R"select[mem>200] rusage[mem=200]"' },
-	    '400Mb' => { 'LSF' => '-C0 -M400 -q '.$self->o('lsf_queue').' -R"select[mem>400] rusage[mem=400]"' },
     };
 }
 
@@ -199,7 +192,6 @@ sub pipeline_analyses {
               clobber => $self->o('clobber'),
               era_dbuser => $self->o('era_dbuser'),
               era_dbpass => $self->o('era_dbpass'),
-              era_dbname => $self->o('era_dbname'),
             },
             -flow_into => {
                 1 => [ 'store_fastq' ],
@@ -224,17 +216,9 @@ sub pipeline_analyses {
               md5 => '#fastq_md5#',
               collection_name => '#run_source_id#',
               file => '#fastq#',
-              run_fastqc => $self->o('run_fastqc'),
-              reseqtrack_options => {
-                flows_non_factory => {
-                    1 => '#run_fastqc#',
-                    2 => '#expr(!#run_fastqc#)expr#',
-                },
-              },
             },
             -flow_into => {
                 1 => { 'fastq_factory' => {'fastq' => '#file#'}},
-                2 => ['mark_seed_complete'],
             },
       });
     push(@analyses, {
@@ -259,7 +243,7 @@ sub pipeline_analyses {
             -flow_into => {
                 1 => [ ':////accu?fastqc_summary=[]', ':////accu?fastqc_report=[]', ':////accu?fastqc_zip=[]']
             },
-            -rc_name => '400Mb',
+            -rc_name => '200Mb',
             -analysis_capacity  =>  50,  # use per-analysis limiter
             -hive_capacity  =>  -1,
       });

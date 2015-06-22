@@ -32,7 +32,6 @@ use File::Basename;
 use File::Path;
 use File::Find ();
 use ReseqTrack::Tools::GeneralUtils;
-use ReseqTrack::Tools::FileSystemUtils qw(check_directory_exists);
 use vars qw (@ISA  @EXPORT);
 
 @ISA = qw(Exporter);
@@ -418,7 +417,7 @@ sub move_file_in_db_and_dir {
   my @new_file_objects;
   
   unless ( -e $dir ) {
-    check_directory_exists($dir);
+    mkpath($dir);
   }
   
   my $fa = $db->get_FileAdaptor;

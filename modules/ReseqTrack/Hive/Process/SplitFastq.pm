@@ -15,7 +15,6 @@ sub param_defaults {
   return {
     program_file => undef,
     samtools => undef,
-    run_alias => undef,
   };
 }
 
@@ -31,11 +30,9 @@ sub run {
     my $output_dir = $self->output_dir;
 
     my $run_source_id = $self->param_required('run_source_id');
-    my $run_alias = $self->param('run_alias');
-    my $search_string = ($run_source_id && $run_alias) ? "$run_source_id|$run_alias" : $run_source_id || $run_alias;
-    my @regexs = (qr/(?:${search_string})_1\.(?:\w+\.)*f(?:ast)?q(?:\.gz)?/i,
-                  qr/(?:${search_string})_2\.(?:\w+\.)*f(?:astq)?(?:\.gz)?/i,
-                  qr/(?:${search_string})\.(?:\w+\.)*f(?:ast)?q(?:\.gz)?/i);
+    my @regexs = (qr/${run_source_id}_1\.(\w+\.)*f(?:ast)?q(?:\.gz)?/i,
+                  qr/${run_source_id}_2\.(\w+\.)*f(?:astq)?(?:\.gz)?/i,
+                  qr/${run_source_id}\.(\w+\.)*f(?:ast)?q(?:\.gz)?/i);
 
 
     my $fastqs = $self->param_as_array('fastq');

@@ -38,7 +38,6 @@ my $log_dir;
     'dbport=s'                  => \$db_params{-port},
     'era_dbuser=s'              => \$era_params[0],
     'era_dbpass=s'              => \$era_params[1],
-    'era_dbname=s'              => \$era_params[2],
     'new_study=s'               => \@studies_to_add,
     'load_new!'                 => \$load_new,
     'update_existing!'          => \$update_existing,

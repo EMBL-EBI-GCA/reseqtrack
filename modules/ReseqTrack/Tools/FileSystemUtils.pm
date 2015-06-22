@@ -29,6 +29,7 @@ use vars qw (@ISA  @EXPORT);
   run_md5
   find_file
   check_md5
+  dump_dirtree_summary
   delete_directory
   delete_file
   check_file_exists
@@ -238,7 +239,7 @@ sub find_file {
   Arg [2]   : md5 to check against
   Function  : runs md5sum to see if it equals the given md5
   actual files
-  Returntype: 0/1, if 0, also return the md5s 
+  Returntype: 0/1 
   Example   : 
 
 =cut
@@ -248,6 +249,93 @@ sub check_md5 {
  my $calculated_md5 = run_md5($file);
  return 1 if $md5 eq $calculated_md5;
  return 0;
+}
+
+sub dump_dirtree_summary{
+  my ($input_dir, $output_file, $skip_regex, $fa, $file_list, $output_prefix) = @_;
+  my $no_md5s = 0;
+  $skip_regex ||= 'current.tree';
+
+  my ($files, $hash);# = list_files_in_dir($input_dir, 1);
+
+  #provide file list from 'find $input_dur > file.list'
+  if ($file_list){
+    $files = get_lines_from_file($file_list);
+  }
+  else{
+    ($files) = list_files_in_dir($input_dir, 1);
+  }
+
+
+  my $fh;
+  if($output_file){
+    open($fh, ">".$output_file) or throw("Failed to open ".$output_file." $!");
+  }else{
+    $fh = \*STDOUT;
+  }
+  my %dirs;
+  my %file_md5s;
+  if($fa){
+    my $file_objects = $fa->fetch_all_like_path($input_dir);
+    foreach my $file_object(@$file_objects){
+      my $md5 = $file_object->md5;
+      $md5 = "................................" unless($md5);
+      $file_md5s{$file_object->name} = $md5;
+    }
+  }
+  my $trim = $input_dir;
+  $trim =~ s/\/\/+/\//g;
+  foreach my $file(@$files){
+    next if($file =~ /$skip_regex/);
+    my $dir = dirname($file);
+    my $label;
+    my $md5;
+    if($fa){
+      $md5 = $file_md5s{$files};
+    }
+    my $mod_dir = $dir;
+    $mod_dir =~ s/$trim\/*//;
+    $mod_dir = $mod_dir ? $output_prefix . '/' . $mod_dir : $output_prefix;
+    $mod_dir =~ s{//+}{/}g;
+    unless($dirs{$mod_dir}){
+      my $dir_size = -s $dir;
+      my $dir_stamp = ctime(stat($dir)->mtime);
+      $label = 'directory';
+      print $fh join("\t", $mod_dir, $label, $dir_size, $dir_stamp);
+      print $fh "\t " if($fa);
+      print $fh "\n";
+      $dirs{$mod_dir} = 1;
+    }
+
+    my $md5sum = '';
+    $md5sum = $file_md5s{$file};
+
+    #warning($file." has no md5") unless($md5sum);
+    if (!$md5sum){
+      print STDERR  "$file has no md5\n";
+      $no_md5s++;
+    }
+
+    my $size = -s $file;
+    my $date_string = ctime(stat($file)->mtime);
+    $label = 'file';
+    $file =~ s/$trim//;
+    $file = $output_prefix . '/' . $file;
+    $file =~ s{//+}{/}g;
+    print $fh join("\t", $file, $label, $size, $date_string);
+
+   # print $fh "\t".$md5sum if($fa);
+   # print $fh "\n";
+
+    if  ($md5sum){
+      print $fh "\t". $md5sum;
+    }
+    else{
+      print $fh "\t";
+    }
+    print $fh "\n";
+  }
+  close($fh);
 }
 
 =head2 delete_directory

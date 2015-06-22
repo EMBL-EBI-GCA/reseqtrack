@@ -7,12 +7,12 @@ use ReseqTrack::Tools::GeneralUtils qw(execute_system_command);
 use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::Exception;
 use ReseqTrack::Tools::RunHive;
-use Cwd qw(getcwd);
 use DateTime::Format::MySQL qw(parse_datetime);
 
 my ($dbhost, $dbuser, $dbpass, $dbport, $dbname);
 my ($hive_user, $hive_pass);
-my ($pipeline_name, $hive_db_id, $reseed, $loop, $run, $sync, $hive_log_dir, $max_seeds);
+my ($pipeline_name, $hive_db_id, $reseed, $loop, $run, $hive_log_dir);
+my $ensembl_cvs_dir;
 
 my %options;
 &GetOptions( 
@@ -26,7 +26,7 @@ my %options;
   'pipeline_name=s'  => \$pipeline_name,
   'hive_db_id=s'  => \$hive_db_id,
   'reseed!'  => \$reseed,
-  'max_seeds=i' => \$max_seeds,
+  'ensembl_cvs_dir=s'  => \$ensembl_cvs_dir,
   'loop!' => \$loop,
   'run!' => \$run,
   'hive_log_dir=s'  => \$hive_log_dir,
@@ -34,7 +34,6 @@ my %options;
 $reseed //= 1;
 $loop //= 1;
 $run //= 1;
-$sync //= 0;
 
 my $db = ReseqTrack::DBSQL::DBAdaptor->new(
   -host   => $dbhost,
@@ -80,7 +79,7 @@ print "selected hive_db name=$hive_dbname port=$hive_port host=$hive_host\n";
 
 my $run_hive = ReseqTrack::Tools::RunHive->new(
     -hive_dbname => $hive_dbname,
-    -hive_scripts_dir => $hive_db->hive_version .'/scripts',
+    -hive_scripts_dir => $ensembl_cvs_dir . '/ensembl-hive/scripts',
     -hive_user => $hive_user, -hive_password => $hive_pass,
     -hive_host => $hive_host, -hive_port => $hive_port,
     );
@@ -90,23 +89,18 @@ if ($reseed) {
     print "no need to reseed hive_db; it is already seeded\n";
   }
   else {
-    my $input_id = '{"seed_time"=>'.time;
-    if (defined $max_seeds) {
-      $input_id .= ',"max_seeds" => '.$max_seeds;
-    }
-    $input_id .= '}';
-    $run_hive->run('seed', 'get_seeds', $input_id);
+    $run_hive->run('seed', 'get_seeds', '{"seed_time"=>'.time.'}');
 
     $hive_db->is_seeded(1);
     $db->get_HiveDBAdaptor->update($hive_db);
   }
 }
 
-if ($sync) {
-  $run_hive->run('sync');
-}
 if ($run || $loop) {
-  $run_hive->options('loop', $loop);
+  $run_hive->run('sync');
+  if ($loop) {
+    $run_hive->options('loop', 1);
+  }
   if ($hive_log_dir) {
     $run_hive->output_dir($hive_log_dir);
     $run_hive->options('use_log_dir', 1);
@@ -148,10 +142,9 @@ This script is used to do two things:
 
   -pipeline_name, refers to a name in the pipeline table. Must specify either this or -hive_db_id
   -hive_db_id, refers to a dbID in the hive_db table. Must specify either this or -pipeline_name
+  -ensembl_cvs_dir, path to the ensembl api
   -reseed, boolean flag to add a new seed job to the pipeline. Default is 1. Use -noreseed to disable.
-  -max_seeds, integer, optional maximum number of new seed jobs to add to the pipeline.
   -run, boolean flag to run the pipeline. Default is 1. Use -norun to disable.
-  -sync, boolean flag to sync the pipeline. Default is 0.
   -loop, boolean flag to run the pipeline continuously until nothing let to be done.  Default is 1. Use -noloop to disable.
   -hive_log_dir, optional path to a directory.
         All stdout and stderr for all hive jobs will be written to this directory
@@ -163,5 +156,6 @@ This script is used to do two things:
 
   perl reseqtrack/pipeline/run_pipeline.pl $DB_OPTS $HIVE_DB_OPTS
     -pipeline_name alignment
+    -ensembl_cvs_dir /path/to/api
 
 =cut

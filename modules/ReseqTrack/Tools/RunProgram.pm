@@ -23,7 +23,6 @@ use ReseqTrack::Tools::FileSystemUtils
 use ReseqTrack::Tools::Exception qw(throw warning stack_trace_dump);
 use ReseqTrack::Tools::Argument qw(rearrange);
 use File::Basename qw(fileparse);
-use File::Find qw(find);
 use Env qw( @PATH );
 use POSIX;
 
@@ -69,7 +68,7 @@ use POSIX;
 # package variables:
 my $GLOBAL_ECHO_CMD_LINE;
 my $GLOBAL_save_files_from_deletion;
-my $GLOBAL_WORKING_DIR;
+my $GLOBAL_WORKING_DIR = "/tmp/";
 
 my $term_sig =  0;
 $SIG{TERM} = \&termhandler;
@@ -134,8 +133,6 @@ sub run {
   my ($self, @args) = @_;
 
   $self->_running(1);
-
-  throw("new policy for RunProgram: output directory must always be set explicity") if !$self->working_dir;
 
   my $program = $self->program;
   throw "do not have a program executable\n" if (! $program);
@@ -581,7 +578,6 @@ sub get_temp_dir {
     my $temp_dir = $self->{'_temp_dir'};
     if (! $temp_dir) {
       $temp_dir = create_tmp_process_dir($self->working_dir, $self->job_name, 0);
-      #$temp_dir = create_tmp_process_dir($self->working_dir,, 0);
       $self->created_files($temp_dir);
       $self->{'_temp_dir'} = $temp_dir;
     }
@@ -591,42 +587,24 @@ sub get_temp_dir {
 =head2 get_short_input_names
 
   Arg [1]   : ReseqTrack::Tools::RunProgram
-  Arg [1]   : 1 or 2 to indicate to which level of shortness the name should be; with 2, the file name will be just an index.  Default is 1. 
   Function  : Uses symbolic links to allow the conversion of long file names into something shorter
               Symbolic links are created within a temporary directory
   Returntype: hash, key is the long file name, value is the short file name
   Exceptions: Throws if there is an error linking the files
   Example   : my $short_name = $self->get_short_input_names->{'/long/file/name'};
-	      OR
-              my $short_names = $self->get_short_input_names(2);
-	      my $short_name = $short_names->{'/long/file/name'};
 
 =cut
 
 
 sub get_short_input_names {
-    my ($self, $level) = @_;
-    $level //= 1;
-    throw("Please use either 1 or 2 as level") if !grep {$level == $_} (1,2);
+    my ($self) = @_;
     my $temp_dir = $self->get_temp_dir;
     my $temp_dir_basename = fileparse($temp_dir);
     $self->{'_short_inputs'} ||= {};
-    my $short_inputs_hash = $self->{'_short_inputs'};
-    my $cnt = scalar keys %{$self->{'_short_inputs'}};
     foreach my $long_name (grep {!$self->{'_short_inputs'}->{$_}} @{$self->input_files}) {
-      my $filename = fileparse($long_name);
-      my $short_filename = $level == 1 ? $filename : $cnt;
-      my $short_path = $temp_dir_basename . '/' . $short_filename;
-
-      $self->{'_short_inputs'}->{$long_name} = $short_path;
-      symlink($long_name, $short_path) or throw("could not symlink $long_name to $short_path");
-
-      foreach my $other_file (glob("${long_name}?*")) {
-        my ($extension) = $other_file =~ /$long_name(.+)$/;
-        my $other_short_path = $short_path . $extension;
-        symlink($other_file, $other_short_path) or throw("could not symlink $other_file to $other_short_path");
-      }
-      $cnt++;
+      my $short_name = $temp_dir_basename . '/' . fileparse($long_name);
+      $self->{'_short_inputs'}->{$long_name} = $short_name;
+      symlink($long_name, $short_name) or throw("could not symlink $long_name to $short_name");
     }
     return $self->{'_short_inputs'};
 }

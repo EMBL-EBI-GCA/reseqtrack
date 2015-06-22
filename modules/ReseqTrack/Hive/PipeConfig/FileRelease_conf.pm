@@ -22,7 +22,7 @@ config_options=-file_move_module MyProjectModules::MoveFile
   Options that MUST be specified in the pipeline.config_options table/column of your ReseqTrack database:
 
       -file_move_module, A module derived from ReseqTrack::Hive::Process::FileRelease::Move
-              This modules implements the derive_path subrouine (i.e. a project-specific subroutine)
+              This modules implements the derive_directory subrouine (i.e. a project-specific subroutine)
 
   Options that have defaults but you will often want to set them in your pipeline.cofig_options table/column:
 
@@ -31,7 +31,7 @@ config_options=-file_move_module MyProjectModules::MoveFile
 
       -checking_module, (default is ReseqTrack::Hive::Process::FileRelease::Checks)
       -hostname, (default is 1000genomes.ebi.ac.uk)
-      -derive_path_options => hashref of options passed on to your file_move_module 
+      -derive_directory_options => hashref of options passed on to your file_move_module 
       -move_by_rsync, set to 0 if you do not care about file ownership (e.g. 1000genomes where there is an archive system)
 
   Options that are required, but will be passed in by reseqtrack/scripts/init_pipeline.pl:
@@ -71,7 +71,7 @@ sub default_options {
         checking_module  => 'ReseqTrack::Hive::Process::FileRelease::Checks',
         hostname => '1000genomes.ebi.ac.uk',
 
-        derive_path_options => {},
+        derive_directory_options => {},
 
         move_by_rsync => 1,
 
@@ -149,7 +149,7 @@ sub pipeline_analyses {
             -module        => $self->o('file_move_module'),
             -parameters    => {
                 hostname => $self->o('hostname'),
-                derive_path_options => $self->o('derive_path_options'),
+                derive_directory_options => $self->o('derive_directory_options'),
                 move_by_rsync => $self->o('move_by_rsync'),
             },
             -flow_into => {
