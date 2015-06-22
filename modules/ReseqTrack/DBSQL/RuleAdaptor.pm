@@ -130,7 +130,7 @@ sub add_condition{
 
 sub object_from_hashref{
   my ($self, $hashref) = @_;
-  my $workflow = ReseqTrack::Workflow->new(
+  my $workflow = ReseqTrack::Workflow>new(
     -dbID => $hashref->{workflow_id},
     -adaptor => $self,
       );

@@ -1,7 +1,6 @@
-#!/usr/bin/env perl
+#!/sw/arch/bin/perl -w
 
 use strict;
-use warnings;
 use ReseqTrack::Tools::Exception;
 use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::FileUtils qw(get_count_stats create_object_from_path);
@@ -36,7 +35,6 @@ my $max_bases;
 my $help;
 my $directory_layout = 'population/sample_id/run_id';
 my $no_split_strategy = 'copy';
-my $run_id_regex = '[ESD]RR\d{6}';
 
 &GetOptions( 
   'dbhost=s'      => \$dbhost,
@@ -58,7 +56,6 @@ my $run_id_regex = '[ESD]RR\d{6}';
   'help!'    => \$help,
   'directory_layout=s' => \$directory_layout,
   'no_split_strategy=s' => \$no_split_strategy,
-  'run_id_regex=s' => \$run_id_regex,
     );
 
 if ($help) {
@@ -81,6 +78,7 @@ my $db = ReseqTrack::DBSQL::DBAdaptor->new(
     );
 $db->dbc->disconnect_when_inactive(1);
 
+
 my $ca = $db->get_CollectionAdaptor;
 
 my $collection = $ca->fetch_by_name_and_type($run_id, $type_input);
@@ -95,10 +93,7 @@ throw("Failed to find run_meta_info for $run_id from $dbname")
     if (!$run_meta_info);
 
 my $input_files = $collection->others;
-my @regexs = (qr/$run_id_regex\S*_1\.(\w+\.)*fastq(\.gz)?$/i,
-              qr/$run_id_regex\S*_2\.(\w+\.)*fastq(\.gz)?$/i,
-              qr/$run_id_regex\S*\.fastq(\.gz)?$/i);
-my ($mate1, $mate2, $frag) = assign_files($input_files, \@regexs);
+my ($mate1, $mate2, $frag) = assign_files($input_files);
 my ($mate1_path, $mate2_path, $frag_path) = map {$_ ? $_->name : ''} ($mate1, $mate2, $frag);
 
 my %line_count_hash;
@@ -195,10 +190,10 @@ if ($store) {
         if (! $disable_md5) {
           $file->md5(run_md5($file_path));
         }
-        my $statistic = ReseqTrack::Attribute->new(
+        my $statistic = ReseqTrack::Statistic->new(
                     -attribute_name => 'paired_length',
                     -attribute_value => $run_meta_info->paired_length);
-        $file->attributes($statistic);
+        $file->statistics($statistic);
         push(@files, $file);
       }
       my $collection_name = $run_id . '_m';

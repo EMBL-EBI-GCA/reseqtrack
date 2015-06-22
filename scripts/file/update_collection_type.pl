@@ -1,9 +1,8 @@
-#!/usr/bin/env perl
+#!/usr/bin/perl -w
 
 #copied and edited from reseq-personal/laura/filtered_fastq_0110/scripts/update_collection_type.pl
 
 use strict;
-use warnings;
 use ReseqTrack::Tools::Exception;
 use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::FileUtils;

@@ -5,8 +5,8 @@ use warnings;
 
 use ReseqTrack::Tools::Exception qw(throw);
 use ReseqTrack::Tools::Argument qw(rearrange);
-use File::Basename qw(fileparse);
-use File::Find qw(find);
+use File::Basename qw(basename fileparse);
+use ReseqTrack::Tools::FileSystemUtils;
 use File::Copy qw (move);
 
 use base qw(ReseqTrack::Tools::RunVariantCall);
@@ -48,19 +48,50 @@ use base qw(ReseqTrack::Tools::RunVariantCall);
 =cut
 
 sub new {
+  print "*************************************************************************************************************************************************\n";	
+  print "********* CallByUmake.pm MODULE NEEDS TO RUN WITH THE LATEST VERSION OF PERL, PERL5.12 OR OVER. WHICH IS INSTALLED IN PG-TRACE CLUSTERS *********\n"; 
+  print "*************************************************************************************************************************************************\n";
   my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
 
+  my (    $dbSNP, 
+  		  $parameters,
+          $target_bed, 
+          $indel_prefix, 
+          $hm3_prefix,    
+          $unit_chunk )
+    = rearrange( [ qw(  DBSNP 
+    					PARAMETERS
+                        TARGET_BED 
+                        INDEL_PREFIX 
+                        HM3_PREFIX 
+                        UNIT_CHUNK ) ], @args);
+
+  ## Set defaults     
+      
+    $self->reference("/nfs/1000g-work/G1K/work/bin/umake-resources/ref/human.g1k.v37.fa") if ( !$self );  
+    $self->dbSNP("/nfs/1000g-work/G1K/work/bin/umake-resources/dbSNP/dbsnp_129_b37.rod") if (!$dbSNP);
+    $self->hm3_prefix("/nfs/1000g-work/G1K/work/bin/umake-resources/HapMap3/hapmap3_r3_b37_fwd.consensus.qc.poly") if (!$hm3_prefix);
+    $self->indel_prefix("/nfs/1000g-work/G1K/work/bin/umake-resources/indels/1kg.pilot_release.merged.indels.sites.hg19") if (!$indel_prefix);
  
-  ## Set defaults
-  $self->program('umake') if (!$self->program); 
-  return $self;
+    $self->program("/nfs/1000g-work/G1K/work/bin/umake") if (!$self->program); 
+      
+    $self->dbSNP($dbSNP) if ($dbSNP);
+    $self->indel_prefix($indel_prefix) if ($indel_prefix);
+    $self->hm3_prefix($hm3_prefix) if ($hm3_prefix);
+    
+    $self->parameters($parameters);
+     
+    #throw("When run umake, please specify a chromosome and a region") if (!$self->chrom || !$self->region ); 
+     ### FIXME, revive above after test 
+    
+    return $self;
 }
 
 sub DEFAULT_OPTIONS { return {
     'offset_off_target' => 0,
     'FILTER_MAX_SAMPLE_DP' => 20,
-    'FILTER_MIN_SAMPLE_DP' => 1,
+    'FILTER_MIN_SAMPLE_DP' => 0.5,
     'FILTER_MQ' => 3,
     'FILTER_FLAG' => '0x0704',
     'unit_chunk' => 5000000,
@@ -69,22 +100,28 @@ sub DEFAULT_OPTIONS { return {
         };
 }
 
+
 sub print_bam_index_file {
     my ($self) = @_;    
     my $input_bams = $self->input_files;
     
     my %sample_bams;
+    my @samples;
     foreach my $bam ( @$input_bams ) {
-      my $sample_name = fileparse($bam, qr/\..*/);
-      push @{$sample_bams{$sample_name}}, $bam;
+        my @tmp = split(/\./, basename($bam) );
+        my $sample = $tmp[0];
+        push @samples, $sample;
+        push @{$sample_bams{$sample}}, $bam;
     }    
     
-    my $bam_index = $self->get_temp_dir . '/' . $self->job_name . '.bam.index';
-    open (INDEX, ">", $bam_index) || throw("Cannot open BAM index file $bam_index $!");
+    my $first_sample = $samples[0];
+    my $bam_index = $self->umake_output_dir . "/$first_sample" . "_and_others.bam.index";
+    open (INDEX, ">", $bam_index) || throw("Cannot open BAM index file $bam_index");
     
-    while (my ($sample_name, $sample_bams) = each %sample_bams) {
-      print INDEX join("\t", $sample_name, 'ALL', @$sample_bams), "\n";
-    }
+    foreach my $s ( keys %sample_bams ) {
+        print INDEX "$s\tALL\t";
+        print INDEX join ("\t", @{$sample_bams{$s}} ), "\n";
+    }     
     close INDEX;
     $self->bam_index($bam_index);
 
@@ -104,18 +141,21 @@ sub print_config_file {
 ## KEY ELEMENTS TO CONFIGURE :\
 ###############################################################################\n";
     
-    my $config = $self->get_temp_dir . '/' . $self->job_name . '.conf';
-    open (CONFIG, ">", $config) || throw("Cannot open configuration file $config $!");
+    my $config = $self->umake_output_dir . "/tmp.conf"; 
+    $self->created_files($config);
+    open (CONFIG, ">", $config) || throw("Cannot open configuration file $config\n");
 
     print CONFIG $fixed_text1;
     print CONFIG "UMAKE_ROOT = " . $self->program . "\n";
     #print CONFIG "INPUT_ROOT = " . $self->input_root . "\n";
-    print CONFIG "OUTPUT_ROOT = " . $self->get_temp_dir . "\n"; 
+    print CONFIG "OUTPUT_ROOT = " . $self->umake_output_dir . "\n"; 
     print CONFIG "BAM_INDEX = " . $self->bam_index . "\n";
     print CONFIG "CHRS = " . $self->chrom . "\n" if ($self->chrom);
     
-    print CONFIG "OUT_DIR = " . $self->get_temp_dir . "\n";
-    print CONFIG "OUT_PREFIX = " . $self->job_name . "\n"; ### This is the prefix for the MAKEFile
+    my $makeFile_prefix = basename($self->bam_index);
+    
+    print CONFIG "OUT_DIR = " . $self->umake_output_dir . "\n";
+    print CONFIG "OUT_PREFIX = " . $makeFile_prefix . "\n"; ### This is the prefix for the MAKEFile
     print CONFIG "PED_INDEX = test.ped\n" if ($self->chrom && $self->chrom =~ /X/i); # SAMPLE PED FILE (required only for chrX calling)
 
     my $fixed_text2 = 
@@ -151,18 +191,13 @@ sub print_config_file {
 
     print CONFIG $fixed_text2;
 
-    if (defined $self->chrom && defined $self->region_start && defined $self->region_end) { 
-      my $bed_file = $self->get_temp_dir . '/' . $self->job_name . '.bed';
-      open (BED, ">", $bed_file) || throw("Cannot open bed file $bed_file $!");
-      print BED join("\t", $self->chrom, $self->region_start, $self->region_end), "\n";
-      close BED;
-
-      print CONFIG "WRITE_TARGET_LOCI = TRUE\n"; # FOR TARGETED SEQUENCING ONLY -- Write loci file when performing pileup
-      print CONFIG "UNIFORM_TARGET_BED = $bed_file\n";
-      print CONFIG "OFFSET_OFF_TARGET = " . $self->options('offset_off_target') . "\n" if $self->options('offset_off_target');
-      print CONFIG "MULTIPLE_TARGET_MAP = \n"; # Target per individual : Each line contains [SM_ID] [TARGET_BED]
-      print CONFIG "TARGET_DIR = target\n"; # Directory to store target information
-      print CONFIG "SAMTOOLS_VIEW_TARGET_ONLY = TRUE\n";  # When performing samtools view, exclude off-target regions (may make command line too long)
+    if ($self->region) { 
+        print CONFIG "WRITE_TARGET_LOCI = TRUE\n"; # FOR TARGETED SEQUENCING ONLY -- Write loci file when performing pileup
+        print CONFIG "UNIFORM_TARGET_BED = " . $self->print_target_bed($self->chrom, $self->region) . "\n" if ($self->chrom); #path for target bed file
+        print CONFIG "OFFSET_OFF_TARGET = " . $self->parameters->{'offset_off_target'} . "\n" if ($self->parameters->{'offset_off_target'}  ); # Extend target by given # of bases
+        print CONFIG "MULTIPLE_TARGET_MAP = \n"; # Target per individual : Each line contains [SM_ID] [TARGET_BED]
+        print CONFIG "TARGET_DIR = target\n"; # Directory to store target information
+        print CONFIG "SAMTOOLS_VIEW_TARGET_ONLY = TRUE\n";  # When performing samtools view, exclude off-target regions (may make command line too long)
     }
 
     my $fixed_text3 = 
@@ -174,12 +209,9 @@ sub print_config_file {
     print CONFIG $fixed_text3;
     
     print CONFIG "REF = " . $self->reference . "\n";
-    throw("cannot run without option indel_prefix") if !$self->options('indel_prefix');
-    throw("cannot run without option dbSNP") if !$self->options('dbSNP');
-    throw("cannot run without option hm3_prefix") if !$self->options('hm3_prefix');
-    print CONFIG "INDEL_PREFIX = " . $self->options('indel_prefix') . "\n";
-    print CONFIG "DBSNP_PREFIX = " . $self->options('dbSNP') . "\n";
-    print CONFIG "HM3_PREFIX = " . $self->options('hm3_prefix') . "\n";
+    print CONFIG "INDEL_PREFIX = " . $self->indel_prefix . "\n" if ($self->indel_prefix); # indel VCF prefix, example: $(INPUT_ROOT)/data/indels/1kg.pilot_release.merged.indels.sites.hg19
+    print CONFIG "DBSNP_PREFIX = " . $self->dbSNP . "\n" if ($self->dbSNP);  ## FIXME, here should be a prefix, need to produce a dbSNP rod map file
+    print CONFIG "HM3_PREFIX =  " . $self->hm3_prefix . "\n" if ($self->hm3_prefix); # HapMap3 polymorphic site prefix, example $(INPUT_ROOT)/data/HapMap/hapmap3_r3_b37_fwd.consensus.qc.poly
     
     my $fixed_text4 =
 "#\
@@ -216,10 +248,10 @@ sub print_config_file {
 ###############################################################################\n";
     print CONFIG $fixed_text5;
     
-    print CONFIG "SAMTOOLS_VIEW_FILTER = -q " . $self->options('FILTER_MQ') . " -F " . $self->options('FILTER_FLAG') . "\n"; # samtools view filter (-q by MQ, -F by flag)\n";
+    print CONFIG "SAMTOOLS_VIEW_FILTER = -q " . $self->parameters->{'FILTER_MQ'} . " -F " . $self->parameters->{'FILTER_FLAG'} . "\n"; # samtools view filter (-q by MQ, -F by flag)\n";
 
-    print CONFIG "FILTER_MAX_SAMPLE_DP = " . $self->options('FILTER_MAX_SAMPLE_DP') . "\n";  # Max Depth per Sample (20x default) -- will generate FILTER_MAX_TOTAL_DP automatically\
-    print CONFIG "FILTER_MIN_SAMPLE_DP = " . $self->options('FILTER_MIN_SAMPLE_DP') . "\n";  # Min Depth per Sample (0.5x defaul) -- will generate FILTER_MIN_TOTAL_DP automatically\
+    print CONFIG "FILTER_MAX_SAMPLE_DP = " . $self->parameters->{'FILTER_MAX_SAMPLE_DP'} . "\n";  # Max Depth per Sample (20x default) -- will generate FILTER_MAX_TOTAL_DP automatically\
+    print CONFIG "FILTER_MIN_SAMPLE_DP = " . $self->parameters->{'FILTER_MIN_SAMPLE_DP'} . "\n";  # Min Depth per Sample (0.5x defaul) -- will generate FILTER_MIN_TOTAL_DP automatically\
     print CONFIG "FILTER_ARGS = --write-vcf --filter --maxDP \$(FILTER_MAX_TOTAL_DP) --minDP \$(FILTER_MIN_TOTAL_DP) --maxAB 70 --maxSTR 20 --minSTR -20 --winIndel 5 --maxSTZ 5 --minSTZ -5 --maxAOI 5 # arguments for filtering (refer to vcfCooker for details)\n";
 
     my $fixed_text6 =
@@ -242,9 +274,9 @@ GLF_INDEX = glfIndex.ped  # glfMultiples/glfExtract index file info\
 
     print CONFIG $fixed_text6;
     
-    print CONFIG "UNIT_CHUNK = " . $self->options('unit_chunk') . "\n";      # Chunk size of SNP calling : 5Mb is default\
-    print CONFIG "LD_NSNPS = " . $self->options('LD_Nsnps') . "\n";          # Chunk size of genotype refinement : 10,000 SNPs\
-    print CONFIG "LD_OVERLAP = " . $self->options('LD_overlap') . "\n";        # Overlapping # of SNPs between chunks : 1,000 SNPs\
+    print CONFIG "UNIT_CHUNK = " . $self->parameters->{'unit_chunk'} . "\n";      # Chunk size of SNP calling : 5Mb is default\
+    print CONFIG "LD_NSNPS = " . $self->parameters->{'LD_Nsnps'} . "\n";          # Chunk size of genotype refinement : 10,000 SNPs\
+    print CONFIG "LD_OVERLAP = " . $self->parameters->{'LD_overlap'} . "\n";        # Overlapping # of SNPs between chunks : 1,000 SNPs\
 
     my $fixed_text7 =
 "RUN_INDEX_FORCE = FALSE   # Regenerate BAM index file even if it exists\
@@ -263,6 +295,25 @@ REMOTE_PREFIX =  # REMOTE_PREFIX : Set if cluster node see the directory differe
     $self->config($config);
 }    
 
+sub print_target_bed {
+    my ($self, $chr, $region) = @_;
+    my $bed_file = $self->umake_output_dir . "/tmp.bed";
+    open (BED, ">", $bed_file) || throw("Cannot open bed file $bed_file\n");
+    print BED "chr$chr\t";
+    $region =~ s/-/\t/ if ($region);
+    print BED $region . "\n" if ($region);
+    return $self->target_bed($bed_file);
+}    
+
+sub target_bed {
+    my ($self, $bed_file) = @_;
+    if ($bed_file) {
+        $self->{'target_bed'} = $bed_file;
+    }    
+    return     $self->{'target_bed'};
+}
+
+
 
 =head2 run_program
 
@@ -279,31 +330,95 @@ REMOTE_PREFIX =  # REMOTE_PREFIX : Set if cluster node see the directory differe
 
 sub run_program {
     my ($self) = @_;  
+
+    $self->umake_output_dir($self->get_temp_dir(1));
     
     $self->print_bam_index_file;
     
     $self->print_config_file;
 
-    my $cmd = "perl " . $self->program . "/scripts/umake.pl --conf " .  $self->config . " --snpcall";
+    my $cmd = "/nfs/1000g-work/G1K/work/bin/local-perl/bin/perl " . $self->program . "/scripts/umake.pl --conf " .  $self->config . " --snpcall";
     $self->execute_command_line($cmd);
     
-    my $cmd2 = "make -f " . $self->get_temp_dir . '/' . $self->job_name . ".Makefile -j 3"; ## FIXME: 3 is a magic number; should take user input
+    print "Running command.............................................................................................\n";
     
+    my $cmd2 = "make -f " . $self->bam_index . ".Makefile -j 10"; ## FIXME: 10 is a magic number; should take user input
+    
+    print "Running command...............................................................................................\n";
     $self->execute_command_line($cmd2);
-
-    my @vcfs;
-    find( sub {push(@vcfs, $File::Find::name) if /filtered.vcf.gz$/}, $self->get_temp_dir);
-    foreach my $vcf (@vcfs) {
-      my $filename = fileparse($vcf);
-      $filename =~ s/filtered/umake/;
-      my $output_vcf = $self->working_dir . '/'. $self->job_name . '.' . $filename;
-      $output_vcf =~ s{//}{/};
-      $self->output_files($output_vcf);
-      move($vcf, $output_vcf) ;
-    }
+    
+    $self->sieve_umake_output_dir;
     
     return $self;
 }    
+    
+### umake produces an extensive output directory containing many layers of output files.
+### This function is to identify the most relevant output file *filtered.vcf.gz; rename it to a unique name for the chunk
+### from a generic name such as chr20.filtered.vcf.gz to chr20.20000000-21000000.filtered.vcf.gz
+### prepare for this file to be stored in db and other files to be deleted if keep_intermediate_file == 0
+sub sieve_umake_output_dir {
+    my ($self) = @_;
+
+	my ($output_files, $outdir_hash) = list_files_in_dir($self->umake_output_dir);
+	
+	foreach my $sub_dir ( keys %$outdir_hash ) {
+
+		foreach my $out_file ( @{$outdir_hash->{$sub_dir}} ) {
+			my $out_file_path = $sub_dir . "/" . $out_file;
+			if ($out_file =~ /filtered.vcf.gz$|filtered.vcf.gz.tbi$/) {
+				
+				my $chunk = $self->region;
+				my $edited_out_file = $out_file;
+				$edited_out_file =~ s/filtered/$chunk.umake/;  
+				my $edited_out_file_path = $self->working_dir . "/" . $edited_out_file;
+				
+				move($out_file_path, $edited_out_file_path) 
+					or throw("Failed to change the output filtered vcf file name $out_file_path: $!");
+									
+				$self->output_files($edited_out_file_path);	
+			}
+		}	
+	}
+	return $self;
+}				
+			
+
+=head2 dbSNP
+
+  Arg [1]   : ReseqTrack::Tools::RunVariantCall::CallByUmake
+  Arg [2]   : string, path to dbsnp vcf files
+  Function  : accessor method for dbsnp
+  Returntype: string
+  Exceptions: n/a
+  Example   : my $dbSNP = $self->dbSNP;
+
+=cut
+
+
+sub dbSNP {
+  my ($self, $dbSNP) = @_;
+  if ($dbSNP) {
+    $self->{'dbSNP'} = $dbSNP;
+  }
+  return $self->{'dbSNP'};
+}
+
+sub indel_prefix {
+    my ($self, $indel_prefix) = @_;
+  if ($indel_prefix) {
+    $self->{'indel_prefix'} = $indel_prefix;
+  }
+  return $self->{'indel_prefix'};
+}
+    
+sub hm3_prefix {
+    my ($self, $hm3_prefix) = @_;
+  if ($hm3_prefix) {
+    $self->{'hm3_prefix'} = $hm3_prefix;
+  }
+  return $self->{'hm3_prefix'};
+}
+        
     
 sub bam_index {
     my ($self, $bam_index_file) = @_;
@@ -319,6 +434,14 @@ sub config {
         $self->{'config'} = $config;
       }
       return $self->{'config'};    
+}
+
+sub umake_output_dir {
+    my ($self, $umake_output_dir) = @_;
+      if ($umake_output_dir) {
+        $self->{'umake_output_dir'} = $umake_output_dir;
+      }
+      return $self->{'umake_output_dir'};    
 }
 
 1;

@@ -104,14 +104,4 @@ sub object_from_hashref{
   return $reject_log;
 }
 
-sub clear_table_by_file_id {
-  my ($self, $file_id) = @_;
-  throw("cannot clear reject_log table without a file_id") if !$file_id;
-  my $sql = 'DELETE FROM reject_log WHERE file_id=?';
-  my $sth = $self->prepare($sql);
-  $sth->bind_param(1, $file_id);
-  $sth->execute() or die 'could not execute '.$sth->statement .': '.$sth->errstr;
-  return;
-}
-
 1;

@@ -19,11 +19,9 @@ use warnings;
 
 use ReseqTrack::Tools::FileSystemUtils
     qw(check_file_exists check_directory_exists delete_directory
-    delete_file check_file_does_not_exist check_executable create_tmp_process_dir);
+    delete_file check_file_does_not_exist make_directory check_executable);
 use ReseqTrack::Tools::Exception qw(throw warning stack_trace_dump);
 use ReseqTrack::Tools::Argument qw(rearrange);
-use File::Basename qw(fileparse);
-use File::Find qw(find);
 use Env qw( @PATH );
 use POSIX;
 
@@ -69,7 +67,7 @@ use POSIX;
 # package variables:
 my $GLOBAL_ECHO_CMD_LINE;
 my $GLOBAL_save_files_from_deletion;
-my $GLOBAL_WORKING_DIR;
+my $GLOBAL_WORKING_DIR = "/tmp/";
 
 my $term_sig =  0;
 $SIG{TERM} = \&termhandler;
@@ -101,8 +99,14 @@ sub new {
   $self->save_files_from_deletion($save_files_from_deletion);
   $self->output_name_prefix($output_name_prefix);
 
-  $self->options($self->DEFAULT_OPTIONS);
-  $self->options($options) if ($options);
+  my $default_options = $self->DEFAULT_OPTIONS;
+  while (my ($option_name, $option_value) = each %$default_options) {
+      $options->{$option_name} = $option_value if (! defined $options->{$option_name});
+  }
+  while (my ($option_name, $option_value) = each %$options) {
+      $self->options($option_name, $option_value);
+  }
+  $self->parameters($options);
   
   return $self;
 }
@@ -135,8 +139,6 @@ sub run {
 
   $self->_running(1);
 
-  throw("new policy for RunProgram: output directory must always be set explicity") if !$self->working_dir;
-
   my $program = $self->program;
   throw "do not have a program executable\n" if (! $program);
   if (! -d $program) {
@@ -151,12 +153,10 @@ sub run {
   }
 
   $self->change_dir;
-  my @returned_values = $self->run_program(@args);
+  $self->run_program(@args);
 
   $self->_running(0);
   $self->delete_files;
-
-  return @returned_values;
 }
 
 =head2 DESTROY
@@ -184,56 +184,38 @@ sub DESTROY {
 =cut
 
 sub execute_command_line {
-    my ($self, $command_line, $exit_code_handler) = @_;
-
-    $exit_code_handler //= \&default_process_exit_code;
+    my ($self, $command_line) = @_;
 
     if ($self->echo_cmd_line) {
         $command_line = "echo \'" . $command_line . "\'";
     }
-    print "Executing command:$/";
-    print $command_line . $/;
+    print "Executing command:\n";
+    print $command_line . "\n";
 
     my $pid = fork;
     if (!defined $pid) {
       throw "could not fork: $!";
     }
     elsif(!$pid) {
-      setpgrp(0,0);
-      $self->save_files_from_deletion(1);
-      exec(bash => (-o => 'pipefail', -c => $command_line)) or do{
-        print STDERR "Did not execute: $!: $command_line\n";
+      exec($command_line) or do{
+        print STDERR "$command_line did not execute: $!\n";
         exit(255);
       }
     }
     while (! waitpid($pid, WNOHANG)) {
-      sleep(3);
+      sleep(5);
       if ($term_sig) {
-        $self->term_sig($term_sig);
-        my $deleting_pid = fork;
-        if ($deleting_pid == 0) {
-          kill -15, $pid;
-          #`kill -s 15 -$pid`;
-          $self->delete_files;
-          exit(0);
-        }
-        $self->save_files_from_deletion(1);
-        throw("received a signal ($term_sig) so command line was killed $command_line");
+        kill 15, $pid;
       }
     }
-    #throw("received a signal ($term_sig) so command line was killed $command_line") if ($term_sig);
+    throw("received a signal so command line was killed $command_line") if ($term_sig);
+    throw("command failed: $! $command_line") if ( $? == -1 );
 
     my $signal = $? & 127;
     throw("process died with signal $signal $command_line") if ($signal);
     my $exit = $? >> 8;
-    throw("command could not be executed by bash: $command_line") if ($exit == 255);
-    $exit_code_handler->($self, $exit, $command_line);
+    throw("command exited with value $exit $command_line") if ($exit != 0);
     return $exit;
-}
-
-sub default_process_exit_code {
-  my ($self, $exit, $command_line) = @_;
-  throw("command exited with value $exit $command_line") if ($exit != 0);
 }
 
 =head2 save_files_from_deletion
@@ -354,7 +336,7 @@ sub working_dir {
 
   Arg [1]   : ReseqTrack::Tools::RunProgram
   Arg [2]   : string, path of output directory
-  Function  : alternative accessor to working_dir.  output_dir and working_dir are the same thing.
+  Function  : accessor method for output directory
   Returntype: string
   Exceptions: n/a
   Example   : my $output_dir = $self->output_dir;
@@ -363,7 +345,10 @@ sub working_dir {
 
 sub output_dir {
   my ( $self, $arg ) = @_;
-  return $self->working_dir($arg);
+  if ($arg) {
+    $self->{'output_dir'} = $arg;
+  }
+  return $self->{'output_dir'};
 }
 
 
@@ -464,6 +449,7 @@ sub input_files {
   my @files = keys %{$self->{'input_files'}};
   return \@files;
 }
+
 
 =head2 created_files
 
@@ -568,8 +554,10 @@ sub _running {
 =head2 get_temp_dir
 
   Arg [1]   : ReseqTrack::Tools::RunProgram
+  Arg [2]   : boolean, default 0, allow_test_mode
   Function  : Gets a temp directory for use by the child class.
               Adds the temp directory to list of created files.
+              (in test mode, the temp directory is allowed to be an existing directory)
   Returntype: String, path of temp directory
   Exceptions: Throws if there is an error making the temp directory.
   Example   : my $dir = $self->get_temp_dir;
@@ -577,124 +565,49 @@ sub _running {
 =cut
 
 sub get_temp_dir {
-    my ($self) = @_;
+    my ($self, $allow_test_mode) = @_;
     my $temp_dir = $self->{'_temp_dir'};
     if (! $temp_dir) {
-      $temp_dir = create_tmp_process_dir($self->working_dir, $self->job_name, 0);
-      #$temp_dir = create_tmp_process_dir($self->working_dir,, 0);
+      $temp_dir = $self->working_dir() .'/'.$self->job_name;
+      if ($allow_test_mode && $GLOBAL_save_files_from_deletion) {
+        warn("directory already exists: $temp_dir") if (-d $temp_dir);
+      }
+      else {
+        $temp_dir .= '.'.$$.'.tmp';
+        check_file_does_not_exist($temp_dir);
+      }
       $self->created_files($temp_dir);
       $self->{'_temp_dir'} = $temp_dir;
+      make_directory($temp_dir);
     }
     return $temp_dir;
 }
 
-=head2 get_short_input_names
-
-  Arg [1]   : ReseqTrack::Tools::RunProgram
-  Arg [1]   : 1 or 2 to indicate to which level of shortness the name should be; with 2, the file name will be just an index.  Default is 1. 
-  Function  : Uses symbolic links to allow the conversion of long file names into something shorter
-              Symbolic links are created within a temporary directory
-  Returntype: hash, key is the long file name, value is the short file name
-  Exceptions: Throws if there is an error linking the files
-  Example   : my $short_name = $self->get_short_input_names->{'/long/file/name'};
-	      OR
-              my $short_names = $self->get_short_input_names(2);
-	      my $short_name = $short_names->{'/long/file/name'};
-
-=cut
-
-
-sub get_short_input_names {
-    my ($self, $level) = @_;
-    $level //= 1;
-    throw("Please use either 1 or 2 as level") if !grep {$level == $_} (1,2);
-    my $temp_dir = $self->get_temp_dir;
-    my $temp_dir_basename = fileparse($temp_dir);
-    $self->{'_short_inputs'} ||= {};
-    my $short_inputs_hash = $self->{'_short_inputs'};
-    my $cnt = scalar keys %{$self->{'_short_inputs'}};
-    foreach my $long_name (grep {!$self->{'_short_inputs'}->{$_}} @{$self->input_files}) {
-      my $filename = fileparse($long_name);
-      my $short_filename = $level == 1 ? $filename : $cnt;
-      my $short_path = $temp_dir_basename . '/' . $short_filename;
-
-      $self->{'_short_inputs'}->{$long_name} = $short_path;
-      symlink($long_name, $short_path) or throw("could not symlink $long_name to $short_path");
-
-      foreach my $other_file (glob("${long_name}?*")) {
-        my ($extension) = $other_file =~ /$long_name(.+)$/;
-        my $other_short_path = $short_path . $extension;
-        symlink($other_file, $other_short_path) or throw("could not symlink $other_file to $other_short_path");
-      }
-      $cnt++;
-    }
-    return $self->{'_short_inputs'};
-}
-
-
 =head2 options
 
   Arg [1]   : ReseqTrack::Tools::RunProgram
-  Arg [2]   : string, option_name, or a hash ref of options
-  Arg [3]   : any, option_value (optional)
+  Arg [2]   : string, option_name
+  Arg [3]   : any, option_value
   Function  : Accessor method for options required by the child class
-  Returntype: option_value, or hash ref of all options
+  Returntype: option_value
   Exceptions: Throws if option_name is not specified.
   Example   : my $option_value = $self->options('option_name');
-  Example   : my $option_value = $self->options('option_name','option_value');
-  Example	: my $options_hashref = $self->options();
-  Example   : my $options_hashref = $self->options(\%options); # will merge these options with any already set
-  
+
 =cut
 
 
 sub options {
-  my ($self, @args) = @_;
+    my ($self, $option_name, $option_value) = @_;
 
-  $self->{'options'} ||= {};  
-  my $num_of_args = scalar(@args);
+    throw( "option_name not specified")
+        if (! $option_name);
 
-  # no arguments, return all the options
-  if ($num_of_args == 0){
-    return $self->{'options'};
-  }
-  elsif ($num_of_args == 1){
-    my $ref_type = ref($args[0]);
-
-    if (! $ref_type){
-      # arg is a scalar
-      return $self->{'options'}->{$args[0]};
-    }
-    elsif ($ref_type eq 'HASH'){
-      # merge these options with any existing
-
-      while (my ($name, $value) = each %{$args[0]}) {
-        $self->{'options'}->{$name} = $value;
-      }
-
-      return $self->{'options'};
-    }
-    else {
-      throw("Cannot set options with a $ref_type reference");
+    $self->{'options'} ||= {};
+    if (defined $option_value) {
+        $self->{'options'}->{$option_name} = $option_value;
     }
 
-  }
-  else{
-    my ($option_name,$option_value) = @args;
-    throw( "option_name not specified") if (! $option_name);
-    $self->{'options'}->{$option_name} = $option_value;
     return $self->{'options'}->{$option_name};
-  }
-
 }
-
-sub term_sig {
-  my ($self, $term_sig) = @_;
-  if (@_ > 1) {
-    $self->{'_term_sig'} = $term_sig
-  }
-  return $self->{'_term_sig'} || 0;
-}
-
 
 1;

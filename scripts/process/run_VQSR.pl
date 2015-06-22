@@ -1,7 +1,6 @@
-#!/usr/bin/env perl
+#!/sw/arch/bin/perl -w
 
 use strict;
-use warnings;
 use ReseqTrack::Tools::Exception;
 use Getopt::Long;
 use ReseqTrack::Tools::FileUtils;
@@ -187,11 +186,13 @@ print "Job took $length minutes\n";
 
 =head1 EXAMPLE COMMAND LINE	
 
-perl $ZHENG_RT/scripts/process/run_VQSR.pl \
+perl $ZHENG_RB_VQSR/scripts/process/run_VQSR.pl \
 -reference /nfs/1000g-work/G1K/work/bin/gatk_resource_bundle/human_g1k_v37.fasta \
 -resources dbSNP="known=true,training=false,truth=false,prior=8.0 /nfs/1000g-work/G1K/work/bin/gatk_resource_bundle/dbsnp_135.b37.vcf" \
 -resources hapmap="known=false,training=true,truth=true,prior=15.0 /nfs/1000g-work/G1K/work/bin/gatk_resource_bundle/hapmap_3.3.b37.sites.vcf" \
 -resources omni="known=false,training=true,truth=false,prior=12.0 /nfs/1000g-work/G1K/work/bin/gatk_resource_bundle/1000G_omni2.5.b37.sites.vcf" \
+-input_files /nfs/1000g-work/G1K/work/zheng/snp_calling/gatk/gatk_all_chr20.vcf.gz \
+-output_dir /nfs/1000g-work/G1K/work/zheng/snp_calling/vqsr/results \
 -use_annotation QD \
 -use_annotation HaplotypeScore \
 -use_annotation MQRankSum \
@@ -202,5 +203,3 @@ perl $ZHENG_RT/scripts/process/run_VQSR.pl \
 -save_files_from_deletion \
 -parameters_AR -ts_filter_level=99.0 \
 -parameters_AR mode=BOTH \
--input_files /nfs/1000g-work/G1K/work/zheng/snp_calling/gatk/gatk_all_chr20.vcf.gz \
--output_dir /nfs/1000g-work/G1K/work/zheng/snp_calling/vqsr/results \

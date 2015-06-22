@@ -1,7 +1,6 @@
 #!/usr/bin/env perl
 
 use strict;
-use warnings;
 use ReseqTrack::Tools::Exception;
 use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::FileUtils;
@@ -9,7 +8,6 @@ use ReseqTrack::Tools::FileSystemUtils qw(run_md5 );
 use ReseqTrack::Tools::HostUtils qw(get_host_object);
 use ReseqTrack::Tools::RunMetaInfoUtils qw(create_directory_path);
 use Getopt::Long;
-
 
 $| = 1;
 
@@ -38,7 +36,6 @@ my $first_read;
 my $last_read;
 my %read_group_fields;
 my $directory_layout;
-my $run_id_regex = '[ESD]RR\d{6}';
 my %options;
 
 &GetOptions( 
@@ -67,7 +64,6 @@ my %options;
   'last_read=s' => \$last_read,
   'RG_field=s' => \%read_group_fields,
   'directory_layout=s' => \$directory_layout,
-  'run_id_regex=s' => \$run_id_regex,
   'option=s' => \%options,
     );
 
@@ -102,7 +98,7 @@ throw("Failed to find a collection for ".$name." ".$type_input." from ".$dbname)
 my $input_files = $collection->others;
 my @input_file_paths = map {$_->{'name'}} @$input_files;
 
-if ($name =~ /$run_id_regex/) {
+if ($name =~ /[ESD]RR\d{6}/) {
   my $rmia = $db->get_RunMetaInfoAdaptor;
   my $run_meta_info = $rmia->fetch_by_run_id($&);
 
@@ -149,13 +145,11 @@ $constructor_hash->{-first_read} = $first_read;
 $constructor_hash->{-last_read} = $last_read;
 $constructor_hash->{-read_group_fields} = \%read_group_fields;
 $constructor_hash->{-options} = \%options;
-$constructor_hash->{-run_id_regex} = $run_id_regex;
 
 my $run_alignment = $alignment_module->new(%$constructor_hash);
 
 $run_alignment->run;
 
-$db->dbc->disconnect_when_inactive(0);
 if($store){
   my $host = get_host_object($host_name, $db);
   my $fa = $db->get_FileAdaptor;
@@ -171,9 +165,7 @@ if($store){
   }
   my $collection = ReseqTrack::Collection->new(
       -name => $name, -type => $type_output,
-      -others => $sam_files,
-	  -table_name => 'file',
-	);
+      -others => $sam_files);
   $ca->store($collection);
 }
 
@@ -270,8 +262,6 @@ This script runs an alignment using any child class of ReseqTrack::Tools::RunAli
   -directory_layout, specifies where the files will be located under output_dir.
       Tokens matching method names in RunMetaInfo will be substituted with that method's
       return value.
-
-  -run_id_regex, used to get run meta info.  Default is '[ESD]RR\d{6}'
 
   -option, for constructing the options hash passed to the RunAlignment object
   e.g. -option threads=4 -option

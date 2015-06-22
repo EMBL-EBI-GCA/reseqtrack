@@ -1,7 +1,6 @@
-#!/usr/bin/env perl
+#!/usr/bin/perl -w
 
 use strict;
-use warnings;
 use ReseqTrack::Tools::FileSystemUtils;
 use ReseqTrack::Tools::Exception;
 use ReseqTrack::Tools::SequenceIndexUtils;

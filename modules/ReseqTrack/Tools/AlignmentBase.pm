@@ -105,8 +105,8 @@ sub delete_files{
   my ($self, $files) = @_;
   $files = $self->files_to_delete unless($files);
   foreach my $file (@$files) {
-    #print "Deleting ".$file."\n";
-    #unlink $file;
+    print "Deleting ".$file."\n";
+    unlink $file;
   }
 }
 

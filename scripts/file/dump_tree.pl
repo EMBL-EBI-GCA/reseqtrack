@@ -4,9 +4,7 @@ use strict;
 use warnings;
 
 use ReseqTrack::DBSQL::DBAdaptor; 
-use ReseqTrack::Tools::CurrentTreeMaker;
-use ReseqTrack::Tools::FileSystemUtils qw( get_lines_from_file);
-use File::Basename qw(fileparse);
+use ReseqTrack::Tools::FileSystemUtils qw( dump_dirtree_summary );
 use Getopt::Long;
 
 my $dbhost;
@@ -17,8 +15,7 @@ my $dbname;
 
 my $output_path;
 my $dir_to_tree;
-my $old_tree_name;
-my $trim_dir;
+my $old_tree_name = 'current.tree';
 my $file_list;
 
 &GetOptions( 
@@ -31,7 +28,6 @@ my $file_list;
       'output_path=s' => \$output_path,      
       'old_tree_name=s' => \$old_tree_name,      
       'file_list=s' => \$file_list,      
-      'trim_dir=s' => \$trim_dir,      
      );
 
 my $db = ReseqTrack::DBSQL::DBAdaptor->new(
@@ -44,30 +40,7 @@ my $db = ReseqTrack::DBSQL::DBAdaptor->new(
 
 my $fa = $db->get_FileAdaptor;
 
-if ($output_path && ! $old_tree_name)  {
-  $old_tree_name = fileparse($output_path);
-}
-
-my $tree_maker = ReseqTrack::Tools::CurrentTreeMaker->new(
-  -skip_regexes => $old_tree_name,
-  -dir_to_tree => $dir_to_tree,
-  -file_adaptor => $fa,
-  -trim_dir => $trim_dir,
-);
-
-if ($file_list) {
-  my $files = get_lines_from_file($file_list);
-  $tree_maker->files_to_tree($files);
-}
-
-
-$tree_maker->run;
-if ($output_path) {
-  $tree_maker->print_to_file($output_path);
-}
-else {
-  $tree_maker->print_to_fh(*STDOUT);
-}
+dump_dirtree_summary($dir_to_tree,  $output_path, $old_tree_name, $fa, $file_list);
 
 
 =pod
@@ -99,29 +72,31 @@ Standard options other than db paramters
 
  -output_path    name for tree file to be generated. If not given, goes to stdout.
 
- -trim_dir       Optional. Trims the full file path to a relative path
-                 Default behaviour is to use dir_to_tree
-
  -file_list      Provide list of file in directory to dump tree for.
                  Side steps successive "find $input_dir" searches on large directories
-
- -old_tree_name  Optional. This file is not included in the output.  Default
-                 is the basename of the output_path
 
  -verbose        usual what is going on output.
  -debug          more output
 
 
+ Other test options
+ For testing, you can just compare to tree files.
+ -check_old     specifiy old tree file
+ -check_new     specify  newer tree file
 
 =head1 Examples
 
  $DB_OPTS= '-dbhost a_dbhost -dbport 4197 -dbuser a_user -dbpass ???? -dbname a_db -host a_host'
  
  Standard implementation
- perl  $Reseqtrack/scripts/file/dump_tree.pl $DB_OPTS \
-  -dir_to_tree /nfs/1000g-archive/vol1/ftp/
-  -output_path current.tree
-  -old_tree_name current.tree
+ perl  $Reseqtrack/scripts/file/run_tree_for_ftp.pl $DB_OPTS
+
+ Test in tmp directory
+ perl $Reseqtrack/scripts/file/run_tree_for_ftp.pl $DB_OPTS -staging_dir $PWD -host 1000genomes.ebi.ac.uk -test
+
+ Compare tree files only
+ perl $Reseqtrack/scripts/file/run_tree_for_ftp.pl $DB_OPTS  -check_old nov9_1212.tree -check_new $PWD/current.tree -staging_dir $PWD -host a_host 
+
 
 =cut
 

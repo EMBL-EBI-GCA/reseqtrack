@@ -169,7 +169,7 @@ sub run_match {
     my $tmp_bmf =  $self->working_dir . '/' . $self->job_name. ".bmf";
     $tmp_bmf =~ s{//}{/};
 
-    my @cmd_words;
+    my @cmd_words = ("bash -c '");
     push(@cmd_words, $self->preprocess_exe());
     push(@cmd_words, $self->get_fastq_cmd_string('mate1')) if ($self->mate1_file);
     push(@cmd_words, $self->get_fastq_cmd_string('mate2')) if ($self->mate2_file);
@@ -182,6 +182,7 @@ sub run_match {
     push(@cmd_words, '-T', $self->get_temp_dir);
 
     push(@cmd_words, '>', $tmp_bmf);
+    push(@cmd_words, "'");
 
     my $cmd_line = join(' ', @cmd_words);
 

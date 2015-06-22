@@ -143,13 +143,13 @@ void update_stats(rg_stats_t *rg_stats, bam1_t *bam_line) {
   if (! (bam_line->core.flag & BAM_FUNMAP)) {
     uint32_t *cigar = bam1_cigar(bam_line);
     uint8_t *qual = bam1_qual(bam_line);
-    uint16_t i,j;
+    uint8_t i,j;
 
     rg_stats->num_mapped_reads ++;
     rg_stats->num_bases_in_mapped_reads += bam_line->core.l_qseq;
     for (i=0; i < bam_line->core.n_cigar; i++){
-      int op = cigar[i] & BAM_CIGAR_MASK;
-      int oplen = cigar[i] >> BAM_CIGAR_SHIFT;
+      int op = bam_cigar_op(cigar[i]);
+      int oplen = bam_cigar_oplen(cigar[i]);
       if (op == BAM_CMATCH || op == BAM_CEQUAL || op == BAM_CDIFF)
         rg_stats->num_mapped_bases += oplen;
       if (op != BAM_CDEL && op != BAM_CREF_SKIP) {
@@ -163,8 +163,7 @@ void update_stats(rg_stats_t *rg_stats, bam1_t *bam_line) {
     if (bam_line->core.flag & BAM_FPAIRED)
       rg_stats->num_mapped_reads_paired_in_sequencing ++;
 
-    //if (bam_line->core.flag & BAM_FPROPER_PAIR) {
-    if ((bam_line->core.flag & BAM_FPROPER_PAIR) && ! (bam_line->core.flag & 2048)) {
+    if (bam_line->core.flag & BAM_FPROPER_PAIR) {
       rg_stats->num_mapped_reads_properly_paired ++;
       if (bam_line->core.qual > 0 && bam_line->core.isize > 0) {
         int ret;
@@ -343,14 +342,13 @@ void output_rg_stats(void *_rg_stats_hash, char* out_fname, char* bam_basename, 
     if (kh_exist(rg_stats_hash, k)) {
       uint8_t i;
       rg_stats_t *rg_stats = kh_value(rg_stats_hash, k);
-      fprintf(fp, "%s", bam_basename);
+      fprintf(fp, "%s\t", bam_basename);
       fprintf(fp, "\t%s", md5);
       fprintf(fp, "\t%s", (rg_stats->description ? rg_stats->description : "unknown_study"));
       fprintf(fp, "\t%s", (rg_stats->sample ? rg_stats->sample : "-"));
       fprintf(fp, "\t%s", (rg_stats->platform ? rg_stats->platform : "-"));
       fprintf(fp, "\t%s", (rg_stats->library ? rg_stats->library : "-"));
-      fprintf(fp, "\t%s", kh_key(rg_stats_hash, k));
-      //fprintf(fp, "\t%s", (rg_stats->platform_unit ? rg_stats->platform_unit : kh_key(rg_stats_hash, k)));
+      fprintf(fp, "\t%s", (rg_stats->platform_unit ? rg_stats->platform_unit : kh_key(rg_stats_hash, k)));
       fprintf(fp, "\t%llu", rg_stats->num_total_bases);
       fprintf(fp, "\t%llu", rg_stats->num_mapped_bases);
       fprintf(fp, "\t%llu", rg_stats->num_total_reads);
@@ -414,7 +412,7 @@ void md5_to_str(unsigned char* md5, char* md5_string) {
 /* Reads a file and creates md5
 Writes md5 as a string to md5_string */
 void calc_md5(char* filename, char* md5_string) {
-  unsigned char md5[MD5_DIGEST_LENGTH], file_buffer[8192];
+  unsigned char md5[MD5_DIGEST_LENGTH], file_buffer[1024];
   MD5_CTX md_context;
   int bytes;
 
@@ -425,7 +423,7 @@ void calc_md5(char* filename, char* md5_string) {
   }
 
   MD5_Init(&md_context);
-  while ((bytes = fread (file_buffer, 1, 8192, inFile)) != 0)
+  while (bytes = fread (file_buffer, 1, 1024, inFile) != 0)
     MD5_Update (&md_context, file_buffer, bytes);
   MD5_Final (md5, &md_context);
   if (fclose(inFile) != 0) {
@@ -452,7 +450,6 @@ int main(int argc, char *argv[])
   bam1_t *bam_line = bam_init1();
 
   strcpy(in_mode, "rb");
-  md5[0]='\0';
 
   while((c = getopt(argc, argv, "so:m:")) != -1)
     switch (c) {

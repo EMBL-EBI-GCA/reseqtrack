@@ -327,6 +327,7 @@ sub filter_frag{
   $self->filtered_frag_basecount($frag_basecount);
 }
 
+
 =head2 filter_matepairs
 
   Arg [1]   : ReseqTrack::Tools::FilterFastq

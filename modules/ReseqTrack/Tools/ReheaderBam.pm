@@ -22,9 +22,7 @@ use warnings;
 use ReseqTrack::Tools::Exception qw(throw);
 use ReseqTrack::Tools::Argument qw(rearrange);
 use File::Basename qw(fileparse);
-use ReseqTrack::Tools::FileSystemUtils qw(check_file_exists check_file_does_not_exist get_lines_from_file);
-use IPC::System::Simple qw(capture);
-use List::Util qw (first);
+use ReseqTrack::Tools::FileSystemUtils qw(check_file_exists check_file_does_not_exist);
 
 use base qw(ReseqTrack::Tools::RunProgram);
 
@@ -75,24 +73,28 @@ sub new {
   my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
 
-  my ( $header_lines_file, $extra_header_lines, $SQ_fields_hash, $dict_file,
+  my ( $header_lines_file, $extra_header_lines, $SQ_fields_hash,
         )
     = rearrange( [
-         qw( HEADER_LINES_FILE EXTRA_HEADER_LINES SQ_FIELDS_HASH DICT_FILE
+         qw( HEADER_LINES_FILE EXTRA_HEADER_LINES SQ_FIELDS_HASH
                 ) ], @args);
 
   #setting defaults
   if (!$self->program) {
-    $self->program('samtools');
+    if ($ENV{SAMTOOLS}) {
+      $self->program($ENV{SAMTOOLS} . '/samtools');
+    }
+    else {
+      $self->program('samtools');
+    }
   }
   $self->extra_header_lines($extra_header_lines);
   $self->header_lines_file($header_lines_file);
-  $self->dict_file($dict_file);
 
-  throw("SQ_fields_hash should be a hash reference") if (defined $SQ_fields_hash && ref($SQ_fields_hash) ne 'HASH');
-
-  while (my ($tag, $value) = each %$SQ_fields_hash) {
-    $self->SQ_fields_hash($tag, $value);
+  if (ref($SQ_fields_hash) eq 'HASH') {
+    while (my ($tag, $value) = each %$SQ_fields_hash) {
+      $self->SQ_fields_hash($tag, $value);
+    }
   }
 
   return $self;
@@ -102,64 +104,64 @@ sub get_old_header{
   my $self = shift;
   my $bam = $self->input_files->[0];
 
-  my $cmd = $self->program . " view -H $bam";
-  my @header_lines;
-  eval {
-    @header_lines = capture($cmd);
-  };
-  throw($@) if $@;
+  my $header_file = $self->working_dir . '/' . $self->job_name. '.bam.oldheader';
+  $header_file =~ s{//}{/}g;
+
+  my @cmd_words = ($self->program, 'view', '-H');
+  push(@cmd_words, $bam);
+  push(@cmd_words, '>', $header_file);
+  my $cmd = join(' ', @cmd_words);
+
+  $self->created_files($header_file);
+  $self->execute_command_line($cmd);
+
+  open my $FH, '<', $header_file
+      or die "cannot open $header_file";
+  my @header_lines = <$FH>;
+  close $FH;
 
   return \@header_lines;
 }
 
-sub get_header_file {
+sub make_header_file {
   my $self = shift;
 
-  throw("Option inconsistency: replace_PG flag is set but reuse_old_header is not set")
-    if ($self->options('replace_PG') && ! $self->options('reuse_old_header'));
-  throw("Option inconsistency: replace_CO flag is set but reuse_old_header is not set")
-    if ($self->options('replace_CO') && ! $self->options('reuse_old_header'));
-
-  if (! $self->options('reuse_old_header') && ! @{$self->extra_header_lines} && ! (keys %{$self->SQ_fields_hash} || $self->dict_file)) {
-    return $self->header_lines_file;
-  }
-
-  my $header_lines = [];
+  my $header_lines;
   if ($self->options('reuse_old_header')) {
     $header_lines = $self->get_old_header;
-
-    if ($self->options('replace_PG')) {
-      my @new_header_lines = grep {! /^\@PG/} @$header_lines;
-      $header_lines = \@new_header_lines;
-    }
-    if ($self->options('replace_CO')) {
-      my @new_header_lines = grep {! /^\@CO/} @$header_lines;
-      $header_lines = \@new_header_lines;
-    }
   }
 
-  if ($self->header_lines_file) {
-    push(@$header_lines, @{get_lines_from_file($self->header_lines_file)});
+  if ($self->options('replace_PG')) {
+    my @new_header_lines = grep {! /^\@PG/} @$header_lines;
+    $header_lines = \@new_header_lines;
   }
-  if ($self->dict_file) {
-    $header_lines = [grep { $_ !~ /^\@SQ/ } @$header_lines];
-    my $insert_index = (first {$header_lines->[$_] !~ /^\@HD/} (0..$#{$header_lines})) // scalar @$header_lines;
-    splice(@$header_lines, $insert_index, 0, grep { /^\@SQ/ } @{get_lines_from_file($self->dict_file)});
+  if ($self->options('replace_CO')) {
+    my @new_header_lines = grep {! /^\@CO/} @$header_lines;
+    $header_lines = \@new_header_lines;
+  }
+
+  if (my $header_lines_file = $self->header_lines_file) {
+    open my $FH, '<', $header_lines_file
+        or throw "cannot open $header_lines_file: $!";
+    my @new_header_lines = <$FH>;
+    close $FH;
+    push(@$header_lines, @new_header_lines);
   }
 
   push(@$header_lines, @{$self->extra_header_lines});
 
-  foreach my $line (@$header_lines) {
-    $line =~ s/\n*$//;
-  }
-
   foreach my $SQ_line (grep {/^\@SQ/} @$header_lines) {
+    chomp $SQ_line;
     FIELD:
     while (my ($tag, $value) = each %{$self->SQ_fields_hash}) {
       next FIELD if (!defined $value);
       $SQ_line =~ s/\t$tag:[^\t]*//g;
       $SQ_line .= "\t$tag:$value";
     }
+  }
+
+  foreach my $line (@$header_lines) {
+    $line =~ s/\n*$/\n/;
   }
 
   my $header_file = $self->working_dir . '/' . $self->job_name. '.bam.newheader';
@@ -169,7 +171,7 @@ sub get_header_file {
 
   open my $FH, '>', $header_file
       or die "cannot open $header_file";
-  print $FH map {"$_\n"} @$header_lines;
+  print $FH @$header_lines;
   close $FH;
 
   return $header_file;
@@ -183,7 +185,7 @@ sub reheader_bam {
   check_file_exists($header);
 
   my $output_bam = $self->working_dir . '/' . $self->job_name. '.rehead.bam';
-  $output_bam =~ s{//+}{/}g;
+  $output_bam =~ s{//}{/}g;
   check_file_does_not_exist($output_bam);
 
   my @cmd_words = ($self->program, 'reheader', $header, $input_bam);
@@ -197,9 +199,15 @@ sub reheader_bam {
 sub run_program {
     my ($self) = @_;
 
-    my $header_file = $self->get_header_file;
+    my $new_header_file;
+    if ($self->options('reuse_old_header') && ! @{$self->extra_header_lines} && ! keys %{$self->SQ_fields_hash}) {
+      $new_header_file = $self->header_lines_file;
+    }
+    else {
+      $new_header_file = $self->make_header_file;
+    }
 
-    $self->reheader_bam($header_file);
+    $self->reheader_bam($new_header_file);
 
     return;
 }
@@ -210,14 +218,6 @@ sub header_lines_file {
     $self->{'header_lines_file'} = $header_lines_file;
   }
   return $self->{'header_lines_file'};
-}
-
-sub dict_file {
-  my ($self, $dict_file) = @_;
-  if ($dict_file) {
-    $self->{'dict_file'} = $dict_file;
-  }
-  return $self->{'dict_file'};
 }
 
 sub extra_header_lines {

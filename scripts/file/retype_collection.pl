@@ -1,4 +1,4 @@
-#!/usr/bin/env perl
+#!/usr/bin/perl -w
 #script should do following in order..
 # 1. Retrieve collection objects for all input IDs
 # 2. Spin through all collection objects, just to check

@@ -1,7 +1,6 @@
 #!/usr/bin/env perl
 
 use strict;
-use warnings;
 use ReseqTrack::Tools::Exception;
 use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::FileUtils qw(create_objects_from_path_list);
@@ -9,7 +8,7 @@ use ReseqTrack::Tools::FileSystemUtils qw(run_md5 delete_file);
 use ReseqTrack::Tools::HostUtils qw(get_host_object);
 use ReseqTrack::Tools::RunMetaInfoUtils qw(create_directory_path);
 use ReseqTrack::Tools::RunSamtools;
-use File::Basename qw(fileparse dirname);
+use File::Basename qw(fileparse);
 use Getopt::Long;
 
 $| = 1;
@@ -32,12 +31,9 @@ my $delete_inputs;
 my $reference;
 my $reference_index;
 my $directory_layout;
-my $run_id_regex = '[ESD]RR\d{6}';
-my $sample_id_regex = '[ESD]RS\d{6}';
 my $command;
 my %options;
 my $index_outputs;
-my $table = 'collection';
 
 &GetOptions( 
   'dbhost=s'      => \$dbhost,
@@ -58,10 +54,7 @@ my $table = 'collection';
   'reference=s' => \$reference,
   'reference_index=s' => \$reference_index,
   'directory_layout=s' => \$directory_layout,
-  'run_id_regex=s' => \$run_id_regex,
-  'sample_id_regex=s' => \$sample_id_regex,
   'command=s' => \$command,
-  'table=s' => \$table,
   'options=s' => \%options,
   'index_outputs!' => \$index_outputs,
     );
@@ -76,16 +69,10 @@ foreach my $option (keys %options) {
     if (! grep {$option eq $_ } @allowed_options);
 }
 
-
-throw("Must specify an output directory") if (!$output_dir && $command ne 'index');
-throw("Must specify an output type") if (!$type_output && $command ne 'index');
+throw("Must specify an output directory") if (!$output_dir);
+throw("Must specify an output type") if (!$type_output);
 throw("Must specify an index type if index_outputs flag is used")
       if ($index_outputs && !$type_index);
-
-if ($command eq 'index') {
-  $type_index ||= $type_output;
-  throw("Must specify an index type or output type") if (!$type_index);
-}
 
 my $db = ReseqTrack::DBSQL::DBAdaptor->new(
   -host   => $dbhost,
@@ -98,28 +85,20 @@ $db->dbc->disconnect_when_inactive(1);
 my $ca = $db->get_CollectionAdaptor;
 my $fa = $db->get_FileAdaptor;
 
-my $input_files;
-if ($table eq 'collection') {
-  my $collection = $ca->fetch_by_name_and_type($name, $type_input);
-  throw("Failed to find a collection for ".$name." ".$type_input." from ".$dbname) if(!$collection);
-  $input_files = $collection->others;
-} elsif ($table eq 'file') {
-  my $input_file = $fa->fetch_by_name($name);
-  throw("Failed to find a file for $name from $dbname") if(!$input_file);
-  $input_files = [$input_file];
-} else {
-  throw("table must be either file or collection");
-}
+my $collection = $ca->fetch_by_name_and_type($name, $type_input);
+throw("Failed to find a collection for ".$name." ".$type_input." from ".$dbname) 
+    unless($collection);
 
+my $input_files = $collection->others;
 my @input_filepaths = map {$_->{'name'}} @$input_files;
 
 if ($directory_layout) {
   my $rmia = $db->get_RunMetaInfoAdaptor;
   my $run_meta_info;
-  if ($name =~ /$run_id_regex/) {
+  if ($name =~ /[ESD]RR\d{6}/) {
     $run_meta_info = $rmia->fetch_by_run_id($&);
   }
-  elsif ($name =~ /$sample_id_regex/) {
+  elsif ($name =~ /[ESD]RS\d{6}/) {
     my $rmi_list = $rmia->fetch_by_sample_id($&);
     $run_meta_info = $rmi_list->[0] if (@$rmi_list);
   }
@@ -127,10 +106,6 @@ if ($directory_layout) {
   if ($run_meta_info) {
     $output_dir = create_directory_path($run_meta_info, $directory_layout, $output_dir);
   }
-}
-
-if ($command eq 'index' && !$output_dir){
-  $output_dir = dirname($input_filepaths[0]);
 }
 
 my $samtools_object = ReseqTrack::Tools::RunSamtools->new(
@@ -155,7 +130,6 @@ if ($index_outputs) {
     $index_file_paths = $indexer->output_files;
 }
 
-$db->dbc->disconnect_when_inactive(0);
 if($store){
   my $host = get_host_object($host_name, $db);
 
@@ -178,7 +152,7 @@ if($store){
 
   if (@$index_file_paths) {
     my $fa = $db->get_FileAdaptor;
-    my $bais = create_objects_from_path_list($index_file_paths, $type_index, $host);
+    my $bais = create_objects_from_pathlist($index_file_paths, $type_index, $host);
     foreach my $bai (@$bais) {
       if (! $disable_md5) {
         $bai->md5( run_md5($bai->name) );
@@ -251,10 +225,7 @@ The input files can be deleted, along with any index files, and this will be rec
   -name, name of the collection of input files
   If name is a run_id / sample_id (or contains a run_id / sample_id), the run_meta_info table will be used to get some info
 
-  -table, should be 'file' or 'collection', default is 'collection'
-  Specifies where to look for the input files
-
-  -type_input, type of the collection of input files. Only needed if -table is 'collection'
+  -type_input, type of the collection of input files
 
   -type_output, collection type and file type when storing output files in the database
 
@@ -284,9 +255,6 @@ The input files can be deleted, along with any index files, and this will be rec
   -directory_layout, specifies where the files will be located under output_dir.
       Tokens matching method names in RunMetaInfo will be substituted with that method's
       return value.
-
-  -run_id_regex, used to get run meta info.  Default is '[ESD]RR\d{6}'
-  -study_id_regex, used to get run meta info.  Default is '[ESD]RS\d{6}'
 
   -command, must be one of the following: 'merge', 'sort', 'index', 'fix_and_calmd', 'calmd', 'fixmate', 'sam_to_bam'
   Tells the RunSamtools object how to process the input files

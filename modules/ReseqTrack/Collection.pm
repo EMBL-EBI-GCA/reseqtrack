@@ -80,8 +80,7 @@ sub new {
           unless ( $table_name eq 'file'
             || $table_name eq 'alignment_meta_info'
             || $table_name eq 'collection'
-            || $table_name eq 'run_meta_info'
- 			|| $table_name eq 'input_string' );
+            || $table_name eq 'run_meta_info' );
     }
     #########
 
@@ -241,9 +240,6 @@ sub get_other_adaptor {
     elsif ( $self->table_name eq 'collection' ) {
         return $self->adaptor->db->get_CollectionAdaptor;
     }
-	elsif ($self->table_name eq 'input_string' ) {
-		return $self->adaptor->db->get_InputStringAdaptor;
-	}
     else {
         throw(
             "Don't know what sort of adaptor to get for " . $self->table_name );

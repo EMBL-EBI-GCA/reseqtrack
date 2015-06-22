@@ -75,16 +75,15 @@ sub check_column_count_sanity{
 
 sub compare_index_to_filesystem{
   my ($file, $dir) = @_;
- 
-  open(FH, "cat ".$file." | ") or throw("failed to open ".$file." $!");
- 
+  open(FH, $file) or throw("IndexUtils:check_column_count_sanity failed to open ".
+                           $file." $!");
+  
   my %index_hash;
   my $dir_copy = $dir;
   while(<FH>){
     next if(/SUBMISSION_ID/i);
     chomp;
     my @values = split /\t/, $_;
-   
     next if($values[20] == 1);
     if($dir_copy =~ /data/ && $values[0] =~ /data/){
       $dir_copy =~ s/data//;
@@ -441,11 +440,35 @@ sub check_analysis_group{
 }
 
 sub check_population{
-  my ($file, $db) = @_;
+  my ($file) = @_;
   open(FH, $file) or throw("IndexUtils:has_empty_columns failed to open ".
                            $file." $!");
-  my $hash = $db->get_PopulationRuleAdaptor->fetch_hash_of_populations();
   my %sanity_hash;
+  my %hash;
+  $hash{'YRI'} = 1;
+  $hash{'CHB'} = 1;
+  $hash{'CHS'} = 1;
+  $hash{'CHD'} = 1;
+  $hash{'JPT'} = 1;
+  $hash{'KHV'} = 1;
+  $hash{'CEU'} = 1;
+  $hash{'TSI'} = 1;
+  $hash{'GBR'} = 1;
+  $hash{'FIN'} = 1;
+  $hash{'IBS'} = 1;
+  $hash{'LWK'} = 1;
+  $hash{'GWD'} = 1;
+  $hash{'GHN'} = 1;
+  $hash{'MAB'} = 1;
+  $hash{'ASW'} = 1;
+  $hash{'AJM'} = 1;
+  $hash{'ACB'} = 1;
+  $hash{'MXL'} = 1;
+  $hash{'CLM'} = 1;
+  $hash{'PEL'} = 1;
+  $hash{'PUR'} = 1;
+  $hash{'CDX'} = 1;
+  $hash{'GIH'} = 1;
   while(<FH>){
     chomp;
     next if(/SUBMISSION_ID/);
@@ -453,7 +476,7 @@ sub check_population{
     my $key = $values[0];
     my $pop = $values[10];
     if($pop){
-      unless($hash->{$pop}){
+      unless($hash{$pop}){
         my $problem = $key." ".$pop." has a population which isn't recognised";
         $sanity_hash{$key} = $problem;
       }

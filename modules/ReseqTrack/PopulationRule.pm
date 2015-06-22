@@ -146,7 +146,7 @@ sub test_description {
     my ($self, $description) = @_;
     my $perl_condition = $self->perl_condition();
 
-    local $_ = $description; 
+    $_ = $description;
     my $matched = eval "$perl_condition";
     return $matched;
 }

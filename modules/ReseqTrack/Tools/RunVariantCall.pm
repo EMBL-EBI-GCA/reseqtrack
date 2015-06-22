@@ -35,27 +35,19 @@ sub new {
   my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
 
-  my ( $reference, $chrom, $region_start, $region_end)
-        = rearrange( [ qw( REFERENCE CHROM REGION_START REGION_END ) ], @args);
+  my ( $reference, $chrom, $region)
+        = rearrange( [ qw( REFERENCE CHROM REGION ) ], @args);
 
   $self->reference($reference);
   $self->chrom($chrom);
-  $self->region_start($region_start);
-  $self->region_end($region_end);
+  $self->region($region);
 
   return $self;
 }
 
 sub generate_job_name {
     my $self = shift;
-    my $chrom = $self->chrom;
-    if ($self->chrom =~ /\s+/) {   ## when multiple chroms are input, seperated by white space
-        $chrom =~ s/\s+/_/g;
-    }       
-    my $job_name = $chrom;
-    if ($self->region_start && $self->region_end) {
-      $job_name .= "." . $self->region_start . '-' . $self->region_end;
-    }
+    my $job_name = $self->chrom .'.'. $self->region;
     return $self->job_name($job_name);
 }
 
@@ -110,20 +102,12 @@ sub chrom {
 
 =cut
 
-sub region_start {
-    my ($self, $region_start) = @_;
-    if ($region_start) {
-        $self->{'region_start'} = $region_start;
+sub region {
+    my ($self, $region) = @_;
+    if ($region) {
+        $self->{'region'} = $region;
     }
-    return $self->{'region_start'};
-}
-
-sub region_end {
-    my ($self, $region_end) = @_;
-    if ($region_end) {
-        $self->{'region_end'} = $region_end;
-    }
-    return $self->{'region_end'};
+    return $self->{'region'};
 }
 
 =head2 run_program
@@ -142,6 +126,88 @@ sub run_program {
           . " must implement a run_program method as ReseqTrack::Tools::RunVariantCall "
           . "does not provide one" );
 }
+
+
+=head2 options                            
+
+  Arg [1]   : ReseqTrack::Tools::CallBySamtools or CallByUmake or CallByGATK
+  Arg [2]   : string, name of key e.g. "mpileup" 
+  Arg [3]   : string, optional, options to be used on command line e.g. "-m 100000000"
+  Function  : accessor method for command line options
+  Returntype: string, command line options
+  Exceptions: n/a
+  Example   : my $mpileup_options = $self->options{'mpileup'};
+
+=cut
+
+=head
+sub options {
+    my ($self, $option_name, $option_value) = @_;
+
+    if (! $self->{'options'}) {
+        $self->{'options'} = {};
+    }
+
+    throw( "option_name not specified")
+        if (! $option_name);
+
+    if ($option_value) {
+        $self->{'options'}->{$option_name} = $option_value;
+    }
+
+    return $self->{'options'}->{$option_name};
+}
+=cut
+
+=head2 parameters
+
+  Arg [1]   : ReseqTrack::Tools::RunVariantCall
+  Arg [2]   : hashref of strings
+  Function  : accessor method for parameters passed on to a program. Very similar to method "options", this takes a hash ref as 
+  Returntype: arrayref of strings
+  Example   : $self->parameters('maxGaussians=6');
+
+=cut
+
+sub parameters {
+  my ( $self, $arg ) = @_;
+
+  $self->{'parameters'} ||= {};
+  if ($arg) {
+      if ( ref($arg) eq 'HASH' ) {    
+      	foreach my $parameter_name ( keys %$arg ) {
+      	    my $parameter_value = $arg->{$parameter_name};
+      	    $parameter_value =~ s/^\s+|\s+$//g;
+			$self->{'parameters'}->{$parameter_name} = $parameter_value;
+    	}
+      }
+  }
+
+  my %parameters = %{$self->{'parameters'}};
+  
+  return \%parameters;
+}
+
+=head2 intermediate_output_file
+
+PERHAPS can remove this function all together, the created_file function in RunProgram might do similar things
+
+  Arg [1]   : ReseqTrack::Tools::RunVariantCall
+  Function  : stores/gets intermediate output file such as raw vcf
+  Returntype: filepaths
+  Exceptions: 
+  Example   : my $bcf = $self->intermediate_output_file;
+
+=cut
+
+sub intermediate_output_file { ### FIXME: should this be an array?
+    my ($self, $file) = @_;
+    if ($file) {
+        $self->{'intermediate_output_file'} = $file;
+    }
+    return     $self->{'intermediate_output_file'};
+}    
+
 
 1;
 

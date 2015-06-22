@@ -29,6 +29,8 @@ sub new{
   
   #ERROR CHECKING
   throw("ReseqTrack::RunMetaInfo must have a run_id") unless($run_id);
+  throw("ReseqTrack::RunMetaInfo run_id must match the form [E|S]RR not $run_id")
+      unless($run_id =~ /^[E|S]RR/);
   ##############
   $self->run_id($run_id);
   $self->study_id($study_id);
