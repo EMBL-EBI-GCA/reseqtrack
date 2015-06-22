@@ -485,9 +485,9 @@ sub more_read_than_bases {
 sub fastq_attrib_stat_obj_check {
 	my ( $db, $type, $verbose ) = @_;
 
-	my $sql = "select name, count(attribute.attribute_value) as cnt from file,
-	attribute where file.file_id = attribute.other_id and
-	attribute.table_name = 'file' and file.type = ? group
+	my $sql = "select name, count(statistics.attribute_value) as cnt from file,
+	statistics where file.file_id = statistics.other_id and
+	statistics.table_name = 'file' and file.type = ? group
 	by name having cnt = 1";
 
 	my $sth = $db->dbc->prepare($sql);
@@ -503,7 +503,7 @@ sub fastq_attrib_stat_obj_check {
 	$sth->finish;
 
 	print "Have $ctr fastq files of type $type";
-	print " with only 1 attribute entry in Attribute table\n";
+	print " with only 1 attribute entry in Statistics table\n";
 	return;
 }
 

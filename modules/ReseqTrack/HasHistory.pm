@@ -52,8 +52,8 @@ sub new {
     my $self = $class->SUPER::new(@args);
     my ( $history, $attributes ) =
       rearrange( [ 'HISTORY', 'ATTRIBUTES' ], @args );
-    $self->history($history) if $history;
-    $self->attributes($attributes) if $attributes;
+    $self->history($history);
+    $self->attributes($attributes);
     return $self;
 }
 
@@ -368,7 +368,7 @@ sub attributes_hash {
   my ($self) = @_;
   
   my %attrs;
-  for my $a (@{$self->attributes()}){
+  for my $a (@{$self->statistics()}){
     $attrs{$a->attribute_name} = $a;
   }
   return \%attrs;

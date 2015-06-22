@@ -60,20 +60,14 @@ sub name {
   return $self->source_id();
 }
 
-sub source_id {
-  my ( $self, $arg ) = @_;
-  return $self->experiment_source_id($arg);
-}
-
-sub experiment_source_id {
-	my ($self,$arg) =@_;
-	
-	if ($arg) {
-    $self->{experiment_source_id} = $arg;
+sub source_id{
+  my ($self, $arg) = @_; 
+  
+  if($arg){
+    $self->{source_id} = $arg;
   }
-  return $self->{experiment_source_id};
+  return $self->{source_id};
 }
-
 
 sub study_id{
   my ($self, $arg) = @_;
@@ -205,11 +199,6 @@ sub submission_date{
 
 sub object_table_name {
 	return "experiment";
-}
-
-sub runs {
-  my ($self) = @_;
-  return $self->adaptor->db->get_RunAdaptor->fetch_by_experiment_id($self->dbID); 
 }
 
 1;

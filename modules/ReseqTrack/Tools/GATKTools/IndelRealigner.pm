@@ -45,20 +45,20 @@ sub DEFAULT_OPTIONS { return {
 }
 
 sub new {
-        my ( $class, @args ) = @_;
-        my $self = $class->SUPER::new(@args);
+	my ( $class, @args ) = @_;
+	my $self = $class->SUPER::new(@args);
 
-        my ( $intervals_file,)
-          = rearrange( [ qw( INTERVALS_FILE )], @args);
+    my ( $intervals_file,)
+        = rearrange( [ qw( INTERVALS_FILE )], @args);
 
         $self->intervals_file($intervals_file);
 
-        return $self;
+	return $self;
 }
 
 
 sub run_program {
-        my $self = shift;
+	my $self = shift;
 
         throw "no input bam" if (!$self->input_bam);
         warn "No known indels files"
@@ -77,9 +77,9 @@ sub run_program {
           $self->create_target_intervals_file();
         }
 
-        $self->create_indel_realign_bam();
+	$self->create_indel_realign_bam();
 
-        return;
+	return;
 }
 
 sub create_target_intervals_file {

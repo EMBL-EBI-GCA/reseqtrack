@@ -25,7 +25,6 @@ my $type_input;
 my $type_output;
 my $output_dir;
 my $header_lines_file;
-my $dict_file;
 my $get_fastq_files;
 my $type_fastq;
 my $samtools;
@@ -57,7 +56,6 @@ my $sample_id_regex = '[ESD]RS\d{6}';
   'type_output=s' => \$type_output,
   'output_dir=s' => \$output_dir,
   'header_lines_file=s' => \$header_lines_file,
-  'dict_file=s' => \$dict_file,
   'get_fastq_files!' => \$get_fastq_files,
   'type_fastq=s' => \$type_fastq,
   'samtools=s' => \$samtools,
@@ -160,7 +158,6 @@ my $reheader_object = ReseqTrack::Tools::ReheaderBam->new(
                   -input_files             => $input_file->name,
                   -working_dir             => $output_dir,
                   -header_lines_file       => $header_lines_file,
-                  -dict_file               => $dict_file,
                   -samtools                => $samtools,
                   -job_name                => $name,
                   -extra_header_lines      => \@extra_header_lines,

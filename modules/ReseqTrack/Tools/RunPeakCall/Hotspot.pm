@@ -6,6 +6,7 @@ use vars qw(@ISA);
 
 use File::Basename;
 use File::Copy;
+use Cwd;
 
 use ReseqTrack::Tools::Exception qw(throw warning);
 use ReseqTrack::Tools::Argument qw(rearrange);
@@ -15,14 +16,13 @@ use base qw(ReseqTrack::Tools::RunPeakCall);
 
 sub DEFAULT_OPTIONS {
   return {
-    genome     => 'hg19',
-    tag_length => 'K36',
-    fdr        => 0.05,
-    dupok      => 'T',      # allow duplicates
-    chk_chr    => 'chrX',
+    genome          => 'hg19',
+    tag_length      => 'K36',
+    fdr             => 0.05,
+    dupok           => 'T', # allow duplicates
+    chk_chr         => 'chrX',
   };
 }
-
 =pod
 
 =head1 NAME
@@ -65,7 +65,6 @@ fdr: Permitted false discovery rate. Defaults to 0.05
 chr_chk: check chromsome
 
 =cut
-
 sub new {
   my ( $class, @args ) = @_;
 
@@ -123,7 +122,7 @@ sub write_config_file {
 
   my $config_file = "$temp_dir/runall.tokens.txt";
 
-  throw("Cannot find input file: $input_file")      unless ( -e $input_file );
+  throw("Cannot find input file: $input_file")      unless ( -e $chrom_file );
   throw("Cannot find chromosome file: $chrom_file") unless ( -e $chrom_file );
   throw("Cannot find mappable file: $mappable_file")
     unless ( -e $mappable_file );
@@ -229,7 +228,8 @@ sub write_runhotspot {
     unless -e $script_tokenizer;
   throw("Cannot find pipeline script dir: $pipe_dir") unless -d $pipe_dir;
 
-  my $temp_dir = $self->get_temp_dir;
+  my $temp_dir   = $self->get_temp_dir;
+  my $runhotspot = "$temp_dir/runhotspot";
 
   my @cmd_words = ($script_tokenizer);
   push @cmd_words, "--output-dir=$temp_dir";
@@ -246,8 +246,7 @@ sub run_hotspot {
   my ($self) = @_;
 
   my $temp_dir = $self->get_temp_dir;
-  
-  for my $script ($self->hotspot_scripts) {
+  for my $script ( $self->hotspot_scripts ) {
     my $target = "$temp_dir/$script.tok";
     throw("Script has not been created: $target") unless -e $target;
     $self->execute_command_line($target);
@@ -276,18 +275,16 @@ sub find_output {
   throw("Cannot find peak file: $peaks_file") unless ( -e $peaks_file );
 
   my $hotspots_file_target =
-  
     $self->working_dir . '/' . $self->job_name . '.hotspots.bed';
+  move( $hotspots_file, $hotspots_file_target );
+  $self->output_files($hotspots_file_target);
+
   my $peaks_file_target =
     $self->working_dir . '/' . $self->job_name . '.peaks.bed';
-
-  $self->output_files($hotspots_file_target);
+  move( $peaks_file, $peaks_file_target );
   $self->output_files($peaks_file_target);
-
-  move( $hotspots_file, $hotspots_file_target );
-  move( $peaks_file,    $peaks_file_target );
-
 }
+
 
 sub hotspot_scripts {
   return qw(
@@ -307,4 +304,3 @@ sub hotspot_scripts {
 
 }
 1;
-

@@ -29,8 +29,8 @@ sub attach_attributes {
   my ( $self, $object ) = @_;
   my $xml_column         = $self->xml_column();
   my $internal_id_column = $self->internal_id_column();
-  my $source_id          = $object->source_id;
-
+  my $source_id = $object->source_id;
+  
   my $sql =
     "select  xmltype.getclobval($xml_column) xml from " . $self->table_name;
   $sql .= " where " . $self->where;
@@ -63,23 +63,20 @@ sub attach_attributes_from_xml {
       $attribute_tag => sub {
         my ( $t, $element ) = @_;
 
-        my $key   = uc( $element->first_child_text('TAG') );
+        my $key   = uc($element->first_child_text('TAG'));
         my $value = $element->first_child_text('VALUE');
+        $value =~ s/^\s+|\s+$//g;
         
-        for ( $key, $value ) {
-          s/^\s+|\s+$//g;
-        }
-
-        if ($value) {
+        if ( $value ) {
           push @attributes,
             create_attribute_for_object( $object, $key, $value );
         }
-       }
+        }
     }
   );
 
   $twig->parse($xml);
-  $object->attributes( \@attributes );
+  $object->statistics( \@attributes );
 }
 
 sub fetch_by_study_id {
@@ -87,18 +84,12 @@ sub fetch_by_study_id {
 }
 
 sub add_ega_id {
-  my ( $self, $object, $hashref ) = @_;
-  $self->add_attribute($object,$hashref,'EGA_ID','EGA_ID');
-}
-
-sub add_attribute {
-  my ( $self, $object, $hashref, $column_name, $attribute_name ) = @_;
-
-  if ( $hashref->{EGA_ID} ) {
-    my $attr =
-      create_attribute_for_object( $object, $attribute_name, $hashref->{$column_name} );
-    $object->attributes( [$attr] );
-  }
+  my ($self,$object,$hashref) = @_;
+  
+  if ($hashref->{EGA_ID}){
+     my $attr = create_attribute_for_object( $object, 'EGA_ID', $hashref->{EGA_ID} );
+     $object->statistics( [$attr] );
+   }
 }
 
 1;

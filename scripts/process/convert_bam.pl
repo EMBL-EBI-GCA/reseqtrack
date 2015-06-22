@@ -9,9 +9,8 @@ use ReseqTrack::Tools::FileUtils qw(create_objects_from_path_list);
 use ReseqTrack::Tools::FileSystemUtils qw(run_md5);
 use ReseqTrack::Tools::HostUtils qw(get_host_object);
 use ReseqTrack::Tools::RunMetaInfoUtils qw(create_directory_path);
-use ReseqTrack::Tools::GeneralUtils qw(execute_system_command);
 use ReseqTrack::Tools::Loader::File;
-use File::Basename;
+use ReseqTrack::Tools::GeneralUtils qw(execute_system_command);
 use Getopt::Long;
 
 my $dbhost;
@@ -33,7 +32,6 @@ my $sample_id_regex = '[ESD]RS\d{6}';
 my $output_format;
 my %options;
 my $gzip_output;
-my $file_name_as_job_name = 0;
 my $help;
 
 &GetOptions(
@@ -56,7 +54,6 @@ my $help;
   'sample_id_regex=s'  => \$sample_id_regex,
   'output_format=s'    => \$output_format,
   'gzip_output!'       => \$gzip_output,
-  'file_name_as_job_name!' => \$file_name_as_job_name,
   'help!'              => \$help,
 );
 
@@ -105,21 +102,10 @@ if ($directory_layout) {
   }
 }
 
-if (! $output_dir ){ 
-  (undef,$output_dir,undef) = fileparse($input_filepaths[0]);
-}
-
-my $job_name = $name;
-
-if ($file_name_as_job_name){
-  ($job_name,undef,undef) = fileparse($input_filepaths[0],'.bam');
-}
-
-
 my $converter = ReseqTrack::Tools::ConvertBam->new(
   -input_files     => \@input_filepaths,
   -working_dir     => $output_dir,
-  -job_name        => $job_name,
+  -job_name        => $name,
   -options         => \%options,
   -chromosome_file => $chromosome_file,
   -output_format   => $output_format,

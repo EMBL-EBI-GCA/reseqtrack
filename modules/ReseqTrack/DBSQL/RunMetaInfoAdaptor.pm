@@ -25,15 +25,17 @@ sub new {
 
 
 sub columns{
-  my ($self) = @_;
-  my $table_name = $self->table_name;
-    return join(', ', map {"$table_name.$_"}
-      qw(run_meta_info_id run_id study_id study_name center_name submission_id
-      submission_date sample_id sample_name population experiment_id
-      instrument_platform instrument_model library_name run_name run_block_name
-      paired_length library_layout status archive_base_count archive_read_count
-      library_strategy)
-      );
+  return "run_meta_info.run_meta_info_id, run_meta_info.run_id, ".
+      "run_meta_info.study_id, run_meta_info.study_name, run_meta_info.center_name, ".
+      "run_meta_info.submission_id, run_meta_info.submission_date, ".
+      "run_meta_info.sample_id, run_meta_info.sample_name, run_meta_info.population,".
+      " run_meta_info.experiment_id, run_meta_info.instrument_platform, ".
+      "run_meta_info.instrument_model, run_meta_info.library_name, ".
+      "run_meta_info.run_name, run_meta_info.run_block_name, ".
+      "run_meta_info.paired_length, run_meta_info.library_layout, ".
+      "run_meta_info.status, run_meta_info.archive_base_count, ".
+      "run_meta_info.archive_read_count, ".
+	  "run_meta_info.library_strategy";
 }
 
 sub table_name{
@@ -117,22 +119,6 @@ sub fetch_by_study_id{
   my ($self, $study_id) = @_;
   my $sql = "select ".$self->columns." from ".$self->table_name.
       " where study_id = ?";
-  my $sth = $self->prepare($sql);
-  $sth->bind_param(1, $study_id);
-  $sth->execute;
-  my @run_meta_infos;
-  while(my $rowhashref = $sth->fetchrow_hashref){
-    my $run_meta_info = $self->object_from_hashref($rowhashref) if($rowhashref);
-    push(@run_meta_infos, $run_meta_info) if($run_meta_info);
-  }
-  $sth->finish;
-  return \@run_meta_infos;
-}
-
-sub fetch_by_experiment_id{
-  my ($self, $study_id) = @_;
-  my $sql = "select ".$self->columns." from ".$self->table_name.
-      " where experiment_id = ?";
   my $sth = $self->prepare($sql);
   $sth->bind_param(1, $study_id);
   $sth->execute;
