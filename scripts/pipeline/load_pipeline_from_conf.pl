@@ -6,8 +6,14 @@ use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::Exception;
 use Getopt::Long;
 
-my ($dbhost, $dbuser, $dbpass, $dbport, $dbname);
+my $dbhost;
+my $dbuser;
+my $dbpass;
+my $dbport;
+my $dbname;
+
 my $file;
+
 my ($read, $write, $update, $help);
 
 &GetOptions(
@@ -62,6 +68,8 @@ sub dump_pipelines {
   foreach my $pipeline (@$pipelines) {
     print $fh "[" , $pipeline->name , "]\n";
     print $fh "table_name=", $pipeline->table_name, "\n";
+    print $fh "type=", $pipeline->type, "\n";
+    print $fh "table_column=", $pipeline->table_column, "\n";
     print $fh "config_module=", $pipeline->config_module, "\n";
     print $fh "config_options=", $pipeline->config_options, "\n" if $pipeline->config_options;
     print $fh "\n";
@@ -81,7 +89,6 @@ sub parse_file {
     my ($name) = $line =~ /\[(.*)\]/;
     throw("could not find a pipeline name in $line") if !$name;
     my $pipeline = ReseqTrack::Pipeline->new( -name => $name);
-    my @config_options;
     LINE:
     while (my $line = <$fh>) {
       last LINE if $line !~ /\S/; # blank line
@@ -91,17 +98,22 @@ sub parse_file {
       if ($key eq 'table_name') {
         $pipeline->table_name($val);
       }
+      elsif ($key eq 'type') {
+        $pipeline->type($val);
+      }
+      elsif ($key eq 'table_column') {
+        $pipeline->table_column($val);
+      }
       elsif ($key eq 'config_module') {
         $pipeline->config_module($val);
       }
       elsif ($key eq 'config_options') {
-        push(@config_options, $val);
+        $pipeline->config_options($val);
       }
       else {
         throw("could not interpret key $key");
       }
     }
-    $pipeline->config_options(join(' ', @config_options));
     push(@pipelines, $pipeline);
   }
   close $fh;
@@ -113,6 +125,11 @@ sub create_history {
   my @comments;
   if ($new->table_name ne $old->table_name) {
     push(@comments, "table_name changed from ".$old->table_name." to ".$new->table_name);
+  }
+  my $new_type = $new->type // '{NULL}';
+  my $old_type = $old->type // '{NULL}';
+  if ($new_type ne $old_type) {
+    push(@comments, "type changed from $old_type to $new_type");
   }
   if ($new->config_module ne $old->config_module) {
     push(@comments, "config_module changed from ".$old->config_module." to ".$new->config_module);
@@ -148,6 +165,7 @@ ReseqTrack/scripts/event/load_pipeline_from_conf.pl
 
         [pipeline_name]
         table_name=file
+        type=BAM
         config_module=ReseqTrack::Hive::PipeConfig::MyModule
         config_options= (any flags you want to give to the hive init_pipeline.pl script)
 

@@ -35,11 +35,15 @@ sub default_options {
         },
 
         root_output_dir => $self->o('ENV', 'PWD'), # Should be set to something more sensible
-        dir_label_params => [],
-        lsf_queue => 'production',
+
+        use_label_management => 1, # boolean.  Must be 1 if you want to have structured output directories and meaningful job names
+        use_reseqtrack_file_table => 1, # boolean. File paths in job input ids will be converted to e.g. F1234F
+        forbid_duplicate_file_id => $self->forbid_duplicate_file_id, # boolean. If true then an index will be built on use_reseqtrack_file_table.  Table will be searched before file name is converted.
 
     };
 }
+
+sub forbid_duplicate_file_id {return 0;}
 
 
 =head2 pipeline_create_commands
@@ -52,17 +56,22 @@ sub default_options {
 sub pipeline_create_commands {
     my ($self) = @_;
 
-   
-    my $reseqtrack_file_sql =  '
+    my @sql;
+    push(@sql, '
     CREATE TABLE reseqtrack_file (
       file_id int(10) unsigned NOT NULL AUTO_INCREMENT,
       name VARCHAR(64000) NOT NULL,
       PRIMARY KEY (file_id)
-      )';
+      )');
+
+    if ($self->forbid_duplicate_file_id) {
+      push(@sql, 'CREATE INDEX name_idx ON reseqtrack_file (name(256))');
+    }
 
     return [
         @{$self->SUPER::pipeline_create_commands},  # inheriting database and hive tables' creation
-        'db_cmd.pl -url '.$self->pipeline_url()." -sql '$reseqtrack_file_sql'",
+
+        map {$self->db_execute_command('pipeline_db', $_)} @sql,
     ];
 }
 
@@ -81,16 +90,10 @@ sub pipeline_wide_parameters {
 
         'reseqtrack_db' => $self->o('reseqtrack_db'),
         'root_output_dir' => $self->o('root_output_dir'),
-        'dir_label_params' => $self->o('dir_label_params'),
+        'use_label_management' => $self->o('use_label_management'),
+        'use_reseqtrack_file_table' => $self->o('use_reseqtrack_file_table'),
+        'forbid_duplicate_file_id' => $self->o('forbid_duplicate_file_id'),
 
-    };
-}
-
-sub hive_meta_table {
-    my ($self) = @_;
-    return {
-        %{$self->SUPER::hive_meta_table},          # here we inherit anything from the base class
-        'hive_use_param_stack' => 1,
     };
 }
 

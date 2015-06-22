@@ -8,7 +8,7 @@ use ReseqTrack::Tools::Exception qw(throw warning);
 use ReseqTrack::Tools::FileUtils qw(create_object_from_path create_history);
 use ReseqTrack::Tools::HostUtils qw(get_host_object);
 use ReseqTrack::Tools::ERAUtils qw(get_erapro_conn);
-use ReseqTrack::Tools::MetaDataUtils qw( create_directory_path );
+use ReseqTrack::Tools::RunMetaInfoUtils qw( create_directory_path );
 
 $| = 1;
 
@@ -26,9 +26,8 @@ my $output_dir;
 my $load = 0;
 my $era_dbuser;
 my $era_dbpass;
-my $era_dbname;
 my $help = 0;
-my $directory_layout = 'sample_alias/archive_sequence';
+my $directory_layout = 'sample_name/archive_sequence';
 my $module = 'ReseqTrack::Tools::GetFastq';
 my %module_options;
 
@@ -46,7 +45,6 @@ my %module_options;
   'load!' => \$load,
   'era_dbuser=s' =>\$era_dbuser,
   'era_dbpass=s' => \$era_dbpass,
-  'era_dbname=s' => \$era_dbname,
   'help!' => \$help,
   'directory_layout=s' => \$directory_layout,
   'module=s' => \$module,
@@ -71,19 +69,18 @@ my $db = ReseqTrack::DBSQL::DBAdaptor->new(
   -pass   => $dbpass,
     );
 
-my $era_db = get_erapro_conn($era_dbuser, $era_dbpass, $era_dbname);
+my $era_db = get_erapro_conn($era_dbuser, $era_dbpass);
 
-my $run = $db->get_RunAdaptor->fetch_by_source_id($run_id);
+my $meta_info = $db->get_RunMetaInfoAdaptor->fetch_by_run_id($run_id);
+throw("Failed to find a run meta info object for ".$run_id." from ".$dbname)
+    unless($meta_info);
 
-throw("Failed to find a run object for ".$run_id." from ".$dbname)
-    unless($run);
-
-if($run->instrument_platform && $run->instrument_platform eq 'COMPLETE_GENOMICS'){
+if($meta_info->instrument_platform eq 'COMPLETE_GENOMICS'){
   exit(0);
 }
 
 if ($directory_layout) {
-  $output_dir = create_directory_path($run, $directory_layout, $output_dir);
+  $output_dir = create_directory_path($meta_info, $directory_layout, $output_dir);
 }
 
 $db->dbc->disconnect_when_inactive(1);
@@ -93,7 +90,7 @@ while (my ($key, $value) = each %module_options) {
   $constructor_hash{'-'.$key} = $value;
 }
 $constructor_hash{-output_dir} = $output_dir;
-$constructor_hash{-run_info} = $run;
+$constructor_hash{-run_meta_info} = $meta_info;
 $constructor_hash{-source_root_dir} = $source_root_location;
 $constructor_hash{-clobber} = $clobber;
 $constructor_hash{-db} = $era_db;

@@ -209,7 +209,7 @@ sub store{
       $file->created($existing->created);
       if(are_files_identical($existing, $file)){
         $self->store_history($file);
-        $self->store_attributes($file, $update);
+        $self->store_statistics($file, $update);
         return $file;
       }
       if($update){
@@ -229,7 +229,7 @@ sub store{
           $file->created($existing->created);
           if(are_files_identical($existing, $file)){
             $self->store_history($file);
-            $self->store_attributes($file, $update);
+            $self->store_statistics($file, $update);
             return $file;
           }
           if($update){
@@ -301,7 +301,7 @@ sub store{
   $sth->finish;
   #storing any attached histories
   $self->store_history($file);
-  $self->store_attributes($file);
+  $self->store_statistics($file);
   #returning object with dbID and adaptor attached
   return $file;
 }
@@ -369,7 +369,8 @@ sub update{
     foreach my $history(@{$file->history}){
       $no_dbID = 1 unless($history->dbID);
     }
-    throw("All the history objects appear to already exist you need a new one")         unless($no_dbID);
+    throw("All the history objects appear to already exist you need a new one")
+        unless($no_dbID);
   }
   if(!$file->host->dbID){
     my $ha = $self->db->get_HostAdaptor;
@@ -414,7 +415,7 @@ sub update{
   $sth->finish;
   #storing any attached histories
   $self->store_history($file);
-  $self->store_attributes($file, 1);
+  $self->store_statistics($file, 1);
   return $file;
 }
 
@@ -456,7 +457,7 @@ sub fast_update{
   $sth->finish;
   #storing any attached histories
   $self->store_history($file);
-  $self->store_attributes($file, 1);
+  $self->store_statistics($file, 1);
   return $file;
 }
 

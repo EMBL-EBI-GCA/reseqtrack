@@ -43,15 +43,11 @@ sub DEFAULT_OPTIONS { return {
         'gap_extension_penalty' => undef,
         'max_gap_opens' => undef,
         'max_gap_extensions' => undef,
-        'z_best' => undef,
-	'threads' => 1,
+        'threads' => 1,
         'load_fm_index' => 1,
         'disable_smith_waterman' => 0,
-        'algorithm' => 'mem', # to run bwa-mem or bwa-backtrack or bwa-sw
-	'band_width'	=> undef,
-	
-        'mark_secondary_hits' => 1, # for compatibility with gatk indel realigner
-
+        'algorithm' => 'mem', # to run bwa-mem or bwa-backtrack
+        'mark_secondary_hits' => 1, # for picard compatibility (temporary until picard update)
         };
 }
 
@@ -88,9 +84,6 @@ sub run_alignment {
     }
     elsif ($algorithm = 'mem') {
       $self->run_bwa_mem();
-    }
-    elsif ($algorithm = 'sw') {
-      $self->run_bwa_sw();
     }
 
     return;
@@ -246,9 +239,7 @@ sub run_bwa_mem {
               if ($self->options('gap_open_penalty'));
       push(@cmd_words, '-E', $self->options('gap_extension_penalty'))
               if ($self->options('gap_extension_penalty'));
-      push(@cmd_words, '-w', $self->options('band_width'))
-              if ($self->options('band_width'));
-      
+
       push(@cmd_words, '-M') if $self->options('mark_secondary_hits');
 
       if ($self->read_group_fields->{'ID'}) {
@@ -262,54 +253,6 @@ sub run_bwa_mem {
         $rg_string .= q(");
         push(@cmd_words, '-R', $rg_string);
       }
-
-      push(@cmd_words, $self->reference);
-      push(@cmd_words, $aln_type eq 'MATE'
-            ? ($self->get_fastq_cmd_string('mate1'), $self->get_fastq_cmd_string('mate2'))
-            : ($self->get_fastq_cmd_string('frag')));
-      if ($self->output_format eq 'BAM') {
-        push(@cmd_words, '|', $self->samtools, 'view -bS -');
-      }
-      push(@cmd_words, '>', $output_file);
-
-      my $cmd = join(' ', @cmd_words);
-
-      $self->output_files($output_file);
-      $self->execute_command_line($cmd);
-    }
-
-    return;
-}
-
-sub run_bwa_sw {
-    my ($self) = @_;
-
-    TYPE:
-    foreach my $aln_type ('MATE', 'FRAG') {
-      next TYPE if $aln_type eq 'MATE' && (!$self->mate1_file || !$self->mate2_file);
-      next TYPE if $aln_type eq 'FRAG' && !$self->fragment_file;
-
-      my $output_file = $self->working_dir() . '/' . $self->job_name;
-      $output_file .= ($aln_type eq 'MATE' ? '_pe' : '_se');
-      $output_file .= ($self->output_format eq 'BAM' ? '.bam' : '.sam');
-      $output_file =~ s{//}{/};
-
-
-      my @cmd_words;
-      push(@cmd_words, $self->program, 'bwasw');
-      push(@cmd_words, '-t', $self->options('threads') || 1);
-      push(@cmd_words, '-b', $self->options('mismatch_penalty'))
-              if ($self->options('mismatch_penalty'));
-      push(@cmd_words, '-q', $self->options('gap_open_penalty'))
-              if ($self->options('gap_open_penalty'));
-      push(@cmd_words, '-r', $self->options('gap_extension_penalty'))
-              if ($self->options('gap_extension_penalty'));
-      push (@cmd_words, '-z', $self->options('z_best'))
-	      if ($self->options('z_best'));
-      push (@cmd_words, '-w', $self->options('band_width'))
-              if ($self->options('band_width'));
-      
-      push(@cmd_words, '-M') if $self->options('mark_secondary_hits');
 
       push(@cmd_words, $self->reference);
       push(@cmd_words, $aln_type eq 'MATE'

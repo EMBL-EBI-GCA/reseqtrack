@@ -8,32 +8,17 @@ use ReseqTrack::Hive::Utils::SequenceSliceUtils qw(fai_to_slices bed_to_slices);
 use ReseqTrack::Tools::Exception qw(throw);
 
 
-sub param_defaults {
-  return {
-    overlap => 0,
-    options => undef,
+=head2 run
 
-    samtools => undef,
-    bcftools => undef,
-    vcfutils => undef,
-    bgzip => undef,
+    Description : Implements run() interface method of Bio::EnsEMBL::Hive::Process that is used to perform the main bulk of the job (minus input and output).
 
-    java_exe => undef,
-    jvm_args => undef,
-    gatk_dir => undef,
-
-    freebayes => undef,
-
-    lobstr => undef,
-  };
-}
-
+=cut
 
 sub run {
     my $self = shift @_;
 
     $self->param_required('bam');
-    my $bam = $self->param_as_array('bam');
+    my $bam = $self->file_param_to_flat_array('bam');
 
     my $module_name = $self->param_required('module_name');
     my $fai = $self->param_required('fai');
@@ -41,7 +26,7 @@ sub run {
     my $SQ_end = $self->param_required('SQ_end');
     my $bp_start = $self->param_required('bp_start');
     my $bp_end = $self->param_required('bp_end');
-    my $overlap = $self->param('overlap');
+    my $overlap = $self->param_is_defined('overlap') ? $self->param('overlap') : 0;
 
     my $module = load_module($module_name);
 
@@ -56,27 +41,18 @@ sub run {
 
     my %module_args;
     if ($module_name eq 'CallBySamtools') {
-      $module_args{'-program'} = $self->param('samtools');
-      $module_args{'-bcftools'} = $self->param('bcftools');
-      $module_args{'-vcfutils'} = $self->param('vcfutils');
-      $module_args{'-bgzip'} = $self->param('bgzip');
+      $module_args{'-program'} = $self->param_is_defined('samtools') ? $self->param('samtools') : undef;
+      $module_args{'-bcftools'} = $self->param_is_defined('bcftools') ? $self->param('bcftools') : undef;
+      $module_args{'-vcfutils'} = $self->param_is_defined('vcfutils') ? $self->param('vcfutils') : undef;
+      $module_args{'-bgzip'} = $self->param_is_defined('bgzip') ? $self->param('bgzip') : undef;
     }
     elsif ($module_name eq 'CallByGATK') {
-      $module_args{'-java_exe'} = $self->param('java_exe');
-      $module_args{'-jvm_args'} = $self->param('jvm_args');
-      $module_args{'-gatk_path'} = $self->param('gatk_dir');
+      $module_args{'-java_exe'} = $self->param_is_defined('java_exe') ? $self->param('java_exe') : undef;
+      $module_args{'-jvm_args'} = $self->param_is_defined('jvm_args') ? $self->param('jvm_args') : undef;
+      $module_args{'-gatk_path'} = $self->param_is_defined('gatk_dir') ? $self->param('gatk_dir') : undef;
     }
     elsif ($module_name eq 'CallByFreebayes') {
-      $module_args{'-program'} = $self->param('freebayes');
-      $module_args{'-bgzip'} = $self->param('bgzip');
-    }
-    elsif ($module_name eq 'CallByLobSTR') {
-      $module_args{'-program'} = $self->param('lobstr');
-      $module_args{'-noise_model'} = $self->param_required('noise_model');
-      $module_args{'-str_info'} = $self->param_required('str_info');
-      $module_args{'-ref_index_prefix'} = $self->param_required('ref_index_prefix');
-      $module_args{'-bgzip'} = $self->param('bgzip');
-      $self->param('reference', $self->param('ref_index_prefix'));
+      $module_args{'-program'} = $self->param_is_defined('freebayes') ? $self->param('freebayes') : undef;
     }
 
 
@@ -86,7 +62,7 @@ sub run {
           -job_name => $self->job_name,
           -chrom => $slices->[0]->SQ_name,
           -reference => $self->param_required('reference'),
-          -options => $self->param('options'),
+          -options => $self->param_is_defined('options') ? $self->param('options') : undef,
           %module_args,
           );
     if (!$slices->[0]->is_whole_SQ) {

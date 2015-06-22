@@ -2,10 +2,10 @@
 use strict;
 use warnings;
 
-use ReseqTrack::Tools::AttributeUtils;
+use ReseqTrack::Tools::StatisticsUtils;
 use ReseqTrack::Tools::QC::FastQC;
 use ReseqTrack::Tools::HostUtils qw(get_host_object);
-use ReseqTrack::Tools::AttributeUtils;
+use ReseqTrack::Tools::StatisticsUtils;
 use ReseqTrack::Tools::FileUtils;
 use ReseqTrack::Tools::FileSystemUtils;
 use ReseqTrack::DBSQL::DBAdaptor;
@@ -121,17 +121,17 @@ for my $fastq_file (@{$collection->others}) {
 	push @zip_files, $zip_path;
 
 	
-	my $statistics = $fastq_file->attributes;
+	my $statistics = $fastq_file->statistics;
 	
 	open (my $summary_fh, '<', $summary_path) or throw("Could not open $summary_path - odd as we should have just made it");
 	while (<$summary_fh>){
 		chomp;
 		my ($value,$key,$name) = split /\t/;
-		push @$statistics, create_attribute_for_object($fastq_file,"FASTQC:$key",$value) if ($value && $key);
+		push @$statistics, create_statistic_for_object($fastq_file,"FASTQC:$key",$value) if ($value && $key);
 	}
 	
-	$fastq_file->uniquify_attributes($statistics);
-	$file_adaptor->store_attributes($fastq_file);
+	$fastq_file->uniquify_statistics($statistics);
+	$file_adaptor->store_statistics($fastq_file);
 }
 
 create_output_records($collection->name,$summary_output_type,\@summary_files);

@@ -3,7 +3,7 @@ package ReseqTrack::PipelineSeed;
 use strict;
 use warnings;
 
-use base qw(ReseqTrack::HasHistory);
+use base qw(ReseqTrack::Base);
 use ReseqTrack::Tools::Exception qw(throw warning stack_trace_dump);
 use ReseqTrack::Tools::Argument qw(rearrange);
 

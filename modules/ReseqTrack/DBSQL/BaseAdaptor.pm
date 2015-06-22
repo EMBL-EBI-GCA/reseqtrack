@@ -151,15 +151,14 @@ sub fetch_by_column_names{
 	for my $column_name (@$column_names){
 		push @sql, 'and', $column_name, ' = ?';
 	} 
-	my $sql_stmt = join ' ', @sql;
 	
-	my $sth = $self->prepare($sql_stmt);
+	my $sth = $self->prepare(join ' ', @sql);
 	
 	my $index = 1;
 	for my $value (@$column_values){
 		$sth->bind_param($index++, $value);
 	}
-
+	
 	$sth->execute;
 	
 	my @objects;
@@ -194,27 +193,32 @@ sub store_history{
   }
 }
 
-sub store_attributes{
+sub store_statistics{
   my ($self, $object, $update) = @_;
-  throw("Can't store attributes for ".$object." that isnt a ReseqTrack::HasHistory ")  unless($object->isa("ReseqTrack::HasHistory"));
-  my $attr_a = $self->db->get_AttributeAdaptor();
-  
-  if($object->attributes){
-    foreach my $statistics(@{$object->attributes}){
+  throw("Can't store statistics for ".$object." that isnt a ReseqTrack::HasHistory ")
+      unless($object->isa("ReseqTrack::HasHistory"));
+  my $hist_a = $self->db->get_StatisticsAdaptor();
+  if($object->statistics && @{$object->statistics} >= 1){
+    foreach my $statistics(@{$object->statistics}){
       $statistics->other_id($object->dbID);
       $statistics->table_name($object->object_table_name);
-      $attr_a->store($statistics, $update);
+      $hist_a->store($statistics, $update);
     }
   }
 }
 
-sub delete_attributes {
+sub update_statistics{
   my ($self, $object) = @_;
-  throw("Can't delete attributes for ".$object." that isnt a ReseqTrack::HasHistory ")
-    if(!$object->isa("ReseqTrack::HasHistory"));
-  my $attr_a = $self->db->get_AttributeAdaptor();
-  foreach my $attribute (@{$object->attributes}){
-    $attr_a->delete($attribute);
+  throw("Can't store statistics for ".$object." that isnt a ReseqTrack::HasHistory ")
+      unless($object->isa("ReseqTrack::HasHistory"));
+  my $hist_a = $self->db->get_StatisticsAdaptor();
+  if($object->statistics && @{$object->statistics} >= 1){
+     foreach my $statistics(@{$object->statistics}){
+      if($statistics->dbID){
+	#print "inside update_statistics in BaseAdaptor.pm, dbID is " . $statistics->dbID . "\n";
+        $hist_a->store($statistics, 1);
+      }
+    }
   }
 }
 

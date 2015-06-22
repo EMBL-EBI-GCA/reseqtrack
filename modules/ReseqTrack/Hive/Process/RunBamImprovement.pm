@@ -8,23 +8,17 @@ use ReseqTrack::Tools::Exception qw(throw);
 use ReseqTrack::Tools::FileSystemUtils qw(check_directory_exists check_file_exists);
 
 
-sub param_defaults {
-  return {
-    java_exe => undef,
-    jvm_args => undef,
-    gatk_dir => undef,
-    gatk_module_options => undef,
-    known_sites_vcf => undef,
-    intervals_file => undef,
-  };
-}
+=head2 run
 
+    Description : Implements run() interface method of Bio::EnsEMBL::Hive::Process that is used to perform the main bulk of the job (minus input and output).
+
+=cut
 
 sub run {
     my ($self) = @_;
 
     $self->param_required('bam');
-    my $bams = $self->param_as_array('bam');
+    my $bams = $self->file_param_to_flat_array('bam');
     my $reference = $self->param_required('reference');
     my $command = $self->param_required('command');
 
@@ -42,13 +36,13 @@ sub run {
       -working_dir  => $self->output_dir,
       -reference    => $reference,
       -job_name     => $self->job_name,
-      -java_exe     => $self->param('java_exe'),
-      -jvm_args     => $self->param('jvm_args'),
-      -gatk_path    => $self->param('gatk_dir'),
-      -options      => $self->param('gatk_module_options'),
-      -known_sites_files => $self->param('known_sites_vcf'),
+      -java_exe     => $self->param_is_defined('java_exe') ? $self->param('java_exe') : undef,
+      -jvm_args     => $self->param_is_defined('jvm_args') ? $self->param('jvm_args') : undef,
+      -gatk_path    => $self->param_is_defined('gatk_dir') ? $self->param('gatk_dir') : undef,
+      -options      => $self->param_is_defined('gatk_module_options') ? $self->param('gatk_module_options') : undef,
+      -known_sites_files => $self->param_is_defined('known_sites_vcf') ? $self->param('known_sites_vcf') : undef,
     );
-    if ($command eq 'realign' && defined $self->param('intervals_file')) {
+    if ($command eq 'realign' && $self->param_is_defined('intervals_file')) {
       $gatk_object->intervals_file($self->param('intervals_file'));
     }
 

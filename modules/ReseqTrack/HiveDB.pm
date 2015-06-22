@@ -11,15 +11,13 @@ use ReseqTrack::Tools::Argument qw(rearrange);
 sub new{
   my ($class, @args) = @_;
   my  $self = $class->SUPER::new(@args);
-  my ($name, $host, $port, $pipeline_id, $pipeline, $created, $retired, $hive_version, $is_seeded, $is_loaded,
+  my ($url, $pipeline_id, $pipeline, $created, $retired, $hive_version, $is_seeded, $is_loaded,
       ) = 
-      rearrange(['NAME', 'HOST', 'PORT', 'PIPELINE_ID', 'PIPELINE', 'CREATED', 'RETIRED', 'HIVE_VERSION', 'IS_SEEDED', 'IS_LOADED',
+      rearrange(['URL', 'PIPELINE_ID', 'PIPELINE', 'CREATED', 'RETIRED', 'HIVE_VERSION', 'IS_SEEDED', 'IS_LOADED',
                  ], @args);
   
   #don't trigger any lazy loading if parameters are undefined
-  $self->name($name) if $name;
-  $self->port($port) if $port;
-  $self->host($host) if $host;
+  $self->url($url) if $url;
   $self->pipeline($pipeline) if $pipeline;
   $self->pipeline_id($pipeline_id) if $pipeline_id;
   $self->created($created) if $created;
@@ -45,9 +43,7 @@ sub load {
   return if !$self->adaptor;
   my $object = $self->adaptor->fetch_by_dbID($self->dbID);
   $self->is_loaded(1); # set to 1 now to prevent recursive loops
-  $self->name($self->name // $object->name);
-  $self->port($self->port // $object->port);
-  $self->host($self->host // $object->host);
+  $self->url($self->url // $object->url);
   $self->pipeline_id($self->pipeline_id // $object->pipeline_id);
   $self->created($self->created // $object->created);
   $self->retired($self->retired // $object->retired);
@@ -56,37 +52,15 @@ sub load {
 }
 
 
-sub name{
-  my ($self, $name) = @_;
-  if($name){
-    $self->{name} = $name;
+sub url{
+  my ($self, $url) = @_;
+  if($url){
+    $self->{url} = $url;
   }
-  if (!$self->{name} && !$self->is_loaded) {
+  if (!$self->{url} && !$self->is_loaded) {
     $self->load;
   }
-  return $self->{name};
-}
-
-sub port{
-  my ($self, $port) = @_;
-  if($port){
-    $self->{port} = $port;
-  }
-  if (!$self->{port} && !$self->is_loaded) {
-    $self->load;
-  }
-  return $self->{port};
-}
-
-sub host{
-  my ($self, $host) = @_;
-  if($host){
-    $self->{host} = $host;
-  }
-  if (!$self->{host} && !$self->is_loaded) {
-    $self->load;
-  }
-  return $self->{host};
+  return $self->{url};
 }
 
 sub pipeline{

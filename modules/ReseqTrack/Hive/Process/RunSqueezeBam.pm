@@ -7,31 +7,28 @@ use base ('ReseqTrack::Hive::Process::BaseProcess');
 use ReseqTrack::Tools::Exception qw(throw);
 use ReseqTrack::Tools::RunBamSqueeze;
 
-sub param_defaults {
-  return {
-    program_file => undef,
-    rm_tag_types => undef,
-    rm_OQ_fields => 1,
-    rm_dups => 0,
-  };
-}
 
+=head2 run
+
+    Description : Implements run() interface method of Bio::EnsEMBL::Hive::Process that is used to perform the main bulk of the job (minus input and output).
+
+=cut
 
 sub run {
     my ($self) = @_;
 
     $self->param_required('bam');
-    my $bams = $self->param_as_array('bam');
+    my $bams = $self->file_param_to_flat_array('bam');
     throw('too many bam files: '. join(' ', @$bams)) if @$bams !=1;
 
     my $bam_squeezer = ReseqTrack::Tools::RunBamSqueeze->new(
       -input_files  => $bams,
       -working_dir  => $self->output_dir,
-      -program      => $self->param('program_file'),
+      -program      => $self->param_is_defined('program_file') ? $self->param('program_file') : undef,
       -job_name     => $self->job_name,
-      -rm_tag_types => $self->param('rm_tag_types'),
-      -options      => {keepOQ => $self->param('rm_OQ_fields') ? 0 : 1,
-                        keepDups => $self->param('rm_dups') ? 0 : 1},
+      -rm_tag_types => $self->param_is_defined('rm_tag_types') ? $self->param('rm_tag_types') : undef,
+      -options      => {keepOQ => $self->param_is_defined('rm_OQ_fields') && $self->param('rm_OQ_fields') ? 0 : 1,
+                        keepDups => $self->param_is_defined('rm_dups') && $self->param('rm_dups') ? 0 : 1},
     );
 
     $self->run_program($bam_squeezer);

@@ -120,25 +120,6 @@ sub fetch_by_name_and_table_name{
   return \@collections;
 }
 
-sub fetch_by_other_id_and_table_name{
-  my ($self, $other_id, $table_name) = @_;
-  my $sql = "select ".$self->columns." from ".$self->table_name.
-      ", collection_group where collection.collection_id = collection_group.collection_id ".
-      "and collection_group.other_id = ? and collection.table_name = ?";
-  #print $sql."\n";
-  my @collections;
-  my $sth = $self->prepare($sql);
-  $sth->bind_param(1, $other_id);
-  $sth->bind_param(2, $table_name);
-  $sth->execute;
-  while(my $hashref = $sth->fetchrow_hashref){
-    my $collection = $self->object_from_hashref($hashref) if($hashref);
-    push(@collections, $collection);
-  }
-  $sth->finish;
-  return \@collections;
-}
-
 sub fetch_by_other_id_and_type{
   my ($self, $other_id, $type) = @_;
   my $sql = "select ".$self->columns." from ".$self->table_name.", ".
@@ -188,7 +169,7 @@ sub store{
     #warning($exists->name." ".$exists->type." is already in the datbase skipping");
     $collection->dbID($exists->dbID);
     $collection->adaptor($self);
-    $self->store_attributes($collection, $update);
+    $self->store_statistics($collection, $update);
     $self->store_others($collection);
     return $collection;
   }
@@ -204,7 +185,7 @@ sub store{
   $sth->finish;
   $collection->dbID($dbID);
   $collection->adaptor($self);
-  $self->store_attributes($collection, $update);
+  $self->store_statistics($collection, $update);
   $self->store_others($collection);
   return $collection;
 }
@@ -250,7 +231,7 @@ sub store_others{
   }
   foreach my $other(@$others){
     unless($other->dbID){
-      $other = $oa->store($other,1);#TODO remove
+      $other = $oa->store($other);
       throw($oa.":store has failed to generate a dbID for the object this ".
             "means we can't associate it with the collection ") unless($other->dbID);
     }

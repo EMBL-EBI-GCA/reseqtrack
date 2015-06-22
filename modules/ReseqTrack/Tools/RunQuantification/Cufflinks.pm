@@ -53,7 +53,6 @@ sub DEFAULT_OPTIONS {
     'max-mle-iterations'             => undef,
     'max-bundle-frags'               => undef,
     'no-effective-length-correction' => 0,
-    'supress-gsnap-mdz'              => 0,
   };
 }
 

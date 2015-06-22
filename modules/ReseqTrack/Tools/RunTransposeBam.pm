@@ -33,8 +33,6 @@ use base qw(ReseqTrack::Tools::RunProgram);
 
 sub DEFAULT_OPTIONS { return {
         'build_index' => 0,
-        'uniquify_rg' => 0,
-        'shorten_input_names' => 0, # should be used when the number of input files is very large
         };
 }
 
@@ -61,9 +59,6 @@ sub run_program{
     throw("do not have regions") if !$regions || !@$regions;
     my $input_files = $self->input_files;
     throw("do not have any input files") if !@$input_files;
-    if ( $self->options('shorten_input_names')) {
-       $input_files = [values %{$self->get_short_input_names}];
-    }
 
     my $output_bam = $self->working_dir . '/' . $self->job_name . '.transposed.bam';
     my @cmd_words = ($self->program);
@@ -71,7 +66,6 @@ sub run_program{
       push(@cmd_words, '-r', $region);
     }
     push(@cmd_words, '-i') if $self->options('build_index');
-    push(@cmd_words, '-u') if $self->options('uniquify_rg');
     push(@cmd_words, '-o', $output_bam);
     push(@cmd_words, sort @$input_files);
     my $cmd = join(' ', @cmd_words);

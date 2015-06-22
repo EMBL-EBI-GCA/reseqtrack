@@ -68,10 +68,10 @@ foreach my $path(keys(%$hash)){
   }
   my $new_dir = dirname($new_path);
   my $new_name = basename($new_path);
-#  unless($new_name eq $file->filename){
-#    throw("Can't rename files using this script".$path." to ".$new_path.
-#	  " is not possible");
-#  }
+  unless($new_name eq $file->filename){
+    throw("Can't rename files using this script".$path." to ".$new_path.
+	  " is not possible");
+  }
   move_file_in_db_and_dir([$file], $new_dir, $file->type, $db);
   unless(-e $new_path){
     throw("Failed to move ".$path." to ".$new_path);

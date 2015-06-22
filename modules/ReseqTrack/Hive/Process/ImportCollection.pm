@@ -8,36 +8,30 @@ use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::Exception qw(throw);
 
 
-sub param_defaults {
-  return {
-    collection_type => undef,
-    collection_name => undef,
-    collection_id => undef,
-  };
-}
+=head2 run
+
+    Description : Implements run() interface method of Bio::EnsEMBL::Hive::Process that is used to perform the main bulk of the job (minus input and output).
+
+=cut
 
 sub run {
     my $self = shift @_;
 
-    my $collection_type = $self->param('collection_type');
-    my $collection_name = $self->param('collection_name');
-    my $collection_id = $self->param('collection_id');
+    $self->param_required('collection_type');
+    $self->param_required('collection_name');
     $self->param_required('output_param');
 
-    throw("must have a collection name or collection id")
-          if (!defined $collection_id && !defined $collection_name);
-    throw("must have a collection type with a collection name")
-          if (defined $collection_name && !defined $collection_type);
-
-    my $db = ReseqTrack::DBSQL::DBAdaptor->new(%{$self->param_required('reseqtrack_db')});
+    my $db = ReseqTrack::DBSQL::DBAdaptor->new(%{$self->param('reseqtrack_db')});
     my $ca = $db->get_CollectionAdaptor;
     my $collection = $ca->fetch_by_name_and_type($self->param('collection_name'), $self->param('collection_type'));
 
-    my $collection = defined $collection_id ? $ca->fetch_by_dbID($collection_id)
-                  : $ca->fetch_by_name_and_type($collection_name, $collection_type);
+    if (!$collection) {
+      $self->flows_non_factory(undef);
+      return;
+    }
 
     my $output_name_param = $self->param('output_param');
-    my $output_values = $collection ? [map {$_->name} @{$collection->others}] : [];
+    my $output_values = [map {$_->name} @{$collection->others}];
     $self->output_param($output_name_param, $output_values);
 }
 

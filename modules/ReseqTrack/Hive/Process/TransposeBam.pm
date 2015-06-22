@@ -8,29 +8,26 @@ use ReseqTrack::Tools::RunTransposeBam;
 use ReseqTrack::Hive::Utils::SequenceSliceUtils qw(fai_to_slices bed_to_slices);
 use ReseqTrack::Tools::Exception qw(throw);
 
-sub param_defaults {
-  return {
-    bed => undef,
-    region_overlap => 0,
-    create_index => 1,
-    uniquify_rg => 0,
-  };
-}
 
+=head2 run
+
+    Description : Implements run() interface method of Bio::EnsEMBL::Hive::Process that is used to perform the main bulk of the job (minus input and output).
+
+=cut
 
 sub run {
     my $self = shift @_;
 
     $self->param_required('bam');
-    my $bams = $self->param_as_array('bam');
+    my $bams = $self->file_param_to_flat_array('bam');
     my $fai = $self->param_required('fai');
-    my $bed = $self->param('bed');
+    my $bed = $self->param_is_defined('bed') ? $self->param('bed') : undef;
     my $SQ_start = $self->param_required('SQ_start');
     my $SQ_end = $self->param_required('SQ_end');
     my $bp_start = $self->param_required('bp_start');
     my $bp_end = $self->param_required('bp_end');
-    my $overlap = $self->param('region_overlap');
-    my $create_index = $self->param('create_index');
+    my $overlap = $self->param_is_defined('region_overlap') ? $self->param('region_overlap') : 0;
+    my $create_index = $self->param_is_defined('create_index') ? $self->param('create_index') : 1;
 
     my $slices = fai_to_slices(
           fai => $fai,
@@ -61,10 +58,7 @@ sub run {
           -working_dir => $self->output_dir,
           -job_name => $self->job_name,
           -regions => \@regions,
-          -options => {uniquify_rg => $self->param('uniquify_rg'),
-                      build_index => $self->param('create_index'),
-                      shorten_input_names => 1,
-                      },
+          -options => {'build_index' => $self->param('create_index')},
           );
 
     $self->run_program($bam_transposer);

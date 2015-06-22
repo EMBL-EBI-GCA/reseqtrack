@@ -3,10 +3,10 @@ use strict;
 use warnings;
 
 use ReseqTrack::Tools::SequenceIndexUtils qw (assign_files);
-use ReseqTrack::Tools::AttributeUtils;
+use ReseqTrack::Tools::StatisticsUtils;
 use ReseqTrack::Tools::QC::FastQScreen;
 use ReseqTrack::Tools::HostUtils qw(get_host_object);
-use ReseqTrack::Tools::AttributeUtils;
+use ReseqTrack::Tools::StatisticsUtils;
 use ReseqTrack::Tools::FileUtils;
 use ReseqTrack::Tools::FileSystemUtils;
 use ReseqTrack::DBSQL::DBAdaptor;
@@ -87,7 +87,18 @@ if (! -d $output_dir) {
 }
 
 
-my @input_files = map {$_->name} @{$collection->others};
+my @files = assign_files($collection->others);
+
+if (defined $files[0] && defined $files[1]) {
+	@files = ($files[0],$files[1]);
+}
+else {
+	@files = ($files[2]);
+}
+
+
+
+my @input_files = map {$_->name} @files;
 
 
 my $fastqscreen = ReseqTrack::Tools::QC::FastQScreen->new(

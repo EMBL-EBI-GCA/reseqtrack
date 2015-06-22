@@ -91,8 +91,7 @@ my $output_file = $odir . "/" . $aux_col->name . "_genotype.classified";
 
 throw("Chunky classified var file $output_file already exist") if (-e $output_file);
 
-#my $command = 	"cat /nfs/1000g-work/G1K/work/bin/cortex/scripts/analyse_variants/classifier.parallel.ploidy_aware.R | ";
-my $command =   "cat /nfs/production/reseq-info/work/bin/cortex/scripts/analyse_variants/classifier.parallel.ploidy_aware.R | ";
+my $command = 	"cat /nfs/1000g-work/G1K/work/bin/cortex/scripts/analyse_variants/classifier.parallel.ploidy_aware.R | ";
 $command .= "R --vanilla --args $start 500000 " . $covg_file->name . " $total_var_cnt $colour_cnt 1 ";
 #$command .= "R --vanilla --args $start 1000 " . $covg_file->name . " $total_var_cnt $colour_cnt 1 ";
 $command .= $table_file->name . " 3000000000 31 2 ";

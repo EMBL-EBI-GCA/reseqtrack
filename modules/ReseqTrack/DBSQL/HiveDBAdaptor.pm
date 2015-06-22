@@ -21,16 +21,7 @@ sub new {
 
 sub columns{
 
-  return  join(', ',qw(
-      hive_db.hive_db_id
-      hive_db.pipeline_id
-      hive_db.name
-      hive_db.host
-      hive_db.port
-      hive_db.created
-      hive_db.retired
-      hive_db.hive_version
-      hive_db.is_seeded));
+  return  ' hive_db.hive_db_id, hive_db.url, hive_db.pipeline_id,  hive_db.created, hive_db.retired, hive_db.hive_version, hive_db.is_seeded';
   
 }
 
@@ -38,6 +29,23 @@ sub table_name{
   return "hive_db";
 }
 
+
+
+sub fetch_by_url{
+
+  my ($self, $url) = @_;
+
+  my $sql = "select ".$self->columns." from hive_db where url = ?";
+
+  my $sth = $self->prepare($sql);
+  $sth->bind_param(1, $url);
+  $sth->execute;
+  my ($rowHashref) = $sth->fetchrow_hashref;
+  my $hive_db = $self->object_from_hashref($rowHashref) if($rowHashref);
+  $sth->finish;
+
+  return $hive_db;
+}
 
 sub fetch_by_pipeline{
 
@@ -68,18 +76,16 @@ sub store{
   my ($self, $hive_db) = @_;
   my $sql = 
       "INSERT INTO  hive_db " 
-      . "(name, host, port, pipeline_id, hive_version, is_seeded,
+      . "(url, pipeline_id, hive_version, is_seeded,
           created) "
-      . "values(?, ?, ?, ?, ?, ?, now()) ";
+      . "values(?, ?, ?, ?, now()) ";
  
   my $sth = $self->prepare($sql);
 
-  $sth->bind_param(1,  $hive_db->name);
-  $sth->bind_param(2,  $hive_db->host);
-  $sth->bind_param(3,  $hive_db->port);
-  $sth->bind_param(4,  $hive_db->pipeline_id);
-  $sth->bind_param(5,  $hive_db->hive_version);
-  $sth->bind_param(6,  $hive_db->is_seeded // 0);
+  $sth->bind_param(1,  $hive_db->url);
+  $sth->bind_param(2,  $hive_db->pipeline_id);
+  $sth->bind_param(3,  $hive_db->hive_version);
+  $sth->bind_param(4,  $hive_db->is_seeded // 0);
   my $rows_inserted = $sth->execute();
   my $dbID = $sth->{'mysql_insertid'};
  
@@ -95,9 +101,7 @@ sub update{
   my ($self, $hive_db) = @_;
 
   my $sql = 
-      "UPDATE hive_db SET name   = ?, ".
-      "host     = ?, ".
-      "port     = ?, ".
+      "UPDATE hive_db SET url   = ?, ".
       "pipeline_id     = ?, ".
       "retired = ?, ".
       "is_seeded = ?, ".
@@ -108,14 +112,12 @@ sub update{
   my $sth = $self->prepare($sql);
   
   
-  $sth->bind_param(1,  $hive_db->name);
-  $sth->bind_param(2,  $hive_db->host);
-  $sth->bind_param(3,  $hive_db->port);
-  $sth->bind_param(4,  $hive_db->pipeline_id);
-  $sth->bind_param(5,  $hive_db->retired);
-  $sth->bind_param(6,  $hive_db->is_seeded);
-  $sth->bind_param(7,  $hive_db->hive_version);
-  $sth->bind_param(8, $hive_db->dbID);
+  $sth->bind_param(1,  $hive_db->url);
+  $sth->bind_param(2,  $hive_db->pipeline_id);
+  $sth->bind_param(3,  $hive_db->retired);
+  $sth->bind_param(4,  $hive_db->is_seeded);
+  $sth->bind_param(5,  $hive_db->hive_version);
+  $sth->bind_param(6, $hive_db->dbID);
  
   $sth->execute();
   $sth->finish();
@@ -127,9 +129,9 @@ sub retire{
   my ($self, $hive_db) = @_;
 
   my $existing = $self->fetch_by_dbID($hive_db->dbID);
-  throw('Does not exist in database: '. $hive_db->name)
+  throw('Does not exist in database: '. $hive_db->url)
       if !$existing;
-  throw(join(' ', 'Already retired:', $hive_db->name, $hive_db->retired))
+  throw(join(' ', 'Already retired:', $hive_db->url, $hive_db->retired))
       if defined $hive_db->retired;
 
   my $sql = "select now()";
@@ -152,9 +154,7 @@ sub object_from_hashref{
         (
          -dbID => $hashref->{hive_db_id},
          -adaptor => $self,
-         -name             =>$hashref->{name},
-         -port             =>$hashref->{port},
-         -host             =>$hashref->{host},
+         -url              =>$hashref->{url},
          -pipeline_id      =>$hashref->{pipeline_id},
          -created          =>$hashref->{created},
          -retired          =>$hashref->{retired},

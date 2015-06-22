@@ -12,15 +12,14 @@ use ReseqTrack::Tools::Argument qw(rearrange);
 sub new{
   my ($class, @args) = @_;
   my  $self = $class->SUPER::new(@args);
-  my ($name, $table_name,
-      $config_module, $config_options,
-      $created, $is_loaded) = 
-      rearrange(['NAME', 'TABLE_NAME',
-                 'CONFIG_MODULE', 'CONFIG_OPTIONS',
-                 'CREATED', 'IS_LOADED'], @args);
+  my ($name, $table_name, $type, $config_module,
+      $config_options, $created, $is_loaded) = 
+      rearrange(['NAME', 'TABLE_NAME', 'TYPE', 'CONFIG_MODULE',
+                 'CONFIG_OPTIONS', 'CREATED', 'IS_LOADED'], @args);
   
   $self->name($name) if $name;
   $self->table_name($table_name) if $table_name;
+  $self->type($type) if $type;
   $self->config_module($config_module) if $config_module;
   $self->config_options($config_options) if $config_options;
   $self->created($created) if $created;
@@ -70,6 +69,17 @@ sub table_name{
     $self->load;
   }
   return $self->{table_name};
+}
+
+sub type{
+  my ($self, $type) = @_;
+  if($type){
+    $self->{type} = $type;
+  }
+  if (!$self->{type} && !$self->is_loaded) {
+    $self->load;
+  }
+  return $self->{type};
 }
 
 sub config_module{

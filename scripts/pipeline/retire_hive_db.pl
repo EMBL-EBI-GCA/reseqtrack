@@ -47,11 +47,11 @@ throw("did not find pipeline with name $pipeline_name") if !$pipeline;
 my $hive_dbs = $db->get_HiveDBAdaptor->fetch_by_pipeline($pipeline);
 my $ps_a = $db->get_PipelineSeedAdaptor;
 HIVEDB:
-foreach my $hive_db (grep {!$_->retired} @$hive_dbs) {
+foreach my $hive_db (@$hive_dbs) {
   my $pipeline_seeds = $db->get_PipelineSeedAdaptor->fetch_running_by_hive_db($hive_db);
   if (@$pipeline_seeds) {
     if (!$force) {
-      warn("will not retire ".$hive_db->name." because pipeline seeds are still marked as running and -force is not set");
+      warn("will not retire ".$hive_db->url." because pipeline seeds are still marked as running and -force is not set");
       next HIVEDB;
     }
     foreach my $ps (@$pipeline_seeds) {
@@ -97,7 +97,7 @@ This is so the hive database will not be used any more for running pipelines
 
     $DB_OPTS="-dbhost mysql-host -dbuser rw_user -dbpass **** -dbport 4197 -dbname my_database"
 
-  perl reseqtrack/pipeline/retire_hive_db.pl $DB_OPTS
+  perl reseqtrack/process/run_picard.pl $DB_OPTS $HIVE_DB_OPTS
     -pipeline_name alignment
     -force -nofutile
 
