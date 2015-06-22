@@ -46,10 +46,6 @@ sub run {
   my $mappability_tracks      = $self->param_required( 'mappability_tracks' );
   my $mcr_root                = $self->param_required( 'mcr_root' );
  
-  ## check ENV 
-  # throw( 'MCRROOT is not set in ENV!' )        unless defined $ENV{MCRROOT};
-  # throw( 'MCRJRE is not set in ENV!' )         unless defined $ENV{MCRJRE};
-  # throw( 'XAPPLRESDIR is not set in ENV!' )    unless defined $ENV{XAPPLRESDIR};
 
   throw( "unknown output format $output_format" ) 
        unless ( $output_format eq 'bg' or $output_format eq 'bw' );
@@ -61,7 +57,7 @@ sub run {
          if ( !$collection_name or !$bam_type );
   
     my $db = ReseqTrack::DBSQL::DBAdaptor->new(%{$self->param_required('reseqtrack_db')});
-    my $ca   = $db->get_CollectionAdaptor;
+    my $ca = $db->get_CollectionAdaptor;
     my $collection = $ca->fetch_by_name_and_type( $collection_name, $bam_type );
 
     throw( "failed to fetch any collection for $collection_name and type $bam_type" ) 
@@ -77,8 +73,8 @@ sub run {
     $db->dbc->disconnect_when_inactive(1);    
   } 
 
-  ( $fragment_size ) = split /,/, $fragment_size; # ppqt can find multiple peaks. the first is the most likely, so we use that one 
-  $fragment_size = 1 if ( $fragment_size < 1 ); #minimum possible value
+  ( $fragment_size ) = split /,/, $fragment_size;   # ppqt can find multiple peaks. the first is the most likely, so we use that one 
+  $fragment_size = 1 if ( $fragment_size < 1 );     # minimum possible value
  
   foreach my $bam ( @$bams ) {
     check_file_exists( $bam );
