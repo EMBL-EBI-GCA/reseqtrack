@@ -37,8 +37,9 @@ sub default_options {
         root_output_dir => $self->o('ENV', 'PWD'), # Should be set to something more sensible
         dir_label_params => [],
         lsf_queue => 'production',
-
-    };
+	lsf_resource => '',
+	java_exe => '/usr/bin/java',
+    }; ## when lsf_resource is null, the LSF will try to figure out the filesystem to use based on file path
 }
 
 

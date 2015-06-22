@@ -95,11 +95,11 @@ sub run_ppqt {
     my $file = $self->processed_file() || $self->input_files->[0];
 
     check_file_exists($file);
+    check_file_does_not_exist($param_file);
 
     push @cmd_args, $self->rscript_path;
     push @cmd_args, $self->program;
 
-    push @cmd_args, '-rf';
     push @cmd_args, '-c=' . $file;
     push @cmd_args, '-out=' . $param_file;
 
@@ -118,15 +118,9 @@ sub run_ppqt {
         $self->output_files($r_file);
         push @cmd_args, '-savd=' . $r_file;
     }
-    
-    my $path = $ENV{PATH};
-    
-    $ENV{PATH} = dirname($self->samtools_path).':'.$path;
-    
+
     $self->execute_command_line( join( ' ', @cmd_args ) );
-    
-    $ENV{PATH} = $path;
-    
+
     return $param_file;
 }
 

@@ -183,15 +183,14 @@ sub process_cortext_input {
 		`rsync $old_path $outdir/` if ($input{run});
 	};
 	throw("rsync file $old_path failed, $@\n") if $@;
-
-=head	
+	
 	eval {
 		`gunzip $new_path` if ($input{run});
 	};	
 	throw("gunzip file $new_path failed, $@\n") if $@;	
 	
 	$new_path =~ s/.gz//;
-=cut		
+		
 	if ($basename =~ /_1.filt.fastq/) {
 		push @{$sample_pe1{$samp}}, $new_path;
 	}
