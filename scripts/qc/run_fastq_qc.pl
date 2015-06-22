@@ -1,8 +1,7 @@
-#!/usr/bin/env perl
 
+#!/sw/arch/bin/perl -w
 
 use strict;
-use warnings;
 use ReseqTrack::Tools::Exception;
 use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::FilterFastq;
@@ -11,7 +10,7 @@ use File::Path;
 use ReseqTrack::Tools::Loader::File;
 use ReseqTrack::Tools::Loader::Archive;
 use ReseqTrack::Tools::SequenceIndexUtils;
-use ReseqTrack::Tools::AttributeUtils;
+use ReseqTrack::Tools::StatisticsUtils;
 use ReseqTrack::Collection;
 use Getopt::Long;
 
@@ -198,18 +197,18 @@ my ($filt_m1, $filt_m2, $filt_f) = assign_files($file_objects);
 #Update statistics
 my @objects_to_update;
 if($mate1 && $mate2){
-  my $mate1_rc = create_attribute_for_object
+  my $mate1_rc = create_statistic_for_object
     ($mate1, 'read_count', $filter_fastq->unfiltered_mate1_readcount);
-  $mate1->attributes($mate1_rc);
-  my $mate1_bc = create_attribute_for_object
+  $mate1->statistics($mate1_rc);
+  my $mate1_bc = create_statistic_for_object
     ($mate1, 'base_count', $filter_fastq->unfiltered_mate1_basecount);
-  $mate1->attributes($mate1_bc);
-  my $mate2_rc = create_attribute_for_object
+  $mate1->statistics($mate1_bc);
+  my $mate2_rc = create_statistic_for_object
     ($mate2, 'read_count', $filter_fastq->unfiltered_mate2_readcount);
-  $mate2->attributes($mate2_rc);
-  my $mate2_bc = create_attribute_for_object
+  $mate2->statistics($mate2_rc);
+  my $mate2_bc = create_statistic_for_object
     ($mate2, 'base_count', $filter_fastq->unfiltered_mate2_basecount);
-  $mate2->attributes($mate2_bc);
+  $mate2->statistics($mate2_bc);
   push(@objects_to_update, $mate1, $mate2);
 }else{
   if(($mate1 && !$mate2) || (!$mate1 && $mate2)){
@@ -218,28 +217,28 @@ if($mate1 && $mate2){
   }
 }
 if($frag){
-  my $frag_rc = create_attribute_for_object
+  my $frag_rc = create_statistic_for_object
     ($frag, 'read_count', $filter_fastq->unfiltered_frag_readcount);
-  $frag->attributes($frag_rc);
-  my $frag_bc = create_attribute_for_object
+  $frag->statistics($frag_rc);
+  my $frag_bc = create_statistic_for_object
     ($frag, 'base_count', $filter_fastq->unfiltered_frag_basecount);
-  $frag->attributes($frag_bc);
+  $frag->statistics($frag_bc);
   push(@objects_to_update, $frag);
 }
 if($filt_m1 && $filt_m2){
   print "Creating statistic for ".$filt_m1->name."\n";
-  my $filt_m1_rc = create_attribute_for_object
+  my $filt_m1_rc = create_statistic_for_object
     ($filt_m1, 'read_count', $filter_fastq->filtered_mate1_readcount);
-  $filt_m1->attributes($filt_m1_rc);
-  my $filt_m1_bc = create_attribute_for_object
+  $filt_m1->statistics($filt_m1_rc);
+  my $filt_m1_bc = create_statistic_for_object
     ($filt_m1, 'base_count', $filter_fastq->filtered_mate1_basecount);
-  $filt_m1->attributes($filt_m1_bc);
-  my $filt_m2_rc = create_attribute_for_object
+  $filt_m1->statistics($filt_m1_bc);
+  my $filt_m2_rc = create_statistic_for_object
     ($filt_m2, 'read_count', $filter_fastq->filtered_mate2_readcount);
-  $filt_m2->attributes($filt_m2_rc);
-  my $filt_m2_bc = create_attribute_for_object
+  $filt_m2->statistics($filt_m2_rc);
+  my $filt_m2_bc = create_statistic_for_object
     ($filt_m2, 'base_count', $filter_fastq->filtered_mate2_basecount);
-  $filt_m2->attributes($filt_m2_bc);
+  $filt_m2->statistics($filt_m2_bc);
   push(@objects_to_update, $filt_m1, $filt_m2);
 }else{
   if(($filt_m1 && !$filt_m2) || (!$filt_m1 && $filt_m2)){
@@ -248,18 +247,18 @@ if($filt_m1 && $filt_m2){
   }
 }
 if($filt_f){
-  my $frag_rc = create_attribute_for_object
+  my $frag_rc = create_statistic_for_object
     ($filt_f, 'read_count', $filter_fastq->filtered_frag_readcount);
-  $filt_f->attributes($frag_rc);
-  my $frag_bc = create_attribute_for_object
+  $filt_f->statistics($frag_rc);
+  my $frag_bc = create_statistic_for_object
     ($filt_f, 'base_count', $filter_fastq->filtered_frag_basecount);
-  $filt_f->attributes($frag_bc);
+  $filt_f->statistics($frag_bc);
   push(@objects_to_update, $filt_f);
 }
 #Store all the statistic objects
 my $fa = $db->get_FileAdaptor;
 foreach my $file(@objects_to_update){
-  $fa->store_attributes($file, 1);
+  $fa->store_statistics($file, 1);
 }
 
 my $archiver = ReseqTrack::Tools::Loader::Archive->new

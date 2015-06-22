@@ -75,16 +75,15 @@ sub check_column_count_sanity{
 
 sub compare_index_to_filesystem{
   my ($file, $dir) = @_;
- 
-  open(FH, "cat ".$file." | ") or throw("failed to open ".$file." $!");
- 
+  open(FH, $file) or throw("IndexUtils:check_column_count_sanity failed to open ".
+                           $file." $!");
+  
   my %index_hash;
   my $dir_copy = $dir;
   while(<FH>){
     next if(/SUBMISSION_ID/i);
     chomp;
     my @values = split /\t/, $_;
-   
     next if($values[20] == 1);
     if($dir_copy =~ /data/ && $values[0] =~ /data/){
       $dir_copy =~ s/data//;

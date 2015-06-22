@@ -58,32 +58,30 @@ sub new {
   my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
 
-  my ( $chromosome_file, $format, $output_file, $reference_fasta, $bed_graph_to_big_wig ) =
-    rearrange(
-    [qw( CHROMOSOME_FILE OUTPUT_FORMAT OUTPUT_FILE REFERENCE_FASTA BED_GRAPH_TO_BIG_WIG)], @args );
+  my ( $chromosome_file, $format, $output_file, $reference_fasta ) =
+    rearrange( [qw( CHROMOSOME_FILE OUTPUT_FORMAT OUTPUT_FILE REFERENCE_FASTA )], @args );
 
   $self->chromosome_file($chromosome_file) if $chromosome_file;
   $self->output_format($format);
-  $self->output_file($output_file)         if $output_file;
+  $self->output_file($output_file) if $output_file;
   $self->reference_fasta($reference_fasta) if $reference_fasta;
 
   $self->program('genomeCoverageBed') unless $self->program();
-  $self->bed_graph_to_big_wig($bed_graph_to_big_wig);
 
   return $self;
 }
 
 sub CONVERSION {
   return {
-    'bw'   => \&convert_big_wig,
-    'bg'   => \&convert_bed_graph,
-    'bed'  => \&convert_bed,
-    'bb'   => \&convert_big_bed,
-    'cram' => \&convert_cram,
+    'bw' => \&convert_big_wig,
+    'bg' => \&convert_bed_graph,
+    'bed' => \&convert_bed,
+    'bb'  => \&convert_big_bed,
+    'cram'	=> \&convert_cram,
 
-#to extend: add format and subroutine.
-#each sub routine should take an input and output file name,
-#and a boolean to indicate whether the output is an intermediate, or the final product
+    #to extend: add format and subroutine.
+    #each sub routine should take an input and output file name, 
+    #and a boolean to indicate whether the output is an intermediate, or the final product 
   };
 }
 
@@ -96,10 +94,10 @@ sub convert_bed_graph {
   my ( $self, $input_file, $output_file, $is_intermediate ) = @_;
 
   throw(
-    "Chromsome file (2 columns, name and length, tab separated) is required")
+    "Chromsome file (2 columns, name and length, tab separated) is required" )
     unless ( $self->chromosome_file );
 
-  my @bed_graph_cmd = ( $self->program, '-bg' );
+  my @bed_graph_cmd = ( 'genomeCoverageBed', '-bg' );
   my $chromosome_file = $self->chromosome_file;
 
   push @bed_graph_cmd, '-split' if ( $self->options('split_reads') );
@@ -115,45 +113,26 @@ sub convert_bed_graph {
 }
 
 sub convert_cram {
-  my ( $self, $input_file, $output_file, $is_intermediate ) = @_;
-
-  my $heap_size;
-
-  if ( $self->options('heap_size') ) {
-    $heap_size = '-Xmx' . $self->options('heap_size');
-  }
-  else {
-    $heap_size = "";
-  }
-
-  my $executable = $self->program;
-  my @cram_cmd = ( 'java', $heap_size, '-jar', $executable );
-
-  if ( $input_file =~ /bam$/ ) {    ### For creating cram files
-    push @cram_cmd, "cram";
-    push @cram_cmd, '--input-bam-file', $input_file;
-    push @cram_cmd, '--output-cram-file', $output_file if ($output_file);
-    push @cram_cmd, '--capture-all-tags' if $self->options('capture-all-tags');
-    push @cram_cmd, '--ignore-tags', $self->options('ignore-tags')
-      if ( $self->options('ignore-tags') );
-    push @cram_cmd, '--preserve-read-names'
-      if $self->options('preserve-read-names');
-    push @cram_cmd, '--lossy-quality-score-spec',
-      $self->options('lossy-quality-score-spec')
-      if $self->options('lossy-quality-score-spec');
-    push @cram_cmd, '-L', $self->options('L') if $self->options('L');
-  }
-  elsif ( $input_file =~ /cram$/ ) {    ### For indexing cram files
-    push @cram_cmd, "index";
-    push @cram_cmd, '--input-file', $input_file;
-  }
-
-  push @cram_cmd, '--reference-fasta-file', $self->reference_fasta;
-
-  my $run_cram_cmd = join ' ', @cram_cmd;
-  $self->do_conversion( $run_cram_cmd, $output_file, $is_intermediate );
+	my ( $self, $input_file, $output_file, $is_intermediate ) = @_;
+	
+	my $heap_size = '-Xmx' . $self->options('heap_size');
+	my $executable = $self->program . "/cramtools-1.0.jar" ;
+	my @cram_cmd = ('java', $heap_size, '-jar', $executable, 'cram');
+	push @cram_cmd, '--input-bam-file', $input_file;
+	push @cram_cmd, '--output-cram-file', $output_file;
+	push @cram_cmd, '--reference-fasta-file', $self->reference_fasta;
+	push @cram_cmd, '--capture-all-tags' if $self->options('capture-all-tags');
+	push @cram_cmd, '--preserve-read-names' if $self->options('preserve-read-names');
+	push @cram_cmd, '--create-index' if $self->options('create-index');
+	push @cram_cmd, '--lossy-quality-score-spec', $self->options('lossy-quality-score-spec') if $self->options('lossy-quality-score-spec');
+	
+	### FIXME, other options
+	
+	my $run_cram_cmd = join ' ', @cram_cmd;
+    $self->do_conversion( $run_cram_cmd, $output_file, $is_intermediate );		
 }
 
+		
 sub convert_big_wig {
   my ( $self, $input_file, $output_file, $is_intermediate ) = @_;
 
@@ -161,8 +140,10 @@ sub convert_big_wig {
 
   $self->convert_bed_graph( $input_file, $temp_file, 1 );
 
+  my $chromosome_file = $self->chromosome_file;
+
   my @big_wig_cmd =
-    ( $self->bed_graph_to_big_wig, $temp_file, $self->chromosome_file, $output_file );
+    ( 'bedGraphToBigWig', $temp_file, $chromosome_file, $output_file );
 
   my $bw_cmd = join ' ', @big_wig_cmd;
 
@@ -173,11 +154,11 @@ sub convert_bed {
   my ( $self, $input_file, $output_file, $is_intermediate ) = @_;
 
   my @bam_to_bed_cmd = 'bamToBed';
-
+  
   push @bam_to_bed_cmd, '-split' if ( $self->options('split_reads') );
   push @bam_to_bed_cmd, '-i', $input_file;
   push @bam_to_bed_cmd, '|',  'sort -k1,1 -k2,2n';
-  push @bam_to_bed_cmd, '>',  $output_file;
+  push @bam_to_bed_cmd, '>', $output_file;
 
   my $bam_to_bed_cmd = join ' ', @bam_to_bed_cmd;
 
@@ -230,17 +211,15 @@ sub run_program {
 
   my ($input) = ( @{ $self->input_files } );
   my $output = $self->working_dir;
-
-  if ( $self->output_file ) {
-    $output = $self->output_file;
-  }
-  else {
-    $output .= $self->output_name_prefix() if ( $self->output_name_prefix );
-    $output .= $self->job_name;
-    $output .= '.';
-    $output .= $self->output_format;
-    print "OUTPUT: $output$/";
-
+  
+  if (  $self->output_file ) {
+  	$output = $self->output_file;
+  }    
+  else {	  
+  	  $output .= $self->output_name_prefix() if ( $self->output_name_prefix );
+	  $output .= $self->job_name;
+	  $output .= '.';
+	  $output .= $self->output_format;
   }
   &{ $subs->{$format} }( $self, $input, $output );
 
@@ -250,15 +229,6 @@ sub chromosome_file {
   my ( $self, $arg ) = @_;
   if ($arg) {
     $self->{'chromosome_file'} = $arg;
-  }
-  elsif ( !$self->{'chromosome_file'} ) {
-    my $input_file = $self->input_files->[0];
-    my $chromosome_file = $self->get_temp_dir() . '/chrom.sizes';
-    $self->execute_command_line(
-"samtools view -H $input_file | grep \@SQ | cut -f2,3 | sed 's/SN://' | sed 's/LN://' > $chromosome_file"
-    );
-
-    $self->{'chromosome_file'} = $chromosome_file;
   }
 
   return $self->{'chromosome_file'};
@@ -286,14 +256,6 @@ sub reference_fasta {
     $self->{'reference_fasta'} = $arg;
   }
   return $self->{'reference_fasta'};
-}
-
-sub bed_graph_to_big_wig {
-  my ( $self, $arg ) = @_;
-  if ($arg) {
-    $self->{'bed_graph_to_big_wig'} = $arg;
-  }
-  return $self->{'bed_graph_to_big_wig'};
 }
 
 1;

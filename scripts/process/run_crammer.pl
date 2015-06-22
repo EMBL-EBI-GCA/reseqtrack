@@ -1,7 +1,6 @@
-#!/usr/bin/env perl
+#!/sw/arch/bin/perl -w
 
 use strict;
-use warnings;
 use ReseqTrack::Tools::Exception;
 use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::FileUtils;
@@ -44,7 +43,6 @@ GetOptions(
 
   	'output_dir=s',
   	'output_file_type:s',
-  	'mode=s',
 
   	'store!',
   	'archive!',
@@ -63,16 +61,13 @@ if (!$input{output_dir} ) {
 $input{output_dir} =~ s/\/$//;
 	
 $input{host} = '1000genomes.ebi.ac.uk' if (!$input{host});
-#$input{program} = '/nfs/1000g-work/G1K/work/bin/crammer' if (!$input{program});
+$input{program} = '/nfs/1000g-work/G1K/work/bin/crammer' if (!$input{program});
+$input{output_file_type} = "CRAM" if ( !$input{output_file_type});
 
 if (!$input{output_file_type} && $input{store} ) {
 	throw("Please provide a file type if you want to store the output file in the database");
 }	
 
-if ( !$input{mode} ) {
-	throw("Please indicate what mode to run the compression, lossy or lossless. Use -parameters to supply options for running either mode");
-}
-	
 my $db = ReseqTrack::DBSQL::DBAdaptor->new(
   -host   => $input{dbhost},
   -user   => $input{dbuser},
@@ -91,8 +86,7 @@ if ( 	$input{collection} && $input{collection_type} ) {
 	
 	foreach my $list (@{$collection->others}){
 	    print "list: " . $list->name . "\n";
-	    #if ($list->name =~ /chrom20/) {
-	    if ($list->name =~ /mapped/ && $list->name !~ /unmapped/) {
+	    if ($list->name =~ /chrom20/) {
 	        $bam = $list->name;
 	    }    
 	}
@@ -124,34 +118,13 @@ my $cram = ReseqTrack::Tools::ConvertBam->new (
 $cram->run;
 
 my ($output_cram) = @{$cram->output_files};
-save_file($output_cram, $input{output_file_type}) if $input{store};
+
 print "output file is $output_cram\n";
-
-my $crai_obj = ReseqTrack::Tools::ConvertBam->new (
-	-input_files => $output_cram,
-	-output_format => 'cram',
-	-program => $input{program},
-	-reference_fasta => $input{reference_fasta},
-	-output_file	=> $output_cram . ".crai",
-);
-
-$crai_obj->run;
-
-my ($crai) = @{$crai_obj->output_files};
-
-print "output index file is $crai\n";
-
-my $otype;
-if ( $input{output_file_type} =~ /CRAM/ ) {
-	$otype = $input{output_file_type};
-	$otype =~ s/CRAM/CRAI/;
-}
-else {
-	throw("Sorry, cannot assign crai type as the use-input file type is not CRAM");
-}		
+my $crai = $output_cram . ".crai";
+save_file($output_cram, "CRAM") if $input{store};
 
 if ( -e $crai) {
-	save_file($crai, $otype) if $input{store};
+	save_file($crai, "CRAI") if $input{store};
 }
 else {
 	throw("Crai file $crai does not exist");
@@ -172,7 +145,7 @@ sub archive_files {
 	print LIST "$f1\n$f2\n";
 	close LIST;
 	
-	my $action_string = "archive"; ## action "archive" will do replace as well
+	my $action_string = "archive";
 
 	my $max_number = 1000;
 	my $priority = 50;
@@ -185,12 +158,13 @@ sub archive_files {
                                                        -dbuser  => $input{dbuser},
                                                        -dbpass  => $input{dbpass},
                                                        -dbport  => $input{dbport},
+                                                       -action => $action_string,
                                                        -verbose => $verbose,
                                                        -priority=> $priority,
                                                        -max_number=>$max_number,
-                                                       -action	=> $action_string,
                                                        -no_lock => 1,
                                                       );
+
 
 	$archiver->process_input();
 	#$archiver->cleanup_archive_table($verbose); #leave this out equals to have the -skip_cleanup option
@@ -210,22 +184,12 @@ sub assign_cram_name {
 	if ($bam_basename =~ /low_coverage/) {
         $dir = $input{output_dir} . "/$sample/alignment/";
         mkpath($dir) unless (-e $dir);
-#        if ( $input{mode} =~ /lossless/i ) {
-	        $output = $dir . $bam_basename . ".cram";
-#        }
-#        elsif ( $input{mode} =~ /lossy/i ) {
-#	        $output = $dir . $bam_basename . ".lossy_cram";
-#        }
+        $output = $dir . $bam_basename . ".cram";
     }
     elsif ( $bam_basename =~ /exome/) {   
         $dir = $input{output_dir} . "/$sample/exome_alignment/";
         mkpath($dir) unless (-e $dir);
-#        if ( $input{mode} =~ /lossless/i ) {
-	        $output = $dir . $bam_basename . ".cram";
-#        }
-#		elsif ( $input{mode} =~ /lossy/i ) {
-#	        $output = $dir . $bam_basename . ".lossy_cram";
-#        }     
+        $output = $dir . $bam_basename . ".cram";
     }
     else {
 		throw("bam file $bam_basename is neither low coverage nor exome");
@@ -247,16 +211,19 @@ sub parameters_hash{
     if ($string !~ /,/  ) {
                 push @pairs, $string;
     }
-    elsif($string =~  /,/ && $string =~ /=>/ ){
+    elsif($string =~  /,/ && ($string =~ /:/ || $string =~ /=>/) ){
                 @pairs = split (/,/, $string);
     }
     else {
-          throw("Please provide running parameters as name and value separated by '=>';  Multiple name and value pairs can be used and should be separated by ',' ");
+          throw("Please provide running parameters as name and value separated by ':' or '=>';  Multiple name and value pairs can be used and should be separated by ',' ");
     }
 
     foreach my $pair(@pairs){
                 my ($key, $value);
-				if ( $pair =~ /=>/) {
+                if ($pair =~ /:/) {
+                   ($key, $value) = split (/:/, $pair); 
+                }
+                elsif ( $pair =~ /=>/) {
                     ($key, $value) = split (/=>/, $pair); 
                 }
                 else {
@@ -297,38 +264,16 @@ sub save_file {
 
 
 =pod
-
-Reference fasta has to be fasta, not fasta.gz!!!
-
 perl /nfs/1000g-work/G1K/work/zheng/reseqtrack_branch_zheng/crammer/scripts/process/run_crammer.pl -dbhost mysql-g1kdcc-public -dbuser g1krw -dbpass thousandgenomes -dbport 4197 -dbname g1k_archive_staging_track \
--program /nfs/1000g-work/G1K/work/bin/crammer/cramtools-1.0.jar \
+-program /nfs/1000g-work/G1K/work/bin/crammer \
 -collection HG01377.ILLUMINA.bwa.low_coverage \
 -collection_type BAM \
 -output_dir /tmp \
--mod lossless \
--reference_fasta /nfs/1000g-work/G1K/work/zheng/reference/hs37d5.fa \
--parameters "capture-all-tags=>1,preserve-read-names=>1,heap_size=>4g,lossy-quality-score-spec=>m999" \
+-reference_fasta /nfs/1000g-archive/vol1/ftp/technical/reference/phase2_reference_assembly_sequence/hs37d5.fa.gz \
+-parameters "capture-all-tags=>1,preserve-read-names=>1,heap_size=>4g,lossy-quality-score-spec=>m999,create-index=>1" \
 -store \
 -output_file_type CRAM
 
 OR
 
 -bam /nfs/1000g-archive/vol1/ftp/data/HG01377/alignment/HG01377.chrom20.ILLUMINA.bwa.CLM.low_coverage.20120522.bam \
-
-
-Lossy mode:
-
-perl /nfs/1000g-work/G1K/work/zheng/reseqtrack/scripts/process/run_crammer.pl -dbhost mysql-g1kdcc-public -dbuser g1krw -dbpass thousandgenomes -dbport 4197 -dbname g1k_archive_staging_track \
--program /nfs/1000g-work/G1K/work/bin/crammer/cramtools-1.0.jar \
--collection HG01377.ILLUMINA.bwa.low_coverage \
--collection_type BAM \
--output_dir /tmp \
--mode lossy \
--reference_fasta /nfs/1000g-work/G1K/work/zheng/reference/hs37d5.fa \
--parameters "capture-all-tags=>1,ignore-tags=>OQ:BQ,heap_size=>4g,lossy-quality-score-spec=>\*8" \
--output_file_type LOSSY_CRAM \
--store \
--archive \
--update \
-
-

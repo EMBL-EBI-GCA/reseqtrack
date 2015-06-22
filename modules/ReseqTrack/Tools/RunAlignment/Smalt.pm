@@ -70,8 +70,7 @@ sub run_se_alignment {
     my $fastq_cmd_string = ($self->first_read || $self->last_read) ? $self->get_fastq_cmd_string('frag')
           : ($fastq =~ /\.gz(?:ip)$/) ? "<(gunzip -c $fastq )"
           : $fastq;
-		
-		my @cmd_words;
+
     push(@cmd_words, $self->program, 'map');
     push(@cmd_words, '-n', $self->options('threads') || 1);
     push(@cmd_words, '-f', 'sam');

@@ -47,13 +47,13 @@ sub new {
   my (
     $bam_to_bed_path,  $samtools_path,   $control_files,
     $strip_duplicates, $strip_multimaps, $strip_low_mapq,
-    $fragment_size,    $rsc,             $nsc,
+    $chrs_to_keep_file
     )
     = rearrange(
     [
       qw( BAM_TO_BED_PATH SAMTOOLS_PATH CONTROL_FILES
-        STRIP_DUPLICATES STRIP_MULTIMAPS STRIP_LOW_MAPQ
-        FRAGMENT_SIZE RSC NSC)
+        STRIP_DUPLICATES STRIP_MULTIMAPS
+        CHRS_TO_KEEP_FILE)
     ],
     @args
     );
@@ -64,9 +64,6 @@ sub new {
   $self->strip_duplicates($strip_duplicates);
   $self->strip_multimaps($strip_multimaps);
   $self->strip_low_mapq($strip_low_mapq);
-  $self->fragment_size($fragment_size);
-  $self->nsc($nsc);
-  $self->rsc($rsc);
 
   if ( $self->control_required && !scalar( @{ $self->control_files } ) ) {
     throw("Control files required but not specified");
@@ -99,13 +96,12 @@ sub filter_bam_cmd_line {
   push @cmd, '-F 4';                                    # discard unmapped reads
   push @cmd, '-F 1024 ' if ( $self->strip_duplicates );
   push @cmd, '-F 256' if ( $self->strip_multimaps );
-  push @cmd, '-q ' . $self->strip_low_mapq if ( defined $self->strip_low_mapq );
+  push @cmd, '-q '.$self->strip_low_mapq if (defined $self->strip_low_mapq);
   if ( $self->can_read_bam ) {
     push @cmd, '-bh';                                   # output bam with header
   }
   else {
-    push @cmd,
-      '-buh';    #further conversion will pe performed, output uncompressed bam
+    push @cmd, '-buh';    #further conversion will pe performed, output uncompressed bam
   }
   push @cmd, $file_name;
 
@@ -227,30 +223,6 @@ sub bed_file {
     $self->{'bed_file'} = $arg;
   }
   return $self->{'bed_file'};
-}
-
-sub fragment_size {
-  my ( $self, $arg ) = @_;
-  if ( defined $arg ) {
-    $self->{'fragment_size'} = $arg;
-  }
-  return $self->{'fragment_size'};
-}
-
-sub nsc {
-  my ( $self, $arg ) = @_;
-  if ( defined $arg ) {
-    $self->{'nsc'} = $arg;
-  }
-  return $self->{'nsc'};
-}
-
-sub rsc {
-  my ( $self, $arg ) = @_;
-  if ( defined $arg ) {
-    $self->{'rsc'} = $arg;
-  }
-  return $self->{'rsc'};
 }
 
 1;

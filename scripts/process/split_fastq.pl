@@ -1,7 +1,6 @@
-#!/usr/bin/env perl
+#!/sw/arch/bin/perl -w
 
 use strict;
-use warnings;
 use ReseqTrack::Tools::Exception;
 use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::FileUtils qw(get_count_stats create_object_from_path);
@@ -195,10 +194,10 @@ if ($store) {
         if (! $disable_md5) {
           $file->md5(run_md5($file_path));
         }
-        my $statistic = ReseqTrack::Attribute->new(
+        my $statistic = ReseqTrack::Statistic->new(
                     -attribute_name => 'paired_length',
                     -attribute_value => $run_meta_info->paired_length);
-        $file->attributes($statistic);
+        $file->statistics($statistic);
         push(@files, $file);
       }
       my $collection_name = $run_id . '_m';

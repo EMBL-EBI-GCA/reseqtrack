@@ -78,7 +78,7 @@ sub new {
 
 
 ######################
-sub run_program {
+sub run {
   my $self = shift;
   my $have_test_results;
   my $results;

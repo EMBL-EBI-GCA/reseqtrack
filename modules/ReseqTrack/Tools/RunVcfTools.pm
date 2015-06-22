@@ -217,7 +217,7 @@ sub _order_input_files {
       ($chr, $pos) = split(/\t/, $line);
       last LINE;
     }
-    #throw("did not find a valid record in $file") if (!$chr || !$pos);
+    throw("did not find a valid record in $file") if (!$chr || !$pos);
     print STDERR "About to close a pipe.  This might give a 'broken pipe' warning but it can be ignored:\n";
     close $fh;
     $file_regions{$chr}{$file} = $pos;
@@ -237,7 +237,7 @@ sub _order_input_files {
     }
     close $fh;
     foreach my $chr (keys %file_regions) {
-      #throw("sequence $chr is not in the reference index file") if !grep {$chr eq $_} @ordered_chrs;
+      throw("sequence $chr is not in the reference index file") if !grep {$chr eq $_} @ordered_chrs;
     }
   }
   else {

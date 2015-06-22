@@ -76,16 +76,6 @@ sub fetch_all_in_order{
     return \@ordered_rules;
 }
 
-sub fetch_hash_of_populations{
-  my ($self, $no_cache) = @_;
-  my $rules = $self->fetch_all_in_order($no_cache);
-  my %hash;
-  foreach my $rule(@$rules){
-    $hash{$rule->population} = 1;
-  }
-  return \%hash;
-}
-
 sub delete_all{
   my $self = shift;
   my $sql = "delete from population_rule";

@@ -1,7 +1,6 @@
 #!/usr/bin/env perl
 
 use strict;
-use warnings;
 use ReseqTrack::Tools::Exception;
 use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::FileUtils qw(create_objects_from_path_list);
@@ -9,7 +8,7 @@ use ReseqTrack::Tools::FileSystemUtils qw(run_md5 delete_file);
 use ReseqTrack::Tools::HostUtils qw(get_host_object);
 use ReseqTrack::Tools::RunMetaInfoUtils qw(create_directory_path);
 use ReseqTrack::Tools::RunPicard;
-use ReseqTrack::Tools::AttributeUtils;
+use ReseqTrack::Tools::StatisticsUtils;
 use ReseqTrack::Tools::Loader::File;
 use File::Basename qw(fileparse);
 use Getopt::Long;
@@ -138,9 +137,9 @@ my $picard_object = ReseqTrack::Tools::RunPicard->new(
   -create_index => $create_index,
   -keep_metrics => (defined $metrics_file_type),
 );
-my @metrics = $picard_object->run($command);
+my ($metrics) = $picard_object->run($command);
 
-throw("store_stats is set, but the command has not produced any")  if ( $store_stats && !@metrics );
+throw("store_stats is set, but the command has not produced any")  if ( $store_stats && !$metrics );
 
 $db->dbc->disconnect_when_inactive(0);
 if ($store) {
@@ -161,26 +160,25 @@ if ($store) {
       }
     }
 
+
     my $collection = ReseqTrack::Collection->new(
       -name   => $name,
       -type   => $type_output,
       -others => $files
     );
-
+    
     $ca->store($collection);
-
-    if ( $store_stats && @metrics ) {
-      for my $metrics_group (@metrics) {
-        for my $metrics_row (@$metrics_group) {
-          while ( my ( $key, $value ) = each %$metrics_row ) {
-            if ( defined $value && defined $key ) {
-              my $stat = create_attribute_for_object( $collection, $key, $value );
-              $collection->attributes($stat);
-            }
+ 
+    if ( $store_stats && $metrics ) {
+      for my $metrics_row (@$metrics) {
+        while ( my ( $key, $value ) = each %$metrics_row ) {
+          if ( defined $value && defined $key ) {
+            my $stat = create_statistic_for_object( $collection, $key, $value );
+            $collection->statistics($stat);
           }
         }
       }
-      $ca->store_attributes($collection);
+      $ca->store_statistics($collection);
     }
 
     if ( $metrics_file_type && @{ $picard_object->output_metrics_files } ) {

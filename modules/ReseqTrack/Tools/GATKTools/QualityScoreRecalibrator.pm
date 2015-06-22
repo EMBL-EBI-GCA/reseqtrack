@@ -38,11 +38,11 @@ use base qw(ReseqTrack::Tools::GATKTools);
 sub DEFAULT_OPTIONS { return {
         'threads' => 1,
         'log_level' => 'INFO',
+        'intervals' => join(',', 1..22, 'X', 'Y', 'MT'),
         'read_group_covariate' => 1,
         'quality_score_covariate' => 1,
         'cycle_covariate' => 1,
-        'context_covariate' => 1,
-	'intervals' => join(',', 1..22, 'X', 'Y', 'MT'),
+        'dinuc_covariate' => 1,
         'solid_nocall_strategy' => 0,
         };
 }
@@ -82,21 +82,15 @@ sub create_recalibration_table {
 
   my @cmd_words = ($self->java_exe, $self->jvm_args, '-jar');
   push(@cmd_words, $self->gatk_path . '/' . $self->jar_file);
-  push(@cmd_words, '-T', 'BaseRecalibrator');
+  push(@cmd_words, '-T', 'CountCovariates');
   push(@cmd_words, '-nt ' . $self->options('threads') || 1);
   push(@cmd_words, '-l', $self->options('log_level')) if ($self->options('log_level'));
   push(@cmd_words, '-cov ReadGroupCovariate') if ($self->options('read_group_covariate'));
   push(@cmd_words, '-cov QualityScoreCovariate') if ($self->options('quality_score_covariate'));
   push(@cmd_words, '-cov CycleCovariate') if ($self->options('cycle_covariate'));
-  push(@cmd_words, '-cov ContextCovariate') if ($self->options('context_covariate'));
+  push(@cmd_words, '-cov DinucCovariate') if ($self->options('dinuc_covariate'));
   foreach my $interval (split(/,/, $self->options('intervals'))) {
-	if ($self->reference =~ /h38|hs38/) {
-		$interval = "M" if ($interval eq "MT");
-		push(@cmd_words, "-L chr$interval");
-	}
-	else {
-		push(@cmd_words, '-L', $interval);
-  	}
+      push(@cmd_words, '-L', $interval);
   }
   push(@cmd_words, '--solid_nocall_strategy', 'LEAVE_READ_UNRECALIBRATED') if ($self->options('solid_nocall_strategy'));
 
@@ -106,7 +100,8 @@ sub create_recalibration_table {
   foreach my $vcf (@{$self->known_sites_files}) {
     push(@cmd_words, '-knownSites', $vcf);
   }
-  push(@cmd_words, '-o', $covariates_file);
+  push(@cmd_words, '-recalFile', $covariates_file);
+
   my $cmd = join(' ', @cmd_words);
 
   $self->covariates_file($covariates_file);
@@ -125,20 +120,15 @@ sub create_recalibrated_bam {
 
   my @cmd_words = ($self->java_exe, $self->jvm_args, '-jar');
   push(@cmd_words, $self->gatk_path . '/' . $self->jar_file);
-  push(@cmd_words, '-T', 'PrintReads');
+  push(@cmd_words, '-T', 'TableRecalibration');
   push(@cmd_words, '-l', $self->options('log_level')) if ($self->options('log_level'));
   foreach my $interval (split(/,/, $self->options('intervals'))) {
-        if ($self->reference =~ /h38|hs38/) {
-		 $interval = "M" if ($interval eq "MT");
-                push(@cmd_words, "-L chr$interval");
-        }
-        else {
-                push(@cmd_words, '-L', $interval);
-        }      
+      push(@cmd_words, '-L', $interval);
   }
   push(@cmd_words, '--disable_bam_indexing');
   push(@cmd_words, '--solid_nocall_strategy', 'LEAVE_READ_UNRECALIBRATED') if ($self->options('solid_nocall_strategy'));
-  push(@cmd_words, '-BQSR', $self->covariates_file);
+
+  push(@cmd_words, '-recalFile', $self->covariates_file);
   push(@cmd_words, '-R', $self->reference);
   push(@cmd_words, '-I', $self->input_bam);
   push(@cmd_words, '-o', $recalibrated_bam);

@@ -84,7 +84,7 @@ sub store{
   $sth->finish();
   $event->dbID($dbID);
   $event->adaptor($self);
-  $self->store_attributes($event);
+  $self->store_statistics($event);
   $self->store_history($event);
 }
 #############
@@ -129,7 +129,7 @@ sub update{
  
   $sth->execute();
   $sth->finish();
-  $self->store_attributes($event);
+  $self->store_statistics($event);
   $self->store_history($event);
   return;
 }
