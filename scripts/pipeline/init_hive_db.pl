@@ -13,7 +13,7 @@ use Cwd qw(abs_path);
 my ($dbhost, $dbuser, $dbpass, $dbport, $dbname);
 my ($hive_host, $hive_user, $hive_pass, $hive_port, $hive_name);
 my $pipeline_name;
-my ($ensembl_hive_dir);
+my ($ensembl_hive_dir, $ensembl_hive_version);
 
 my %options;
 &GetOptions( 
@@ -29,10 +29,8 @@ my %options;
   'hive_port=i'      => \$hive_port,
   'pipeline_name=s'  => \$pipeline_name,
   'ensembl_hive_dir=s'  => \$ensembl_hive_dir,
+  'ensembl_hive_version=s'  => \$ensembl_hive_version,
   );
-
-throw("did not get a ensembl_hive_dir") if !$ensembl_hive_dir;
-throw("ensembl_hive_dir must not be a symbolic link") if -l $ensembl_hive_dir;
 
 my $db = ReseqTrack::DBSQL::DBAdaptor->new(
   -host   => $dbhost,
@@ -42,9 +40,10 @@ my $db = ReseqTrack::DBSQL::DBAdaptor->new(
   -pass   => $dbpass,
     );
 
-
 my $pipeline = $db->get_PipelineAdaptor->fetch_by_name($pipeline_name);
 throw("did not find pipeline with name $pipeline_name") if !$pipeline;
+
+$ensembl_hive_version //= (split(/\/+/, abs_path($ensembl_hive_dir)))[-1];
 
 $hive_name //= join('_', $dbname, $pipeline_name, strftime("%Y%m%d_%H%M", localtime));
 $hive_name =~ s/\s+/_/g;
@@ -68,7 +67,7 @@ $run_hive->run('init', $pipeline->config_module, join(' ', @init_options));
 my $hive_db = ReseqTrack::HiveDB->new(
     -name => $hive_name, -port => $hive_port,
     -host => $hive_host, -pipeline => $pipeline,
-    -hive_version => $ensembl_hive_dir,
+    -hive_version => $ensembl_hive_version,
 );
 
 $db->get_HiveDBAdaptor->store($hive_db);
@@ -106,6 +105,7 @@ This script initialises a hive database using the configuration defined in the p
 
   -pipeline_name, refers to a name in the pipeline table
   -ensembl_hive_dir, path to the ensembl hive api
+  -ensembl_hive_version, (optional) default is to infer it from ensembl_hive_dir
 
 =head1 Examples
 

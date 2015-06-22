@@ -4,6 +4,7 @@ package ReseqTrack::Hive::PipeSeed::Run;
 use strict;
 use warnings;
 use base ('ReseqTrack::Hive::PipeSeed::BasePipeSeed');
+use ReseqTrack::Tools::Exception qw(throw);
 
 
 sub create_seed_params {

@@ -14,6 +14,7 @@ sub param_defaults {
     samtools_options => {},
     program_file => undef,
     reference => undef,
+    add_attributes  => 0, 
   };
 }
 
@@ -23,8 +24,10 @@ sub run {
     $self->param_required('bam');
     my $bams = $self->param_as_array('bam');
     my $command = $self->param_required('command');
+    
+    my $add_attributes = $self->param( 'add_attributes' ) ? 1 : 0;  
 
-    my @allowed_cmds = qw(merge sort index fix_and_calmd calmd fixmate sam_to_bam);
+    my @allowed_cmds = qw(merge sort index fix_and_calmd calmd fixmate sam_to_bam flagstat filter);
     throw("Don't recognise command $command. Acceptable commands are: @allowed_cmds")
       if (! grep {$command eq $_ } @allowed_cmds);
 
@@ -45,14 +48,27 @@ sub run {
       -options      => $options,
     );
 
+
     $self->run_program($samtools_object, $command);
 
     my $output_files = $samtools_object->output_files;
 
-    $self->output_param($command eq 'index' ? 'bai' : 'bam'  => $output_files);
+    if( $command eq 'index') {
+      $self->output_param('bai' => $output_files);
+    }
+    elsif ($command eq 'flagstat') {
+      $self->output_param('metrics' => $output_files);
+    }
+    else {
+      $self->output_param('bam'  => $output_files);
+    }
 
+    if (  $add_attributes && $command eq 'flagstat' ) {	## only allowed for flagstat
+      my $generated_metrics = $samtools_object->output_metrics_object;
+      throw('metrics object not found') unless $generated_metrics;
+      $self->output_param('attribute_metrics', $generated_metrics);
+    }
 }
-
 
 1;
 

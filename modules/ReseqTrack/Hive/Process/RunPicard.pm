@@ -7,6 +7,7 @@ use base ('ReseqTrack::Hive::Process::BaseProcess');
 use ReseqTrack::Tools::Exception qw(throw);
 use ReseqTrack::Tools::RunPicard;
 use ReseqTrack::Tools::FileSystemUtils qw(check_directory_exists check_file_exists);
+use Data::Dump qw(dump); ## fix
 
 sub param_defaults {
   return {
@@ -15,6 +16,7 @@ sub param_defaults {
     picard_dir => undef,
     create_index => undef,
     options => {},
+    add_attributes  => 0,
   };
 }
 
@@ -24,6 +26,8 @@ sub run {
     $self->param_required('bam');
     my $bams = $self->param_as_array('bam');
     my $command = $self->param_required('command');
+    
+    my $add_attributes = $self->param( 'add_attributes' ) ? 1 : 0;  
 
     my @allowed_cmds = ReseqTrack::Tools::RunPicard->get_valid_commands;
     throw( "Don't recognise command $command. Acceptable commands are: @allowed_cmds")
@@ -58,7 +62,13 @@ sub run {
 
     $self->output_param('bam', $output_bams);
     $self->output_param('bai', $output_bais);
-
+   
+    if( $add_attributes && $command eq 'mark_duplicates'){  ## now only for mark_duplicates command
+      my $generated_metrics = $picard_object->output_metrics_object;
+      throw('metrics object not found') unless $generated_metrics;
+      dump( $generated_metrics );
+      $self->output_param('attribute_metrics', $generated_metrics); 
+    }
 }
 
 

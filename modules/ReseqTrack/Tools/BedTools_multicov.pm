@@ -19,12 +19,12 @@ If -stream_out is used, the output will be written to STDOUT; otherwise, an outp
 example
 
 my $multicov = $IR->new(
-     -bams        			=>"/path/to/bam1 /path/to/bam2" ,
-     -bed       			=>"/path/to/vcf/or/bed/file",
-     -stream_out			=> 0,
-	 -use_short_bam_names	=> 0,
-     -program       		=>"/path/to/multicov/executable",
-     -working_dir     		=> '/path/to/dir/',
+     -bams        =>"/path/to/bam1 /path/to/bam2" ,
+     -bed        =>"/path/to/vcf/or/bed/file",
+     -stream_out	=> 0,
+     -program       =>"/path/to/multicov/executable",
+     -working_dir     => '/path/to/dir/',
+     -save_files_from_deletion => 1,
 );
 
 =cut
@@ -46,12 +46,11 @@ sub new {
 	my ( $class, @args ) = @_;
 	my $self = $class->SUPER::new(@args);
 
-	my ($bed, $stream_out, $use_short_bam_names) = rearrange(
+	my ($bed, $stream_out) = rearrange(
 		[
 			qw(
 			  BED
 			  STREAM_OUT
-			  USE_SHORT_BAM_NAMES
 			  )
 		],
 		@args
@@ -59,10 +58,6 @@ sub new {
 	
 	$self->bed($bed);
 	$self->stream_out($stream_out);
-	
-	$use_short_bam_names = 1 if ( !$use_short_bam_names);
-	$self->use_short_bam_names($use_short_bam_names);
-
 	return $self;
 }
 
@@ -76,7 +71,7 @@ sub run_program {
 	check_file_exists($_) foreach (@{$self->input_files});
 	
 	my @sh_input_names = ();
-	if ($self->use_short_bam_names) {
+	if (@{$self->input_files} > 100) {
 		my @sorted_input_files = sort {$a cmp $b} @{$self->input_files};
 		my $short_name_hash = $self->get_short_input_names(2);
 		foreach my $long_input_name ( @sorted_input_files ) {
@@ -89,7 +84,7 @@ sub run_program {
 
 	my @cmd_words = ($self->program);
 	
-	if ($self->use_short_bam_names ) {
+	if (@{$self->input_files} > 100) {
 		push(@cmd_words, '-bams', join(" ", @sh_input_names));
 	}
 	else {
@@ -126,12 +121,4 @@ sub stream_out {
     $self->{stream_out} = $arg;
   }
   return $self->{stream_out};
-}
-
-sub use_short_bam_names {
-  my ( $self, $arg ) = @_;
-  if ($arg) {
-    $self->{use_short_bam_names} = $arg;
-  }
-  return $self->{use_short_bam_names};
 }

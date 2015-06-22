@@ -108,7 +108,12 @@ sub libraries_factory {
 
 sub runs_factory {
     my ($self) = @_;
-    my $library_name = $self->param_required('library_name');
+    my $library_name = $self->param('library_name');
+    my $experiment_source_id = $self->param('experiment_source_id');
+
+    throw('need library name or experiment source id')
+           if ( !$library_name && !$experiment_source_id);   
+ 
     my $sample_id = $self->param_required('sample_id');
     my $output_run_columns = $self->param('output_run_columns') || [];
     my $output_run_attributes = $self->param('output_run_attributes') || [];
@@ -132,8 +137,20 @@ sub runs_factory {
     my $ra = $db->get_RunAdaptor;
     my $ea = $db->get_ExperimentAdaptor;
     my $sta = $db->get_StudyAdaptor;
+
+    my $experiments;
+
+    if ( $library_name ) {
+      $experiments = $ea->fetch_by_column_name('library_name', $library_name);
+    }
+    elsif ( $experiment_source_id && !$library_name ) {
+      my $experiment = $ea->fetch_by_source_id( $experiment_source_id );  
+      push @{$experiments}, $experiment;
+    }
+    
+    
     EXP:
-    foreach my $experiment (@{$ea->fetch_by_column_name('library_name', $library_name)}) {
+    foreach my $experiment (@{$experiments}) {
       foreach my $column_name (keys %$require_experiment_columns) {
         my $required = $require_experiment_columns->{$column_name};
         $required = [$required] if !ref($required);
@@ -243,6 +260,7 @@ sub runs_factory {
         $self->prepare_factory_output_id(\%output_hash);
       }
     }
+    $db->dbc->disconnect_when_inactive(1);
 }
 
 sub run {

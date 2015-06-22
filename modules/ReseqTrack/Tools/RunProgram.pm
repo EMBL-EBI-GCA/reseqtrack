@@ -581,7 +581,6 @@ sub get_temp_dir {
     my $temp_dir = $self->{'_temp_dir'};
     if (! $temp_dir) {
       $temp_dir = create_tmp_process_dir($self->working_dir, $self->job_name, 0);
-      #$temp_dir = create_tmp_process_dir($self->working_dir,, 0);
       $self->created_files($temp_dir);
       $self->{'_temp_dir'} = $temp_dir;
     }

@@ -183,7 +183,7 @@ sub job_name {
   my ($self) = @_;
   my $base_params = $self->param('_BaseProcess_params');
   if (!$base_params->{'job_name'}) {
-    my $analysis_label = $self->input_job->analysis->logic_name;
+    my $analysis_label = $self->analysis->logic_name;
 
     my $job_label;
     if ($self->param_is_defined('dir_label_params')) {

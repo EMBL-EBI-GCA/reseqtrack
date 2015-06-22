@@ -22,7 +22,6 @@ use File::Basename qw(fileparse);
 
 use Data::Dumper;
 use Getopt::Long;
-use autodie;
 
 $| = 1;
 
@@ -48,8 +47,6 @@ my $require_control         = 0;
 my $preserve_paths          = 0;
 my $fragment_size_stat_name;
 my %options;
-my $alt_control_file =
-'/nfs/1000g-work/G1K/work/avikd/test_dir/test_chip_seq/run/alt_input_mapping_file';
 
 &GetOptions(
     'dbhost=s'                  => \$dbhost,
@@ -84,7 +81,6 @@ my $alt_control_file =
     'preserve_paths'            => \$preserve_paths,
     'fragment_size_stat_name=s' => \$fragment_size_stat_name,
     'metrics_type=s'            => \$metric_type,
-    'alt_control_file=s'        => \$alt_control_file,
 );
 
 throw("Must specify an output directory ")
@@ -142,23 +138,10 @@ else {
       if ($directory_layout);
 }
 
-my $control_filepaths;
-
-if ($alt_control_file) {    ## for mismatching and merged input
-    my $alt_control_hash = get_alt_control_hash($alt_control_file)
-      ;    ## looking for a file which has mapped exp_id for alternate inputs
-    my $alt_control_filepaths =
-      get_alt_control_file_paths( $name, $alt_control_hash )
-      ;    ## looking for filepaths for alternate inputs
-    push @$control_filepaths, @$alt_control_filepaths;
-}
-
-if ( !$control_filepaths || !@$control_filepaths ) {
-    $control_filepaths =
-      get_control_file_paths( $name, $meta_info, $control_experiment_type,
-        $control_type )
-      if ($control_type);
-}
+my $control_filepaths =
+  get_control_file_paths( $name, $meta_info, $control_experiment_type,
+    $control_type )
+  if ($control_type);
 
 throw("No control found for $name $type_input")
   if ( $require_control && ( !$control_filepaths || !@$control_filepaths ) );
@@ -220,7 +203,7 @@ for my $output (@files) {
 
 print "Peak calling complete$/" if $verbose;
 
-my %peak_stats = gather_peak_stats( $peak_caller->bed_file, \@input_filepaths, $samtools_path )
+my %peak_stats = gather_peak_stats( $peak_caller->bed_file, \@input_filepaths )
   if ( $do_peak_stats && $peak_caller->bed_file );
 
 if ($gzip_output) {
@@ -261,7 +244,7 @@ if ($do_peak_stats) {
     $output_collection->attributes( \@stats );
 
     if ($metric_type) {
-        my $metrics_file = $output_dir . $name . '.' . lc($metric_type);
+        my $metrics_file = $output_dir . '/' . $name . '.'.lc($metric_type);
         open METRICS, '>', $metrics_file
           or throw("Could not write to $metrics_file: $!");
 
@@ -304,7 +287,7 @@ sub get_allowed_options {
 }
 
 sub get_total_reads {
-    my ($input_filepaths, $samtools_path) = @_;
+    my ($input_filepaths) = @_;
 
     my $read_count = 0;
 
@@ -314,14 +297,14 @@ sub get_total_reads {
             $cmd = "cat $f | grep -v \\# | wc -l";
         }
         elsif ( $f =~ m/\.bam$/ ) {
-            $cmd = "$samtools_path view -c $f";
+            $cmd = "samtools view -c $f";
         }
         else {
             throw("Cannot get read count for $f");
         }
 
         print "Executing pipe command: $cmd $/" if $verbose;
-        $read_count = execute_pipe_system_command($cmd);
+        $read_count = +execute_pipe_system_command($cmd);
 
         print "Read count $read_count$/" if $verbose;
     }
@@ -375,39 +358,6 @@ sub get_run_meta_info {
     return $run_meta_info;
 }
 
-sub get_alt_control_hash {
-    my ($alt_control_file) = @_;
-
-    my %alt_control_hash;
-
-    open my $fh, '<', $alt_control_file;
-    while (<$fh>) {
-        chomp();
-        next if /^#/;
-
-        my @values = split('\t');
-        throw( "Multiple input for", $values[0] )
-          if exists $alt_control_hash{ $values[0] };
-        $alt_control_hash{ $values[0] } = $values[1];
-    }
-    close($fh);
-    return \%alt_control_hash;
-}
-
-sub get_alt_control_file_paths {
-    my ( $name, $alt_control_hash ) = @_;
-
-    my @alt_control_filepaths;
-
-    my $alt_control_path = $$alt_control_hash{$name}
-      if exists $$alt_control_hash{$name};
-
-    push @alt_control_filepaths, $alt_control_path
-      if $alt_control_path;
-
-    return \@alt_control_filepaths;
-}
-
 sub get_control_file_paths {
     my ( $name, $meta_info, $control_experiment_type, $control_type ) = @_;
 
@@ -437,9 +387,9 @@ QUERY_END
 }
 
 sub gather_peak_stats {
-    my ( $bed_file, $input_filepaths, $samtools_path) = @_;
+    my ( $bed_file, $input_filepaths ) = @_;
 
-    my $total_reads = get_total_reads($input_filepaths, $samtools_path);
+    my $total_reads = get_total_reads($input_filepaths);
     my $reads_in_peaks =
       get_reads_in_peaks( $input_filepaths, $bed_file, $intersect_bed_path );
 

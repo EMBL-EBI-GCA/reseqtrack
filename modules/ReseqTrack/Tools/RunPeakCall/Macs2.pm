@@ -11,6 +11,7 @@ use ReseqTrack::Tools::GeneralUtils
 
 use Cwd;
 use File::Copy;
+use IO::Compress::Gzip qw(gzip $GzipError);
 use base qw(ReseqTrack::Tools::RunPeakCall);
 
 =pod
@@ -234,15 +235,48 @@ sub run_program {
             else {
                 $dest =~ s/\.narrowPeak/.bed/;
             }
+            
+            ## gzip files
+            my $gz_src = $src . '.gz';
+            
+            my $status_macs2 = gzip $src => $gz_src  or die "gzip failed: $GzipError\n";
+            $self->created_files($src); ## delete src file after run
+         
+            $dest .= '.gz';
 
-            print "Moving $src to $dest$/" if ( $self->echo_cmd_line );
+            print "Moving $gz_src to $dest$/" if ( $self->echo_cmd_line );
 
-            move( $src, $dest ) or throw("Failed to move $src to $dest: $!");
+            move( $gz_src, $dest ) or throw("Failed to move $gz_src to $dest: $!");
+
             $self->output_files($dest);
-            $self->bed_file($dest) if $suffix eq $bed_file_suffix;
+
+            $self->bed_file($dest) 
+                 if $suffix eq $bed_file_suffix;    ## broadPeak.bed or narrowPeak.bed
+
+            $self->output_support_bed($dest) 
+                 if $suffix eq '_summits.bed' or $suffix eq '_peaks.gappedPeak';
+
+            $self->output_bed_xls($dest) 
+                 if $suffix eq '_peaks.xls';
         }
     }
 
+}
+
+sub output_support_bed {
+  my ( $self, $arg ) = @_;
+  if ( defined $arg ) {
+    $self->{'output_support_bed'} = $arg;
+  }
+  return $self->{'output_support_bed'};
+}
+
+sub output_bed_xls {
+  my ( $self, $arg ) = @_;
+  if ( defined $arg ) {
+    $self->{'output_bed_xls'} = $arg;
+  }
+  return $self->{'output_bed_xls'};
 }
 
 1;

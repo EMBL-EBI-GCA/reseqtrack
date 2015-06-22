@@ -35,6 +35,7 @@ sub run {
     my $remote_hosts = $db->get_HostAdaptor->fetch_all_remote();
     my $fa = $db->get_FileAdaptor;
     foreach my $host (@$remote_hosts) {
+
       FILE:
       foreach my $file (@{$fa->fetch_by_host($host->dbID)}) {
         my $filename = $file->filename;

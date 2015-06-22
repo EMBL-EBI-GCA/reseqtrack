@@ -37,13 +37,13 @@ GetOptions(
 
 	'seq_index=s',
 	'pop=s',	
-	'union!',
 	'cleaning_threshold:i',
 	'ref_binary:s',
 	'log_dir:s',
 	'out_dir:s',
 	'run!',
 
+  	'save_collection!',
   	'store!',
  	'update!',
  	'host:s',
@@ -242,28 +242,19 @@ foreach my $sample_ctx_clean_to_ol_bubble_col ( @$exist_sample_ctx_clean_to_ol_b
 		$count1++;
 	}
 }
-
-#print "Number of SAMPLE_CTX_CLEAN_TO_OL_BUBBLE is $count1\n";
-
 if ($count1 == ($total_sample_cnt + 1 )) {
 	print "Event 8 is finished, collection SAMPLE_CTX_CLEAN_TO_OL_BUBBLE is found for all $count1 samples (including ref ctx)\n";
 	goto SKIP4;
 }		
 		
+
 my $cleaned_per_sample_ctxs =  $db->get_FileAdaptor->fetch_by_type("CLEANED_PER_SAMPLE_CTX");
 my $complete8 = 0;
 foreach my $bubble_ctx ( @$bubble_ctxs ) {
-	#print "cycling through " . $bubble_ctx->name . "\n";
 	next if  ( am_i_the_right_entry($bubble_ctx) == 0 );
 	foreach my $cleaned_per_sample_ctx ( @$cleaned_per_sample_ctxs ) { ### these are per sample cleaned ctx
 		next if (am_i_the_right_entry($cleaned_per_sample_ctx) == 0 );
-		my $collection_name;
-		if ( $input{union}) {
-			$collection_name = basename($cleaned_per_sample_ctx->name) . ".to_bubble.union";
-		}
-		else {  
-			$collection_name = basename($cleaned_per_sample_ctx->name) . ".to_bubble";
-		}
+		my $collection_name = basename($cleaned_per_sample_ctx->name) . ".to_bubble";  
 		my @array = ($cleaned_per_sample_ctx, $bubble_ctx);
 		my $collection =  ReseqTrack::Collection->new(
 			-name => $collection_name,
@@ -288,13 +279,7 @@ foreach my $bubble_ctx ( @$bubble_ctxs ) {
 		@ref_array = ($exist_ref_ctx_obj, $bubble_ctx);
 	}	
 	
-	my $ref_collection_name;
-	if ( $input{union} ) {
-		$ref_collection_name = "ref_binary_to_bubble." . $input{pop} . ".union";
-	}
-	else {
-		$ref_collection_name = "ref_binary_to_bubble." . $input{pop};
-	}
+	my $ref_collection_name = "ref_binary_to_bubble." . $input{pop};
 	my $ref_collection =  ReseqTrack::Collection->new(
 			-name => $ref_collection_name,
 			-others => \@ref_array,
@@ -332,13 +317,7 @@ foreach my $sample_ctx_clean_bubbled_pool_col ( @$exist_sample_ctx_clean_bubbled
 if (keys %samples_have_bubble_ctx == $total_sample_cnt + 1 ) { # ref binary is part of the SAMPLE_CTX_CLEAN_BUBBLED collection
 	print "Event 9 (overlay sample ctx with bubble) finished for all samples\n";
 	print "**** Please make sure the cortex executable has the correct number of colours!!!*****\n";
-	my $collection_name;
-	if ( $input{union} ) {
-		$collection_name = $input{pop} . "_" . keys(%$samples_to_look_for) . "_bubbled_sample_ctxs_to_pool.union";
-	}
-	else {
-		$collection_name = $input{pop} . "_" . keys(%$samples_to_look_for) . "_bubbled_sample_ctxs_to_pool";
-	}
+	my $collection_name = $input{pop} . "_" . keys(%$samples_to_look_for) . "_bubbled_sample_ctxs_to_pool";
 	my $collection =  ReseqTrack::Collection->new(
 		-name => $collection_name,
 		-others => \@bubble_ctxs,
@@ -376,7 +355,6 @@ foreach my $gf1 ( @$gts1 ) {
 my $bubbles = $db->get_FileAdaptor->fetch_by_type("BUBBLES");
 my $correct_bubble;
 foreach my $bubble ( @$bubbles ) {
-	#print "bubbles " . $bubble->name . "\n";
 	if ( am_i_the_right_entry($bubble) == 1 ) {
 		$correct_bubble = $bubble;
 	}
@@ -419,18 +397,10 @@ if (!$cvgs || @$cvgs == 0 ) {
 	
 my $auxs = $db->get_CollectionAdaptor->fetch_by_type("AUX");
 foreach my $aux ( @$auxs ) {
-	if ( $input{union} ) {
-		if ($aux->name =~ /$input{pop}/ && $aux->name =~ /union/i) {
-			print "Event12 (making coverage file from genotype file) is done, auxillary collection " . $aux->name . " with type AUX already exist\n";
-			goto SKIP7;
-		}	
+	if ($aux->name =~ /$input{pop}/) {
+		print "Event12 (making coverage file from genotype file) is done, auxillary collection " . $aux->name . " with type AUX already exist\n";
+		goto SKIP7;
 	}
-	else {
-		if ($aux->name =~ /$input{pop}/ && $aux->name !~ /union/i ) {
-			print "Event12 (making coverage file from genotype file) is done, auxillary collection " . $aux->name . " with type AUX already exist\n";
-			goto SKIP7;
-		}
-	}	
 }		
 
 foreach my $gf ( @$gts ) {
@@ -460,14 +430,8 @@ foreach my $gf ( @$gts ) {
 		my $var_cnt = $tmp3[0];
 		print "total cnt of var is $var_cnt\n";
 		for (my $i=0; $i < $var_cnt/500000; $i++) { 
-			my $start = $i * 500000 + 1;
-			my $collection_name;	
-			if ($input{union}) {				
-				$collection_name = $input{pop} . "_$var_cnt" . "_$sample_ref_number" . "_$start" . "_union";
-			}
-			else {
-				$collection_name = $input{pop} . "_$var_cnt" . "_$sample_ref_number" . "_$start";
-			}	
+			my $start = $i * 500000 + 1;					
+			my $collection_name = $input{pop} . "_$var_cnt" . "_$sample_ref_number" . "_$start";
 			print "collection name is $collection_name\n";
 			my $collection =  ReseqTrack::Collection->new(
 				-name => $collection_name,
@@ -475,7 +439,7 @@ foreach my $gf ( @$gts ) {
 				-type => "AUX",  
 				-table_name => 'file',
 			);
-			save_collection($collection, $collection_name,"AUX") if ($input{store});
+			save_collection($collection, $collection_name,"AUX") if ($input{run});
 		}		
 	}
 	else {
@@ -495,14 +459,7 @@ if ( !$classified_cols || @$classified_cols == 0) {
 }
 	
 foreach my $classified_col ( @$classified_cols) {
-	if ($input{union} ) {
-		unless ( $classified_col->name =~ /$input{pop}/ && $classified_col->name =~ /union/i) {
-			next;
-		}	
-	}
-	else {
-		next if ( $classified_col->name !~ /$input{pop}/ );
-	}		
+	next if ( $classified_col->name !~ /$input{pop}/);
 	my @tmp = split(/\_/,  $classified_col->name);
 	my $total_var_num = $tmp[1];
 	my $expected_classfied_files = int($total_var_num/500000) + 1;
@@ -547,14 +504,8 @@ if ( !$sam_chunk_cols || @$sam_chunk_cols ==0 ) {
 }
 	
 foreach my $sam_chunk_col ( @$sam_chunk_cols ) {
-	if ( $input{union} ) {
-		unless ( $sam_chunk_col->name =~ /$input{pop}/  && $sam_chunk_col->name =~ /union/i ) {
-			next;
-		}
-	}	
-	else {		
-		next if ($sam_chunk_col->name !~ /$input{pop}/ );
-	}
+	next if ($sam_chunk_col->name !~ /$input{pop}/);
+	
 	my @tmp = split (/total/, $sam_chunk_col->name);
 	my $sam_chunk_cnt = $tmp[1];
 	$sam_chunk_cnt =~ s/\.sam//;
@@ -570,19 +521,10 @@ foreach my $sam_chunk_col ( @$sam_chunk_cols ) {
 		my $geno_basename;
 		my $num = 0;
 		foreach my $genotype_file ( @$genotype_files ) {
-			if ( $input{union} ) {
-				if ($genotype_file->name =~ $input{pop} && $genotype_file->name =~ /union/i ) {
-					$geno_basename = basename($genotype_file->name);
-					throw("Genotype file " . $genotype_file->name . " does not exist") unless ( -e $genotype_file->name);
-					$num++;
-				}
-			}
-			else {
-				if ($genotype_file->name =~ $input{pop} && $genotype_file->name !~ /union/i  ) {
-					$geno_basename = basename($genotype_file->name);
-					throw("Genotype file " . $genotype_file->name . " does not exist") unless ( -e $genotype_file->name);
-					$num++;
-				}
+			if ($genotype_file->name =~ $input{pop}) {
+				$geno_basename = basename($genotype_file->name);
+				throw("Genotype file " . $genotype_file->name . " does not exist") unless ( -e $genotype_file->name);
+				$num++;
 			}
 		}	
 		throw("No genotype file found") if ($num ==0);
@@ -675,8 +617,7 @@ sub create_aux_table_file {
 	
 	my $output_table = $out_dir_pop  . "/" . $log_base . ".table";
 	
-	#my $command = "perl /nfs/1000g-work/G1K/work/bin/cortex/scripts/analyse_variants/make_read_len_and_total_seq_table.pl $genotype_log >& $output_table";
-	my $command = "perl /nfs/production/reseq-info/work/bin/cortex/scripts/analyse_variants/make_read_len_and_total_seq_table.pl $genotype_log >& $output_table";
+	my $command = "perl /nfs/1000g-work/G1K/work/bin/cortex/scripts/analyse_variants/make_read_len_and_total_seq_table.pl $genotype_log >& $output_table";
 	print "Running ...\n$command if -run\n";
 	
 	`$command` if ($input{run});
@@ -727,84 +668,6 @@ sub parse_seq_index {
 	return (\%desired_samples, \%sample_pop);
 }
 
-sub am_i_the_right_entry {  ### FIXME, need to check for other parts in the file name to make sure that they match as well.
-	my ($entry) = @_;
-	my $flag = 0;
-	#print "entry is " . $entry->name . "\n";
-	my @tmp = split(/\./, basename($entry->name));
-	if ( 	$entry->type eq "SAMPLE_CTX" || 
-			$entry->type eq "CLEANED_PER_SAMPLE_CTX" || 
-			$entry->type eq "SAMPLE_CTX_TO_CLEAN" ) {	
-		if ( $sample_to_pop_mapping->{$tmp[0]} && $sample_to_pop_mapping->{$tmp[0]} eq $input{pop} ) { ### FIXME, need to check for other parts in the file name to make sure that they match as well.
-			$flag = 1;
-		}
-	}
-	elsif ( $entry->type eq "SAMPLE_CTX_CLEAN_TO_OL_BUBBLE" ||
-			$entry->type eq "SAMPLE_CTX_CLEAN_BUBBLED" ) {	
-		if ( $entry->name =~ /ref|human/i ) { ### FIXME, need better ways to identify reference 
-			if ( $input{union}  && $entry->name =~ /union/i && $entry->name =~ /$input{pop}/) {
-				$flag = 1;
-			}
-			elsif ( !$input{union} && $entry->name =~ /$input{pop}/i ) {
-				$flag = 1;
-			}
-		}		
-		else {
-			if ( $input{union} && $sample_to_pop_mapping->{$tmp[0]} && $sample_to_pop_mapping->{$tmp[0]} eq $input{pop} && $entry->name =~ /union/i  ) { ### FIXME, need to check for other parts in the file name to make sure that they match as well.
-				$flag = 1;
-			}		
-			elsif (!$input{union} && $sample_to_pop_mapping->{$tmp[0]} && $sample_to_pop_mapping->{$tmp[0]} eq $input{pop} ) { ### FIXME, need to check for other parts in the file name to make sure that they match as well.
-				$flag = 1;
-			}
-		}	    
-	}
-	elsif ( $entry->type eq "POOLED_CTX" ) {
-		if ( $entry->name =~ /$input{pop}/ ) { ### FIXME, need to check for other parts in the file name to make sure that they match as well.
-			my @tmp = split (/\_/, 	basename($entry->name) );
-			my $sample_cnt = $tmp[1];
-			if ($sample_cnt == $total_sample_cnt ) {
-				$flag = 1;
-			}
-		}
-	}		
-	else {
-		if ( $input{union} ) {
-			if ( $entry->type eq "BUBBLE_CTX"|| $entry->type eq "BUBBLES") {
-				if ( $entry->name =~ /union/i ) {
-					$flag = 1;
-				}
-			}
-			else {
-				if (  $entry->name =~ /$input{pop}/ && $entry->name =~ /union/i ) {
-					my @tmp = split (/\_/, 	basename($entry->name) );
-					my $sample_cnt = $tmp[1];				
-					if ($sample_cnt == $total_sample_cnt ) {
-						$flag = 1;
-					}
-				}
-			}	
-		}	
-		else  {
-			if ( $entry->name =~ /$input{pop}/ ) { ### FIXME, need to check for other parts in the file name to make sure that they match as well.
-				my @tmp = split (/\_/, 	basename($entry->name) );
-				my $sample_cnt = $tmp[1];
-				if ($sample_cnt eq "cleaned") { ### This is to handle the pool_ctx_clean that have been renamed and put up to the ftp site (rerun for GIH, YRI, LWK)
-					$flag = 1;
-				}	
-				elsif ($sample_cnt == $total_sample_cnt ) {
-					$flag = 1;
-				}
-			}	
-		}
-	}
-	return $flag;
-}
-					 
-		
-		
-=head		
-		
-			
 
 sub am_i_the_right_entry {  ### FIXME, need to check for other parts in the file name to make sure that they match as well.
 	my ($entry) = @_;
@@ -817,85 +680,46 @@ sub am_i_the_right_entry {  ### FIXME, need to check for other parts in the file
 			$entry->type eq "SAMPLE_CTX_CLEAN_TO_OL_BUBBLE" ||
 			$entry->type eq "SAMPLE_CTX_CLEAN_BUBBLED" ) {
 		
-		if ( $input{union} ) {
-			if ( $entry->name =~ /ref|human/i ) { ### FIXME, need better ways to identify reference 
-				if ( $entry->type eq "SAMPLE_CTX_CLEAN_TO_OL_BUBBLE" || $entry->type eq "SAMPLE_CTX_CLEAN_BUBBLED") {
-					if ($entry->name =~ /union/i ) {
-						$flag = 1;
-					}
-				}
-				else {
-					$flag = 1;
-				}
-			}	
-			elsif ( $entry->type eq "CLEANED_PER_SAMPLE_CTX" ) {
-				if ( $sample_to_pop_mapping->{$tmp[0]} eq $input{pop} ) {
+		if ( $entry->name =~ /ref|human/i ) { ### FIXME, need better ways to identify reference 
+			if ( $entry->type eq "SAMPLE_CTX_CLEAN_TO_OL_BUBBLE" || $entry->type eq "SAMPLE_CTX_CLEAN_BUBBLED") {
+				if ($entry->name =~ /$input{pop}/ ) {
 					$flag = 1;
 				}
 			}
-			elsif ( 	$entry->type eq "SAMPLE_CTX_CLEAN_TO_OL_BUBBLE" ||
-						$entry->type eq "SAMPLE_CTX_CLEAN_BUBBLED"	) {	
-				if ( $sample_to_pop_mapping->{$tmp[0]} && $sample_to_pop_mapping->{$tmp[0]} eq $input{pop} && $entry->name =~ /union/i  ) { ### FIXME, need to check for other parts in the file name to make sure that they match as well.
-					$flag = 1;
-				}
-			}	
-		}
-		else {		
-			if ( $entry->name =~ /ref|human/i ) { ### FIXME, need better ways to identify reference 
-				if ( $entry->type eq "SAMPLE_CTX_CLEAN_TO_OL_BUBBLE" || $entry->type eq "SAMPLE_CTX_CLEAN_BUBBLED") {
-					if ($entry->name =~ /$input{pop}/i ) {
-						$flag = 1;
-					}
-				}
-				else {
-					$flag = 1;
-				}
-			}	
-			elsif ( $sample_to_pop_mapping->{$tmp[0]} && $sample_to_pop_mapping->{$tmp[0]} eq $input{pop} ) { ### FIXME, need to check for other parts in the file name to make sure that they match as well.
+			else {
 				$flag = 1;
 			}
-		}	                
+		}	
+		elsif ( $sample_to_pop_mapping->{$tmp[0]} eq $input{pop} ) { ### FIXME, need to check for other parts in the file name to make sure that they match as well.
+			$flag = 1;
+		}
 	}
 	else {	
-		if ( $input{union} ) {
-			if ( $entry->name =~ /$input{pop}/ && $entry->name =~ /union/i ) { ### FIXME, need to check for other parts in the file name to make sure that they match as well.
-				#my @tmp = split (/\_/, 	basename($entry->name) );
-				#my $sample_cnt = $tmp[1];
-				#if ($sample_cnt == $total_sample_cnt ) {
-					$flag = 1;
-				#}
+		if ( $entry->name =~ /$input{pop}/ ) { ### FIXME, need to check for other parts in the file name to make sure that they match as well.
+			my @tmp = split (/\_/, 	basename($entry->name) );
+			my $sample_cnt = $tmp[1];
+			if ($sample_cnt eq "cleaned") { ### This is to handle the pool_ctx_clean that have been renamed and put up to the ftp site (rerun for GIH, YRI, LWK)
+				$flag = 1;
+			}	
+			elsif ($sample_cnt == $total_sample_cnt ) {
+				$flag = 1;
 			}
 		}
-		else {			
-			if ( $entry->name =~ /$input{pop}/ ) { ### FIXME, need to check for other parts in the file name to make sure that they match as well.
-				my @tmp = split (/\_/, 	basename($entry->name) );
-				my $sample_cnt = $tmp[1];
-				if ($sample_cnt eq "cleaned") { ### This is to handle the pool_ctx_clean that have been renamed and put up to the ftp site (rerun for GIH, YRI, LWK)
-					$flag = 1;
-				}	
-				elsif ($sample_cnt == $total_sample_cnt ) {
-					$flag = 1;
-				}
-			}
-		}	
 	}	    	        
 	return $flag;
 }
-
-=cut
-
 
 sub save_collection { ### FIXME, need more work!
 	my ($co, $c_name, $c_type) = @_;
 	#print "collection to store is $c_name, type $c_type\n";
 	my $exist = $db->get_CollectionAdaptor->fetch_by_name_and_type($c_name, $c_type);
 	if ( !$exist ) {
-		$db->get_CollectionAdaptor->store($co) if ($input{store});  ## new files will be added in without over write the old ones.
-		print "collection $c_name, type $c_type is stored if -store flag is set\n";
+		$db->get_CollectionAdaptor->store($co) if ($input{save_collection});  ## new files will be added in without over write the old ones.
+		print "collection $c_name, type $c_type is stored\n";
 	}
 	else{
-		$db->get_CollectionAdaptor->store($co, 1) if ($input{store} && $input{update});
-		print "collection $c_name, type $c_type is updated if -store and -update flags are set\n";
+		$db->get_CollectionAdaptor->store($co, 1) if ($input{save_collection});
+		print "collection $c_name, type $c_type is updated\n";
 	}	
 	return 1;
 }			
@@ -944,7 +768,7 @@ perl $ZHENG_RB_VC/scripts/process/cortex_process_manager.pl $WRITE_DB_ARGS -dbna
 -seq_index /nfs/1000g-archive/vol1/ftp/sequence_indices/20120522.sequence.index  \
 -ref_binary /nfs/1000g-archive/vol1/ftp/technical/working/20120814_cortex_resources/human_g1k_v37.proper_chroms.k31.ctx \
 -pop LWK \
--run -store -update \
+-run -store -save_collection -update \
 
 Post processing:
 perl $ZHENG_RB_VC/scripts/process/cortex_process_manager.pl $WRITE_DB_ARGS -dbname zheng_run_cortex \
@@ -954,4 +778,4 @@ perl $ZHENG_RB_VC/scripts/process/cortex_process_manager.pl $WRITE_DB_ARGS -dbna
 -log_dir /nfs/nobackup/resequencing_informatics/zheng/run_cortex/log \
 -out_dir /nfs/1000g-work/G1K/work/zheng/cortex/post_process \
 -pop PEL \
--run -store -update \
+-run -store -save_collection -update \

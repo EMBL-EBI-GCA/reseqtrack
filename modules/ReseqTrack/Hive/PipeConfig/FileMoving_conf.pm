@@ -1,6 +1,6 @@
 =head1 NAME
 
- ReseqTrack::Hive::PipeConfig::Filerelease_conf
+ ReseqTrack::Hive::PipeConfig::FileMoving_conf
 
 =head1 SYNOPSIS
 
@@ -39,7 +39,7 @@ config_options=-file_move_module MyProjectModules::MoveFile
       -pipeline_db -host=???
       -pipeline_db -port=???
       -pipeline_db -user=???
-      -dipeline_db -dbname=???
+      -pipeline_db -dbname=???
       -password
       -reseqtrack_db -host=???
       -reseqtrack_db -user=???
@@ -49,8 +49,7 @@ config_options=-file_move_module MyProjectModules::MoveFile
 
 =cut
 
-
-package ReseqTrack::Hive::PipeConfig::FileRelease_conf;
+package ReseqTrack::Hive::PipeConfig::FileMoving_conf;
 
 use strict;
 use warnings;
@@ -66,15 +65,23 @@ sub default_options {
         'pipeline_name' => 'file_release',                     # name used by the beekeeper to prefix job names on the farm
 
         seeding_module => 'ReseqTrack::Hive::PipeSeed::ForeignFiles',
-        seeding_options => {},
+        seeding_options => {  
+                            sticky_bai => 0,
+                           },
 
         checking_module  => 'ReseqTrack::Hive::Process::FileRelease::Checks',
+        file_move_module => 'ReseqTrack::Hive::Process::FileRelease::Move::BlueprintMove',
         hostname => '1000genomes.ebi.ac.uk',
 
-        derive_path_options => {},
+        derive_path_options => { 
+                                aln_base_dir => "/nfs/1000g-work/G1K/work/avikd/test_dir/file_release_bp_test/base_dir/alignment",
+                                results_base_dir => "/nfs/1000g-work/G1K/work/avikd/test_dir/file_release_bp_test/base_dir/results",
+                                species => 'homo sapiens',
+                               },
+                 
+        run_meta_data_file => '/nfs/1000g-work/ihec/work/davidr/cron/run_meta_data.tab'                        
 
-        move_by_rsync => 1,
-        collect => 0,
+        move_by_rsync => 0,
 
     };
 }
@@ -86,7 +93,6 @@ sub resource_classes {
             '200Mb' => { 'LSF' => '-C0 -M200 -q '.$self->o('lsf_queue').' -R"select[mem>200] rusage[mem=200]"' },
     };
 }
-
 
 sub pipeline_analyses {
     my ($self) = @_;
@@ -120,39 +126,18 @@ sub pipeline_analyses {
               },
             },
             -flow_into => {
-                1 => [ 'slow_checks' ],
+                1 => [ 'move_to_archive' ],
                 2 => [ 'seed_complete' ],
             },
       });
     push(@analyses, {
-            -logic_name    => 'slow_checks',
-            -module        => $self->o('checking_module'),
-            -parameters    => {
-              check_class => 'slow',
-              reseqtrack_options => {
-                flows_non_factory => [1,2],
-                flows_do_count => {
-                  1 => '0',
-                  2 => '1+',
-                },
-                flows_do_count_param => 'is_failed',
-              },
-            },
-            -flow_into => {
-                1 => [ 'move_to_staging' ],
-                2 => [ 'seed_complete' ],
-            },
-            -rc_name => '200Mb',
-            -hive_capacity  =>  50,
-      });
-    push(@analyses, {
-            -logic_name    => 'move_to_staging',
+            -logic_name    => 'move_to_archive',
             -module        => $self->o('file_move_module'),
             -parameters    => {
                 hostname => $self->o('hostname'),
                 derive_path_options => $self->o('derive_path_options'),
+                run_meta_data_file => $self->o('run_meta_data_file')
                 move_by_rsync => $self->o('move_by_rsync'),
-                collect  => $self->o('collect'),
             },
             -flow_into => {
                 1 => ['seed_complete'],
@@ -173,4 +158,3 @@ sub pipeline_analyses {
 }
 
 1;
-

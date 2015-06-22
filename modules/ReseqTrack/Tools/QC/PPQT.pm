@@ -34,6 +34,7 @@ package ReseqTrack::Tools::QC::PPQT;
 use strict;
 use warnings;
 use File::Basename;
+use Data::Dump qw(dump);
 
 use ReseqTrack::Tools::Exception qw(throw warning);
 use ReseqTrack::Tools::Argument qw(rearrange);
@@ -95,11 +96,11 @@ sub run_ppqt {
     my $file = $self->processed_file() || $self->input_files->[0];
 
     check_file_exists($file);
+    check_file_does_not_exist($param_file);
 
     push @cmd_args, $self->rscript_path;
     push @cmd_args, $self->program;
 
-    push @cmd_args, '-rf';
     push @cmd_args, '-c=' . $file;
     push @cmd_args, '-out=' . $param_file;
 
@@ -118,15 +119,9 @@ sub run_ppqt {
         $self->output_files($r_file);
         push @cmd_args, '-savd=' . $r_file;
     }
-    
-    my $path = $ENV{PATH};
-    
-    $ENV{PATH} = dirname($self->samtools_path).':'.$path;
-    
+
     $self->execute_command_line( join( ' ', @cmd_args ) );
-    
-    $ENV{PATH} = $path;
-    
+
     return $param_file;
 }
 
@@ -155,7 +150,9 @@ sub parse_metrics {
     );
 
     $metrics{quality_label} = $quality_decode{ $metrics{quality_tag} };
-
+  
+    my $array_metrics = [ \%metrics ];
+    $self->output_metrics_object( \%metrics );
     return [ \%metrics ];
 }
 
@@ -237,6 +234,32 @@ sub no_dups {
         $self->{'no_dups'} = $arg;
     }
     return $self->{'no_dups'};
+}
+
+sub output_metrics_files {
+  my $self = shift;
+  my @files = grep { /\.ppqt_metrics$/ } @{ $self->output_files };
+  return \@files;
+}
+
+sub output_pdf_files {
+  my $self = shift;
+  my @files = grep { /\.pdf$/ } @{ $self->output_files };
+  return \@files;
+}
+
+sub output_rdata_files {
+  my $self = shift;
+  my @files = grep { /\.rdata$/ } @{ $self->output_files };
+  return \@files;
+}
+
+sub output_metrics_object {
+  my ( $self, $arg ) = @_;
+  if ($arg) {
+    $self->{'output_metrics_object'} = $arg;
+  }
+  return $self->{'output_metrics_object'};
 }
 
 1;

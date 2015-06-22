@@ -71,50 +71,22 @@ sub lookup_property {
     my ( $meta_data, $property ) = @_;
     throw("no property given")  unless $property;
     throw("no meta data given") unless $meta_data;
-print STDERR join(" ",ref($meta_data),$property).$/;
-    if ( $property eq 'run_id' ) {
-        $property = 'run_source_id';
-    }
-    if ( $property eq 'study_id' ) {
-        $property = 'study_source_id';
-    }
-    if ( $property eq 'experiment_id' ) {
-        $property = 'experiment_source_id';
-    }
-    if ( $property eq 'sample_id' ) {
-        $property = 'sample_source_id';
-    }
-
     my $method = $meta_data->can($property);
     return &$method($meta_data) if ($method);
 
     my $attributes = $meta_data->attributes_hash;
-
-    if ( $attributes->{$property} ) {
-        return $attributes->{$property}->attribute_value();
-    }
+    return $attributes->{$property}->attribute_value()
+      if $attributes->{$property};
 
     if ( $meta_data->isa('ReseqTrack::Run') ) {
-        my $v = lookup_property( $meta_data->experiment(), $property );
+        my $v = _lookup_property( $meta_data->experiment(), $property );
         if ( !defined $v ) {
-            $v = lookup_property( $meta_data->sample(), $property );
+            $v = _lookup_property( $meta_data->sample(), $property );
         }
         return $v;
     }
     if ( $meta_data->isa('ReseqTrack::Experiment') ) {
-        my $v = lookup_property( $meta_data->study(), $property );
-
-        if ( !defined $v ) {
-            my %samples;
-            my $runs = $meta_data->runs;
-            # if there is just one sample, it's safe to look at it for an experiment
-            map { $samples{$_->sample_id}++ } @{$runs};
-print STDERR join(" ",'Samples',scalar( keys %samples )).$/;            
-            if ( scalar( keys %samples ) == 1 ) {
-                $v = lookup_property( $runs->[0]->sample(), $property );
-            }
-        }
-        return $v;
+        return _lookup_property( $meta_data->study(), $property );
     }
     if ( $meta_data->isa('ReseqTrack::Sample') ) {
         return undef;

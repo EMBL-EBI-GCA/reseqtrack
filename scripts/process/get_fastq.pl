@@ -28,7 +28,7 @@ my $era_dbuser;
 my $era_dbpass;
 my $era_dbname;
 my $help = 0;
-my $directory_layout = 'sample_alias/archive_sequence';
+my $directory_layout = 'sample_name/archive_sequence';
 my $module = 'ReseqTrack::Tools::GetFastq';
 my %module_options;
 

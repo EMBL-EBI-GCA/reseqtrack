@@ -8,7 +8,7 @@ use base ('ReseqTrack::Hive::PipeSeed::BasePipeSeed');
 use File::Find qw(find);
 use File::stat;
 use DateTime::Format::MySQL;
-use ReseqTrack::Tools::Exception qw(throw);
+use ReseqTrack::Tools::Exception qw(throw warning);
 use File::Spec;
 =pod
 
@@ -43,14 +43,22 @@ sub create_seed_params {
   throw('this module will only accept pipelines that work on the file table')
       if $self->table_name ne 'file';
 
+  my $require_attributes = $options{'require_attributes'} || {};
+  my $output_attributes  = ref($options{'output_attributes'}) eq 'ARRAY' ? $options{'output_attributes'}
+                     : defined $options{'output_attributes'} ? [$options{'output_attributes'}]
+                     : [];  
+
   my $db = $self->db;
   my $pipeline = $self->pipeline;
+
 
   my $remote_hosts = $db->get_HostAdaptor->fetch_all_remote();
   my $fa = $db->get_FileAdaptor;
   my $psa = $db->get_PipelineSeedAdaptor;
   my @seed_params;
   foreach my $host (@$remote_hosts) {
+
+
     FILE:
     foreach my $file (@{$fa->fetch_by_host($host->dbID)}) {
       next FILE if $options{sticky_bai} && $file->name =~ /\.bai$/;
@@ -75,6 +83,8 @@ sub create_seed_params {
       }
       else {
         $dropbox_file = File::Spec->rel2abs('./'.$file->name, $host->dropbox_dir);
+
+
         next FILE if ! -e $dropbox_file;
       }
 
@@ -114,9 +124,26 @@ sub create_seed_params {
           $updated = $index_updated;
         }
       }
-      next FILE if grep {$_ > $updated} map {DateTime::Format::MySQL->parse_datetime($_->created)->set_time_zone('local')->epoch} @$existing_ps;
-
+      next FILE if grep {$_ > $updated} map {DateTime::Format::MySQL->parse_datetime($_->created)->set_time_zone('local')->epoch} @$existing_ps;  
+     
       my %output_params = (file => {dropbox => \%dropbox_details, db => \%db_details});
+
+      foreach my $attr_name (keys %$require_attributes) {
+        my ($attribute) = grep {$_->attribute_name eq $attr_name} @{$file->attributes};
+        next FILE if !$attribute;
+        my $values = $require_attributes->{$attr_name};
+        $values = ref($values) eq 'ARRAY' ? $values : [$values];
+        next FILE if !grep {$attribute->attribute_value eq $_} @$values;
+      }
+      
+      my $file_attributes = $file->attributes;
+      ATTRIBUTE:
+      foreach my $attribute_name (@$output_attributes) {
+         my ($attribute) = grep {$_->attribute_name eq $attribute_name} @$file_attributes;
+         next ATTRIBUTE if !$attribute;
+         $output_params{$attribute_name} = $attribute->attribute_value;
+      }
+
       push(@seed_params, [$file, \%output_params]);
     }
   }

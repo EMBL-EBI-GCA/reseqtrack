@@ -13,8 +13,6 @@ use ReseqTrack::Tools::FileSystemUtils;
 use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::Exception qw(throw);
 use ReseqTrack::Tools::Loader::File;
-use ReseqTrack::Tools::MetaDataUtils qw(fetch_metadata_object lookup_property);
-use File::Basename;
 
 use Getopt::Long;
 use Data::Dumper;
@@ -50,11 +48,6 @@ my %commands = (
     'ppqt'        => 'non_picard',
     'flagstat'    => 'flagstat'
 );
-
-my %require_pe = (
-'insert_size' => 1,
-);
-
 
 my $mode                    = 'alignment';
 my $attribute_prefix_column = 'CATEGORY';
@@ -116,16 +109,6 @@ throw(  "Mode must be one of "
       . ( $mode || 'undef' ) )
   unless ($command);
 
-if ($require_pe{$mode}){
-  my $metadata = fetch_metadata_object($name,$db);
-  my $lib_layout = lookup_property($metadata,'library_layout');
-  if ($lib_layout ne 'PAIRED'){
-    print STDERR "Cannot process this data, require PE sequencing";
-    exit 0;
-  }
-}
-
-
 if (@programs) {
     $options{'metrics_programs'} = \@programs;
 }
@@ -148,7 +131,6 @@ if ( $mode eq 'ppqt' ) {
         -keep_metrics  => $keep_metrics_file,
         -keep_plot     => $keep_metrics_file,
         -no_dups       => $ppqt_no_dups,
-        -working_dir   => dirname( $collection->others->[0]->name ),
     );
 }
 elsif ( $mode eq 'flagstat' ) {
@@ -156,7 +138,6 @@ elsif ( $mode eq 'flagstat' ) {
         -job_name    => $job_name,
         -program     => $samtools_path,
         -input_files => [ $collection->others->[0]->name ],
-        -working_dir => dirname( $collection->others->[0]->name ),
     );
 }
 else {
@@ -168,7 +149,6 @@ else {
         -options      => \%options,
         -input_files  => [ $collection->others->[0]->name ],
         -keep_metrics => $keep_metrics_file,
-        -working_dir  => dirname( $collection->others->[0]->name ),
     );
 }
 
