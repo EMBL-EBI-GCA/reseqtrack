@@ -57,16 +57,14 @@ if ( !$input{log_dir} ) {
 }
 
 if (!$input{tabix_dir}) {
-	#$input{tabix_dir}= "/nfs/1000g-work/G1K/work/bin/tabix/";
-	$input{tabix_dir}= "/nfs/production/reseq-info/work/bin/tabix/";
+	$input{tabix_dir}= "/nfs/1000g-work/G1K/work/bin/tabix/";
 }	
 
 $input{host} = '1000genomes.ebi.ac.uk' if (!$input{host});
 $input{update} = 0 if (!$input{update});
 $input{collection_type} = "SAM" if (!$input{collection_type});
 $input{output_file_type} = "VCF" if (!$input{output_file_type});
-#$input{sample_name_list_dir} = "/nfs/1000g-work/G1K/work/zheng/cortex/post_process/" if ( !$input{sample_name_list_dir} );
-$input{sample_name_list_dir} = "/nfs/production/reseq-info/work/zheng/cortex_phase3/" if ( !$input{sample_name_list_dir} );
+$input{sample_name_list_dir} = "/nfs/1000g-work/G1K/work/zheng/cortex/post_process/" if ( !$input{sample_name_list_dir} );
 $input{ref_genome} = "/nfs/1000g-archive/vol1/ftp/technical/working/20120814_cortex_resources/human_g1k_v37.fasta.proper_chroms_only" if (!$input{ref_genome});
 
 if (!$input{output_dir} ) {
@@ -120,8 +118,7 @@ foreach my $sam ( @$sam_files ) {
 	
 	throw("Output vcf file $output_decomp_vcf and/or $output_raw_vcf exist") if (-e $output_decomp_vcf || -e $output_raw_vcf);
 	
-	#my $command = "perl  /nfs/1000g-work/G1K/work/bin/cortex/scripts/analyse_variants/process_calls.pl ";	
-	my $command = "perl /nfs/production/reseq-info/work/bin/cortex/scripts/analyse_variants/process_calls.pl "; 
+	my $command = "perl  /nfs/1000g-work/G1K/work/bin/cortex/scripts/analyse_variants/process_calls.pl ";
 	$command .= "--callfile $genotype_file ";
 	$command .= "--callfile_log $genotype_log ";
 	$command .= "--outvcf $out_vcf_prefix ";
@@ -129,12 +126,10 @@ foreach my $sam ( @$sam_files ) {
 	$command .= "--samplename_list $sample_name_list ";
 	$command .= "--num_cols $num_colours ";
 	$command .= "--stampy_hash /nfs/1000g-archive/vol1/ftp/technical/working/20120814_cortex_resources/human_g1k_v37 ";
-	#$command .= "--vcftools_dir /nfs/1000g-work/G1K/work/bin/vcftools/ ";
-	$command .= "--vcftools_dir /nfs/production/reseq-info/work/bin/vcftools/ ";
+	$command .= "--vcftools_dir /nfs/1000g-work/G1K/work/bin/vcftools/ ";
 	$command .= "--caller BC ";
 	$command .= "--kmer 31 ";
-	#$command .= "--stampy_bin /nfs/1000g-work/G1K/work/bin/stampy/stampy.py "; ## This may be left out
-	$command .= "--stampy_bin /nfs/production/reseq-info/work/bin/stampy/stampy.py "; ## This may be left out
+	$command .= "--stampy_bin /nfs/1000g-work/G1K/work/bin/stampy/stampy.py "; ## This may be left out
 	$command .= "--refcol 0 ";
 	$command .= "--pop_classifier $classified_var_file ";
 	$command .= "--ploidy 2 ";

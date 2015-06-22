@@ -159,7 +159,6 @@ sub resource_classes {
     return {
             %{$self->SUPER::resource_classes},  # inherit 'default' from the parent class
             '200Mb' => { 'LSF' => '-C0 -M200 -q '.$self->o('lsf_queue').' -R"select[mem>200] rusage[mem=200]"' },
-	    '400Mb' => { 'LSF' => '-C0 -M400 -q '.$self->o('lsf_queue').' -R"select[mem>400] rusage[mem=400]"' },
     };
 }
 
@@ -259,7 +258,7 @@ sub pipeline_analyses {
             -flow_into => {
                 1 => [ ':////accu?fastqc_summary=[]', ':////accu?fastqc_report=[]', ':////accu?fastqc_zip=[]']
             },
-            -rc_name => '400Mb',
+            -rc_name => '200Mb',
             -analysis_capacity  =>  50,  # use per-analysis limiter
             -hive_capacity  =>  -1,
       });

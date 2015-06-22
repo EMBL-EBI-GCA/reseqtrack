@@ -2,16 +2,15 @@
 #include <unistd.h> /* for getopt */
 #include <stdlib.h>
 #include <string.h>
-#include <sam_header.h>
-#include <htslib/sam.h>
 #include <sam.h>
-#include <htslib/ksort.h>
+#include <sam_header.h>
+#include <ksort.h>
 
 
 void usage();
-//int bam_index_build(const char *fn);
+int bam_index_build(const char *fn);
 
-void append_line(bam_hdr_t *out_header, char *line, size_t l_length) {
+void append_line(bam_header_t *out_header, char *line, size_t l_length) {
   out_header->text = (char*) realloc(out_header->text, sizeof(char*) * (out_header->l_text + l_length));
   memcpy((char*)out_header->text + out_header->l_text, line, l_length);
   out_header->l_text += l_length;
@@ -20,15 +19,16 @@ void append_line(bam_hdr_t *out_header, char *line, size_t l_length) {
 void uniquify_bam1_rg(bam1_t *b, int j) {
       uint8_t *rg_name;
       uint8_t *ptr;
-      int ori_length = b->l_data;
+      int ori_length = b->data_len;
       int extra_length = 2;
       int j_test = j;
       while (j_test /= 10) {
         extra_length++;
       }
-      b->l_data += extra_length;
-      if (b->m_data < b->l_data) {
-              b->m_data = b->l_data;
+      b->data_len += extra_length;
+      b->l_aux += extra_length;
+      if (b->m_data < b->data_len) {
+              b->m_data = b->data_len;
               kroundup32(b->m_data);
               b->data = (uint8_t*)realloc(b->data, b->m_data);
       }
@@ -46,7 +46,7 @@ void merge_bam_headers(int num_infiles, samfile_t **in_bams, bamFile out_bam, in
   char* header_line = NULL;
   size_t l_line;
 
-  bam_hdr_t *out_header = bam_header_init();
+  bam_header_t *out_header = bam_header_init();
   for (i=0; i<num_infiles; i++) {
     char* ptr = in_bams[i]->header->text;
     int read = 0;

@@ -13,7 +13,6 @@ sub run {
 
     my $db = ReseqTrack::DBSQL::DBAdaptor->new(%{$self->param_required('reseqtrack_db')});
     my $seeding_module = $self->param_required('seeding_module');
-    print "seeding module is $seeding_module\n";
     eval "require $seeding_module" or throw "cannot load module $seeding_module $@";
 
     my $dbname = $self->dbc->dbname;
@@ -41,11 +40,7 @@ sub run {
     $seeder->create_seed_params;
 
     my $psa = $db->get_PipelineSeedAdaptor;
-    my $seed_params_array = $seeder->seed_params;
-    if ($self->param_is_defined('max_seeds')) {
-      splice(@$seed_params_array, $self->param('max_seeds'));
-    }
-    foreach my $seed_params (@$seed_params_array) {
+    foreach my $seed_params (@{$seeder->seed_params}) {
       my ($seed, $output_hash) = @$seed_params;
       throw('seeding module has returned an object of the wrong type')
           if $seed->adaptor->table_name ne $pipeline->table_name;

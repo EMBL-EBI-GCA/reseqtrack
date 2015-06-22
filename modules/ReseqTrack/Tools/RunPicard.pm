@@ -334,7 +334,6 @@ sub run_insert_size_metrics {
     $self->execute_command_line($cmd);
 
     push @metrics, $self->parse_metrics_file($output);
-
   }
   return ( \@metrics );
 }
@@ -864,7 +863,6 @@ sub _get_standard_options {
     if ( $self->options('validation_stringency') );
   push( @option_strings, 'QUIET=' . $self->options('quiet') )
     if ( $self->options('quiet') );
-    push( @option_strings, 'CREATE_MD5_FILE='.$self->options('create_md5_file')) if $self->options('create_md5_file');
 
   return join( ' ', @option_strings );
 }
