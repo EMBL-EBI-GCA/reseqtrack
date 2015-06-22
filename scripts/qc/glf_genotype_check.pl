@@ -1,4 +1,4 @@
-#!/usr/bin/env perl
+#!/usr/bin/perl
 use strict;
 use warnings;
 
@@ -69,7 +69,7 @@ my ($platform,$claimed_sample, $paired_length, $collection) =
 
 if($platform eq 'COMPLETE_GENOMICS'){
   exit(0);
-}
+)
 
 #for event_complete entries. 'skip_platform' listed in cfg file
 if (defined $input{skip_platform}){

@@ -1,7 +1,6 @@
-#!/usr/bin/env perl
+#!/sw/arch/bin/perl -w
 
 use strict;
-use warnings;
 use Getopt::Long;
 use File::Basename;
 
@@ -87,23 +86,17 @@ if($output_file){
      }  
     
      if ($file->name =~ /cram/) {
-		print "File " . $file->name . " is cram, don't process\n";
-		next;
+	print "File " . $file->name . " is cram, don't process\n";
+	next;
      }
-
-     if ($file->name =~ /csra/) {
-		print "File " . $file->name . " is csra, don't process\n";
-		next;
-     }
-      
+ 
      if ($file->type =~ /WITHDRAWN/i) {
          print "Don't process withdrawn file " . $file->name . "\n";
          next;
      }
          
      next if ($file->name =~ /technical\/working\//); # won't include 
-     next if ($file->type =~ /P2b_/i);
-     
+           
      #print $file->filename."\n";
      my $name = $file->filename;
      $name =~ s/\.bam//;

@@ -25,7 +25,7 @@ class for getting fastq files through the ena fuse layer. Child class of ReseqTr
 
 my $fastq_getter = ReseqTrack::Tools::GetFastq::ENAFuse(
                       -output_dir => '/path/to/dir'
-                      -run_info => $my_run,
+                      -run_meta_info => $my_rmi,
                       -db => $era_db,
                       -source_root_dir => '/mount/ena/dir',
                       -fuse_user => 'username',
@@ -60,10 +60,9 @@ sub new {
 sub check_status {
   my $self = shift;
   my $era_rmia = $self->db->get_ERARunMetaInfoAdaptor;
-  my $status = $era_rmia->get_status($self->run_info->source_id);
-
+  my $status = $era_rmia->get_status($self->run_meta_info->run_id);
   if ($status ne 'private' && $status ne 'public') {
-    print "do not recognise status $status for ".$self->run_info->source_id."\n";
+    print "do not recognise status $status for ".$self->run_meta_info->run_id."\n";
     return 0;
   }
   return 1;
@@ -74,10 +73,7 @@ sub get_fastq_details {
   throw("do not have a fuse user name") if !$self->fuse_user;
   throw("do not have a fuse password") if !$self->fuse_password;
 
-	my $study_id = $self->run_info->experiment->study->source_id;
-	my $run_id = $self->run_info->source_id;
-
-  my $string = '/' . $self->fuse_user . '/' . $study_id
+  my $string = '/' . $self->fuse_user . '/' . $self->run_meta_info->study_id
             . '/' . $self->fuse_password . '/';
   my $digest = sha512_hex($string);
 
@@ -89,18 +85,16 @@ sub get_fastq_details {
 
   my $root_dir .= join('/', $self->fuse_mount_dir,
                         $self->fuse_user,
-                        $study_id,
+                        $self->run_meta_info->study_id,
                         $digest,
                         $self->source_root_dir);
   $root_dir =~ s{//}{/}g;
 
   my ($db_md5_hash, $db_size_hash, $name_hash) =
-      ReseqTrack::Tools::ERAUtils::get_fastq_details($run_id, $self->db, $root_dir);
+      ReseqTrack::Tools::ERAUtils::get_fastq_details($self->run_meta_info->run_id, $self->db, $root_dir);
   $self->db_md5_hash($db_md5_hash);
   $self->db_size_hash($db_size_hash);
   $self->name_hash($name_hash);
-  use Data::Dumper;
-  print STDERR Dumper($db_md5_hash, $db_size_hash, $name_hash);
 }
 
 sub get_files {
@@ -125,16 +119,6 @@ sub get_files {
   }
 }
 
-sub check_fastq_available {
-  my $self = shift;
-  my $era_rmia = $self->db->get_ERARunMetaInfoAdaptor;
-  my $status = $era_rmia->get_status($self->run_info->source_id);
-  if ($status eq 'public') {
-    print "status is public for ".$self->run_info->source_id."\n";
-    return 0;
-  }
-  return 1;
-}
 
 sub fuse_password{
   my ($self, $fuse_password) = @_;
@@ -168,4 +152,8 @@ sub fuse_mount_dir{
   return $self->{fuse_mount_dir};
 }
 
+
+
+
 1;
+

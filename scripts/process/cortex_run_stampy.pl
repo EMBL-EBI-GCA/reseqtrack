@@ -1,7 +1,6 @@
-#!/usr/bin/env perl
+#!/sw/arch/bin/perl -w
 
 use strict;
-use warnings;
 use ReseqTrack::Tools::Exception;
 use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::FileUtils;
@@ -84,8 +83,7 @@ foreach my $fastq ( @$fastq_files ) {
 	my $sam_out = $fastq->name . ".sam";
 	throw("chunky sam file $sam_out already exist") if (-e $sam_out);
 	
-	#my $stampy_bin = "/nfs/1000g-work/G1K/work/bin/stampy/stampy.py";
-	my $stampy_bin = "/nfs/production/reseq-info/work/bin/stampy/stampy.py";
+	my $stampy_bin = "/nfs/1000g-work/G1K/work/bin/stampy/stampy.py";
 	my $stampy_hash_stub = "/nfs/1000g-archive/vol1/ftp/technical/working/20120814_cortex_resources/human_g1k_v37";
 	my $command = "$stampy_bin -g $stampy_hash_stub -h $stampy_hash_stub --norefoutput --inputformat=fasta -M " . $fastq->name . " -o $sam_out";
 	print "Run stampy command if -run:\n$command\n";

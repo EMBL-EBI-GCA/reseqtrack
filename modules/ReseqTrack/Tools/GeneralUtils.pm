@@ -29,7 +29,7 @@ use vars qw (@ISA  @EXPORT);
 @EXPORT = qw(current_time parse_movelist get_input_arg create_lock_string
              delete_lock_string is_locked useage convert_to_giga current_date 
 	     create_filename calculate_coverage trim_spaces execute_system_command
-	     execute_pipe_system_command get_params get_open_file_handle get_time_stamps);
+	     execute_pipe_system_command get_params get_open_file_handle);
 
 
 
@@ -65,30 +65,16 @@ sub useage{
 
 
 sub current_time{
-  my ($second, $minute, $hour, $day, $month, $year) = localtime();
-  return sprintf("%04d-%02d-%02d %02d:%02d:%02d", $year+1900, $month+1, $day, $hour, $minute, $second);
+  my @months = qw(01 02 03 04 05 06 07 08 09 10 11 12);
+  my ($second, $minute, $hour, $dayOfMonth, $month, $yearOffset, $dayOfWeek, $dayOfYear, $daylightSavings) = localtime();
+  my $year = 1900 + $yearOffset;
+  $dayOfMonth = sprintf("%02.d", $dayOfMonth);
+  $second = sprintf("%02.d", $second);
+  $minute = sprintf("%02.d", $minute);
+  $hour = sprintf("%02.d", $hour);
+  my $theTime = "$year-$months[$month]-$dayOfMonth $hour:$minute:$second";
+  return $theTime;
 }
-
-=head2 get_time_stamps
-
-  Arg [1]   : n/a
-  Function  : returns three time stamps, yyyy-mm-dd.hh.mm, yyyy-mm, or yyyy-mm-dd
-  Returntype: see above
-  Exceptions: none
-  Example   : my ($time_stamp, $month_stamp, $day_stamp) = get_time_stamps
-
-=cut
-
-sub get_time_stamps {
-        my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst)=localtime();
-        $mon++;
-        $year = $year + 1900;
-        my $time = $year . "-" . $mon . "-" . $mday . "." . $hour . "." . $min;
-        my $month = $year . "-" . $mon ;
-        my $day = $year . "-" . $mon . "-" . $mday;
-        return ($time, $month, $day);
-}
-
 
 =head2 current_date
 
@@ -103,12 +89,12 @@ sub get_time_stamps {
 
 
 sub current_date{
-  my (%options) = @_;
-  my ($year, $month, $day) = (localtime())[5,4,3];
-  if ($options{hyphens}) {
-    return sprintf("%04d-%02d-%02d", $year+1900, $month+1, $day);
-  }
-  return sprintf("%04d%02d%02d", $year+1900, $month+1, $day);
+  my @months = qw(01 02 03 04 05 06 07 08 09 10 11 12);
+  my ($second, $minute, $hour, $dayOfMonth, $month, $yearOffset, $dayOfWeek, $dayOfYear, $daylightSavings) = localtime();
+  my $year = 1900 + $yearOffset;
+  my $formatted_dayOfMonth = sprintf("%02d", $dayOfMonth);
+  my $theTime = $year.$months[$month].$formatted_dayOfMonth;
+  return $theTime;
 }
 
 
@@ -132,10 +118,6 @@ sub parse_movelist{
     chomp;
     my @values = split /\t/, $_;
     #print "Adding old ".$values[0]." new ".$values[1]." to the list\n";
-    $values[0] =~ s/\s+$//;
-    $values[1] =~ s/\s+$//;
-    $values[0] =~ s/^\s+//;
-    $values[1] =~ s/^\s+//;
     $hash{$values[0]} = $values[1];
   }
   return \%hash;

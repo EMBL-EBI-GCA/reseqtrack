@@ -1,7 +1,6 @@
-#!/usr/bin/env perl
+#!/sw/arch/bin/perl -w
 
 use strict;
-use warnings;
 use ReseqTrack::Tools::Exception;
 use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::FileUtils;
@@ -64,8 +63,7 @@ if ($input{action} eq "create_aux_cov_file_fr_genotype") {
 	$input{output_file_type} = "COVG_FILE" if ( !$input{output_file_type} );
 }
 elsif (	$input{action} eq "make_and_split_5pf_fastq_fr_genotype") {
-	#$input{split_fastq_program} = "/nfs/1000g-work/G1K/work/zheng/reseqtrack/c_code/split/split" if (!$input{split_fastq_program});	
-	$input{split_fastq_program} = "/nfs/production/reseq-info/work/zheng/reseqtrack/trunk/c_code/split/split" if (!$input{split_fastq_program});
+	$input{split_fastq_program} = "/nfs/1000g-work/G1K/work/zheng/reseqtrack/c_code/split/split" if (!$input{split_fastq_program});	
 	$input{line_cnt_per_fastq} = 1000000 if ( !$input{line_cnt_per_fastq}); ## split 5pf fastq file intp 1M-line chunks
 	$input{output_file_type} = "5PF_FASTQ" if ( !$input{output_file_type} );
 }
@@ -107,8 +105,7 @@ elsif (  $input{action} eq "make_and_split_5pf_fastq_fr_genotype"  ) {
 		print "genotype file is " . $file_obj->name ."\n";
 	
 		my $flank_seq = $outdir_pop . "/" . $input{collection} . ".5pf.fastq"; 
-		#my $command = "perl /nfs/1000g-work/G1K/work/bin/cortex/scripts/analyse_variants/make_5p_flank_file.pl " . $file_obj->name . " > $flank_seq";
-		my $command = "perl /nfs/production/reseq-info/work/bin/cortex/scripts/analyse_variants/make_5p_flank_file.pl " . $file_obj->name . " > $flank_seq";
+		my $command = "perl /nfs/1000g-work/G1K/work/bin/cortex/scripts/analyse_variants/make_5p_flank_file.pl " . $file_obj->name . " > $flank_seq";
 		print "Making 5pflanking seq fastq file..... if -run\n";
 		print "$command\n";
 		`$command` if $input{run};
@@ -152,9 +149,8 @@ sub create_aux_covg_file {
 	my @tmp = split(/\_/, $gf_basename);
 	my $sample_number_plus_1 = $tmp[1] + 1; 
 
-	#my $command2 = "perl /nfs/1000g-work/G1K/work/bin/cortex/scripts/analyse_variants/make_covg_file.pl " . $gf->name . " $sample_number_plus_1 0";
-	my $command2 = "perl /nfs/production/reseq-info/work/bin/cortex/scripts/analyse_variants/make_covg_file.pl " . $gf->name . " $sample_number_plus_1 0";
-
+	my $command2 = "perl /nfs/1000g-work/G1K/work/bin/cortex/scripts/analyse_variants/make_covg_file.pl " . $gf->name . " $sample_number_plus_1 0";
+	
 	eval {
 		print "Running \n$command2 if -run\n";
 		`$command2` if ($input{run});	

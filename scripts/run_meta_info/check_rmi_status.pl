@@ -1,7 +1,6 @@
-#!/usr/bin/env perl
+#!/sw/arch/bin/perl
 
 use strict;
-use warnings;
 use Getopt::Long;
 use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::Exception;

@@ -1,7 +1,6 @@
 #!/usr/bin/env perl
 
 use strict;
-use warnings;
 use ReseqTrack::Tools::Exception;
 use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::FileUtils qw(create_objects_from_path_list);
@@ -9,7 +8,7 @@ use ReseqTrack::Tools::FileSystemUtils qw(run_md5 delete_file);
 use ReseqTrack::Tools::HostUtils qw(get_host_object);
 use ReseqTrack::Tools::RunMetaInfoUtils qw(create_directory_path);
 use ReseqTrack::Tools::RunSamtools;
-use File::Basename qw(fileparse dirname);
+use File::Basename qw(fileparse);
 use Getopt::Long;
 
 $| = 1;
@@ -127,10 +126,6 @@ if ($directory_layout) {
   if ($run_meta_info) {
     $output_dir = create_directory_path($run_meta_info, $directory_layout, $output_dir);
   }
-}
-
-if ($command eq 'index' && !$output_dir){
-  $output_dir = dirname($input_filepaths[0]);
 }
 
 my $samtools_object = ReseqTrack::Tools::RunSamtools->new(

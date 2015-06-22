@@ -1,12 +1,12 @@
-#!/usr/bin/env perl
+#!/sw/arch/bin/perl -w
 
 use strict;
-use warnings;
 use ReseqTrack::Tools::Exception;
 use Getopt::Long;
 use ReseqTrack::Tools::FileUtils;
 use ReseqTrack::Tools::FileSystemUtils;
 use Time::Local;
+use VertRes::Utils::Sam;
 use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::BamUtils;
 use File::Path;
