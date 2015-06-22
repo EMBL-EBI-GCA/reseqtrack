@@ -48,7 +48,6 @@ sub DEFAULT_OPTIONS { return {
         'load_fm_index' => 1,
         'disable_smith_waterman' => 0,
         'algorithm' => 'mem', # to run bwa-mem or bwa-backtrack or bwa-sw
-	'band_width'	=> undef,
 	
         'mark_secondary_hits' => 1, # for compatibility with gatk indel realigner
 
@@ -246,9 +245,7 @@ sub run_bwa_mem {
               if ($self->options('gap_open_penalty'));
       push(@cmd_words, '-E', $self->options('gap_extension_penalty'))
               if ($self->options('gap_extension_penalty'));
-      push(@cmd_words, '-w', $self->options('band_width'))
-              if ($self->options('band_width'));
-      
+
       push(@cmd_words, '-M') if $self->options('mark_secondary_hits');
 
       if ($self->read_group_fields->{'ID'}) {
@@ -306,9 +303,7 @@ sub run_bwa_sw {
               if ($self->options('gap_extension_penalty'));
       push (@cmd_words, '-z', $self->options('z_best'))
 	      if ($self->options('z_best'));
-      push (@cmd_words, '-w', $self->options('band_width'))
-              if ($self->options('band_width'));
-      
+
       push(@cmd_words, '-M') if $self->options('mark_secondary_hits');
 
       push(@cmd_words, $self->reference);

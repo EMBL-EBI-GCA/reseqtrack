@@ -13,6 +13,7 @@ use DateTime::Format::MySQL qw(parse_datetime);
 my ($dbhost, $dbuser, $dbpass, $dbport, $dbname);
 my ($hive_user, $hive_pass);
 my ($pipeline_name, $hive_db_id, $reseed, $loop, $run, $sync, $hive_log_dir, $max_seeds);
+my $ensembl_hive_dir;
 
 my %options;
 &GetOptions( 
@@ -27,6 +28,7 @@ my %options;
   'hive_db_id=s'  => \$hive_db_id,
   'reseed!'  => \$reseed,
   'max_seeds=i' => \$max_seeds,
+  'ensembl_hive_dir=s'  => \$ensembl_hive_dir,
   'loop!' => \$loop,
   'run!' => \$run,
   'hive_log_dir=s'  => \$hive_log_dir,
@@ -80,7 +82,7 @@ print "selected hive_db name=$hive_dbname port=$hive_port host=$hive_host\n";
 
 my $run_hive = ReseqTrack::Tools::RunHive->new(
     -hive_dbname => $hive_dbname,
-    -hive_scripts_dir => $hive_db->hive_version .'/scripts',
+    -hive_scripts_dir => $ensembl_hive_dir . '/scripts',
     -hive_user => $hive_user, -hive_password => $hive_pass,
     -hive_host => $hive_host, -hive_port => $hive_port,
     );
@@ -148,6 +150,7 @@ This script is used to do two things:
 
   -pipeline_name, refers to a name in the pipeline table. Must specify either this or -hive_db_id
   -hive_db_id, refers to a dbID in the hive_db table. Must specify either this or -pipeline_name
+  -ensembl_hive_dir, path to the ensembl hive api
   -reseed, boolean flag to add a new seed job to the pipeline. Default is 1. Use -noreseed to disable.
   -max_seeds, integer, optional maximum number of new seed jobs to add to the pipeline.
   -run, boolean flag to run the pipeline. Default is 1. Use -norun to disable.
@@ -163,5 +166,6 @@ This script is used to do two things:
 
   perl reseqtrack/pipeline/run_pipeline.pl $DB_OPTS $HIVE_DB_OPTS
     -pipeline_name alignment
+    -ensembl_hive_dir /path/to/api
 
 =cut

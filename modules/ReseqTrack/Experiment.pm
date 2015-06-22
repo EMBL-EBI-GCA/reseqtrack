@@ -207,9 +207,4 @@ sub object_table_name {
 	return "experiment";
 }
 
-sub runs {
-  my ($self) = @_;
-  return $self->adaptor->db->get_RunAdaptor->fetch_by_experiment_id($self->dbID); 
-}
-
 1;
