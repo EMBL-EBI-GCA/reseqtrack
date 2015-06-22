@@ -32,7 +32,6 @@ use File::Basename;
 use File::Path;
 use File::Find ();
 use ReseqTrack::Tools::GeneralUtils;
-use ReseqTrack::Tools::FileSystemUtils qw(check_directory_exists);
 use vars qw (@ISA  @EXPORT);
 
 @ISA = qw(Exporter);
@@ -47,7 +46,7 @@ use vars qw (@ISA  @EXPORT);
              assign_type
 	     move_file_in_db_and_dir
              get_count_stats
-	     write_reject_log
+	     write_log
              assign_type_by_filename);
 
 =head2 are_files_identical
@@ -178,7 +177,6 @@ sub calculate_comment{
   #throw("New and Old files need to have the same name for this to be relavant".
   #      " not new ".$new->name." and old ".$old->name) if($new->name ne $old->name);
   my $result = are_files_identical($new, $old);
-
   unless($result == 1){
     if($new->full_path ne $old->full_path){
       return "File has changed location from ".$old->full_path." to ".$new->full_path;
@@ -418,7 +416,7 @@ sub move_file_in_db_and_dir {
   my @new_file_objects;
   
   unless ( -e $dir ) {
-    check_directory_exists($dir);
+    mkpath($dir);
   }
   
   my $fa = $db->get_FileAdaptor;
@@ -432,7 +430,7 @@ sub move_file_in_db_and_dir {
     #`mv $file_path $dir`;
     
     my $new_path = $dir . "/" . $base_name;
-    move($file_path, $new_path) or throw("Could not move $file_path to $new_path: $!"); 
+    move($file_path, $new_path);
     throw("Failed to move ".$file_path." to ".$new_path) unless(-e $new_path);
     $f_obj->name($new_path);
     $f_obj->type($new_f_type);
@@ -533,9 +531,10 @@ sub get_count_stats{
 
 }
 
-sub write_reject_log {
-	my ($f_obj, $db, $message) = @_;	
+sub write_log {
+	my ($f_obj, $log_adaptor, $message) = @_;	
 	my $new_log_obj;
+	
 	if ($message) {
 		$new_log_obj = ReseqTrack::RejectLog->new(
 			-file_id 		=> $f_obj->dbID,
@@ -550,8 +549,8 @@ sub write_reject_log {
 			);
 	}		
 	
-	#$db->get_RejectLogAdaptor->store($new_log_obj, 1) if ($run);
-	$db->get_RejectLogAdaptor->store($new_log_obj, 1);
+	#$log_adaptor->store($new_log_obj, 1) if ($run);
+	$log_adaptor->store($new_log_obj, 1);
 	
 	return 1;
 }	

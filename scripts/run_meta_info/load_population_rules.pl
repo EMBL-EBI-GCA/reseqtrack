@@ -1,7 +1,6 @@
-#!/usr/bin/env perl
+#!/sw/bin/perl -w
 
 use strict;
-use warnings;
 use ReseqTrack::PopulationRule;
 use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::Exception;

@@ -1,8 +1,7 @@
-#!/usr/bin/env perl
 
+#!/sw/arch/bin/perl -w
 
 use strict;
-use warnings;
 use ReseqTrack::Tools::Exception;
 use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::FilterFastq;
@@ -266,7 +265,7 @@ my $archiver = ReseqTrack::Tools::Loader::Archive->new
   (
    -file      => $files,
    -action    => 'archive',
-   -priority  => 50,
+   -priority  => 90,
    -no_lock   => 1,
    -db => $db,
   );

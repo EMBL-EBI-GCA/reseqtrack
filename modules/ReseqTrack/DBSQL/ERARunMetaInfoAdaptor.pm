@@ -10,7 +10,6 @@ use ReseqTrack::Tools::Exception qw(throw warning);
 use ReseqTrack::Tools::Argument qw(rearrange);
 use ReseqTrack::Tools::RunMetaInfoUtils qw (are_run_meta_infos_identical convert_population convert_center_name);
 use ReseqTrack::Tools::ERAUtils;
-use ReseqTrack::Tools::GeneralUtils;
 
 use File::Basename;
 
@@ -164,19 +163,8 @@ sub object_from_hashref{
     $population = convert_population($hashref->{POPULATION}, $self->population_rules, $hashref->{RUN_ID}, $hashref->{STUDY_ID});
   };
   if($@){
-    #This is not a long term solution this is here to stop some crontab messages
-    print "$@\n" unless($hashref->{STUDY_ID} eq 'SRP000031' || $hashref->{STUDY_ID} eq 'SRP000032' || $hashref->{STUDY_ID} eq 'SRP000033');
+    print "$@\n";
     return undef;
-  }
-  if($hashref->{SAMPLE_NAME} =~ /^GM\d+/){
-    #This is another complete hack
-    my $name = $hashref->{SAMPLE_NAME};
-    $name =~ s/GM/NA/;
-    $hashref->{SAMPLE_NAME} = $name;
-  }
-  if($hashref->{SAMPLE_ID} eq 'SRS000610' and $hashref->{SAMPLE_NAME} eq 'NA13044'){
-    $hashref->{SAMPLE_NAME} = 'NA06989';
-    #This is a big hack, a substantially better solution is needed
   }
   my $center_name = convert_center_name($hashref->{CENTER_NAME});
   my $object = ReseqTrack::RunMetaInfo->new(
@@ -187,7 +175,7 @@ sub object_from_hashref{
     -submission_id => $hashref->{SUBMISSION_ID},
     -submission_date => $new_date,
     -sample_id => $hashref->{SAMPLE_ID},
-    -sample_name => trim_spaces($hashref->{SAMPLE_NAME}),
+    -sample_name => $hashref->{SAMPLE_NAME},
     -population => $population,
     -experiment_id => $hashref->{EXPERIMENT_ID},
     -instrument_platform => $hashref->{INSTRUMENT_PLATFORM},

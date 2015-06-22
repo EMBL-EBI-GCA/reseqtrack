@@ -1,7 +1,6 @@
-#!/usr/bin/env perl
+#!/sw/arch/bin/perl -w
 
 use strict;
-use warnings;
 use ReseqTrack::Tools::Exception;
 use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::FileUtils qw(get_count_stats create_object_from_path);

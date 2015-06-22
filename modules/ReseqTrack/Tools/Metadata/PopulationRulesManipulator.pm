@@ -3,7 +3,7 @@ package ReseqTrack::Tools::Metadata::PopulationRulesManipulator;
 use strict;
 use warnings;
 use ReseqTrack::Tools::Exception qw(throw);
-use base qw(ReseqTrack::Tools::Metadata::BaseMetadataAddIn);
+use base qw(ReseqTrack::Tools::Metadata::BaseMetadataManipulator);
 use ReseqTrack::Tools::AttributeUtils
   qw(remove_outdated_attributes create_attribute_for_object);
 
@@ -20,6 +20,7 @@ sub new {
 
   return $self;
 }
+
 
 sub convert_population {
   my ( $self, $sample ) = @_;
@@ -43,10 +44,10 @@ sub convert_population {
   }
 
   my $attr = create_attribute_for_object( $sample, 'POPULATION', $population );
-  $sample->attributes( [$attr] );
+  $sample->statistics( [$attr] );
 }
 
-sub check_sample {
+sub manipulate_sample {
   my ( $self, $sample, $current_copy ) = @_;
 
   $self->convert_population($sample);

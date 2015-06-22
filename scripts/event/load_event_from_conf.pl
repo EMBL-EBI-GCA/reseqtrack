@@ -1,6 +1,5 @@
-#!/usr/bin/env perl
+#!/sw/arch/bin/perl
 use strict;
-use warnings;
 use ReseqTrack::Event;
 use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::Exception;

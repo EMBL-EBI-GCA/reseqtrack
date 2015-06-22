@@ -133,8 +133,7 @@ sub  move_bam_to_trash {
 
 	##### If a BAM file, remove it from collection
 	
-	#if ($file->type eq "BAM" || $file->type eq "NCBI_BAM") {
-	if ($file->type =~ /BAM/) {
+	if ($file->type eq "BAM" || $file->type eq "NCBI_BAM") {
 		my ($collection_name) = get_collection_name_from_file_name($full_name);
 		
 		if ($collection_name) {
@@ -283,7 +282,7 @@ sub CHECK_AND_PARSE_FILE_NAME {
 	}
 	
 	### FIXME: need to do some controled vacabulary checks
-	unless ( ($sample =~ /^NA/ || $sample=~/^HG/ || $sample =~ /^GM/) && (!$project || $project =~ /^SRP/) && $date =~ /2009|2010|2011|2012|2013/ ) {
+	unless ( ($sample =~ /^NA/ || $sample=~/^HG/) && (!$project || $project =~ /^SRP/) && $date =~ /2009|2010|2011|2012/ ) {
 		if ($project) {
 			print "sample is $sample, project is $project, date is $date\n";
 		}

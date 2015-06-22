@@ -1,7 +1,6 @@
-#!/usr/bin/env perl
+#!/sw/arch/bin/perl -w
 
 use strict;
-use warnings;
 
 use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::Intersection;
@@ -10,7 +9,11 @@ use ReseqTrack::Tools::Exception;
 use ReseqTrack::Tools::GeneralUtils;
 use ReseqTrack::Job;
 use Getopt::Long;
-use List::Util qw (shuffle);
+use File::Copy;
+use File::Path;
+use File::Basename;
+use Benchmark;
+use Data::Dumper;
 use File::Basename;
 
 $| = 1;
@@ -42,7 +45,6 @@ my $module_name = 'LSF';
 my $verbose;
 my $test;
 my $override_lock;
-my $submit_all_jobs = 0;
 my $inputs_file;
 
 &GetOptions( 
@@ -67,7 +69,6 @@ my $inputs_file;
 	    'verbose!'      => \$verbose,
 	    'test!'         =>\$test,
 	    'override_lock!'=>\$override_lock,
-	    'submit_all_jobs!'=>\$submit_all_jobs,
 	    'inputs_file=s' => \$inputs_file,
 	   );
 
@@ -245,14 +246,10 @@ while(1){
             next EVENT;
         }
     
-        my $num_lsf_jobs = scalar grep {/RUNNING/ || /SUBMITTED/ || /WAITING/} map {$_->current_status} @$existing_jobs;
         my @jobs_to_submit;
         INPUT:
-        foreach my $input (shuffle @$inputs) {
+        foreach my $input (@$inputs) {
             last INPUT if ($submission_limit && $total_submission_count + @jobs_to_submit >= $submission_total);
-            if (!$submit_all_jobs && $num_lsf_jobs) {
-              last INPUT if (@jobs_to_submit + $num_lsf_jobs >= $event->job_slot_limit);
-            }
             my $job = create_job_object($event, $input, $db, $num_output_dirs, $retry_max);
             push(@jobs_to_submit, $job) if($job);
         }
@@ -383,8 +380,6 @@ the number of jobs submitted, by default this is 25
 -once, this flag means the script only runs through its loop once so no failed jobs will be retried nor no dependancies which aren't already satified reached
 
 -test, this flag means jobs are not submitted to the batch submission system.  Instead, the script will print the program command line.
-
--submit_all_jobs, this flag is relevant when a large array of jobs has already been submitted to lsf.  When this flag is set, any new jobs will be submitted even if this results in the number of running jobs exceeding the value of job_slot_limit.  Use with caution.
 
 -override_lock, this flag means the script will continue to run even if the pipeline is locked
 

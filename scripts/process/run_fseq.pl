@@ -1,7 +1,6 @@
 #!/usr/bin/env perl
 
 use strict;
-use warnings;
 use ReseqTrack::Tools::Exception;
 use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::FileUtils qw(create_objects_from_path_list);
@@ -125,7 +124,6 @@ for (my $i = 0; $i < scalar(@files); $i++) {
 	$files[$i] = $new_name;
 }
 
-$db->dbc->disconnect_when_inactive(0);
 my $host = get_host_object($host_name, $db);
 
 foreach my $path (@files) {

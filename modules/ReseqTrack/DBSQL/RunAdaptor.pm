@@ -29,7 +29,7 @@ sub column_mappings {
     run_center_name     => sub { $r->run_center_name(@_) },
     instrument_platform => sub { $r->instrument_platform(@_) },
     instrument_model    => sub { $r->instrument_model(@_) },
-    run_source_id           => sub { $r->run_source_id(@_) },
+    source_id           => sub { $r->source_id(@_) },
     submission_id       => sub { $r->submission_id(@_) },
     submission_date     => sub { $r->submission_date(@_) },
   };
@@ -45,17 +45,12 @@ sub table_name {
 
 sub fetch_by_source_id {
   my ( $self, $source_id ) = @_;
-  return pop @{ $self->fetch_by_column_name( "run_source_id", $source_id ) };
+  return pop @{ $self->fetch_by_column_name( "source_id", $source_id ) };
 }
 
 sub fetch_by_experiment_id {
   my ($self, $experiment_id) = @_;
   return $self->fetch_by_column_name( "experiment_id", $experiment_id)
-}
-
-sub fetch_by_sample_id {
-  my ($self, $sample_id) = @_;
-  return $self->fetch_by_column_name( "sample_id", $sample_id)
 }
 
 sub store {

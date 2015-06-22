@@ -44,20 +44,14 @@ sub name {
   return $self->source_id();
 }
 
-sub source_id {
-  my ( $self, $arg ) = @_;
-  return $self->sample_source_id($arg);
-}
-
-sub sample_source_id {
-	my ($self,$arg) =@_;
-	
-	if ($arg) {
-    $self->{sample_source_id} = $arg;
+sub source_id{
+  my ($self, $arg) = @_; 
+  
+  if($arg){
+    $self->{source_id} = $arg;
   }
-  return $self->{sample_source_id};
+  return $self->{source_id};
 }
-
 
  
 sub status{

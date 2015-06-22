@@ -25,7 +25,7 @@ sub column_mappings {
     type            => sub { $s->type(@_) },
     title           => sub { $s->title(@_) },
     study_alias     => sub { $s->study_alias(@_) },
-    study_source_id       => sub { $s->study_source_id(@_) },
+    source_id       => sub { $s->source_id(@_) },
     submission_id   => sub { $s->submission_id(@_) },
     submission_date => sub { $s->submission_date(@_) },
   };
@@ -56,7 +56,7 @@ sub store {
 
 sub fetch_by_source_id {
   my ( $self, $source_id ) = @_;
-  return pop @{ $self->fetch_by_column_name( "study_source_id", $source_id ) };
+  return pop @{ $self->fetch_by_column_name( "source_id", $source_id ) };
 }
 
 1;

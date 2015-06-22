@@ -126,7 +126,6 @@ sub archive_objects {
   my ( $self ) = @_;
   
   my @files_to_archive  = keys(%{$self->which_action_hash});
-  #print "Have ".@files_to_archive." files to archive\n";
   my %file_objects;
   if(@files_to_archive == 0){
     print STDERR "There are no files to archive exiting\n";
@@ -144,7 +143,6 @@ sub archive_objects {
   $self->archive_adaptor($aa);
 
   foreach my $file_path (@files_to_archive) {
-    #print "Looking at ".$file_path."\n";
     next unless ( -e $file_path );
     my $action = $self->{which_action_hash}{$file_path};
   
@@ -152,7 +150,6 @@ sub archive_objects {
     my $file;
 
     unless ( $file_objects{$file_path} ) {
-      #print "Creating archive objects\n";
       $file = $fa->fetch_by_name($file_path);
       if ( !$file ) {
 	warning( "Failed to fetch file from " . $file_path );
@@ -192,6 +189,8 @@ sub sanity_check_objects {
   my %changelog_hash;
   my $files = $self->file_paths;
 
+
+
   my $total_files = scalar @{$files};
 
   my $action_hash = $self->action_hash;
@@ -214,12 +213,13 @@ sub sanity_check_objects {
 
   
     my $new_root = $self->other_location->location;
-    if ( $new_root =~ /^\/nfs\/1000g-archive/ || $new_root =~ /^\/nfs\/hipsci/ ) {
+    if ( $new_root =~ /\/nfs\/1000g-archive/ ) {
       $new_root .= "/vol1";
     }
 
     my $loc_root = $self->location_root;
     $new_file =~ s/$loc_root/$new_root/;
+
     
 
     if ( $self->archive_location->location_name eq 'staging' ) {

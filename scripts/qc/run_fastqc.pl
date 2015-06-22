@@ -1,4 +1,3 @@
-#!/usr/bin/env perl
 use strict;
 use warnings;
 
@@ -28,7 +27,6 @@ my $fastqc_path = 'fastqc';
 my $directory_layout;
 my $report_output_type = 'FASTQC_REPORT';
 my $summary_output_type = 'FASTQC_SUMMARY';
-my $zip_output_type = 'FASTQC_ZIP';
 
 &GetOptions(
 	'dbhost=s'     => \$dbhost,
@@ -43,8 +41,7 @@ my $zip_output_type = 'FASTQC_ZIP';
 	'program=s' => \$fastqc_path,
 	'directory_layout=s' => \$directory_layout,
 	'report_output_type=s' => \$report_output_type,
-	'summary_output_type=s' => \$summary_output_type,
-	'zip_output_type=s' => \$zip_output_type, 
+	'summary_output_type=s' => \$summary_output_type, 
 );
 	
 
@@ -91,39 +88,33 @@ my @input_files = map {$_->name} @{$collection->others};
 
 my @summary_files;
 my @report_files;
-my @zip_files;
 
 for my $fastq_file (@{$collection->others}) {
-	$db->dbc->disconnect_when_inactive(1);
 	my $fastqc = ReseqTrack::Tools::QC::FastQC->new(
 		-program => $fastqc_path,
 		-keep_text => 1,
 		-keep_summary => 1,
-		-keep_zip => 1,
 		-working_dir => $output_dir,
 		-input_files => [$fastq_file->name],
 	);
 	
 	$fastqc->run;
-	$db->dbc->disconnect_when_inactive(0);
-
-        my @summary_paths = grep { /_summary\.txt$/ } @{$fastqc->output_files};
-        my @report_paths = grep { /_report\.txt$/ } @{$fastqc->output_files};
-        my @zip_paths = grep { /\.zip$/ } @{$fastqc->output_files};
-
-        throw("unexpected number of summary paths: " . scalar @summary_paths) if @summary_paths != 1;
-        throw("unexpected number of report paths: " . scalar @report_paths) if @report_paths != 1;
-        throw("unexpected number of zip paths: " . scalar @zip_paths) if @zip_paths != 1;
-        my ($summary_path, $report_path, $zip_path) = ($summary_paths[0], $report_paths[0], $zip_paths[0]);
 	
-	push @summary_files, $summary_path;
-	push @report_files, $report_path;
-	push @zip_files, $zip_path;
+	my ($base_name) = $fastqc->output_base_name($fastq_file->name);	
+	my $summary_path = $fastqc->summary_text_path($fastq_file->name);
+	my $report_path = $fastqc->report_text_path($fastq_file->name);
+	my $summary_destination = "$output_dir/${base_name}_summary.txt";
+	my $report_destination = "$output_dir/${base_name}_report.txt";
+	move($summary_path,$summary_destination);
+	move($report_path,$report_destination);
+	
+	push @summary_files, $summary_destination;
+	push @report_files, $report_destination;
 
 	
 	my $statistics = $fastq_file->attributes;
 	
-	open (my $summary_fh, '<', $summary_path) or throw("Could not open $summary_path - odd as we should have just made it");
+	open (my $summary_fh, '<', $summary_destination) or throw("Could not open $summary_destination - odd as we should have just made it");
 	while (<$summary_fh>){
 		chomp;
 		my ($value,$key,$name) = split /\t/;
@@ -136,7 +127,6 @@ for my $fastq_file (@{$collection->others}) {
 
 create_output_records($collection->name,$summary_output_type,\@summary_files);
 create_output_records($collection->name,$report_output_type,\@report_files);
-create_output_records($collection->name,$zip_output_type,\@zip_files);
 
 sub create_output_records {
 	my ($collection_name,$type,$file_names) = @_;

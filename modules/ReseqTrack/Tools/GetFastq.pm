@@ -6,7 +6,7 @@ ReseqTrack::Tools::GetFastq
 
 =head1 SYNOPSIS
 
-This is a object to get fastq files associated with a Run
+This is a object to get fastq files associated with a run_id
 
 Subroutines in this package are for publicly available fastq files in the ERA database.
 Child classes can override any of these subroutines for other methods of getting fastq files.
@@ -30,8 +30,8 @@ use File::Copy qw (copy);
 
   Arg [-output_dir]   :
       string, destination directory for fastq files
-  Arg [-run_info]   :
-      A Run object
+  Arg [-run_meta_info]   :
+      A RunMetaInfo object
   Arg [-db]   :
       A ERADBAdaptor object
   Arg [-source_root_dir]   :
@@ -46,12 +46,12 @@ sub new {
   my ($class, @args) = @_;
   my $self ={};
   bless $self,$class;
-  my ($output_dir, $run_info, $db, $source_root_dir, $clobber)
-    = rearrange([qw(OUTPUT_DIR RUN_INFO DB SOURCE_ROOT_DIR CLOBBER
+  my ($output_dir, $run_meta_info, $db, $source_root_dir, $clobber)
+    = rearrange([qw(OUTPUT_DIR RUN_META_INFO DB SOURCE_ROOT_DIR CLOBBER
 		    )],  @args);
 
   $self->output_dir($output_dir);
-  $self->run_info($run_info);
+  $self->run_meta_info($run_meta_info);
   $self->db($db);
   $self->source_root_dir($source_root_dir || '/nfs/era-pub');
   $self->clobber($clobber);
@@ -69,28 +69,27 @@ sub run {
   my $self = shift;
 
   throw("do not have output_dir") if !$self->output_dir;
-  throw("do not have Run object") if !$self->run_info;
+  throw("do not have RunMetaInfo object") if !$self->run_meta_info;
   throw("do not have a DB adaptor") if !$self->db;
   throw("do not have a source root directory") if !$self->source_root_dir;
 
   if ($self->check_fastq_available == 0) {
-    throw("no fastq files available for ".$self->run_info->source_id."\n");
+    print "no fastq files available for ".$self->run_meta_info->run_id."\n";
+    return 0;
   }
-
   if ($self->check_status == 0) {
     return 0;
   }
   $self->get_fastq_details;
   $self->make_output_hash;
   $self->prepare_output_dir;
-  $self->db->dbc->disconnect_when_inactive(1);
   $self->get_files;
   $self->check_sizes;
   $self->check_md5s;
   return scalar @{$self->output_files};
 }
 
-=head2 check_fastq_available
+=head2 run
 
 returns 1 if fastq are available; otherwise 0
 
@@ -99,10 +98,10 @@ returns 1 if fastq are available; otherwise 0
 sub check_fastq_available {
   my $self = shift;
   my $era_rmia = $self->db->get_ERARunMetaInfoAdaptor;
-  return $era_rmia->is_fastq_available($self->run_info->source_id);
+  return $era_rmia->is_fastq_available($self->run_meta_info->run_id);
 }
 
-=head2 check_status
+=head2 run
 
 returns 1 if status is OK; otherwise 0
 
@@ -111,9 +110,9 @@ returns 1 if status is OK; otherwise 0
 sub check_status {
   my $self = shift;
   my $era_rmia = $self->db->get_ERARunMetaInfoAdaptor;
-  my $status = $era_rmia->get_status($self->run_info->source_id);
+  my $status = $era_rmia->get_status($self->run_meta_info->run_id);
   if ($status ne 'public') {
-    print "status is not public for ".$self->run_info->source_id."\n";
+    print "status is not public for ".$self->run_meta_info->run_id."\n";
     return 0;
   }
   return 1;
@@ -122,7 +121,7 @@ sub check_status {
 sub get_fastq_details {
   my $self = shift;
   my ($db_md5_hash, $db_size_hash, $name_hash) =
-      ReseqTrack::Tools::ERAUtils::get_fastq_details($self->run_info->source_id, $self->db, $self->source_root_dir);
+      ReseqTrack::Tools::ERAUtils::get_fastq_details($self->run_meta_info->run_id, $self->db, $self->source_root_dir);
   $self->db_md5_hash($db_md5_hash);
   $self->db_size_hash($db_size_hash);
   $self->name_hash($name_hash);
@@ -148,7 +147,7 @@ sub prepare_output_dir {
   my @exists = grep {-e $_} values %{$self->output_hash};
   if (@exists) {
     if ($self->clobber) {
-      print "Deleting files associated with ".$self->run_info->source_id." in $output_dir\n";
+      print "Deleting files associated with ".$self->run_meta_info->run_id." in $output_dir\n";
       delete_file($_, 1) foreach @exists;
     } else {
       throw("Files already exist and clobber flag is 0: @exists")
@@ -216,12 +215,12 @@ sub output_dir{
   $self->{output_dir};
 }
 
-sub run_info{
-  my ($self, $run_info) = @_;
-  if($run_info){
-    $self->{run_info} = $run_info;
+sub run_meta_info{
+  my ($self, $run_meta_info) = @_;
+  if($run_meta_info){
+    $self->{run_meta_info} = $run_meta_info;
   }
-  return $self->{run_info};
+  return $self->{run_meta_info};
 }
 
 sub db{

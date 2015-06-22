@@ -1,12 +1,12 @@
-#!/usr/bin/env perl
+#!/sw/arch/bin/perl -w
 
 use strict;
-use warnings;
 use ReseqTrack::Tools::Exception;
 use Getopt::Long;
 use ReseqTrack::Tools::FileUtils;
 use ReseqTrack::Tools::FileSystemUtils;
 use Time::Local;
+use VertRes::Utils::Sam;
 use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::BamUtils;
 use File::Path;
@@ -114,23 +114,9 @@ if ($collection_type && $collection_name)  {
 		print "Input VCF to concat is $vcf_path\n";
 		$count++;
 	}
+	my $out = $output_dir . "/" . $collection_name . ".vcf";
+	my $command = "/nfs/1000g-work/G1K/work/bin/vr-codebase/scripts/vcf-concat -s $count $vcfs > $out";
 	
-	$collection_name =~ s/chr1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22/wg/;
-	my $out;	
-	if ( $collection_name =~ /samtools/ ) {
-		$out = $output_dir . "/samtools/" . $collection_name . ".vcf";
-	}
-	elsif (	$collection_name =~ /gatk/ ) {
-		$out = $output_dir . "/gatk/" . $collection_name . ".vcf";
-	}
-	elsif ( $collection_name =~ /umake/ ) {
-		$out = $output_dir . "/umake/" . $collection_name . ".vcf";
-	}
-	else {
-		$out = $output_dir . "/" . $collection_name . ".vcf";
-	}	
-	#my $command = "/nfs/1000g-work/G1K/work/bin/vr-codebase/scripts/vcf-concat -s $count $vcfs | /nfs/1000g-work/G1K/work/bin/vr-codebase/scripts/vcf-sort -c > $out";
-	my $command = "/nfs/1000g-work/G1K/work/bin/vcftools/bin/vcf-concat -s $count $vcfs | /nfs/1000g-work/G1K/work/bin/vcftools/bin/vcf-sort > $out";
 	# The -s (sort-merge) option allows the program to open symotaneuosly $count number of files and concat them and sort the resulting file
 	# It needs the input vcf files bgzipped and indexed
 	 
@@ -146,7 +132,7 @@ if ($collection_type && $collection_name)  {
 	throw("bgzip VCFs failed\n") if ($exit >=1);
 	
 	my $zipped_file = $out . ".gz";
-	my $file_type = "MERGED_VCF";
+	my $file_type = $collection_type;
 	store_file($zipped_file, $file_type) if ($store);
 	
 	`/nfs/1000g-work/G1K/work/bin/tabix/tabix -p vcf $zipped_file`;

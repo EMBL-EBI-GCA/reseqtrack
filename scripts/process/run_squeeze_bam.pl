@@ -1,7 +1,6 @@
 #!/usr/bin/env perl
 
 use strict;
-use warnings;
 use ReseqTrack::Tools::Exception;
 use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::FileUtils qw(create_object_from_path);
@@ -113,7 +112,6 @@ $bam_squeezer->options('keepDups', $rm_dups ? 0 : 1);
 
 $bam_squeezer->run;
 
-$db->dbc->disconnect_when_inactive(0);
 if($store){
   my $host = get_host_object($host_name, $db);
 

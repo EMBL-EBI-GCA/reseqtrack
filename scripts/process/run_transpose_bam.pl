@@ -1,7 +1,6 @@
 #!/usr/bin/env perl
 
 use strict;
-use warnings;
 use ReseqTrack::Tools::Exception;
 use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::FileUtils qw(create_object_from_path);
@@ -9,7 +8,6 @@ use ReseqTrack::Tools::FileSystemUtils qw(run_md5 );
 use ReseqTrack::Tools::HostUtils qw(get_host_object);
 use ReseqTrack::Tools::RunTransposeBam;
 use Getopt::Long;
-use List::Util qw(first);
 
 $| = 1;
 
@@ -27,7 +25,6 @@ my $program;
 my $host_name = '1000genomes.ebi.ac.uk';
 my $store;
 my $disable_md5;
-my $build_index;
 
 &GetOptions( 
   'dbhost=s'      => \$dbhost,
@@ -44,7 +41,6 @@ my $build_index;
   'host_name=s' => \$host_name,
   'store!' => \$store,
   'disable_md5!' => \$disable_md5,
-  'build_index!' => \$build_index,
     );
 
 throw("Must specify an output directory") if (!$output_dir);
@@ -79,30 +75,22 @@ $output_dir =~ s{//+}{/}g;
 my $job_name = $col_name . '.' . $region;
 $job_name =~ s/:/./;
 
-my %options;
-if ($build_index) {
-  $options{build_index} = 1;
-}
 
 my $bam_transposer = ReseqTrack::Tools::RunTransposeBam->new(
                   -input_files             => \@filenames,
                   -working_dir             => $output_dir,
                   -program                 => $program,
                   -job_name                => $job_name,
-                  -regions                 => [$region],
-                  -options                 => \%options,
+                  -region                  => $region,
                   );
 
 $bam_transposer->run;
 
-$db->dbc->disconnect_when_inactive(0);
 if($store){
   my $host = get_host_object($host_name, $db);
   my $fa = $db->get_FileAdaptor;
 
-  my $bam_path = first {/\.bam$/} @{$bam_transposer->output_files};
-
-  my $bam = create_object_from_path($bam_path, $type_output, $host);
+  my $bam = create_object_from_path($bam_transposer->output_files->[0], $type_output, $host);
   if (! $disable_md5) {
     $bam->md5( run_md5($bam->name) );
   }

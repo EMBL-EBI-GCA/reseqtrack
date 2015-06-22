@@ -28,15 +28,10 @@ use ReseqTrack::DBSQL::FileTypeRuleAdaptor;
 use ReseqTrack::DBSQL::PopulationRuleAdaptor;
 use ReseqTrack::DBSQL::StudyIDAdaptor;
 use ReseqTrack::DBSQL::VerifyBamIDAdaptor;
-use ReseqTrack::DBSQL::RejectLogAdaptor;
 use ReseqTrack::DBSQL::StudyAdaptor;
 use ReseqTrack::DBSQL::ExperimentAdaptor;
 use ReseqTrack::DBSQL::SampleAdaptor;
 use ReseqTrack::DBSQL::RunAdaptor;
-use ReseqTrack::DBSQL::PipelineAdaptor;
-use ReseqTrack::DBSQL::HiveDBAdaptor;
-use ReseqTrack::DBSQL::PipelineSeedAdaptor;
-use ReseqTrack::DBSQL::PipelineOutputAdaptor;
 
 sub new {
   my($class, @args) = @_;
@@ -233,22 +228,6 @@ sub get_SampleAdaptor{
 	my ($self) = @_;
 	return $self->_get_adaptor('ReseqTrack::DBSQL::SampleAdaptor');
 }
-sub get_PipelineAdaptor{
-	my ($self) = @_;
-	return $self->_get_adaptor('ReseqTrack::DBSQL::PipelineAdaptor');
-}
-sub get_HiveDBAdaptor{
-	my ($self) = @_;
-	return $self->_get_adaptor('ReseqTrack::DBSQL::HiveDBAdaptor');
-}
-sub get_PipelineSeedAdaptor{
-	my ($self) = @_;
-	return $self->_get_adaptor('ReseqTrack::DBSQL::PipelineSeedAdaptor');
-}
-sub get_PipelineOutputAdaptor{
-	my ($self) = @_;
-	return $self->_get_adaptor('ReseqTrack::DBSQL::PipelineOutputAdaptor');
-}
 sub _get_adaptor{
 	my ($self,$class,@args) = @_;
 	if (!$self->{$class}){
@@ -256,20 +235,4 @@ sub _get_adaptor{
 	}
 	return $self->{$class};
 }
-
-sub get_adaptor_for_table{
-  my ($self, $table_name) = @_;
-  throw("undefined table name") if ! defined $table_name;
-  return $self->get_FileAdaptor if ($table_name eq 'file');
-  return $self->get_CollectionAdaptor if ($table_name eq 'collection');
-  return $self->get_EventAdaptor if ($table_name eq 'event');
-  return $self->get_RunMetaInfoAdaptor if ($table_name eq 'run_meta_info');
-  return $self->get_InputStringAdaptor if ($table_name eq 'input_string');
-  return $self->get_SampleAdaptor if ($table_name eq 'sample');
-  return $self->get_RunAdaptor if ($table_name eq 'run');
-  return $self->get_ExperimentAdaptor if ($table_name eq 'experiment');
-  return $self->get_StudyAdaptor if ($table_name eq 'study');
-  throw("do not know what to return for $table_name (yet)");
-}
-
 1;

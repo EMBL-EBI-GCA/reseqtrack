@@ -1,7 +1,6 @@
-#!/usr/bin/env perl
+#!/sw/arch/bin/perl -w
 
 use strict;
-use warnings;
 use ReseqTrack::Tools::Exception;
 use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::GeneralUtils;
@@ -23,8 +22,6 @@ my $sequence_module = 'ReseqTrack::Tools::Statistics::SequenceIndexStatistics';
 my $alignment_module = 'ReseqTrack::Tools::Statistics::AlignmentIndexStatistics';
 my $collection_type;
 my $collection_name;
-my $analysis;
-my $threshold_in_gb;
 my $help = 0;
 &GetOptions( 
 	    'dbhost=s'       => \$dbhost,
@@ -37,17 +34,14 @@ my $help = 0;
 	    'module=s' => \$module,
 	    'sequence!' => \$sequence,
 	    'alignment!' => \$alignment,
-	    'analysis_index!' => \$analysis,
 	    'collection_type:s' => \$collection_type,
 	    'collection_name:s' => \$collection_name,
-	    'threshold_in_gb:i'	=>\$threshold_in_gb,
 	    'help!' => \$help,
 	   );
 
 if($help){
   useage();
 }
-
 
 unless($module){
   if($sequence){
@@ -90,8 +84,6 @@ my $stats = $module->new(
 			 -old_index => $old_index_file,
 			 -collection_type => $collection_type,
 			 -collection_name => $collection_name,
-			 -analysis => $analysis,
-			 -threshold_in_gb => $threshold_in_gb,
 			);
 
 $stats->make_stats;
@@ -134,7 +126,6 @@ fetched from the given database and the 2 most recent files are worked out on th
 -module, this is the perl path to the module which should be used e.g ReseqTrack::Tools::Statistics::SequenceIndexStatistics
 -sequence, this means you default to using the SequenceIndexStatistics module
 -alignment, this means you default to using the AlignmentIndexStatistics module
--threshold_in_gb, this is useful if you want to calculate number of samples with more than X Gb of data (if 10Gb, enter as '10') 
 
 =head1 Examples
 

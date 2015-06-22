@@ -1,7 +1,6 @@
 #!/usr/bin/env perl
 
 use strict;
-use warnings;
 use ReseqTrack::Tools::Exception;
 use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::FileUtils;
@@ -155,7 +154,6 @@ my $run_alignment = $alignment_module->new(%$constructor_hash);
 
 $run_alignment->run;
 
-$db->dbc->disconnect_when_inactive(0);
 if($store){
   my $host = get_host_object($host_name, $db);
   my $fa = $db->get_FileAdaptor;

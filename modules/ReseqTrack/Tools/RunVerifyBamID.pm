@@ -23,9 +23,9 @@ sub new {
 			  VCF		 
 			  OUT_PREFIX
 			  OPTIONS
-              DEBUG
-              RUN_MODE
-			)
+                          DEBUG
+                          RUN_MODE
+			  )
 		],
 		@args
 	);
@@ -69,17 +69,9 @@ sub construct_run_cmd {
 	$cmd .= "--bam " . $bam . " ";
 	
 	if (defined $self->options ) {
-				
 		foreach my $option (  keys %{$self->options} ) {
-			if ( $self->options->{$option} == 1 ) {
-				$cmd .= $option . " ";
-			}
-			else {
-				$cmd .= $option . " " . $self->options->{$option} . " ";	
-			}	
-			print "option is $option, value is " . $self->options->{$option} . "\n";
+			$cmd .= $option . " ";
 		}
-
 	}
 
 	$cmd .= "--" . $self->run_mode . " " if ( defined $self->run_mode) ;
@@ -186,7 +178,7 @@ sub bestSM {
 	return $self->{bestSM};
 }
 
-=head
+
 sub options {
 	my ( $self, $arg ) = @_;
 	 $self->{'options'} ||= {};
@@ -201,7 +193,6 @@ sub options {
 	my %options = %{$self->{'options'}};
 	return \%options;
 }
-=cut
 
 sub debug {
   my ( $self, $arg ) = @_;
