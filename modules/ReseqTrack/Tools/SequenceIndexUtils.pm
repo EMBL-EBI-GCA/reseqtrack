@@ -197,7 +197,7 @@ sub return_header_string{
               'SAMPLE_NAME', 'POPULATION', 'EXPERIMENT_ID', 'INSTRUMENT_PLATFORM', 
               'INSTRUMENT_MODEL', 'LIBRARY_NAME', 'RUN_NAME', 'RUN_BLOCK_NAME', 
               'INSERT_SIZE', 'LIBRARY_LAYOUT', 'PAIRED_FASTQ', 'WITHDRAWN', 
-              'WITHDRAWN_DATE', 'COMMENT', 'READ_COUNT', 'BASE_COUNT', 
+              'WITHDRAWN_DATE', 'COMMENT', 'RUN_READ_COUNT', 'RUN_BASE_COUNT', 
               'ANALYSIS_GROUP')."\n";
 }
 
