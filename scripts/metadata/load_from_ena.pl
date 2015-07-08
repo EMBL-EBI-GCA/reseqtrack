@@ -20,6 +20,8 @@ my $load_new;
 my $update_existing;
 my $help;
 my $verbose;
+my $quiet;
+my $summarise = 1;
 my $force_update;
 my $seed_from_old_study_table;
 my @add_in_modules;
@@ -40,14 +42,16 @@ my $log_dir;
     'era_dbpass=s'              => \$era_params[1],
     'era_dbname=s'              => \$era_params[2],
     'new_study=s'               => \@studies_to_add,
-    'load_new!'                 => \$load_new,
-    'update_existing!'          => \$update_existing,
-    'help!'                     => \$help,
-    'verbose!'                  => \$verbose,
-    'force_update!'             => \$force_update,
+    'load_new'                  => \$load_new,
+    'update_existing'           => \$update_existing,
+    'help'                      => \$help,
+    'verbose'                   => \$verbose,
+    'quiet'                     => \$quiet,
+    'summary!'                  => \$summarise,
+    'force_update'              => \$force_update,
     'add_in=s'                  => \@add_in_modules,
     'clob_read_length=i'        => \$clob_read_length,
-    'skip_run_stats!'           => \$skip_run_stats,
+    'skip_run_stats'            => \$skip_run_stats,
     'study=s'                   => \@target_studies,
     'type=s'                    => \@target_types,
     'seed_from_old_study_table' => \$seed_from_old_study_table,
@@ -117,6 +121,7 @@ my $updater = ReseqTrack::Tools::UpdateMetaData->new(
     -dcc_db          => $reseq_db,
     -era_db          => $era_db,
     -verbose         => $verbose,
+    -quiet           => $quiet,
     -log_fh          => $log_fh,
     -add_ins         => \@add_ins,
     -target_types    => \@target_types,
@@ -137,7 +142,8 @@ else {
 
 $reseq_db->dbc->db_handle->commit();
 
-$updater->report();
+$updater->report() unless ($quiet);
+$updater->summarise() if ($summarise);
 
 sub usage {
     exec( 'perldoc', $0 );
@@ -189,8 +195,9 @@ This script loads metadata from the ENA database (ERAPRO) into a ReseqTrack data
 	misc options:
 	
 	-help, display this documentation
-	-verbose, print logging information to STDOUT
-	-suppress_clash_check, will skip the clash check report, unless you have specifically named an add-in that does this
+	-verbose, print a lot of logging information to STDOUT
+  -quiet, print no logging information to STDOUT
+  -nosummary, do not print a summary of how many things were checked / stored
 
 =head1 Examples
 
