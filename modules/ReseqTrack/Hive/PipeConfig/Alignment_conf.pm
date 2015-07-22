@@ -162,7 +162,8 @@ sub default_options {
         'ref_species' => undef,
         'header_lines_file' => undef,
 
-	recalibration_chromosomes => join(',', (map {'chr'.$_} (1..22, 'X', 'Y', 'M'))),
+	#recalibration_chromosomes => join(',', (map {'chr'.$_} (1..22, 'X', 'Y', 'M'))),
+	recalibration_chromosomes => undef,
 
         'realign_level' => 0,
         'recalibrate_level' => 2,
@@ -897,7 +898,7 @@ sub pipeline_analyses {
                 program_file 		=> $self->o('cramtools_dir'),                
                 cramtools_jar_file 	=> $self->o('cramtools_jar_file'),
                 reference 			=> $self->o('reference'),
-                cramtools_options 	=> {'capture-all-tags' => 1, 'ignore-tags' => 'OQ:CQ:BQ','lossy-quality-score-spec' => '\'*8\''},
+                cramtools_options 	=> {'preserve-read-names' => 1, 'capture-all-tags' => 1, 'ignore-tags' => 'OQ:CQ:BQ','lossy-quality-score-spec' => '\'*8\''},
             },
 	    	-rc_name => '4Gb',
             -hive_capacity  =>  200,
