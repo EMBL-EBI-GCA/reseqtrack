@@ -124,8 +124,8 @@ sub move_file_and_load_in_g1k_db {  ## need to delete the original file from ebi
         my @tmp3 = split(/-/, $tmp2[0]);
         my $ind = $tmp3[0];
 		
-		$dropbox_path =~ s/\/$//;
-		my $file_path_in_dropbox = $dropbox_path . "/grch38_crams/" . $filen;
+	$dropbox_path =~ s/\/$//;
+	my $file_path_in_dropbox = $dropbox_path . "/grch38_crams/" . $filen;
         
         $move_to_dir =~ s/\/$//;
         my $new_dir;
@@ -148,6 +148,8 @@ sub move_file_and_load_in_g1k_db {  ## need to delete the original file from ebi
         }
 
         my $new_file_path = $new_dir . $filen;
+
+	$new_file_path =~ s/\.bam\.cram/\.cram/;
 
         my $command = "mv $file_path_in_dropbox $new_file_path";    
         print "$command\n" if ($verbose);
