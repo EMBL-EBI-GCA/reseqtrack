@@ -198,9 +198,19 @@ sub check_md5_change_file_type_and_archive_file {
 	unless ($new_fo->name =~ /\/nfs\/1000g-work\/G1K\/archive_staging\// ) {
         throw("File " . $new_fo->name . " has to be in archive staging area in order for it to be archived\n");
 	}
+
+	my $expected_ftp_path = $new_fo->name;
+	$expected_ftp_path =~ s/\/nfs\/1000g-work\/G1K\/archive_staging\//\/nfs\/1000g-archive\/vol1\//;
  
 	if ($ori_md5 eq $new_fo->md5) {
-		my $action_string = "archive";
+		my $action_string;
+               if (-e $expected_ftp_path) {
+                        $action_string = "replace";
+                }
+                else {
+                        $action_string = "archive";
+                }
+
         my $max_number = 1000;
         my $archiver = ReseqTrack::Tools::Loader::Archive->new(
                                                        -file 	=> [$new_fo->name],
