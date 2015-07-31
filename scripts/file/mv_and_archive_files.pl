@@ -107,12 +107,25 @@ if ( $crai_obj->type !~ /CRAI/i || $crai_obj->type !~ /PUSHED/i ) {
         throw("This file has to be a CRAI file that have been pushed to the dropbox");
 }
 
+
+
+my $bas_path = $input_cram_name . ".bas";
+$bas_path =~ s/.cram//;
+my $bas_obj = $fa->fetch_by_name($bas_path); 
+throw("No file object is found; perhaps the BAS file hasn't been created yet, $bas_path\n") if (!$bas_obj);
+
+if ( $bas_obj->type !~ /BAS/i || $bas_obj->type !~ /PUSHED/i ) { 
+        throw("This file has to be a BAS file that have been pushed to the dropbox");
+}
+
+
 move_file_and_load_in_g1k_db($fo);
 move_file_and_load_in_g1k_db($crai_obj);
+move_file_and_load_in_g1k_db($bas_obj);
 
 check_md5_change_file_type_and_archive_file($fo);  
 check_md5_change_file_type_and_archive_file($crai_obj);
-
+check_md5_change_file_type_and_archive_file($bas_obj);
 ########## SUBS #########
 sub move_file_and_load_in_g1k_db {  ## need to delete the original file from ebi nodes, perhaps with a separate script
 
@@ -149,7 +162,7 @@ sub move_file_and_load_in_g1k_db {  ## need to delete the original file from ebi
 
         my $new_file_path = $new_dir . $filen;
 
-	$new_file_path =~ s/\.bam\.cram/\.cram/;
+		$new_file_path =~ s/\.bam\.cram/\.cram/;
 
         my $command = "mv $file_path_in_dropbox $new_file_path";    
         print "$command\n" if ($verbose);
@@ -186,13 +199,16 @@ sub move_file_and_load_in_g1k_db {  ## need to delete the original file from ebi
 sub check_md5_change_file_type_and_archive_file {
 	my ($fo) = @_;
 	my $ori_md5 = $fo->md5;
-	my $g1k_fos = $g1k_db->get_FileAdaptor->fetch_by_filename(basename($fo->name));
+	my $ori_file_name = basename($fo->name); 
+	$ori_file_name =~ s/\.bam\.cram/\.cram/;
+	my $g1k_fos = $g1k_db->get_FileAdaptor->fetch_by_filename($ori_file_name);
 	if ( !$g1k_fos || scalar(@$g1k_fos) == 0) {
-		throw("No file is found in the g1k db with the basename of " . basename($fo->name) );
+		#throw("No file is found in the g1k db with the basename of " . basename($fo->name) );
+		throw("No file is found in the g1k db with the basename of $ori_file_name");
 	}	
 	my $new_fo;
 	foreach my $g1k_fo (@$g1k_fos) {
-		print "g1k_type is " . $g1k_fo->type . " ori_type is " . $fo->type . "\n" if ($verbose);
+		#print "g1k_type is " . $g1k_fo->type . " ori_type is " . $fo->type . "\n" if ($verbose);
 		next if ($g1k_fo->type ne $fo->type);
 		$new_fo = $g1k_fo;
 	}	
