@@ -107,8 +107,6 @@ if ( $crai_obj->type !~ /CRAI/i || $crai_obj->type !~ /PUSHED/i ) {
         throw("This file has to be a CRAI file that have been pushed to the dropbox");
 }
 
-
-
 my $bas_path = $input_cram_name . ".bas";
 $bas_path =~ s/.cram//;
 my $bas_obj = $fa->fetch_by_name($bas_path); 
@@ -118,7 +116,6 @@ if ( $bas_obj->type !~ /BAS/i || $bas_obj->type !~ /PUSHED/i ) {
         throw("This file has to be a BAS file that have been pushed to the dropbox");
 }
 
-
 move_file_and_load_in_g1k_db($fo);
 move_file_and_load_in_g1k_db($crai_obj);
 move_file_and_load_in_g1k_db($bas_obj);
@@ -126,6 +123,7 @@ move_file_and_load_in_g1k_db($bas_obj);
 check_md5_change_file_type_and_archive_file($fo);  
 check_md5_change_file_type_and_archive_file($crai_obj);
 check_md5_change_file_type_and_archive_file($bas_obj);
+
 ########## SUBS #########
 sub move_file_and_load_in_g1k_db {  ## need to delete the original file from ebi nodes, perhaps with a separate script
 
