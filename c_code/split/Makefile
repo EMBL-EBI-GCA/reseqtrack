@@ -1,7 +1,7 @@
 CC = gcc
 CFLAGS=-O3
-#ZPATH=/nfs/1000g-work/G1K/work
-ZPATH=/nfs/production/reseq-info/work
+ZPATH=/nfs/1000g-work/G1K/work
+#ZPATH=/nfs/production/reseq-info/work
 LDFLAGS=-L$(ZPATH)/lib -Wl,-rpath,$(ZPATH)/lib
 
 all: split
