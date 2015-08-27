@@ -3,9 +3,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#include <sam.h>
+#include <htslib/sam.h>
 #include <sam_header.h>
-#include <khash.h>
+#include <bam.h>
+#include <htslib/khash.h>
 #include <openssl/md5.h> /* for md5 */
 
 
@@ -61,13 +62,13 @@ void *rg_stats_init(bam_header_t *bam_header) {
   khash_t(tags) *LB_hash, *SM_hash, *PL_hash, *DS_hash, *PU_hash;
   khiter_t k;
 
-  bam_header->dict = sam_header_parse2(bam_header->text);
-  ID_array = sam_header2list(bam_header->dict, "RG", "ID", &n_rg);
-  LB_hash = sam_header2tbl(bam_header->dict, "RG", "ID", "LB");
-  SM_hash = sam_header2tbl(bam_header->dict, "RG", "ID", "SM");
-  PL_hash = sam_header2tbl(bam_header->dict, "RG", "ID", "PL");
-  DS_hash = sam_header2tbl(bam_header->dict, "RG", "ID", "DS");
-  PU_hash = sam_header2tbl(bam_header->dict, "RG", "ID", "PU");
+  void *dict = sam_header_parse2(bam_header->text);
+  ID_array = sam_header2list(dict, "RG", "ID", &n_rg);
+  LB_hash = sam_header2tbl(dict, "RG", "ID", "LB");
+  SM_hash = sam_header2tbl(dict, "RG", "ID", "SM");
+  PL_hash = sam_header2tbl(dict, "RG", "ID", "PL");
+  DS_hash = sam_header2tbl(dict, "RG", "ID", "DS");
+  PU_hash = sam_header2tbl(dict, "RG", "ID", "PU");
 
   for(i=0; i<n_rg; i++) {
     rg_stats_t *new_rg_stats = (rg_stats_t*) malloc(sizeof(rg_stats_t));
@@ -182,7 +183,7 @@ void update_stats(rg_stats_t *rg_stats, bam1_t *bam_line) {
 
   }
 
-  uint8_t *nm_with_type = bam_aux_get(bam_line, "NM");
+  uint8_t *nm_with_type = bam_aux_get_core(bam_line, "NM");
   if (nm_with_type != 0) {
     rg_stats->num_NM_mismatched_bases += bam_aux2i(nm_with_type);
     rg_stats->num_NM_bases += bam_line->core.l_qseq;
@@ -499,7 +500,7 @@ int main(int argc, char *argv[])
 
 
   while (bam_read1(bam, bam_line) > 0) {
-    uint8_t *rg_with_type = bam_aux_get(bam_line, "RG");
+    uint8_t *rg_with_type = bam_aux_get_core(bam_line, "RG");
     khiter_t k = kh_get(rg_stats, rg_stats_hash, bam_aux2Z(rg_with_type));
     if (k == kh_end(rg_stats_hash)) {
       fprintf(stderr, "Unknown read group in bam: %s\n", bam_aux2Z(rg_with_type));
