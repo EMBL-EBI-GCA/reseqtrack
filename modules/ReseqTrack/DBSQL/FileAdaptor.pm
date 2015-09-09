@@ -194,6 +194,21 @@ sub fetch_by_host {
 	return \@files;
 }	
 
+sub fetch_all_withdrawn{
+  my ($self) = @_;
+  my $sql = "select ".$self->columns." from file ".
+      "where withdrawn >=1 ";
+  my $sth = $self->prepare($sql);
+  $sth->execute;
+  my @files;
+  while(my $rowHashref = $sth->fetchrow_hashref){
+    my $file = $self->object_from_hashref($rowHashref);
+    push(@files, $file);
+  }
+  $sth->finish;
+  return \@files;
+}
+
 
 sub store{
   my ($self, $file, $update, $dont) = @_;
