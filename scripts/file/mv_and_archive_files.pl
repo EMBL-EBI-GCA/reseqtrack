@@ -134,21 +134,22 @@ sub move_file_and_load_in_g1k_db {  ## need to delete the original file from ebi
         my @tmp2 = split(/\_/, $tmp[0]);
         my @tmp3 = split(/-/, $tmp2[0]);
         my $ind = $tmp3[0];
-		
+	my $pop = $tmp[3];
+	
 	$dropbox_path =~ s/\/$//;
 	my $file_path_in_dropbox = $dropbox_path . "/grch38_crams/" . $filen;
         
-        $move_to_dir =~ s/\/$//;
-        my $new_dir;
+	$move_to_dir =~ s/\/$//;
+	my $new_dir;
 
         if ($filen =~ /exome/ ) { 
-            $new_dir = $move_to_dir . "/" . $ind . "/exome_alignment/";
+            $new_dir = $move_to_dir . "/" . $pop . "/" . $ind .  "/exome_alignment/";
         }
         elsif ( $filen =~ /low_cov/i )  { 
-            $new_dir = $move_to_dir . "/" . $ind . "/alignment/";
+            $new_dir = $move_to_dir . "/" . $pop . "/" . $ind . "/alignment/";
         }
         elsif ( $filen =~ /high_cov/i ) {
-            $new_dir = $move_to_dir . "/" . $ind . "/high_cov_alignment/";
+            $new_dir = $move_to_dir . "/" . $pop . "/" . $ind . "/high_cov_alignment/";
         }
         else {
             throw("cannot decide directory structure for file $filen");
@@ -161,6 +162,20 @@ sub move_file_and_load_in_g1k_db {  ## need to delete the original file from ebi
         my $new_file_path = $new_dir . $filen;
 
 		$new_file_path =~ s/\.bam\.cram/\.cram/;
+		
+		### This bit is to handle the cases when file has been moved to staging but the db dropped so the job failed
+		unless (-e $file_path_in_dropbox) {
+			if (-e $new_file_path) {
+				my $back_mv_command = "mv $new_file_path $file_path_in_dropbox";    
+    	    	print "back move: $back_mv_command\n" if ($verbose);
+        		system($back_mv_command) if ($run);
+        		my $exit = $?>>8;
+        		throw("mv failed\n") if ($exit >=1);
+			}
+			else {
+				throw("$file_path_in_dropbox and $new_file_path cannot be found");
+			}		
+		}	 
 
         my $command = "mv $file_path_in_dropbox $new_file_path";    
         print "$command\n" if ($verbose);
@@ -310,7 +325,7 @@ sub check_md5_change_file_type_and_archive_file {
 
 source /nfs/1000g-work/G1K/work/zheng/reseqtrack-code-1059-tags-pre-hive-metadata-merge.sh
 
-perl /nfs/1000g-work/G1K/work/zheng/reseqtrack.20150107/trunk/scripts/file/mv_and_archive_files.pl \
+perl /nfs/1000g-work/G1K/work/zheng/reseqtrack_from_git//scripts/file/mv_and_archive_files.pl \
 $WRITE_DB_ARGS -dbname zheng_map_1kg_p3_hs38_test \
 -g1k_dbhost mysql-g1kdcc-public -g1k_dbuser g1krw -g1k_dbpass thousandgenomes -g1k_dbport 4197 -g1k_dbname g1k_archive_staging_track \
 -cram /panfs/nobackup/production/reseq-info/zheng/map_1kg_p3_hs38_by_alt_bwamem_test/IGSR_alignment/NA12347/alignment/NA12347.alt_bwamem_GRCh38DH.20150522.low_cov_test.bam.cram \

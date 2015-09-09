@@ -20,6 +20,7 @@ use vars qw (@ISA  @EXPORT);
              print_index_hash
              print_from_object
              return_header_string
+		return_header_desc
              get_index_hash_on_column
              assign_files
              get_run_to_file_hash
@@ -191,13 +192,45 @@ sub print_index_hash{
   }
 }
 
+sub return_header_desc {
+	return join("\n", "##Date=",
+		"##Project=The 1000 Genomes Project",
+		"##FASTQ_ENA_PATH=an ENA ftp path from which the FASTQ file can be downloaded",
+		"##MD5=md5 for the fastq file",
+		"##RUN_ID=ENA/SRA assigned accession for the run",
+		"##STUDY_ID=ENA/SRA assigned accession for the study",
+		"##STUDY_NAME=name of the study",
+		"##CENTER_NAME=sequencing center that produced and submitted the sequence data",
+		"##SUBMISSION_ID=ENA/SRA assigned accession for the submission",
+		"##SUBMISSION_DATE=date of the data was submitted to ENA/SRA",
+		"##SAMPLE_ID=ENA/SRA assigned accession for the sample",
+		"##SAMPLE_NAME=sample identifier given by Coriell",
+		"##POPULATION=three letter population code for the sample",
+		"##EXPERIMENT_ID=ENA/SRA assigned accession for the experiment",
+		"##INSTRUMENT_PLATFORM=type of sequencing machine used in the experiment",
+		"##INSTRUMENT_MODEL=model of the sequencing machine used in the experiment",
+		"##LIBRARY_NAME=identifier for the library",
+		"##RUN_NAME=run name assigned by the sequencing machine",
+		"##RUN_BLOCK_NAME=run block name assigned by the machine",
+		"##INSERT_SIZE=submitter specified insert size of the library",
+		"##LIBRARY_LAYOUT=Library layout, this can be either PAIRED or SINGLE",
+		"##PAIRED_FASTQ=Name of mate pair file if exists",
+		"##WITHDRAWN=0/1 to indicate if the file has been withdrawn, only present if a file has been withdrawn",
+		"##WITHDRAWN_DATE=this is generally the date the index file is generated on",
+		"##COMMENT=comment about reasons for withdrawing from variant calling. \"TOO SHORT\" means reads are shorter than 70bp for WGS data or less than 68bp for WXS data; \"NOT_ILLUMINA\" are data produced on platformats other than Illumina; \"SUPPRESSED IN ARCHIVE\" are runs that are no longer available from ENA/SRA",
+		"##READ_COUNT=number of reads in the fastq file",
+		"##BASE_COUNT=number of bases in the fastq file",
+		"##ANALYSIS_GROUP=the analysis group of the sequence, this reflects sequencing strategy. Currently this includes low coverage whole genome sequence (WGS), exome sequence (WXS), high coverage whole genome sequence (HC_WGS)"
+	) . "\n";
+}
+
 sub return_header_string{
-  return join("\t", 'FASTQ_FILE', 'MD5', 'RUN_ID', 'STUDY_ID', 'STUDY_NAME', 
+  return join("\t", '#FASTQ_ENA_PATH', 'MD5', 'RUN_ID', 'STUDY_ID', 'STUDY_NAME', 
               'CENTER_NAME', 'SUBMISSION_ID', 'SUBMISSION_DATE', 'SAMPLE_ID', 
               'SAMPLE_NAME', 'POPULATION', 'EXPERIMENT_ID', 'INSTRUMENT_PLATFORM', 
               'INSTRUMENT_MODEL', 'LIBRARY_NAME', 'RUN_NAME', 'RUN_BLOCK_NAME', 
               'INSERT_SIZE', 'LIBRARY_LAYOUT', 'PAIRED_FASTQ', 'WITHDRAWN', 
-              'WITHDRAWN_DATE', 'COMMENT', 'RUN_READ_COUNT', 'RUN_BASE_COUNT', 
+              'WITHDRAWN_DATE', 'COMMENT', 'READ_COUNT', 'BASE_COUNT', 
               'ANALYSIS_GROUP')."\n";
 }
 
