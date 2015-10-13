@@ -338,7 +338,7 @@ void output_rg_stats(void *_rg_stats_hash, char* out_fname, char* bam_basename, 
   fprintf(fp, "\t#_mapped_reads_paired_in_sequencing\t#_mapped_reads_properly_paired");
   fprintf(fp, "\t%c_of_mismatched_bases\taverage_quality_of_mapped_bases\tmean_insert_size", '%');
   fprintf(fp, "\tinsert_size_sd\tmedian_insert_size\tinsert_size_median_absolute_deviation");
-  fprintf(fp, "\t#_duplicate_reads\t#_duplicate_bases\n");
+  fprintf(fp, "\t#_duplicate_reads\t#_duplicate_bases\t#_bases_with_NM_tag\t#_mismatched_bases_with_NM_tag\n");
 
   for (k = kh_begin(rg_stats_hash); k != kh_end(rg_stats_hash); k++)
     if (kh_exist(rg_stats_hash, k)) {
@@ -366,6 +366,8 @@ void output_rg_stats(void *_rg_stats_hash, char* out_fname, char* bam_basename, 
       fprintf(fp, "\t%d", rg_stats->insert_size_median_abs_dev);
       fprintf(fp, "\t%llu", rg_stats->num_duplicate_reads);
       fprintf(fp, "\t%llu", rg_stats->num_duplicate_bases);
+      fprintf(fp, "\t%llu", rg_stats->num_NM_bases);
+      fprintf(fp, "\t%llu", rg_stats->num_NM_mismatched_bases);
       fprintf(fp, "\n");
     }
   fclose(fp);
