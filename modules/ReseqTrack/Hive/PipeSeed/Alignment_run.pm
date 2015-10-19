@@ -68,14 +68,16 @@ sub create_seed_params {
   foreach my $seed_params (@{$self->seed_params}) {
     my ($run, $output_hash) = @$seed_params;
 
-    if (exists( $$metadata_hash{ $run->source_id } )){
+    #if (exists( $$metadata_hash{ $run->source_id } )){
+    my $run_id = $run->source_id;
+    throw("$run_id not present in $metadata_file") unless exists( $$metadata_hash{ $run_id } );
       my $metadata_path_hash = _get_path_hash( $run->source_id, $metadata_hash, $path_names_array );
                             
       foreach my $path_name ( keys %{$metadata_path_hash} ){
         my $path_value = $$metadata_path_hash{$path_name};
         $output_hash->{$path_name} = $path_value;
       }
-    }
+    #}
 
     if (scalar @$output_sample_columns || scalar @$output_sample_attributes) {
       my $sample = $sa->fetch_by_dbID($run->sample_id);
@@ -250,6 +252,16 @@ sub _get_path_hash {
 
   throw("$key_id not found in metadata file") unless exists $$metadata_hash{ $key_id };
 
+  $$metadata_hash{ $key_id }{SAMPLE_DESC_1} = "NO_TISSUE" 
+    if ( $$metadata_hash{ $key_id }{SAMPLE_DESC_1} eq "-" );
+
+  $$metadata_hash{ $key_id }{SAMPLE_DESC_2} = "NO_SOURCE"
+    if ( $$metadata_hash{ $key_id }{SAMPLE_DESC_2} eq "-" );
+  
+  $$metadata_hash{ $key_id }{SAMPLE_DESC_3} = "NO_CELL_TYPE"
+    if ( $$metadata_hash{ $key_id }{SAMPLE_DESC_3} eq "-" );
+
+
   if ( scalar @$path_names_array >= 1 ){
     my @uc_path_names_array = map{ uc($_) } @$path_names_array;
     my $key_metadata_hash   = $$metadata_hash{ $key_id };
@@ -259,7 +271,11 @@ sub _get_path_hash {
     }
 
     my @path_name_values    = @$key_metadata_hash{ @uc_path_names_array };
-    @path_name_values       = map{ s/[\s=\/\\;]/_/g; $_; }@path_name_values;
+    @path_name_values       = map{ s/[\s=\/\\;,'"()]/_/g; $_; }@path_name_values;
+    @path_name_values       = map{ s/_+/_/g; $_; }@path_name_values;
+    @path_name_values       = map{ s/_$//g; $_; }@path_name_values;
+    @path_name_values       = map{ s/^_//g; $_; }@path_name_values;
+
     @$path_hash{ @$path_names_array } = @path_name_values;
   }
   else {

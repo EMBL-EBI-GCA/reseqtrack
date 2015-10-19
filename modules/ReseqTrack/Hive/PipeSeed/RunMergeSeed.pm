@@ -225,9 +225,10 @@ sub _get_path_hash {
     }
 
     my @path_name_values    = @$key_metadata_hash{ @uc_path_names_array };
-    @path_name_values       = map{ s/[\s=\/\\;()]/_/g; $_; }@path_name_values;
+    @path_name_values       = map{ s/[\s=\/\\;,'"()]/_/g; $_; }@path_name_values;
     @path_name_values       = map{ s/_+/_/g; $_; }@path_name_values;
     @path_name_values       = map{ s/_$//g; $_; }@path_name_values;
+    @path_name_values       = map{ s/^_//g; $_; }@path_name_values;
 
     @$path_hash{ @$path_names_array } = @path_name_values;
   }
