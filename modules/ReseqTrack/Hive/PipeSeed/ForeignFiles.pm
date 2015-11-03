@@ -33,6 +33,7 @@ sub default_options {
     ignore_foreign_paths => 0,
     sticky_tbi => 1,
     sticky_bai => 1,
+    exclude_type => {},
   };
 }
 
@@ -51,7 +52,8 @@ sub create_seed_params {
   my $db = $self->db;
   my $pipeline = $self->pipeline;
 
-
+  my $exclude_type = $options{exclude_type} ? $options{exclude_type} : {};
+  
   my $remote_hosts = $db->get_HostAdaptor->fetch_all_remote();
   my $fa = $db->get_FileAdaptor;
   my $psa = $db->get_PipelineSeedAdaptor;
@@ -63,6 +65,7 @@ sub create_seed_params {
     foreach my $file (@{$fa->fetch_by_host($host->dbID)}) {
       next FILE if $options{sticky_bai} && $file->name =~ /\.bai$/;
       next FILE if $options{sticky_tbi} && $file->name =~ /\.tbi$/;
+      next FILE if exists $$exclude_type{$file->type};
 
 
       my $existing_ps = $psa->fetch_by_seed_and_pipeline($file, $pipeline);
