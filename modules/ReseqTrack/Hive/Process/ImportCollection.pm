@@ -39,6 +39,7 @@ sub run {
     my $output_name_param = $self->param('output_param');
     my $output_values = $collection ? [map {$_->name} @{$collection->others}] : [];
     $self->output_param($output_name_param, $output_values);
+    $db->dbc->disconnect_when_inactive(1);
 }
 
 1;

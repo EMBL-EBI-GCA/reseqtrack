@@ -67,6 +67,19 @@ sub create_seed_params {
     my $experiment_id        = $experiment->dbID;
 
     #if( exists ( $$metadata_hash{$experiment_source_id} )){
+   # throw("$experiment_source_id not present in $metadata_file") unless exists ( $$metadata_hash{$experiment_source_id} );
+   # my $metadata_path_hash   = _get_path_hash( $experiment_source_id, $metadata_hash, $path_names_array );
+
+  #  foreach my $path_name ( keys %{$metadata_path_hash} ){
+  #    my $path_value = $$metadata_path_hash{$path_name};
+  #    $output_hash->{$path_name} = $path_value;
+  #  }
+    #}
+
+    my $runs = $ra->fetch_by_experiment_id( $experiment_id );
+    my $run = $$runs[0];
+    next SEED if !$run;
+
     throw("$experiment_source_id not present in $metadata_file") unless exists ( $$metadata_hash{$experiment_source_id} );
     my $metadata_path_hash   = _get_path_hash( $experiment_source_id, $metadata_hash, $path_names_array );
 
@@ -74,11 +87,7 @@ sub create_seed_params {
       my $path_value = $$metadata_path_hash{$path_name};
       $output_hash->{$path_name} = $path_value;
     }
-    #}
-
-    my $runs = $ra->fetch_by_experiment_id( $experiment_id );
-    my $run = $$runs[0];
-    next SEED if !$run;
+    
 
     if (scalar @$output_sample_columns || scalar @$output_sample_attributes) {
       my $sample = $sa->fetch_by_dbID($run->sample_id);
