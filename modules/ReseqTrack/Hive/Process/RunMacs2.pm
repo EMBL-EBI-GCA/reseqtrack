@@ -35,8 +35,22 @@ sub run {
 
   $$options{'broad'}=$broad;
 
-  my ( $fragment_size_stat ) = split /,/, $fragment_size; # ppqt can find multiple peaks. the first is the most likely, so we use that one 
+ 
+  my $fragment_size_stat;
+
+  my @fragment_size_arr = split /,/, $fragment_size; # ppqt can find multiple peaks. the first is the most likely, so we use that one 
+
   
+  
+  foreach my $frag (@fragment_size_arr){
+    if( $frag > 0){
+      $fragment_size_stat = $frag;
+      last;
+    }
+  }
+
+  throw("No fragment size for @$bams") if !$fragment_size_stat;  
+
   foreach my $bam ( @$bams ) {
     check_file_exists( $bam );
   }
