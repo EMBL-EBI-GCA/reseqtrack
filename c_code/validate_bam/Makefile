@@ -7,7 +7,7 @@ LDFLAGS=-L$(HTSPATH) -L$(SAMPATH) -Wl,-rpath,$(HTSPATH),-rpath,$(SAMPATH)
 all: validate_bam
 
 validate_bam: validate_bam.o
-	$(CC) $(CFLAGS) $(LDFLAGS) validate_bam.o -lssl -lbam -lhts -lm -lz -o validate_bam
+	$(CC) $(CFLAGS) $(LDFLAGS) validate_bam.o -lssl -lcrypto -lbam -lhts -lm -lz -o validate_bam
 
 validate_bam.o: validate_bam.c
 	$(CC) $(CFLAGS) -I$(SAMPATH) -I$(HTSPATH) -c validate_bam.c
