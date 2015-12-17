@@ -89,10 +89,12 @@ sub create_recalibration_table {
   push(@cmd_words, '-cov QualityScoreCovariate') if ($self->options('quality_score_covariate'));
   push(@cmd_words, '-cov CycleCovariate') if ($self->options('cycle_covariate'));
   push(@cmd_words, '-cov ContextCovariate') if ($self->options('context_covariate'));
+  push(@cmd_words, '-allowPotentiallyMisencodedQuals') if ($self->options('allowPotentiallyMisencodedQuals'));
+
   if ($self->options('intervals')) {
-  	foreach my $interval (split(/,/, $self->options('intervals'))) {
-		push(@cmd_words, '-L', $interval);
-  	}
+    foreach my $interval (split(/,/, $self->options('intervals'))) {
+	push(@cmd_words, '-L', $interval);
+    }
   }
   push(@cmd_words, '--solid_nocall_strategy', 'LEAVE_READ_UNRECALIBRATED') if ($self->options('solid_nocall_strategy'));
 
@@ -123,11 +125,12 @@ sub create_recalibrated_bam {
   push(@cmd_words, $self->gatk_path . '/' . $self->jar_file);
   push(@cmd_words, '-T', 'PrintReads');
   push(@cmd_words, '-l', $self->options('log_level')) if ($self->options('log_level'));
-  if ($self->options('intervals')) {  
-  	foreach my $interval (split(/,/, $self->options('intervals'))) {
-     		push(@cmd_words, '-L', $interval);
-  	}
+  if ($self->options('intervals')) {
+    foreach my $interval (split(/,/, $self->options('intervals'))) {
+      push(@cmd_words, '-L', $interval);
+    }
   }
+  push(@cmd_words, '-allowPotentiallyMisencodedQuals') if ($self->options('allowPotentiallyMisencodedQuals'));
   push(@cmd_words, '--disable_bam_indexing');
   push(@cmd_words, '--solid_nocall_strategy', 'LEAVE_READ_UNRECALIBRATED') if ($self->options('solid_nocall_strategy'));
   push(@cmd_words, '-BQSR', $self->covariates_file);
