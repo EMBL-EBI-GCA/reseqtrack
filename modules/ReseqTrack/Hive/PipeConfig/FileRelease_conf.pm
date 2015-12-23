@@ -74,6 +74,10 @@ sub default_options {
         derive_path_options => {},
 
         move_by_rsync => 1,
+        move_by_rsync => $self->o('move_by_rsync'),
+  
+        collect => undef,
+        collect => $self->o('collect'),
 
     };
 }
@@ -151,6 +155,7 @@ sub pipeline_analyses {
                 hostname => $self->o('hostname'),
                 derive_path_options => $self->o('derive_path_options'),
                 move_by_rsync => $self->o('move_by_rsync'),
+                collect  => $self->o('collect'),
             },
             -flow_into => {
                 1 => ['seed_complete'],
