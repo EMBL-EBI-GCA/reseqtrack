@@ -73,8 +73,14 @@ sub default_options {
 
         derive_path_options => {},
 
-        move_by_rsync => 1,
-        collect => 0,
+        move_by_rsync => undef,
+        move_by_rsync => $self->o('move_by_rsync'),
+  
+        collect => undef,
+        collect => $self->o('collect'),
+        
+        do_slow_check => undef,
+        do_slow_check => $self->o('do_slow_check'),
 
     };
 }

@@ -336,6 +336,7 @@ sub diff_hashes {
   my $md5_to_path = $self->tree_hashes->{'md5_to_path'};
   my $path_to_md5 = $self->tree_hashes->{'path_to_md5'};
   my $bad_md5s = $self->bad_md5s;
+
   FILE:
   while ( my ($path, $path_hash) = each %$path_to_md5) {
     my ($new_md5, $old_md5) = @{$path_hash}{'new', 'old'};
@@ -383,9 +384,11 @@ sub diff_hashes {
         }
         elsif (@old_files_match_filename == 1) {
           $self->log_change('moved', $old_files_match_md5->[0], $path);
+          $self->log_change('new', $path);
         }
         elsif ($new_md5 eq $NULL) {
           $self->log_error("$path: Not in old tree. No md5 in new tree. Recording it as a new file");
+          $self->log_change('new', $path);
         }
         elsif ($bad_md5s->{$new_md5}) {
           $self->log_error("$path: Not in old tree. Bad md5 in new tree. Recording it as a new file");
