@@ -34,6 +34,7 @@ package ReseqTrack::Tools::QC::PPQT;
 use strict;
 use warnings;
 use File::Basename;
+use Data::Dump qw(dump);
 
 use ReseqTrack::Tools::Exception qw(throw warning);
 use ReseqTrack::Tools::Argument qw(rearrange);
@@ -155,7 +156,9 @@ sub parse_metrics {
     );
 
     $metrics{quality_label} = $quality_decode{ $metrics{quality_tag} };
-
+  
+    my $array_metrics = [ \%metrics ];
+    $self->output_metrics_object( \%metrics );
     return [ \%metrics ];
 }
 
@@ -237,6 +240,32 @@ sub no_dups {
         $self->{'no_dups'} = $arg;
     }
     return $self->{'no_dups'};
+}
+
+sub output_metrics_files {
+  my $self = shift;
+  my @files = grep { /\.ppqt_metrics$/ } @{ $self->output_files };
+  return \@files;
+}
+
+sub output_pdf_files {
+  my $self = shift;
+  my @files = grep { /\.pdf$/ } @{ $self->output_files };
+  return \@files;
+}
+
+sub output_rdata_files {
+  my $self = shift;
+  my @files = grep { /\.rdata$/ } @{ $self->output_files };
+  return \@files;
+}
+
+sub output_metrics_object {
+  my ( $self, $arg ) = @_;
+  if ($arg) {
+    $self->{'output_metrics_object'} = $arg;
+  }
+  return $self->{'output_metrics_object'};
 }
 
 1;
