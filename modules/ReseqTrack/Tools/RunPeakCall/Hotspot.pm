@@ -6,10 +6,12 @@ use vars qw(@ISA);
 
 use File::Basename;
 use File::Copy;
+use IO::Compress::Gzip qw(gzip $GzipError);
 
 use ReseqTrack::Tools::Exception qw(throw warning);
 use ReseqTrack::Tools::Argument qw(rearrange);
 use ReseqTrack::Tools::RunProgram;
+use File::chdir;
 
 use base qw(ReseqTrack::Tools::RunPeakCall);
 
@@ -248,7 +250,11 @@ sub run_hotspot {
   my $temp_dir = $self->get_temp_dir;
   
   for my $script ($self->hotspot_scripts) {
+    local $CWD = $temp_dir; ## locally changing working dir to temp
     my $target = "$temp_dir/$script.tok";
+   # my $target = "$script.tok";
+    warn $CWD,"\t" ,$target,"\n";
+
     throw("Script has not been created: $target") unless -e $target;
     $self->execute_command_line($target);
   }
@@ -275,17 +281,31 @@ sub find_output {
     unless ( -e $hotspots_file );
   throw("Cannot find peak file: $peaks_file") unless ( -e $peaks_file );
 
-  my $hotspots_file_target =
+## gzip the bed
+  my $hotspots_file_gz = $hotspots_file. '.gz';
+  my $peaks_file_gz = $peaks_file . '.gz';
   
-    $self->working_dir . '/' . $self->job_name . '.hotspots.bed';
+  my $status_hotspot = gzip $hotspots_file => $hotspots_file_gz 
+        or die "gzip failed: $GzipError\n";
+        
+  my $status_peak = gzip $peaks_file => $peaks_file_gz 
+        or die "gzip failed: $GzipError\n";   
+
+## remove bed file
+  $self->created_files( $hotspots_file );
+  $self->created_files( $peaks_file );
+
+  my $hotspots_file_target =  
+    $self->working_dir . '/' . $self->job_name . '.hotspots.bed.gz';
+
   my $peaks_file_target =
-    $self->working_dir . '/' . $self->job_name . '.peaks.bed';
+    $self->working_dir . '/' . $self->job_name . '.peaks.bed.gz';
 
   $self->output_files($hotspots_file_target);
   $self->output_files($peaks_file_target);
 
-  move( $hotspots_file, $hotspots_file_target );
-  move( $peaks_file,    $peaks_file_target );
+  move( $hotspots_file_gz, $hotspots_file_target );
+  move( $peaks_file_gz,    $peaks_file_target );
 
 }
 
@@ -306,5 +326,18 @@ sub hotspot_scripts {
   );
 
 }
+
+sub output_hotspot_bed {
+  my $self = shift;
+  my @files = grep { /\.hotspots.bed.gz$/ } @{ $self->output_files };
+  return $files[0];
+}
+
+sub output_peak_bed {
+  my $self = shift;
+  my @files = grep { /\.peaks.bed.gz$/ } @{ $self->output_files };
+  return $files[0];
+}
+
 1;
 
