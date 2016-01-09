@@ -34,7 +34,6 @@ package ReseqTrack::Tools::QC::PPQT;
 use strict;
 use warnings;
 use File::Basename;
-use Data::Dump qw(dump);
 
 use ReseqTrack::Tools::Exception qw(throw warning);
 use ReseqTrack::Tools::Argument qw(rearrange);
@@ -156,7 +155,7 @@ sub parse_metrics {
     );
 
     $metrics{quality_label} = $quality_decode{ $metrics{quality_tag} };
-  
+
     my $array_metrics = [ \%metrics ];
     $self->output_metrics_object( \%metrics );
     return [ \%metrics ];
