@@ -22,6 +22,7 @@ sub DEFAULT_OPTIONS {
     fdr        => 0.05,
     dupok      => 'T',      # allow duplicates
     chk_chr    => 'chrX',
+    gzip  => 0,
   };
 }
 
@@ -250,11 +251,7 @@ sub run_hotspot {
   my $temp_dir = $self->get_temp_dir;
   
   for my $script ($self->hotspot_scripts) {
-    local $CWD = $temp_dir; ## locally changing working dir to temp
     my $target = "$temp_dir/$script.tok";
-   # my $target = "$script.tok";
-    warn $CWD,"\t" ,$target,"\n";
-
     throw("Script has not been created: $target") unless -e $target;
     $self->execute_command_line($target);
   }
@@ -267,6 +264,7 @@ sub find_output {
   my $temp_dir   = $self->get_temp_dir;
   my $input_file = $self->input_files->[0];
   my $fdr        = $self->options('fdr');
+  my $gzip      = $self->options('gzip');
 
   my ( $basename, $path, $suffix ) = fileparse( $input_file, '.bed', '.bam' );
 
@@ -281,32 +279,45 @@ sub find_output {
     unless ( -e $hotspots_file );
   throw("Cannot find peak file: $peaks_file") unless ( -e $peaks_file );
 
-## gzip the bed
-  my $hotspots_file_gz = $hotspots_file. '.gz';
-  my $peaks_file_gz = $peaks_file . '.gz';
+  ## gzip the bed
+  if ( $gzip ){ 
+    my $hotspots_file_gz = $hotspots_file. '.gz';
+    my $peaks_file_gz = $peaks_file . '.gz';
   
-  my $status_hotspot = gzip $hotspots_file => $hotspots_file_gz 
-        or die "gzip failed: $GzipError\n";
+    my $status_hotspot = gzip $hotspots_file => $hotspots_file_gz 
+          or die "gzip failed: $GzipError\n";
         
-  my $status_peak = gzip $peaks_file => $peaks_file_gz 
-        or die "gzip failed: $GzipError\n";   
+    my $status_peak = gzip $peaks_file => $peaks_file_gz 
+          or die "gzip failed: $GzipError\n";   
 
 ## remove bed file
-  $self->created_files( $hotspots_file );
-  $self->created_files( $peaks_file );
+    $self->created_files( $hotspots_file );
+    $self->created_files( $peaks_file );
 
-  my $hotspots_file_target =  
-    $self->working_dir . '/' . $self->job_name . '.hotspots.bed.gz';
+    my $hotspots_file_target =  
+      $self->working_dir . '/' . $self->job_name . '.hotspots.bed.gz';
 
-  my $peaks_file_target =
-    $self->working_dir . '/' . $self->job_name . '.peaks.bed.gz';
+    my $peaks_file_target =
+      $self->working_dir . '/' . $self->job_name . '.peaks.bed.gz';
 
-  $self->output_files($hotspots_file_target);
-  $self->output_files($peaks_file_target);
+    $self->output_files($hotspots_file_target);
+    $self->output_files($peaks_file_target);
 
-  move( $hotspots_file_gz, $hotspots_file_target );
-  move( $peaks_file_gz,    $peaks_file_target );
+    move( $hotspots_file_gz, $hotspots_file_target );
+    move( $peaks_file_gz,    $peaks_file_target );
+  }
+  else {
+    my $hotspots_file_target =  
+      $self->working_dir . '/' . $self->job_name . '.hotspots.bed';
+    my $peaks_file_target =
+      $self->working_dir . '/' . $self->job_name . '.peaks.bed';
 
+    $self->output_files($hotspots_file_target);
+    $self->output_files($peaks_file_target);
+
+    move( $hotspots_file, $hotspots_file_target );
+    move( $peaks_file,    $peaks_file_target );
+  }
 }
 
 sub hotspot_scripts {
