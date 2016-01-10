@@ -15,7 +15,7 @@ sub param_defaults {
      samtools_path  => undef,
      control_files  => undef,
      fragment_size  => undef,
-     options        => { 'nomodel' => 1, }, ## Macs2 tools module also setting it 
+     options        => { 'nomodel' => 1, 'gzip' => 1 }, ## Macs2 tools module also setting it 
   };
 }
 
