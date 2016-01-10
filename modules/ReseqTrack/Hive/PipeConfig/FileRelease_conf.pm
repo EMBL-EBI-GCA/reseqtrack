@@ -1,6 +1,6 @@
 =head1 NAME
 
- ReseqTrack::Hive::PipeConfig::Filerelease_conf
+ ReseqTrack::Hive::PipeConfig::FileRelease_conf
 
 =head1 SYNOPSIS
 
@@ -33,6 +33,8 @@ config_options=-file_move_module MyProjectModules::MoveFile
       -hostname, (default is 1000genomes.ebi.ac.uk)
       -derive_path_options => hashref of options passed on to your file_move_module 
       -move_by_rsync, set to 0 if you do not care about file ownership (e.g. 1000genomes where there is an archive system)
+      -collect, set to 1 for building collection at 'move_to_stageing' step, 
+                collection name and type should be provided by Move module. Default is 0.
 
   Options that are required, but will be passed in by reseqtrack/scripts/init_pipeline.pl:
 
