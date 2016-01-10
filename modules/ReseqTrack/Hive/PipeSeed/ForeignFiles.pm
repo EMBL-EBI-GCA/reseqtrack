@@ -98,7 +98,7 @@ sub create_seed_params {
           $match_count = scalar @match_val;
           next FILE if $match_count > 0;
         }
-      
+      } 
       my $existing_ps = $psa->fetch_by_seed_and_pipeline($file, $pipeline);
       if (@$existing_ps) {
         next FILE if grep {$_->is_running} @$existing_ps;
@@ -185,7 +185,7 @@ sub create_seed_params {
       push(@seed_params, [$file, \%output_params]);
     }
   }
-
+ 
   $self->seed_params(\@seed_params);
 }
 
