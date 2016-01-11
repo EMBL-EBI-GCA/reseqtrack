@@ -216,7 +216,7 @@ sub create_objects {
     #my $objs = scalar(@$objects);
     #print "Created $objs file objects\n";
 
-    if ( $self->assign_types && !$self->type ) {
+    if ( $self->assign_types ) {
 
         #print "Assigning types\n";
         $objects = assign_type( $objects, $self->db );

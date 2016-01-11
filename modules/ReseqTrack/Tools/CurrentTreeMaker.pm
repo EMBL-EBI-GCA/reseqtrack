@@ -155,7 +155,7 @@ sub print_to_fh {
 
 sub print_to_file {
   my ($self, $output_file) = @_;
-  open my $fh, '>', $output_file or throw("could not open $output_file $!");
+  open my $fh, '>', $output_file or throw("could not open $output_file $_");
   $self->print_to_fh($fh);
   close $fh;
 }

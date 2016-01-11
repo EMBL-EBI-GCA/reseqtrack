@@ -22,7 +22,7 @@ sub param_defaults {
 
 sub run {
     my $self = shift @_;
-
+    #throw("test");
     my $max_reads = $self->param_required('max_reads');
     $self->param_required('fastq');
 
@@ -39,9 +39,16 @@ sub run {
 
 
     my $fastqs = $self->param_as_array('fastq');
-    my ($mate1, $mate2, $frag) = assign_files($fastqs, \@regexs);
-    throw ("No mate for $mate1") if ($mate1 && ! $mate2);
-    throw ("No mate for $mate2") if ($mate2 && ! $mate1);
+    my ($mate1, $mate2, $frag);
+    
+    if ( scalar @$fastqs  == 1) {
+      $frag = $$fastqs[0];
+    }
+    else {
+      ($mate1, $mate2, $frag) = assign_files($fastqs, \@regexs);
+      throw ("No mate for $mate1") if ($mate1 && ! $mate2);
+      throw ("No mate for $mate2") if ($mate2 && ! $mate1);
+    }
 
     my $run_split = ReseqTrack::Tools::RunSplit->new(
         -input_files => $fastqs,
