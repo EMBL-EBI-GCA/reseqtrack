@@ -22,7 +22,6 @@ sub param_defaults {
 
 sub run {
     my $self = shift @_;
-    #throw("test");
     my $max_reads = $self->param_required('max_reads');
     $self->param_required('fastq');
 
