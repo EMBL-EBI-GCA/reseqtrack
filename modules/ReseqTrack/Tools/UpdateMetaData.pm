@@ -22,7 +22,7 @@ use ReseqTrack::Tools::AttributeUtils
 use ReseqTrack::Tools::Metadata::EnaReadInfo;
 use feature 'switch';
 use ReseqTrack::Tools::Argument qw(rearrange);
-use ReseqTrack::Tools::Exception;
+use ReseqTrack::Tools::Exception qw(throw);
 
 sub new {
     my ( $class, @args ) = @_;
@@ -31,11 +31,11 @@ sub new {
     my (
         $era_db,   $dcc_db,          $add_ins,      $verbose,
         $load_new, $update_existing, $target_types, $target_studies,
-        $use_rsm,  $run_stat_add_in, $log_fh
+        $use_rsm,  $run_stat_add_in, $log_fh,       $quiet
       )
       = rearrange(
         [
-            qw(ERA_DB DCC_DB ADD_INS VERBOSE LOAD_NEW UPDATE_EXISTING TARGET_TYPES TARGET_STUDIES USE_DEFAULT_RSM RUN_STAT_ADD_IN LOG_FH )
+            qw(ERA_DB DCC_DB ADD_INS VERBOSE LOAD_NEW UPDATE_EXISTING TARGET_TYPES TARGET_STUDIES USE_DEFAULT_RSM RUN_STAT_ADD_IN LOG_FH QUIET)
         ],
         @args
       );
@@ -49,14 +49,16 @@ sub new {
     $self->use_default_rsm($use_rsm);
     $self->run_stat_add_in($run_stat_add_in);
     $self->log_fh($log_fh);
+    $self->quiet($quiet);
 
     return $self;
 }
 
 sub load_new_studies {
     my ( $self, @studies_to_add ) = @_;
+
     for my $study_id (@studies_to_add) {
-        $self->log("Adding study $study_id");
+        $self->log("Adding study $study_id") unless ( $self->quiet );
         $self->load_type_by_study_id( 'study', $study_id, 0, 1, 0 );
     }
 }
@@ -67,17 +69,20 @@ sub update_from_era {
     my $studies        = $self->dcc_db->get_StudyAdaptor()->fetch_all();
     my $target_studies = $self->target_studies;
     my $types          = $self->target_types;
+    my $verbose        = $self->verbose;
+    my $quiet          = $self->quiet;
 
   STUDY: for my $study (@$studies) {
         my @study_match = ( grep { $_ eq $study->source_id } @$target_studies );
         if ( @$target_studies && !@study_match ) {
-            $self->log( "Skipping " . $study->source_id );
+            $self->log( "Skipping " . $study->source_id )
+              if ($verbose);
             next STUDY;
         }
 
-        $self->log( "Checking " . $study->source_id );
+        $self->log( "Checking " . $study->source_id ) unless ($quiet);
       TYPE: for my $type (@$types) {
-            $self->log("...for $type") if $self->verbose();
+            $self->log("...for $type") if ($verbose);
             $self->load_type_by_study_id( $type, $study->source_id(),
                 $update_existing, $load_new, $force_update );
         }
@@ -131,7 +136,8 @@ sub load_type_by_study_id {
             for (@$add_ins) {
                 $_->check( $object, $current_record );
             }
-            $self->log( "Storing $type " . $object->source_id() );
+            $self->log( "Storing $type " . $object->source_id() )
+              if ( $self->verbose() );
 
             $object->dbID( $current_record->dbID() ) if ($current_record);
             $reseq_adaptor->store( $object, 1 );
@@ -149,7 +155,9 @@ sub load_type_by_study_id {
         }
     }
 
-    $self->log("$type checked $checked_count stored $stored_count");
+    $self->log("$type checked $checked_count stored $stored_count")
+      unless ( $self->quiet );
+    $self->summary_stats( $type, $checked_count, $stored_count );
 }
 
 sub dcc_db {
@@ -331,12 +339,12 @@ sub on_update_handlers {
         when ('experiment') {
             return sub {
                 my ( $e, $db ) = @_;
-                my $ra = $db->get_RunAdaptor();
-                my $runs = $ra->fetch_by_experiment_id($e->dbID());
-                for my $r (@$runs){
-                  $r->md5('force_refresh');
-                  $ra->update($r);
-                }                
+                my $ra   = $db->get_RunAdaptor();
+                my $runs = $ra->fetch_by_experiment_id( $e->dbID() );
+                for my $r (@$runs) {
+                    $r->md5('force_refresh');
+                    $ra->update($r);
+                }
               }
         }
         when ('run') {
@@ -354,9 +362,53 @@ sub log {
     }
 }
 
+sub summary_stats {
+    my ( $self, $type, $checked_count, $stored_count ) = @_;
+
+    if ($type) {
+        $self->{summary_stats}{$type}{checked} += $checked_count;
+        $self->{summary_stats}{$type}{stored}  += $stored_count;
+    }
+
+    return $self->{summary_stats};
+}
+
+sub quiet {
+    my ( $self, $arg ) = @_;
+    if ($arg) {
+        $self->{quiet} = $arg;
+    }
+    return $self->{quiet};
+}
+
+sub verbose {
+    my ( $self, $arg ) = @_;
+    if ($arg) {
+        $self->{verbose} = $arg;
+    }
+    return $self->{verbose};
+}
+
 sub report {
     my ($self) = @_;
     map { $_->report() } @{ $self->add_ins };
+}
+
+sub summarise {
+    my ($self) = @_;
+    
+    
+    my $ss = $self->summary_stats();
+   
+    $self->log("Summary:");
+   
+    for my $type ( sort keys %$ss ) {
+        my $checked = $ss->{$type}{checked};
+        my $stored  = $ss->{$type}{stored};
+
+        $self->log("$type checked $checked stored $stored");
+    }
+
 }
 
 1;

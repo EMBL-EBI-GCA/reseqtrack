@@ -325,7 +325,8 @@ sub create_suppressed_index_line{
   }
   $comment = 'SUPPRESSED IN ARCHIVE' unless($comment);
   my $md5 = "................................";
-  my $file = "data/".$rmi->sample_name."/sequence_read/".$rmi->run_id.".fastq.gz";
+#  my $file = "data/".$rmi->sample_name."/sequence_read/".$rmi->run_id.".fastq.gz";
+  my $file = "................................";
 
   return create_index_line($file, $md5, $rmi, undef, 1, $comment, $time, undef, 
                            undef, $analysis_group);
