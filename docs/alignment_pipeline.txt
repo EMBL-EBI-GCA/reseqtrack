@@ -3,10 +3,8 @@ Alignment pipeline example
 
 1 Environment variables
 
-  You need only two paths in your PERL5LIB: the location of ensembl core
-  modules and the location of the ReseqTrack modules
+  You need only one path in your PERL5LIB: the location of the ReseqTrack modules
 
-    $ export PERL5LIB=${PERL5LIB}:$ENSEMBL_CVS_ROOT_DIR/ensembl/modules
     $ export PERL5LIB=${PERL5LIB}:/path/to/ReseqTrack/modules
 
   It is useful to add the Hive scripts directory to your path:

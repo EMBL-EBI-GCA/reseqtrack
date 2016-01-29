@@ -107,11 +107,30 @@ if ( $crai_obj->type !~ /CRAI/i || $crai_obj->type !~ /PUSHED/i ) {
         throw("This file has to be a CRAI file that have been pushed to the dropbox");
 }
 
+<<<<<<< Updated upstream
 move_file_and_load_in_g1k_db($fo);
 move_file_and_load_in_g1k_db($crai_obj);
 
 check_md5_change_file_type_and_archive_file($fo);  
 check_md5_change_file_type_and_archive_file($crai_obj);
+=======
+my $bas_path = $input_cram_name . ".bas";
+$bas_path =~ s/.cram//;
+my $bas_obj = $fa->fetch_by_name($bas_path); 
+throw("No file object is found; perhaps the BAS file hasn't been created yet, $bas_path\n") if (!$bas_obj);
+
+if ( $bas_obj->type !~ /BAS/i || $bas_obj->type !~ /PUSHED/i ) { 
+        throw("This file has to be a BAS file that have been pushed to the dropbox");
+}
+
+move_file_and_load_in_g1k_db($fo);
+move_file_and_load_in_g1k_db($crai_obj);
+move_file_and_load_in_g1k_db($bas_obj);
+
+check_md5_change_file_type_and_archive_file($fo);  
+check_md5_change_file_type_and_archive_file($crai_obj);
+check_md5_change_file_type_and_archive_file($bas_obj);
+>>>>>>> Stashed changes
 
 ########## SUBS #########
 sub move_file_and_load_in_g1k_db {  ## need to delete the original file from ebi nodes, perhaps with a separate script
@@ -123,6 +142,7 @@ sub move_file_and_load_in_g1k_db {  ## need to delete the original file from ebi
         my @tmp2 = split(/\_/, $tmp[0]);
         my @tmp3 = split(/-/, $tmp2[0]);
         my $ind = $tmp3[0];
+<<<<<<< Updated upstream
 		
 		$dropbox_path =~ s/\/$//;
 		my $file_path_in_dropbox = $dropbox_path . "/grch38_crams/" . $filen;
@@ -138,6 +158,24 @@ sub move_file_and_load_in_g1k_db {  ## need to delete the original file from ebi
         }
         elsif ( $filen =~ /high_cov/i ) {
             $new_dir = $move_to_dir . "/" . $ind . "/high_cov_alignment/";
+=======
+	my $pop = $tmp[3];
+	
+	$dropbox_path =~ s/\/$//;
+	my $file_path_in_dropbox = $dropbox_path . "/grch38_crams/" . $filen;
+        
+	$move_to_dir =~ s/\/$//;
+	my $new_dir;
+
+        if ($filen =~ /exome/ ) { 
+            $new_dir = $move_to_dir . "/" . $pop . "/" . $ind .  "/exome_alignment/";
+        }
+        elsif ( $filen =~ /low_cov/i )  { 
+            $new_dir = $move_to_dir . "/" . $pop . "/" . $ind . "/alignment/";
+        }
+        elsif ( $filen =~ /high_cov/i ) {
+            $new_dir = $move_to_dir . "/" . $pop . "/" . $ind . "/high_cov_alignment/";
+>>>>>>> Stashed changes
         }
         else {
             throw("cannot decide directory structure for file $filen");
@@ -149,6 +187,25 @@ sub move_file_and_load_in_g1k_db {  ## need to delete the original file from ebi
 
         my $new_file_path = $new_dir . $filen;
 
+<<<<<<< Updated upstream
+=======
+		$new_file_path =~ s/\.bam\.cram/\.cram/;
+		
+		### This bit is to handle the cases when file has been moved to staging but the db dropped so the job failed
+		unless (-e $file_path_in_dropbox) {
+			if (-e $new_file_path) {
+				my $back_mv_command = "mv $new_file_path $file_path_in_dropbox";    
+    	    	print "back move: $back_mv_command\n" if ($verbose);
+        		system($back_mv_command) if ($run);
+        		my $exit = $?>>8;
+        		throw("mv failed\n") if ($exit >=1);
+			}
+			else {
+				throw("$file_path_in_dropbox and $new_file_path cannot be found");
+			}		
+		}	 
+
+>>>>>>> Stashed changes
         my $command = "mv $file_path_in_dropbox $new_file_path";    
         print "$command\n" if ($verbose);
         system($command) if ($run);
@@ -184,6 +241,7 @@ sub move_file_and_load_in_g1k_db {  ## need to delete the original file from ebi
 sub check_md5_change_file_type_and_archive_file {
 	my ($fo) = @_;
 	my $ori_md5 = $fo->md5;
+<<<<<<< Updated upstream
 	my $g1k_fos = $g1k_db->get_FileAdaptor->fetch_by_filename(basename($fo->name));
 	if ( !$g1k_fos || scalar(@$g1k_fos) == 0) {
 		throw("No file is found in the g1k db with the basename of " . basename($fo->name) );
@@ -191,6 +249,18 @@ sub check_md5_change_file_type_and_archive_file {
 	my $new_fo;
 	foreach my $g1k_fo (@$g1k_fos) {
 		print "g1k_type is " . $g1k_fo->type . " ori_type is " . $fo->type . "\n" if ($verbose);
+=======
+	my $ori_file_name = basename($fo->name); 
+	$ori_file_name =~ s/\.bam\.cram/\.cram/;
+	my $g1k_fos = $g1k_db->get_FileAdaptor->fetch_by_filename($ori_file_name);
+	if ( !$g1k_fos || scalar(@$g1k_fos) == 0) {
+		#throw("No file is found in the g1k db with the basename of " . basename($fo->name) );
+		throw("No file is found in the g1k db with the basename of $ori_file_name");
+	}	
+	my $new_fo;
+	foreach my $g1k_fo (@$g1k_fos) {
+		#print "g1k_type is " . $g1k_fo->type . " ori_type is " . $fo->type . "\n" if ($verbose);
+>>>>>>> Stashed changes
 		next if ($g1k_fo->type ne $fo->type);
 		$new_fo = $g1k_fo;
 	}	
@@ -198,9 +268,25 @@ sub check_md5_change_file_type_and_archive_file {
 	unless ($new_fo->name =~ /\/nfs\/1000g-work\/G1K\/archive_staging\// ) {
         throw("File " . $new_fo->name . " has to be in archive staging area in order for it to be archived\n");
 	}
+<<<<<<< Updated upstream
  
 	if ($ori_md5 eq $new_fo->md5) {
 		my $action_string = "archive";
+=======
+
+	my $expected_ftp_path = $new_fo->name;
+	$expected_ftp_path =~ s/\/nfs\/1000g-work\/G1K\/archive_staging\//\/nfs\/1000g-archive\/vol1\//;
+ 
+	if ($ori_md5 eq $new_fo->md5) {
+		my $action_string;
+               if (-e $expected_ftp_path) {
+                        $action_string = "replace";
+                }
+                else {
+                        $action_string = "archive";
+                }
+
+>>>>>>> Stashed changes
         my $max_number = 1000;
         my $archiver = ReseqTrack::Tools::Loader::Archive->new(
                                                        -file 	=> [$new_fo->name],
@@ -284,7 +370,11 @@ sub check_md5_change_file_type_and_archive_file {
 
 source /nfs/1000g-work/G1K/work/zheng/reseqtrack-code-1059-tags-pre-hive-metadata-merge.sh
 
+<<<<<<< Updated upstream
 perl /nfs/1000g-work/G1K/work/zheng/reseqtrack.20150107/trunk/scripts/file/mv_and_archive_files.pl \
+=======
+perl /nfs/1000g-work/G1K/work/zheng/reseqtrack_from_git//scripts/file/mv_and_archive_files.pl \
+>>>>>>> Stashed changes
 $WRITE_DB_ARGS -dbname zheng_map_1kg_p3_hs38_test \
 -g1k_dbhost mysql-g1kdcc-public -g1k_dbuser g1krw -g1k_dbpass thousandgenomes -g1k_dbport 4197 -g1k_dbname g1k_archive_staging_track \
 -cram /panfs/nobackup/production/reseq-info/zheng/map_1kg_p3_hs38_by_alt_bwamem_test/IGSR_alignment/NA12347/alignment/NA12347.alt_bwamem_GRCh38DH.20150522.low_cov_test.bam.cram \
