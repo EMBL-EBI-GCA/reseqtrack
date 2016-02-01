@@ -42,10 +42,10 @@ sub DEFAULT_OPTIONS { return {
         'quality_score_covariate' => 1,
         'cycle_covariate' => 1,
         'context_covariate' => 1,
-	'intervals' => join(',', 1..22, 'X', 'Y', 'MT'),
         'solid_nocall_strategy' => 0,
         };
 }
+# 'intervals' => join(',', 1..22, 'X', 'Y', 'MT'),
 
 sub new {
 	my ( $class, @args ) = @_;

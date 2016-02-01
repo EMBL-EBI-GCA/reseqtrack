@@ -50,6 +50,7 @@ sub DEFAULT_OPTIONS { return {
         'algorithm' => 'mem', # to run bwa-mem or bwa-backtrack or bwa-sw or alt-bwamem
         'mark_secondary_hits' => 1, # for compatibility with gatk indel realigner
 		'hla_typing' => 0, # this only applies to alt-bwamem
+	'band_width'    => undef,
         };
 }
 
@@ -245,6 +246,9 @@ sub run_alt_bwamem {
       push(@cmd_words, '-E', $self->options('gap_extension_penalty'))
               if ($self->options('gap_extension_penalty'));
 
+      push (@cmd_words, '-w', $self->options('band_width'))
+              if ($self->options('band_width'));
+
       push(@cmd_words, '-M') if $self->options('mark_secondary_hits');
 	
       if ($self->read_group_fields->{'ID'}) {
@@ -339,6 +343,9 @@ sub run_bwa_mem {
       push(@cmd_words, '-E', $self->options('gap_extension_penalty'))
               if ($self->options('gap_extension_penalty'));
 
+      push(@cmd_words, '-w', $self->options('band_width'))
+              if ($self->options('band_width'));
+
       push(@cmd_words, '-M') if $self->options('mark_secondary_hits');
 
       if ($self->read_group_fields->{'ID'}) {
@@ -395,6 +402,9 @@ sub run_bwa_sw {
               if ($self->options('gap_extension_penalty'));
       push (@cmd_words, '-z', $self->options('z_best'))
 	      if ($self->options('z_best'));
+
+      push (@cmd_words, '-w', $self->options('band_width'))
+              if ($self->options('band_width'));
 
       push(@cmd_words, '-M') if $self->options('mark_secondary_hits');
 
