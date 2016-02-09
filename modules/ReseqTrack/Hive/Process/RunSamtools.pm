@@ -7,7 +7,7 @@ use base ('ReseqTrack::Hive::Process::BaseProcess');
 use ReseqTrack::Tools::Exception qw(throw);
 use ReseqTrack::Tools::FileSystemUtils qw(check_directory_exists check_file_exists);
 use ReseqTrack::Tools::RunSamtools;
-
+use File::Basename;
 
 sub param_defaults {
   return {
@@ -24,7 +24,7 @@ sub run {
     my $bams = $self->param_as_array('bam');
     my $command = $self->param_required('command');
 
-    my @allowed_cmds = qw(merge sort index fix_and_calmd calmd fixmate sam_to_bam);
+    my @allowed_cmds = qw(merge sort index fix_and_calmd calmd fixmate sam_to_bam bam_to_cram);
     throw("Don't recognise command $command. Acceptable commands are: @allowed_cmds")
       if (! grep {$command eq $_ } @allowed_cmds);
 
@@ -48,9 +48,16 @@ sub run {
     $self->run_program($samtools_object, $command);
 
     my $output_files = $samtools_object->output_files;
-
-    $self->output_param($command eq 'index' ? 'bai' : 'bam'  => $output_files);
-
+	
+	if (basename($output_files->[0]) =~ /\.cram/i  || basename($output_files->[0]) =~ /\.crai/i) {
+		print "cram output is $output_files->[0]\n";
+		$self->output_param($command eq 'index' ? 'crai' : 'cram'  => $output_files);
+	}
+	else {
+		print "bam output is $output_files->[0]\n";
+	    $self->output_param($command eq 'index' ? 'bai' : 'bam'  => $output_files);
+	}
+		
 }
 
 

@@ -43,7 +43,10 @@ my $cram = ReseqTrack::Tools::ConvertBam->new (
 	-input_files => $bam,
 	-output_format => 'cram',
 	-options => $parameter_hash,
-	-program => $input{program},
+	-program => 'path to the cramtools dir',
+	-java_exe => 'path to java exe',
+	-jvm_args	=> 'heap size in the format of Xmx4g'
+	-cramtools_jar_file	=> 'base name of the jar file',
 	-reference_fasta => $input{reference_fasta},
 	-output_file => $output_cram_name,
 );
@@ -58,18 +61,22 @@ sub new {
   my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
 
-  my ( $chromosome_file, $format, $output_file, $reference_fasta, $bed_graph_to_big_wig ) =
+  my ( $chromosome_file, $format, $output_file, $reference_fasta, $java_exe, $jvm_args, $cramtools_jar_file, $bed_graph_to_big_wig) =
     rearrange(
-    [qw( CHROMOSOME_FILE OUTPUT_FORMAT OUTPUT_FILE REFERENCE_FASTA BED_GRAPH_TO_BIG_WIG)], @args );
+    [qw( CHROMOSOME_FILE OUTPUT_FORMAT OUTPUT_FILE REFERENCE_FASTA JAVA_EXE JVM_ARGS CRAMTOOLS_JAR_FILE BED_GRAPH_TO_BIG_WIG)], @args );
 
   $self->chromosome_file($chromosome_file) if $chromosome_file;
   $self->output_format($format);
   $self->output_file($output_file)         if $output_file;
   $self->reference_fasta($reference_fasta) if $reference_fasta;
-
+ 
   $self->program('genomeCoverageBed') unless $self->program();
   $self->bed_graph_to_big_wig($bed_graph_to_big_wig);
 
+  $self->java_exe($java_exe) if ($java_exe);
+  $self->jvm_args($jvm_args) if ($jvm_args);
+  $self->cramtools_jar_file($cramtools_jar_file) if ($cramtools_jar_file);
+  
   return $self;
 }
 
@@ -99,7 +106,9 @@ sub convert_bed_graph {
     "Chromsome file (2 columns, name and length, tab separated) is required")
     unless ( $self->chromosome_file );
 
+  #my @bed_graph_cmd = ( 'genomeCoverageBed', '-bg' );
   my @bed_graph_cmd = ( $self->program, '-bg' );
+
   my $chromosome_file = $self->chromosome_file;
 
   push @bed_graph_cmd, '-split' if ( $self->options('split_reads') );
@@ -117,17 +126,13 @@ sub convert_bed_graph {
 sub convert_cram {
   my ( $self, $input_file, $output_file, $is_intermediate ) = @_;
 
-  my $heap_size;
-
-  if ( $self->options('heap_size') ) {
-    $heap_size = '-Xmx' . $self->options('heap_size');
+  my $heap_size = "";
+     
+  if ( $self->jvm_args ) {
+    $heap_size = $self->jvm_args;
   }
-  else {
-    $heap_size = "";
-  }
-
-  my $executable = $self->program;
-  my @cram_cmd = ( 'java', $heap_size, '-jar', $executable );
+  
+  my @cram_cmd = ( $self->java_exe, $heap_size, '-jar', $self->program . "/" . $self->cramtools_jar_file );
 
   if ( $input_file =~ /bam$/ ) {    ### For creating cram files
     push @cram_cmd, "cram";
@@ -142,13 +147,13 @@ sub convert_cram {
       $self->options('lossy-quality-score-spec')
       if $self->options('lossy-quality-score-spec');
     push @cram_cmd, '-L', $self->options('L') if $self->options('L');
+    push @cram_cmd, '--reference-fasta-file', $self->reference_fasta;
   }
   elsif ( $input_file =~ /cram$/ ) {    ### For indexing cram files
     push @cram_cmd, "index";
     push @cram_cmd, '--input-file', $input_file;
+    $output_file = $input_file . '.crai';
   }
-
-  push @cram_cmd, '--reference-fasta-file', $self->reference_fasta;
 
   my $run_cram_cmd = join ' ', @cram_cmd;
   $self->do_conversion( $run_cram_cmd, $output_file, $is_intermediate );
@@ -278,6 +283,30 @@ sub output_file {
     $self->{'output_file'} = $arg;
   }
   return $self->{'output_file'};
+}
+
+sub java_exe {
+  my ( $self, $arg ) = @_;
+  if ($arg) {
+    $self->{'java_exe'} = $arg;
+  }
+  return $self->{'java_exe'};
+}
+
+sub jvm_args {
+  my ( $self, $arg ) = @_;
+  if ($arg) {
+    $self->{'jvm_args'} = $arg;
+  }
+  return $self->{'jvm_args'};
+}
+
+sub cramtools_jar_file {
+  my ( $self, $arg ) = @_;
+  if ($arg) {
+    $self->{'cramtools_jar_file'} = $arg;
+  }
+  return $self->{'cramtools_jar_file'};
 }
 
 sub reference_fasta {
