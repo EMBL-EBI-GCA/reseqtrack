@@ -27,7 +27,7 @@ sub run {
     
     my $add_attributes = $self->param( 'add_attributes' ) ? 1 : 0;  
 
-    my @allowed_cmds = qw(merge sort index fix_and_calmd calmd fixmate sam_to_bam bam_to_cram);
+    my @allowed_cmds = qw(merge sort index fix_and_calmd calmd fixmate sam_to_bam bam_to_cram flagstat filter);
     throw("Don't recognise command $command. Acceptable commands are: @allowed_cmds")
       if (! grep {$command eq $_ } @allowed_cmds);
 
@@ -57,20 +57,17 @@ sub run {
 		$self->output_param($command eq 'index' ? 'crai' : 'cram'  => $output_files);
 	}
 	elsif ($command eq 'flagstat') {
-      $self->output_param('metrics' => $output_files);
-      if($add_attributes){
-        my $generated_metrics = $samtools_object->output_metrics_object;
-        throw('metrics object not found') unless $generated_metrics;
-        $self->output_param('attribute_metrics', $generated_metrics);
-      }
-    }
+          $self->output_param('metrics' => $output_files);
+          if($add_attributes){
+            my $generated_metrics = $samtools_object->output_metrics_object;
+            throw('metrics object not found') unless $generated_metrics;
+            $self->output_param('attribute_metrics', $generated_metrics);
+          }
+        }
 	else {
 		print "bam output is $output_files->[0]\n";
 	    $self->output_param($command eq 'index' ? 'bai' : 'bam'  => $output_files);
-	}
-		
+	}		
 }
-
-
 1;
 
