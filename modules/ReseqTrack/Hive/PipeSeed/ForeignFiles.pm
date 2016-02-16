@@ -8,7 +8,7 @@ use base ('ReseqTrack::Hive::PipeSeed::BasePipeSeed');
 use File::Find qw(find);
 use File::stat;
 use DateTime::Format::MySQL;
-use ReseqTrack::Tools::Exception qw(throw);
+use ReseqTrack::Tools::Exception qw(throw warning);
 use File::Spec;
 =pod
 
@@ -33,6 +33,7 @@ sub default_options {
     ignore_foreign_paths => 0,
     sticky_tbi => 1,
     sticky_bai => 1,
+    exclude_type => {},
   };
 }
 
@@ -42,7 +43,21 @@ sub create_seed_params {
 
   throw('this module will only accept pipelines that work on the file table')
       if $self->table_name ne 'file';
+  
+  my $output_columns = ref($options{'output_columns'}) eq 'ARRAY' ? $options{'output_columns'}
+                      : defined $options{'output_columns'} ? [$options{'output_columns'}]
+                      : [];
 
+  my $output_attributes  = ref($options{'output_attributes'}) eq 'ARRAY' ? $options{'output_attributes'}
+                     : defined $options{'output_attributes'} ? [$options{'output_attributes'}]
+                     : [];  
+
+  my $require_attributes = $options{'require_attributes'} || {};
+  my $require_columns = $options{'require_columns'} || {};
+  my $exclude_columns = $options{'exclude_columns'} || {};
+  my $exclude_attributes = $options{'exclude_attributes'} || {};
+  my $exclude_type = $options{'exclude_type'} ? $options{'exclude_type'} : {};
+  
   my $db = $self->db;
   my $pipeline = $self->pipeline;
 
@@ -56,7 +71,34 @@ sub create_seed_params {
       next FILE if $options{sticky_bai} && $file->name =~ /\.bai$/;
       next FILE if $options{sticky_tbi} && $file->name =~ /\.tbi$/;
 
+       if( $require_columns ){
+        throw("require list is not a hash") if ref($require_columns) ne 'HASH';
+        my $require_match_count = 0;
+        while (my ($column, $values) = each %$require_columns) {
+          my $file_val = $file->$column;
 
+          $values = ref($values) eq 'ARRAY' ? $values : [$values];
+          my @match_val = grep{ $_ eq $file_val} @$values;
+          $require_match_count += scalar @match_val;
+        }
+        next FILE if $require_match_count == 0;
+      }
+     
+     if( $exclude_columns ){ 
+       throw("exclude list is not a hash") if ref($exclude_columns) ne 'HASH';
+       my $keys = 0;
+       $keys = keys %$exclude_columns;
+       throw("No exclude key found") if $keys == 0;
+
+        while (my ($column, $values) = each %$exclude_columns) {
+          my $file_val = $file->$column;
+          my $match_count = 0;
+          $values = ref($values) eq 'ARRAY' ? $values : [$values];
+          my @match_val = grep{ $_ eq $file_val} @$values;
+          $match_count = scalar @match_val;
+          next FILE if $match_count > 0;
+        }
+      } 
       my $existing_ps = $psa->fetch_by_seed_and_pipeline($file, $pipeline);
       if (@$existing_ps) {
         next FILE if grep {$_->is_running} @$existing_ps;
@@ -117,10 +159,33 @@ sub create_seed_params {
       next FILE if grep {$_ > $updated} map {DateTime::Format::MySQL->parse_datetime($_->created)->set_time_zone('local')->epoch} @$existing_ps;
 
       my %output_params = (file => {dropbox => \%dropbox_details, db => \%db_details});
+      
+      foreach my $attr_name (keys %$require_attributes) {
+        my ($attribute) = grep {$_->attribute_name eq $attr_name} @{$file->attributes};
+        next FILE if !$attribute;
+        my $values = $require_attributes->{$attr_name};
+        $values = ref($values) eq 'ARRAY' ? $values : [$values];
+        next FILE if !grep {$attribute->attribute_value eq $_} @$values;
+      }
+
+     foreach my $attr_name (keys %$exclude_attributes) {
+        my ($attribute) = grep {$_->attribute_name eq $attr_name} @{$file->attributes};
+        my $values = $exclude_attributes->{$attr_name};
+        $values = ref($values) eq 'ARRAY' ? $values : [$values];
+        next FILE if grep {$attribute->attribute_value eq $_} @$values;
+      }
+      
+      my $file_attributes = $file->attributes;
+      ATTRIBUTE:
+      foreach my $attribute_name (@$output_attributes) {
+         my ($attribute) = grep {$_->attribute_name eq $attribute_name} @$file_attributes;
+         next ATTRIBUTE if !$attribute;
+         $output_params{$attribute_name} = $attribute->attribute_value;
+      }
       push(@seed_params, [$file, \%output_params]);
     }
   }
-
+ 
   $self->seed_params(\@seed_params);
 }
 

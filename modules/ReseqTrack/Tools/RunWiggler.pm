@@ -53,9 +53,9 @@ sub new {
     my ( $class, @args ) = @_;
     my $self = $class->SUPER::new(@args);
 
-    my ( $output_format, $bedGraphToBigWig_path, $chrom_sizes_file, $dedupe, $clobber, $samtools_path ) =
+    my ( $output_format, $bedGraphToBigWig_path, $chrom_sizes_file, $dedupe, $clobber, $samtools_path, $mcr_root ) =
       rearrange(
-        [qw(OUTPUT_FORMAT BEDGRAPHTOBIGWIG_PATH CHROM_SIZES_FILE DEDUPE CLOBBER SAMTOOLS_PATH)],
+        [qw(OUTPUT_FORMAT BEDGRAPHTOBIGWIG_PATH CHROM_SIZES_FILE DEDUPE CLOBBER SAMTOOLS_PATH MCR_ROOT)],
         @args );
 
     $self->output_format($output_format);
@@ -64,6 +64,7 @@ sub new {
     $self->dedupe($dedupe);
     $self->clobber($clobber);
     $self->samtools_path($samtools_path);
+    $self->mcr_root($mcr_root);
 
     return $self;
 }
@@ -85,8 +86,30 @@ sub run_program {
     my $temp_dir      = $self->get_temp_dir();
     my $final_dir     = $self->working_dir();
     my $format_suffix = $self->output_format();
+    my $mcr_root      = $self->mcr_root();
+ 
+    if ( $ENV{MCRROOT} && $ENV{MCRJRE} ){
+      ## env variable MCRROOT & MCRJRE are already present, do nothing
+      $ENV{MCR_CACHE_ROOT} = $temp_dir . '/MCR_CACHE';
+    }
+    else {
+      ## set env path
+      throw("require mcr_root") if !$mcr_root;
+      my $mcr_jre = "$mcr_root/sys/java/jre/glnxa64/jre/lib/amd64";
+      my $xapplres_dir = "$mcr_root/X11/app-defaults";
+      my $ld_lib_path  = join( ':',
+       $ENV{LD_LIBRARY_PATH},     "$mcr_root/runtime/glnxa64",
+       "$mcr_root/bin/glnxa64",   "$mcr_root/sys/os/glnxa64",
+       "$mcr_jre/native_threads", "$mcr_jre/server",
+       $mcr_jre );
+      
+      $ENV{MCRROOT} = $mcr_root;
+      $ENV{MCRJRE} = $mcr_jre;
+      $ENV{XAPPLRESDIR} = $xapplres_dir;
+      $ENV{LD_LIBRARY_PATH} = $ld_lib_path;
+      $ENV{MCR_CACHE_ROOT} = $temp_dir . '/MCR_CACHE';
+    }
 
-    $ENV{MCR_CACHE_ROOT} = $temp_dir . '/MCR_CACHE';
     make_path( $ENV{MCR_CACHE_ROOT} );
 
     my $output = "$temp_dir/$job_name.$format_suffix";
@@ -189,6 +212,15 @@ sub samtools_path {
     }
 
     return $self->{'samtools_path'};
+}
+
+sub mcr_root {
+    my ( $self, $arg ) = @_;
+    if ($arg) {
+        $self->{'mcr_root'} = $arg;
+    }
+
+    return $self->{'mcr_root'};
 }
 
 1;
