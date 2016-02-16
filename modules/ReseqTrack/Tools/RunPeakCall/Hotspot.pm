@@ -340,13 +340,13 @@ sub hotspot_scripts {
 
 sub output_hotspot_bed {
   my $self = shift;
-  my @files = grep { /\.hotspots.bed.gz$/ } @{ $self->output_files };
+  my @files = grep { /\.hotspots\.bed(\.gz)?$/ } @{ $self->output_files };
   return $files[0];
 }
 
 sub output_peak_bed {
   my $self = shift;
-  my @files = grep { /\.peaks.bed.gz$/ } @{ $self->output_files };
+  my @files = grep { /\.peaks\.bed(\.gz)?$/ } @{ $self->output_files };
   return $files[0];
 }
 
