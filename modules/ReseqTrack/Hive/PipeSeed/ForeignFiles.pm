@@ -33,7 +33,6 @@ sub default_options {
     ignore_foreign_paths => 0,
     sticky_tbi => 1,
     sticky_bai => 1,
-    exclude_type => {},
   };
 }
 
@@ -53,10 +52,9 @@ sub create_seed_params {
                      : [];  
 
   my $require_attributes = $options{'require_attributes'} || {};
-  my $require_columns = $options{'require_columns'} || {};
-  my $exclude_columns = $options{'exclude_columns'} || {};
+  my $require_columns    = $options{'require_columns'} || {};
+  my $exclude_columns    = $options{'exclude_columns'} || {};
   my $exclude_attributes = $options{'exclude_attributes'} || {};
-  my $exclude_type = $options{'exclude_type'} ? $options{'exclude_type'} : {};
   
   my $db = $self->db;
   my $pipeline = $self->pipeline;
