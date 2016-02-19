@@ -252,6 +252,7 @@ sub resource_classes {
             '6Gb' => { 'LSF' => '-C0 -M6000 -q '.$self->o('lsf_queue').' -R"select[mem>6000] rusage[mem=6000] select[' .$self->o('lsf_resource') . ']"' },
             '8Gb' => { 'LSF' => '-C0 -M8000 -q '.$self->o('lsf_queue').' -R"select[mem>8000] rusage[mem=8000] select[' .$self->o('lsf_resource') . ']"' },
 	    '10Gb' => { 'LSF' => '-C0 -M10000 -q '.$self->o('lsf_queue').' -R"select[mem>10000] rusage[mem=10000] select[' .$self->o('lsf_resource') . ']"' },
+	    '32Gb' => { 'LSF' => '-C0 -M32000 -q '.$self->o('lsf_queue').' -R"select[mem>32000] rusage[mem=32000] select[' .$self->o('lsf_resource') . ']"' },
     };
 }
 
@@ -366,6 +367,27 @@ sub pipeline_analyses {
             },
             -rc_name => '8Gb', # Note the 'hardened' version of BWA may need 8Gb RAM or more
             -hive_capacity  =>  100,
+            -flow_into => {
+                1 => ['sort_chunks'],
+                -1 => [ 'bwa_himem' ],
+            },
+      });
+    push(@analyses, {
+           -logic_name => 'bwa_himem',
+            -module        => 'ReseqTrack::Hive::Process::BWA',
+            -parameters    => {
+                program_file => $self->o('bwa_exe'),
+                samtools => $self->o('samtools_exe'),
+                reference => $self->o('reference'),
+                options => $self->o('bwa_options'),
+                RGSM => $self->o('RGSM'),
+                RGPU => $self->o('RGPU'),
+                reseqtrack_options => {
+                  delete_param => 'fastq',
+                },
+            },
+            -rc_name => '32Gb',
+            -hive_capacity  =>  50,
             -flow_into => {
                 1 => ['sort_chunks'],
             },
