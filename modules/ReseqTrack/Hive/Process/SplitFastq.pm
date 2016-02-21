@@ -10,12 +10,13 @@ use ReseqTrack::Tools::FileUtils qw(get_count_stats);
 use ReseqTrack::Tools::RunSplit;
 use POSIX qw(ceil);
 use ReseqTrack::Tools::Exception qw(throw);
-
+use Data::Dumper;
 sub param_defaults {
   return {
     program_file => undef,
-    samtools => undef,
-    run_alias => undef,
+    samtools     => undef,
+    run_alias    => undef,
+    regexs       => undef,
   };
 }
 
@@ -32,22 +33,17 @@ sub run {
     my $run_source_id = $self->param_required('run_source_id');
     my $run_alias = $self->param('run_alias');
     my $search_string = ($run_source_id && $run_alias) ? "$run_source_id|$run_alias" : $run_source_id || $run_alias;
-    my @regexs = (qr/(?:${search_string})_1\.(?:\w+\.)*f(?:ast)?q(?:\.gz)?/i,
+    my $regexs = (qr/(?:${search_string})_1\.(?:\w+\.)*f(?:ast)?q(?:\.gz)?/i,
                   qr/(?:${search_string})_2\.(?:\w+\.)*f(?:astq)?(?:\.gz)?/i,
                   qr/(?:${search_string})\.(?:\w+\.)*f(?:ast)?q(?:\.gz)?/i);
 
+    $regexs = $self->param('regexs');
+
 
     my $fastqs = $self->param_as_array('fastq');
-    my ($mate1, $mate2, $frag);
-    
-    if ( scalar @$fastqs  == 1) {
-      $frag = $$fastqs[0];
-    }
-    else {
-      ($mate1, $mate2, $frag) = assign_files($fastqs, \@regexs);
-      throw ("No mate for $mate1") if ($mate1 && ! $mate2);
-      throw ("No mate for $mate2") if ($mate2 && ! $mate1);
-    }
+    my ($mate1, $mate2, $frag) = assign_files($fastqs, $regexs);
+    throw ("No mate for $mate1") if ($mate1 && ! $mate2);
+    throw ("No mate for $mate2") if ($mate2 && ! $mate1);
 
     my $run_split = ReseqTrack::Tools::RunSplit->new(
         -input_files => $fastqs,
