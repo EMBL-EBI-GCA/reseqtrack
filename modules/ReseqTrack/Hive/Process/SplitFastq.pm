@@ -33,16 +33,16 @@ sub run {
     my $run_source_id = $self->param_required('run_source_id');
     my $run_alias = $self->param('run_alias');
     my $search_string = ($run_source_id && $run_alias) ? "$run_source_id|$run_alias" : $run_source_id || $run_alias;
-    my $regexs = (qr/(?:${search_string})_1\.(?:\w+\.)*f(?:ast)?q(?:\.gz)?/i,
+    my @regexs = (qr/(?:${search_string})_1\.(?:\w+\.)*f(?:ast)?q(?:\.gz)?/i,
                   qr/(?:${search_string})_2\.(?:\w+\.)*f(?:astq)?(?:\.gz)?/i,
                   qr/(?:${search_string})\.(?:\w+\.)*f(?:ast)?q(?:\.gz)?/i);
 
-    $regexs = $self->param('regexs') 
-              if $self->param('regexs');
-
+    my $regexs_ref = \@regexs;
+    $regexs_ref = $self->param('regexs') 
+              if $self->param('regexs') && ref($self->param('regexs')) eq 'ARRAY';
 
     my $fastqs = $self->param_as_array('fastq');
-    my ($mate1, $mate2, $frag) = assign_files($fastqs, $regexs);
+    my ($mate1, $mate2, $frag) = assign_files($fastqs, $regexs_ref);
     throw ("No mate for $mate1") if ($mate1 && ! $mate2);
     throw ("No mate for $mate2") if ($mate2 && ! $mate1);
 
