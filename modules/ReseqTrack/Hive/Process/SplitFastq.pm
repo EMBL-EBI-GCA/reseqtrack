@@ -37,7 +37,8 @@ sub run {
                   qr/(?:${search_string})_2\.(?:\w+\.)*f(?:astq)?(?:\.gz)?/i,
                   qr/(?:${search_string})\.(?:\w+\.)*f(?:ast)?q(?:\.gz)?/i);
 
-    $regexs = $self->param('regexs');
+    $regexs = $self->param('regexs') 
+              if $self->param('regexs');
 
 
     my $fastqs = $self->param_as_array('fastq');
