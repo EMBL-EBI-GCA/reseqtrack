@@ -10,19 +10,19 @@ use ReseqTrack::Tools::FileUtils qw(get_count_stats);
 use ReseqTrack::Tools::RunSplit;
 use POSIX qw(ceil);
 use ReseqTrack::Tools::Exception qw(throw);
-
+use Data::Dumper;
 sub param_defaults {
   return {
     program_file => undef,
-    samtools => undef,
-    run_alias => undef,
+    samtools     => undef,
+    run_alias    => undef,
+    regexs       => undef,
   };
 }
 
 
 sub run {
     my $self = shift @_;
-    #throw("test");
     my $max_reads = $self->param_required('max_reads');
     $self->param_required('fastq');
 
@@ -37,9 +37,12 @@ sub run {
                   qr/(?:${search_string})_2\.(?:\w+\.)*f(?:astq)?(?:\.gz)?/i,
                   qr/(?:${search_string})\.(?:\w+\.)*f(?:ast)?q(?:\.gz)?/i);
 
+    my $regexs_ref = \@regexs;
+    $regexs_ref = $self->param('regexs') 
+              if $self->param('regexs') && ref($self->param('regexs')) eq 'ARRAY';
 
     my $fastqs = $self->param_as_array('fastq');
-    my ($mate1, $mate2, $frag) = assign_files($fastqs, \@regexs);
+    my ($mate1, $mate2, $frag) = assign_files($fastqs, $regexs_ref);
     throw ("No mate for $mate1") if ($mate1 && ! $mate2);
     throw ("No mate for $mate2") if ($mate2 && ! $mate1);
 
