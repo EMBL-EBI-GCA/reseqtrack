@@ -33,6 +33,17 @@ typedef struct
   uint64_t num_mapped_reads_properly_paired; /* Same as num_mapped_reads, also requiring flag 2 (== mapped in a proper pair, inferred during alignment). */
   uint64_t num_NM_bases; /* The sum of the length of all reads in this readgroup that have a NM tag */
   uint64_t num_NM_mismatched_bases; /* The sum of the value of the NM tags for all reads in this readgroup */
+  uint64_t num_NM_lines; /* Number cases where a line meets the NM condition */
+
+  uint64_t num_primary_lines;/*not secondary and not supplementary - should be one and only one per read*/
+  uint64_t num_primary_lines_mapped;/*as primary lines but also read listed as mapped*/
+  uint64_t sum_mapq_primary_aligns;/*for non-secondary that mapped sum mapq - including supp primary in this*/
+  uint64_t num_lines_not_supplementary_mapped;/*number of alignments (i.e. excluding supplementary records for chimeric aligns etc.)*/
+  uint64_t num_primary_NM_bases;/*as for NM but restricted to primary aligns(or not secondary)*/
+  uint64_t num_primary_NM_mismatched_bases;/*as for NM but restricted to primary*/ 
+  uint64_t num_lines_primary_aligns;
+  uint64_t num_primary_lines_mapped_paired;
+
   uint64_t sum_quality_mapped_bases; /* Sum of the base qualities for all bases for all reads in this readgroup that did not have the flag 4 (== unmapped) */
   uint64_t num_duplicate_reads; /* Number of reads which were marked as duplicates */
   uint64_t num_duplicate_bases; /* The sum of the length of all reads which were marked as duplicates */
@@ -105,12 +116,21 @@ void *rg_stats_init(bam_header_t *bam_header) {
     new_rg_stats->num_mapped_reads_properly_paired = 0;
     new_rg_stats->num_NM_bases = 0;
     new_rg_stats->num_NM_mismatched_bases = 0;
+    new_rg_stats->num_NM_lines = 0;
     new_rg_stats->sum_quality_mapped_bases = 0;
     new_rg_stats->sum_insert_sizes = 0;
     new_rg_stats->num_insert_sizes = 0;
     new_rg_stats->num_duplicate_reads = 0;
     new_rg_stats->num_duplicate_bases = 0;
     new_rg_stats->median_insert_size = 0;
+    new_rg_stats->num_primary_lines = 0;
+    new_rg_stats->num_primary_lines_mapped = 0;
+    new_rg_stats->sum_mapq_primary_aligns = 0;
+    new_rg_stats->num_lines_not_supplementary_mapped = 0;
+    new_rg_stats->num_primary_NM_bases = 0;
+    new_rg_stats->num_primary_NM_mismatched_bases = 0;
+    new_rg_stats->num_lines_primary_aligns = 0;
+    new_rg_stats->num_primary_lines_mapped_paired = 0;
   }
 
   free(ID_array);
@@ -140,8 +160,31 @@ void update_stats(rg_stats_t *rg_stats, bam1_t *bam_line) {
   rg_stats->num_total_reads ++;
   rg_stats->num_total_bases += bam_line->core.l_qseq;
 
+  /*if primary line - one and only one per read*/
+  if((!(bam_line->core.flag & BAM_FSECONDARY))&&(!(bam_line->core.flag & BAM_FSUPPLEMENTARY))) {
+    rg_stats->num_primary_lines ++;
+
+    if(! (bam_line->core.flag & BAM_FUNMAP)) {
+      rg_stats->num_primary_lines_mapped ++;
+
+      if(bam_line->core.flag & BAM_FPROPER_PAIR) {
+        rg_stats->num_primary_lines_mapped_paired ++;
+      }
+    }
+
+  }
+  /*primary and mapped but not restricted to non-supplementary*/
+  if((!(bam_line->core.flag & BAM_FSECONDARY))&&(! (bam_line->core.flag & BAM_FUNMAP))) {
+    rg_stats->num_lines_primary_aligns ++;
+    rg_stats->sum_mapq_primary_aligns += bam_line->core.qual;
+  }
 
   if (! (bam_line->core.flag & BAM_FUNMAP)) {
+    /*how many alignments? - not restricting to primary*/
+    if(!(bam_line->core.flag & BAM_FSUPPLEMENTARY)) {
+      rg_stats->num_lines_not_supplementary_mapped ++;
+    }
+
     uint32_t *cigar = bam1_cigar(bam_line);
     uint8_t *qual = bam1_qual(bam_line);
     uint16_t i,j;
@@ -185,8 +228,14 @@ void update_stats(rg_stats_t *rg_stats, bam1_t *bam_line) {
 
   uint8_t *nm_with_type = bam_aux_get_core(bam_line, "NM");
   if (nm_with_type != 0) {
+    rg_stats->num_NM_lines ++;
     rg_stats->num_NM_mismatched_bases += bam_aux2i(nm_with_type);
     rg_stats->num_NM_bases += bam_line->core.l_qseq;
+    /*assuming that since NM tag is present it is mapped and this limits to primary aligns*/
+    if(!(bam_line->core.flag & BAM_FSECONDARY)) {
+      rg_stats->num_primary_NM_mismatched_bases += bam_aux2i(nm_with_type);
+      rg_stats->num_primary_NM_bases += bam_line->core.l_qseq;
+    }
   }
 
 
@@ -338,7 +387,10 @@ void output_rg_stats(void *_rg_stats_hash, char* out_fname, char* bam_basename, 
   fprintf(fp, "\t#_mapped_reads_paired_in_sequencing\t#_mapped_reads_properly_paired");
   fprintf(fp, "\t%c_of_mismatched_bases\taverage_quality_of_mapped_bases\tmean_insert_size", '%');
   fprintf(fp, "\tinsert_size_sd\tmedian_insert_size\tinsert_size_median_absolute_deviation");
-  fprintf(fp, "\t#_duplicate_reads\t#_duplicate_bases\t#_bases_with_NM_tag\t#_mismatched_bases_with_NM_tag\n");
+  fprintf(fp, "\t#_duplicate_reads\t#_duplicate_bases\t#_bases_with_NM_tag\t#_mismatched_bases_with_NM_tag\t#_NM_lines");
+  fprintf(fp, "\t#_prim_lines\t#_prim_lines_mapped\t#_prim_lines_mapped_paired\t#_lines_not_supp_mapped");
+  fprintf(fp, "\tsum_mapq\t#_lines_prim_aligns\tavg_prim_mapq\t#_prim_bases_with_NM_tag\t#_prim_mismatched_bases_with_NM_tag");
+  fprintf(fp, "\tperc_of_prim_mismatched_bases_NM\n");
 
   for (k = kh_begin(rg_stats_hash); k != kh_end(rg_stats_hash); k++)
     if (kh_exist(rg_stats_hash, k)) {
@@ -368,6 +420,19 @@ void output_rg_stats(void *_rg_stats_hash, char* out_fname, char* bam_basename, 
       fprintf(fp, "\t%llu", rg_stats->num_duplicate_bases);
       fprintf(fp, "\t%llu", rg_stats->num_NM_bases);
       fprintf(fp, "\t%llu", rg_stats->num_NM_mismatched_bases);
+      fprintf(fp, "\t%llu", rg_stats->num_NM_lines);
+
+      fprintf(fp, "\t%llu", rg_stats->num_primary_lines);
+      fprintf(fp, "\t%llu", rg_stats->num_primary_lines_mapped);
+      fprintf(fp, "\t%llu", rg_stats->num_primary_lines_mapped_paired);
+      fprintf(fp, "\t%llu", rg_stats->num_lines_not_supplementary_mapped);
+      fprintf(fp, "\t%llu", rg_stats->sum_mapq_primary_aligns);
+      fprintf(fp, "\t%llu", rg_stats->num_lines_primary_aligns);
+      fprintf(fp, "\t%.2f", ((double) rg_stats->sum_mapq_primary_aligns / rg_stats->num_lines_primary_aligns));
+      fprintf(fp, "\t%llu", rg_stats->num_primary_NM_bases);
+      fprintf(fp, "\t%llu", rg_stats->num_primary_NM_mismatched_bases);
+      fprintf(fp, "\t%.2f", (100 * (double) rg_stats->num_primary_NM_mismatched_bases / rg_stats->num_NM_bases));
+
       fprintf(fp, "\n");
     }
   fclose(fp);
