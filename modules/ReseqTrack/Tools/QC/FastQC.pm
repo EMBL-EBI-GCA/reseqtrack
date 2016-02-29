@@ -95,11 +95,11 @@ sub run_program {
 }
 
 sub keep_file_output_dir {
-	my ( $self, $arg ) = @_;
-	  if ($arg) {
-	    $self->{'keep_file_output_dir'} = $arg;
-	  }
-	  return $self->{'keep_file_output_dir'};
+    my ( $self, $arg ) = @_;	  
+    if ($arg) {
+	$self->{'keep_file_output_dir'} = $arg;
+    }
+    return $self->{'keep_file_output_dir'};
 }
 
 sub keep_html {
