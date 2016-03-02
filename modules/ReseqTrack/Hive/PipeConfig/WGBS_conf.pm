@@ -17,6 +17,7 @@ sub default_options {
 	'split_exe' => $self->o('ENV', 'RESEQTRACK').'/c_code/split/split',
 	'chunk_max_reads' => 2000000,
 	 'bismark_exe' => '/hps/cstor01/nobackup/faang/ernesto/bin/bismark_v0.15.0/bismark',
+	'bismark_methcall_exe' => '/hps/cstor01/nobackup/faang/ernesto/bin/bismark_v0.15.0/bismark_methylation_extractor',
         'samtools_exe' => '/hps/cstor01/nobackup/faang/ernesto/bin/samtools-1.3/samtools',
 	'reference' => '/hps/cstor01/nobackup/faang/ernesto/reference/bismark',
 	'RGSM'                => 'test_s',
@@ -79,8 +80,7 @@ sub pipeline_analyses {
 		 }
 	    ],
             -flow_into => {
-		2 => ['split_fastq']
-		
+		2 => ['split_fastq']		
 	#	2 => ['run_fastqc','run_fastqscreen', 'split_fastq'],
             },
         },
@@ -118,19 +118,20 @@ sub pipeline_analyses {
                'run_source_id' => '#run_id#',
             },
 	   -flow_into => {
-	      '2->A' => {'bismark' => {'chunk_label' => '#run_source_id#.#chunk#', 'fastq' => '#fastq#'}},
+	      '2->A' => {'bismark_mapper' => {'chunk_label' => '#run_source_id#.#chunk#', 'fastq' => '#fastq#'}},
               'A->1' => ['merge_chunks'],
 	   },
 	    -analysis_capacity => 4,
 	    -rc_name => '200Mb',
         },
 	{
-	    -logic_name => 'bismark',
+	    -logic_name => 'bismark_mapper',
             -module        => 'ReseqTrack::Hive::Process::RunBismark',
             -parameters    => {
                 program_file => $self->o('bismark_exe'),
                 samtools => $self->o('samtools_exe'),
                 reference => $self->o('reference'),
+		command => 'aln',
 	        RGSM => $self->o('RGSM'),
                 RGPU => $self->o('RGPU'),
 		'output_dir' => '#o_dir#',
@@ -181,7 +182,20 @@ sub pipeline_analyses {
                 create_index => 1,
 		'chunk_label' => '#run_id#'
 	    },
-         }
+	    -flow_into => {
+		1 => ['bismark_methcall'],
+	    },
+        },
+	{
+	     -logic_name => 'bismark_methcall',
+             -module        => 'ReseqTrack::Hive::Process::RunBismark',
+	     -parameters    => {
+                program_file => $self->o('bismark_methcall_exe'),
+                command => 'methext',
+		'LIBRARY_LAYOUT' => 'SINGLE',
+                'output_dir' => '#o_dir#'
+	     },
+	}
     ];
 }
 
