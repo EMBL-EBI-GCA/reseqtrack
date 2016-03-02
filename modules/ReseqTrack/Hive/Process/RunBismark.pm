@@ -34,11 +34,13 @@ sub param_defaults {
 sub run {
     my $self = shift @_;
 
-    $self->param_required('fastq');
     my $run_id = $self->param_required('run_id');
-    my $reference = $self->param_required('reference');
+    my $command = $self->param_required('command');
 
-    my $fastqs = $self->param_as_array('fastq');
+    my @allowed_cmds = qw(aln methext);
+    throw("Don't recognise command $command. Acceptable commands are: @allowed_cmds")
+	if (! grep {$command eq $_ } @allowed_cmds);
+
 
     my %read_group_fields = (
       ID => $self->param('RGID') // $self->param('run_source_id'),
@@ -51,12 +53,13 @@ sub run {
       PL => $self->param('RGPL') // $self->param('instrument_platform'),
     );
 
-    foreach my $fastq (@$fastqs) {
-      check_file_exists($fastq);
-    }
-
-
-    my $run_alignment = ReseqTrack::Tools::RunAlignment::Bismark->new(
+    if ($command eq 'aln') {
+	my $reference = $self->param_required('reference');
+	my $fastqs = $self->param_as_array('fastq');
+	foreach my $fastq (@$fastqs) {
+	    check_file_exists($fastq);
+	}
+	my $run_alignment = ReseqTrack::Tools::RunAlignment::Bismark->new(
           -input_files => $fastqs,
           -program => $self->param('program_file'),
           -samtools => $self->param('samtools'),
@@ -65,12 +68,23 @@ sub run {
           -reference => $reference,
           -job_name => $self->job_name,
           -options => $self->param('options'),
-          );
+	    );
 
-    $self->run_program($run_alignment);
+	$self->run_program($run_alignment);
 
-    $self->output_param('bam', $run_alignment->output_files->[0]);
+	$self->output_param('bam', $run_alignment->output_files->[0]);
+    } elsif ($command eq 'methext') {
+	my $bamfile = $self->param_required('bam');
+	my $runmode = $self->param_required('LIBRARY_LAYOUT');
+	check_file_exists($bamfile);
+	my $run_methext=ReseqTrack::Tools::RunAlignment::Bismark->new(
+	    -input_files => $bamfile,
+	    -working_dir => $self->output_dir,
+	    -runmode => $runmode
+	    );
+	$self->run_program($run_methext);
 
+    }
 }
 
 1;
