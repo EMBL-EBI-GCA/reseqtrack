@@ -5,7 +5,7 @@ use warnings;
 
 use base ('ReseqTrack::Hive::Process::BaseProcess');
 use ReseqTrack::Tools::FileSystemUtils qw(check_file_exists);
-use ReseqTrack::Tools::RunAlignment::Bismark;
+use ReseqTrack::Tools::RunBismark;
 use ReseqTrack::Tools::Exception qw(throw);
 
 sub param_defaults {
@@ -30,6 +30,7 @@ sub param_defaults {
     instrument_platform => undef,
   };
 }
+
 
 sub run {
     my $self = shift @_;
@@ -59,8 +60,8 @@ sub run {
 	foreach my $fastq (@$fastqs) {
 	    check_file_exists($fastq);
 	}
-	my $run_alignment = ReseqTrack::Tools::RunAlignment::Bismark->new(
-          -input_files => $fastqs,
+	my $run_alignment = ReseqTrack::Tools::RunBismark->new(
+          -fragment_file => $fastqs->[0],
           -program => $self->param('program_file'),
           -samtools => $self->param('samtools'),
           -output_format => 'BAM',
@@ -70,19 +71,19 @@ sub run {
           -options => $self->param('options'),
 	    );
 
-	$self->run_program($run_alignment);
+	$self->run_program($run_alignment,$command);
 
 	$self->output_param('bam', $run_alignment->output_files->[0]);
     } elsif ($command eq 'methext') {
 	my $bamfile = $self->param_required('bam');
 	my $runmode = $self->param_required('LIBRARY_LAYOUT');
 	check_file_exists($bamfile);
-	my $run_methext=ReseqTrack::Tools::RunAlignment::Bismark->new(
+	my $run_methext=ReseqTrack::Tools::RunBismark->new(
 	    -input_files => $bamfile,
 	    -working_dir => $self->output_dir,
 	    -runmode => $runmode
 	    );
-	$self->run_program($run_methext);
+	$self->run_program($run_methext,$command);
 
     }
 }
