@@ -109,10 +109,10 @@ sub run_alignment {
 
     my $output_file;
     if ($self->base()) {
-	$output_file.=$self->working_dir."/".$self->base().".bam";
+	$output_file.=$self->working_dir."/".$self->base().".bam" if $self->fragment_file;
+	$output_file.=$self->working_dir."/".$self->base()."_pe.bam" if $self->mate1_file;
     } else {
-	my($filename, $directories) = fileparse($self->fragment_file);
-	$output_file.=$self->working_dir."/".$filename."_bismark_bt2.bam";
+	throw("[ERROR] I need a prefix name for output name");
     }
 
     $self->output_format('BAM');

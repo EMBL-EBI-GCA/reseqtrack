@@ -35,7 +35,6 @@ sub param_defaults {
 sub run {
     my $self = shift @_;
 
-    my $run_id = $self->param_required('run_id');
     my $command = $self->param_required('command');
 
     my @allowed_cmds = qw(aln methext);
@@ -55,28 +54,52 @@ sub run {
     );
 
     if ($command eq 'aln') {
+	my $chunk_label = $self->param_required('chunk_label');
 	my $reference = $self->param_required('reference');
 	my $fastqs = $self->param_as_array('fastq');
 	foreach my $fastq (@$fastqs) {
 	    check_file_exists($fastq);
 	}
-	my $run_alignment = ReseqTrack::Tools::RunBismark->new(
-          -fragment_file => $fastqs->[0],
-          -program => $self->param('program_file'),
-          -samtools => $self->param('samtools'),
-          -output_format => 'BAM',
-          -working_dir => $self->output_dir,
-          -reference => $reference,
-          -job_name => $self->job_name,
-          -options => $self->param('options'),
-	    );
+	my $run_alignment;
+	if (scalar(@$fastqs)>1) {
+	    $run_alignment = ReseqTrack::Tools::RunBismark->new(
+		-base => $chunk_label,
+                -mate1_file => $fastqs->[0],
+		-mate2_file => $fastqs->[1],
+                -program => $self->param('program_file'),
+                -samtools => $self->param('samtools'),
+                -output_format => 'BAM',
+                -working_dir => $self->output_dir,
+                -reference => $reference,
+                -job_name => $self->job_name,
+                -options => $self->param('options'),
+                );
+	} else {
+	    $run_alignment = ReseqTrack::Tools::RunBismark->new(
+		-base => $chunk_label,
+		-fragment_file => $fastqs->[0],
+		-program => $self->param('program_file'),
+		-samtools => $self->param('samtools'),
+		-output_format => 'BAM',
+		-working_dir => $self->output_dir,
+		-reference => $reference,
+		-job_name => $self->job_name,
+		-options => $self->param('options'),
+		);
+	}
 
 	$self->run_program($run_alignment,$command);
 
 	$self->output_param('bam', $run_alignment->output_files->[0]);
     } elsif ($command eq 'methext') {
+	my $fastqs = $self->param_as_array('fastq');
+	my $runmode;
+	if (scalar($fastqs)>1) {
+	    $runmode='PAIRED';
+	} else {
+	    $runmode='SINGLE';
+	}
 	my $bamfile = $self->param_required('bam');
-	my $runmode = $self->param_required('LIBRARY_LAYOUT');
 	check_file_exists($bamfile);
 	my $run_methext=ReseqTrack::Tools::RunBismark->new(
 	    -input_files => $bamfile,
