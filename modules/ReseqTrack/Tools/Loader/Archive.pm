@@ -33,7 +33,7 @@ sub new {
 		   ],
 		   @args
 		  );
-   
+
   $self->lines_check (1);	# default 'on';
   $self->archive_sleep (240);
   $self->max_number(1000);
@@ -47,16 +47,16 @@ sub new {
   $self->archive_sleep($archive_sleep);
   $self->priority($priority);
   $self->from_db($from_db);
- 
+
   $self->archive_action_adaptor();
   $self->archive_location_adaptor();
 
 
-  $self->get_archive_actions(); 
-  $self->create_action_hash();  
- 
- 
-  $self->set_location_names($action); 
+  $self->get_archive_actions();
+  $self->create_action_hash();
+
+
+  $self->set_location_names($action);
   $self->set_archive_location();
 
   $self->set_other_location();
@@ -64,7 +64,7 @@ sub new {
 
   $self->set_location_root();
   $self->max_number ( $max_number);
- 
+
 
   return $self;
 }
@@ -86,9 +86,9 @@ sub cleanup_archive_table{
   }
 
   cleanup_archive( $archives, $db, $verbose) ;
-  
+
   my $new_archives = $aa->fetch_all;
- 
+
   return(@$new_archives);
 }
 
@@ -112,11 +112,11 @@ sub archive_adaptor{
   if (defined $arg) {
     if ( ! ($arg->isa("ReseqTrack::DBSQL::ArchiveAdaptor")) ) {
       #print ref ($arg), "\n";
-      throw "Passed object other than ArchiveAdaptor\n"       	
+      throw "Passed object other than ArchiveAdaptor\n"
     }
     $self->{archive_adaptor} = $arg
   }
- 
+
   return $self->{archive_adaptor};
 }
 
@@ -124,7 +124,7 @@ sub archive_adaptor{
 ###################################
 sub archive_objects {
   my ( $self ) = @_;
-  
+
   my @files_to_archive  = keys(%{$self->which_action_hash});
   #print "Have ".@files_to_archive." files to archive\n";
   my %file_objects;
@@ -147,7 +147,7 @@ sub archive_objects {
     #print "Looking at ".$file_path."\n";
     next unless ( -e $file_path );
     my $action = $self->{which_action_hash}{$file_path};
-  
+
     $file_path =~ s/\/$//;
     my $file;
 
@@ -164,13 +164,13 @@ sub archive_objects {
     my $archive =
       create_archive_from_objects( $file, $action, $self->archive_location );
     $archive->priority( $self->priority );
- 
-    
+
+
     has_to_many_archive_lines($self->max_number, $self->archive_sleep,
 			      $self->db) if($self->lines_check);
     $aa->store($archive);
-   
-   
+
+
   }
 
 
@@ -209,18 +209,18 @@ sub sanity_check_objects {
 		 . $self->location_root );
       next;
     }
-    
+
     my $new_file = $file;
 
-  
+
     my $new_root = $self->other_location->location;
-    if ( $new_root =~ /^\/nfs\/1000g-archive/ || $new_root =~ /^\/nfs\/hipsci/ ) {
+    if ( $new_root =~ /^\/nfs\/1000g-archive/ || $new_root =~ /^\/nfs\/hipsci/ || $new_root =~ /^\/nfs\/faang/ ) {
       $new_root .= "/vol1";
     }
 
     my $loc_root = $self->location_root;
     $new_file =~ s/$loc_root/$new_root/;
-    
+
 
     if ( $self->archive_location->location_name eq 'staging' ) {
 
@@ -228,7 +228,7 @@ sub sanity_check_objects {
 	#print  "Running replace on: ".$file."\n" if ($self->verbose);
 	#    unless($action_string eq 'replace');
 	$which_action_hash{$file} = $$action_hash{'replace'};
-	
+
       } else {
 	#print  "Running archive on: ".$file."\n" if ($self->verbose);
 	$which_action_hash{$file} = $$action_hash{'archive'};
@@ -293,7 +293,7 @@ sub process_input {
 	"When archiving files from the database you must specify a type and/or "
 	  . "a root path for the files to be from\n";
     }
-  
+
     foreach my $file (@$list) {
       my $other_root = $self->other_location->location;
       next if ( $file->path =~ /$other_root/ );
@@ -305,7 +305,7 @@ sub process_input {
   throw(   "Need more than zero froms in file array from either the -file, "
 	   . "-file_list or -dir" )
     unless ( @$files >= 1 );
-  
+
   $self->file_paths($files);
   print Dumper($files) if ( $self->debug );
   return;
@@ -327,7 +327,7 @@ sub set_other_location {
   my ( $self, $arg ) = @_;
 
   my $ala = $self->archive_location_adaptor();
-  
+
   my $archive_locations = $ala->fetch_all;
 
   foreach my $location (@$archive_locations) {
@@ -370,14 +370,14 @@ sub archive_location_adaptor {
 
   if ($arg) {
     throw(
-	  "Must pass archive_action_adaptor a 
+	  "Must pass archive_action_adaptor a
           ReseqTrack::DBSQL::ArchiveLocationAdaptor not" . $arg
 	 ) unless ( $arg->isa("ReseqTrack::DBSQL::ArchiveLocationAdaptor") );
 
     $self->{archive_location_adaptor} = $self->db->get_ArchiveLocationAdaptor;
   }
 
-  unless ( $self->{archive_location_adaptor} ) { 
+  unless ( $self->{archive_location_adaptor} ) {
     $self->{archive_location_adaptor} = $self->db->get_ArchiveLocationAdaptor;
   }
 
@@ -389,7 +389,7 @@ sub archive_action_adaptor {
 
   if ($arg) {
     throw(
-	  "Must pass archive_action_adaptor a 
+	  "Must pass archive_action_adaptor a
           ReseqTrack::DBSQL::ArchiveActionAdaptor not" . $arg
 	 ) unless ( $arg->isa("ReseqTrack::DBSQL::ArchiveActionAdaptor") );
 
@@ -417,13 +417,13 @@ sub set_location_names {
       $self->action_location_name("archive");
       $self->other_location_name("staging");
     } else {
-      throw(   "Don't know what to do with action " 
+      throw(   "Don't know what to do with action "
 	       . $arg
 	       . " should be archive or dearchive" );
     }
- 
+
   }
- 
+
   return $self->{action_string};
 }
 #######
@@ -431,7 +431,7 @@ sub set_location_names {
 sub set_archive_location {
   my ( $self, $arg ) = @_;
   my $ala = $self->archive_location_adaptor();
-  
+
   my $archive_locations = $ala->fetch_all;
 
   foreach my $location (@$archive_locations) {
