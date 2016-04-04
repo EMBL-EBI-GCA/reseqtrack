@@ -69,8 +69,8 @@ sub create_seed_params {
       next FILE if $options{sticky_bai} && $file->name =~ /\.bai$/;
       next FILE if $options{sticky_tbi} && $file->name =~ /\.tbi$/;
 
-       if( $require_columns ){
-        throw("require list is not a hash") if ref($require_columns) ne 'HASH';
+      throw("require list is not a hash") if $require_columns && ref($require_columns) ne 'HASH';
+      if( keys %$require_columns ){
         my $require_match_count = 0;
         while (my ($column, $values) = each %$require_columns) {
           my $file_val = $file->$column;
@@ -82,8 +82,8 @@ sub create_seed_params {
         next FILE if $require_match_count == 0;
       }
      
-     if( $exclude_columns ){ 
-       throw("exclude list is not a hash") if ref($exclude_columns) ne 'HASH';
+     throw("exclude list is not a hash") if $exclude_columns && ref($exclude_columns) ne 'HASH';
+     if( keys %$exclude_columns ){ 
        my $keys = 0;
        $keys = keys %$exclude_columns;
        throw("No exclude key found") if $keys == 0;
