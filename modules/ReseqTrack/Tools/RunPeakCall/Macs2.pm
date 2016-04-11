@@ -11,6 +11,7 @@ use ReseqTrack::Tools::GeneralUtils
 
 use Cwd;
 use File::Copy;
+use IO::Compress::Gzip qw(gzip $GzipError);
 use base qw(ReseqTrack::Tools::RunPeakCall);
 
 =pod
@@ -80,7 +81,8 @@ sub DEFAULT_OPTIONS {
         call_subpeaks => 0
         , #--call-subpeaks #	If set, MACS will invoke Mali Salmon's PeakSplitter software through system call. If PeakSplitter can't be found, an instruction will be shown for downloading and installing the PeakSplitter package. The PeakSplitter can refine the MACS peaks and split the wide peaks into smaller subpeaks. For more information, please check the following URL:
         verbose => undef,
-        broad   => undef
+        broad   => undef,
+        gzip => undef,
     };
 }
 
@@ -233,16 +235,58 @@ sub run_program {
             }
             else {
                 $dest =~ s/\.narrowPeak/.bed/;
+          }
+          
+          ## gzip files
+            if( $self->options('gzip') ){
+              my $gz_src = $src . '.gz';
+            
+              my $status_macs2 = gzip $src => $gz_src  or die "gzip failed: $GzipError\n";
+              $self->created_files($src); ## delete src file after run
+         
+              $dest .= '.gz';
+
+              print "Moving $gz_src to $dest$/" if ( $self->echo_cmd_line );
+
+              move( $gz_src, $dest ) or throw("Failed to move $gz_src to $dest: $!");
+
+              $self->output_files($dest);
+
+              $self->bed_file($dest) 
+                   if $suffix eq $bed_file_suffix;    ## broadPeak.bed or narrowPeak.bed
+
+              $self->output_support_bed($dest) 
+                   if $suffix eq '_summits.bed' or $suffix eq '_peaks.gappedPeak';
+
+              $self->output_bed_xls($dest) 
+                   if $suffix eq '_peaks.xls';
             }
+            else {
+              print "Moving $src to $dest$/" if ( $self->echo_cmd_line );
 
-            print "Moving $src to $dest$/" if ( $self->echo_cmd_line );
-
-            move( $src, $dest ) or throw("Failed to move $src to $dest: $!");
-            $self->output_files($dest);
-            $self->bed_file($dest) if $suffix eq $bed_file_suffix;
+              move( $src, $dest ) or throw("Failed to move $src to $dest: $!");
+              $self->output_files($dest);
+              $self->bed_file($dest) if $suffix eq $bed_file_suffix;
+            }
         }
     }
 
+}
+
+sub output_support_bed {
+  my ( $self, $arg ) = @_;
+  if ( defined $arg ) {
+    $self->{'output_support_bed'} = $arg;
+  }
+  return $self->{'output_support_bed'};
+}
+
+sub output_bed_xls {
+  my ( $self, $arg ) = @_;
+  if ( defined $arg ) {
+    $self->{'output_bed_xls'} = $arg;
+  }
+  return $self->{'output_bed_xls'};
 }
 
 1;
