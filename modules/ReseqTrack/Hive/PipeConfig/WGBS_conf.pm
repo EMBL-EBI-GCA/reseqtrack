@@ -18,11 +18,9 @@ sub default_options {
 		exclude_columns                => $self->o('exclude_run_columns'),
 		require_attributes             => $self->o('require_run_attributes'),
 		exclude_attributes             => $self->o('exclude_run_attributes'),
-		path_names_array               => $self->o('path_names_array'),
 	    },
 
 	 regexs               => undef,
-	 path_names_array     => [ 'sample_desc_1', 'sample_desc_2', 'sample_desc_3', 'library_strategy', 'center_name' ],
  	 type_fastq           => 'WGBS_FASTQ',
 
 	'biobambam_dir' => '/nfs/production/reseq-info/work/bin/biobambam2-2.0.10/bin/',
@@ -37,10 +35,14 @@ sub default_options {
         'samtools_exe' => '/hps/cstor01/nobackup/faang/ernesto/bin/samtools-1.3/samtools',
 	'reference' => '/hps/cstor01/nobackup/faang/ernesto/reference/bismark',
 
-        'RGSM'                => '#sample_source_id#',
         'RGPU'                => '#run_source_id#',
+	'RGSM'                => 'test',
 
-	'bam_type'            => 'WGBS_RUN_BAM',
+	'unfilt_bam_type'            => 'WGBS_UNFILT_RUN_BAM',
+	'unfilt_flagstat_type'       => 'WGBS_UNFILT_FLAGSTAT',
+	'mapper_report_type'  => 'WGBS_MAPPER_REPORT',
+	'dedup_bam_type'             => 'WGBS_DEDUP_BAM',
+	'dedup_flagstat_type'        => 'WGBS_DEDUP_FLAGSTAT',
         'collection_name'     => '#run_source_id#',
         'build_collection'    => 1,
 
@@ -54,16 +56,36 @@ sub default_options {
 
         'dir_label_params_list'       => ["sample_source_id", "experiment_source_id", "run_source_id", "chunk_label"],
 
-        final_output_dir              => "/hps/cstor01/nobackup/faang/ernesto/wgbs_pipeline",
-        final_output_layout           => '#sample_desc_1#/#sample_desc_2#/#sample_desc_3#/#library_strategy#/#center_name#',
+        final_output_dir              => "/hps/cstor01/nobackup/faang/ernesto/wgbs_pipeline/#run_source_id#",
         name_file_module              => 'ReseqTrack::Hive::NameFile::BaseNameFile',
         name_file_method              => 'basic',
-	name_file_params              => {
-                                          new_dir       => '#final_output_dir#/#final_output_layout#',
-                                          new_basename  => '#run_source_id#.bwa.GRCh38',
+	unfilt_bam_file_params              => {
+                                          new_dir       => '#final_output_dir#/',
+                                          new_basename  => '#run_source_id#.bismark.unfilt.GRCh38',
                                           add_datestamp => 1,
                                           suffix         => '.bam',
                                          },
+	
+	mapper_report_file_params              => {
+                                          new_dir       => '#final_output_dir#/',
+                                          new_basename  => '#run_source_id#.bismark.report.GRCh38',
+                                          add_datestamp => 1,
+                                          suffix         => '.txt',
+	},
+
+	dedup_name_file_params => {
+            new_dir       => '#final_output_dir#/#final_output_layout#',
+            new_basename  => '#run_source_id#.dedup.bismark.GRCh38',  
+            add_datestamp => 1,
+            suffix        => '.bam',
+	},
+	
+	'filter_duplicates'        => 1,
+	'duplicate_flag_value'     => '1024', ## sam flag for PCR or optical duplicate
+	'sam_dedup_filter_options' => { flag_value     => $self->o('duplicate_flag_value'),
+                                        remove_flag    => $self->o('filter_duplicates'),
+	},
+	
     };
 }
 
@@ -138,105 +160,250 @@ sub pipeline_analyses {
             }
 	},
 	-flow_into => {
-                '1' => [ 'split_fastq' ],
-                '2' => [ 'mark_seed_futile' ],
-	},
+	    1 => {
+		'run_fastqc' => { 'fastq' => '#fastq#'},
+		'run_fastqscreen' => { 'fastq' => '#fastq#'}
+	    },
+	}
      });
 
     push(@analyses, {
-       -logic_name    => 'split_fastq',
-       -module        => 'ReseqTrack::Hive::Process::SplitFastq',
-       -parameters    => {
-           program_file => $self->o('split_exe'),
-           max_reads    => $self->o('chunk_max_reads'),
-           regexs       => $self->o('regexs'),
-       },
-       -rc_name => '200Mb',
-       -analysis_capacity  =>  4,
-       -hive_capacity  =>  200,
-       -flow_into => {
-	   '2->A' => {'bismark_mapper' => {'chunk_label' => '#run_source_id#.#chunk#', 'fastq' => '#fastq#'}},
-           'A->1' => ['merge_chunks'],
-       }
+        -logic_name    => 'run_fastqc',
+        -module        => 'ReseqTrack::Hive::Process::RunFastqc',
+	-parameters    => {
+	    program_file => $self->o('fastqc_exe')
+	},
+	-flow_into => {
+	    1 => [ 'bismark_mapper' ],
+	}
+     });
+
+    push(@analyses, {
+        -logic_name    => 'run_fastqscreen',
+        -module        => 'ReseqTrack::Hive::Process::RunFastQScreen',
+	-parameters   => {
+	    program_file => $self->o('fastqscreen_exe'),
+	    conf_file => $self->o('fastqscreen_conf')
+	},
+	
     });
 
     push(@analyses, {
        -logic_name => 'bismark_mapper',
        -module        => 'ReseqTrack::Hive::Process::RunBismark',
+       -meadow_type => 'LOCAL',
        -parameters    => {
+	   base => '#run_source_id#',
            program_file => $self->o('bismark_exe'),
            samtools => $self->o('samtools_exe'),
            reference => $self->o('reference'),
+	   multicore => 5,
            command => 'aln',
            RGSM => $self->o('RGSM'),
            RGPU => $self->o('RGPU'),
-          'output_dir' => '#o_dir#'
+           output_dir => $self->o('final_output_dir')
        },
-       -analysis_capacity => 20,
+       -hive_capacity => 200,
        -rc_name => '10Gb',
        -flow_into => {
-           1 => ['sort_chunks'],
-       },
+	   1 => { 
+	       'store_mapper_report' => { 'file' => '#mapper_report#'},
+	       'unfilt_flagstat' => { 'bam' => '#bam#'}
+	   }}
     });
 
     push(@analyses, {
-       -logic_name => 'sort_chunks',
-       -module        => 'ReseqTrack::Hive::Process::RunBioBamBam',
-       -parameters => {
-            biobambam_dir => $self->o('biobambam_dir'),
-            command => "bamsort",
-            'output_dir' => '#o_dir#',
-             options => { fixmates => 1 },
-             create_index => 1
-       },
-       -analysis_capacity  =>  20,
-       -flow_into => {
-	   1 => [ ':////accu?bam=[]', ':////accu?bai=[]']
-	},
+        -logic_name => 'unfilt_flagstat',
+        -module        => 'ReseqTrack::Hive::Process::RunSamtools',
+        -parameters => {
+            program_file => $self->o('samtools_exe'),
+            command => 'flagstat',
+            add_attributes => 0,
+            reference => $self->o('reference'),
+        },
+        -rc_name => '2Gb',
+        -hive_capacity  =>  200,
+        -flow_into => {1 => {'store_unfilt_flagstat' => {'file' => '#metrics#'}}},
      });
 
+
     push(@analyses, {
-       -logic_name => 'merge_chunks',
-       -module        => 'ReseqTrack::Hive::Process::RunBioBamBam',
-       -parameters => {
-          biobambam_dir => $self->o('biobambam_dir'),
-          command => 'bammerge',
-          create_index => 1,
-          'chunk_label' => '#run_source_id#',
-          'output_dir' => '#o_dir#'
-       },
-       -flow_into => {
-          1 => [ 'store_bam']
-       },
+            -logic_name    => 'store_unfilt_flagstat',
+            -module        => 'ReseqTrack::Hive::Process::LoadFile',
+            -parameters    => {
+              type => $self->o('unfilt_flagstat_type'),
+              name_file_module => 'ReseqTrack::Hive::NameFile::BaseNameFile',
+              name_file_method => 'basic',
+              name_file_params => {new_full_path => '#bam#.flagstat'},
+              collection_name => $self->o('collection_name'),
+              collect => $self->o('build_collection'),
+            },
+            -rc_name => '200Mb',
+            -hive_capacity  =>  200,
+	    -flow_into => {1 => {'store_unfilt_bam' => { 'file' => '#bam#'}}},
     });
 
     push(@analyses, {
-        -logic_name    => 'store_bam',
+        -logic_name    => 'store_unfilt_bam',
         -module        => 'ReseqTrack::Hive::Process::LoadFile',
         -parameters    => {
-            type => $self->o('bam_type'),
-            file => '#bam#',
+            type => $self->o('unfilt_bam_type'),
             name_file_module    => $self->o('name_file_module'),
             name_file_method    => $self->o('name_file_method'),
-            name_file_params    => $self->o('name_file_params'),
+            name_file_params    => $self->o('unfilt_bam_file_params'),
             final_output_dir    => $self->o('final_output_dir'),
-            final_output_layout => $self->o('final_output_layout'),
             collection_name     => $self->o('collection_name'),
             collect             => $self->o('build_collection'),
         },
         -rc_name => '200Mb',
         -hive_capacity  =>  200,
+        -flow_into => {
+            1 => { 'bam_sort' => { 'bam' => '#file#' },},
+        }
+     });
+
+    push(@analyses, {
+        -logic_name    => 'store_mapper_report',
+        -module        => 'ReseqTrack::Hive::Process::LoadFile',
+        -parameters    => {
+            type => $self->o('mapper_report_type'),
+            name_file_module    => $self->o('name_file_module'),
+            name_file_method    => $self->o('name_file_method'),
+            name_file_params    => $self->o('mapper_report_file_params'),
+            final_output_dir    => $self->o('final_output_dir'),
+            collection_name     => $self->o('collection_name'),
+            collect             => $self->o('build_collection'),
+        },
+        -rc_name => '200Mb',
+        -hive_capacity  =>  200
     });
 
-    push(@analyses, { 
+    push(@analyses, {
+	-logic_name => 'bam_sort',
+	-module        => 'ReseqTrack::Hive::Process::RunBioBamBam',
+	-parameters => {
+            biobambam_dir => $self->o('biobambam_dir'),
+            command => "bamsort",
+            'output_dir' => $self->o('final_output_dir'),
+	    options => { fixmates => 1 },
+	    create_index => 1
+	},
+	-analysis_capacity  =>  20,
+	-flow_into => {
+	    1 => { 'mark_duplicates' => { 'bam' => '#bam#' },},
+	 },
+    });
+
+
+    push(@analyses, {
+	-logic_name => 'mark_duplicates',
+	-module        => 'ReseqTrack::Hive::Process::RunBioBamBam',
+	-parameters => {
+	    biobambam_dir => $self->o('biobambam_dir'),
+	    command => 'bammarkduplicates',
+	    create_index => 1,
+	},
+	-rc_name => '800Mb',
+	-hive_capacity  =>  100,
+	-flow_into => {
+	    1 => [ 'dedup_bam']
+	},
+    });
+
+
+    push(@analyses, {
+	-logic_name => 'dedup_bam',
+	-module        => 'ReseqTrack::Hive::Process::RunSamtools',
+	-parameters => {
+	    program_file => $self->o('samtools_exe'),
+	    command => 'filter',
+	    samtools_options => $self->o('sam_dedup_filter_options'),
+	},
+	-rc_name => '2Gb',
+	-hive_capacity  =>  200,
+	-flow_into => {
+	    1 => { 'dedup_flagstat' => { 'bam' => '#bam#' }},
+	},
+    });
+
+    push(@analyses, {
+        -logic_name => 'dedup_flagstat',
+        -module        => 'ReseqTrack::Hive::Process::RunSamtools',
+        -parameters => {
+            program_file => $self->o('samtools_exe'),
+            command => 'flagstat',
+            add_attributes => 0,
+            reference => $self->o('reference'),
+        },
+        -rc_name => '2Gb',
+        -hive_capacity  =>  200,
+        -flow_into => {1 => {'store_dedup_flagstat' => {'file' => '#metrics#'}}},
+    });
+
+    push(@analyses, {
+            -logic_name    => 'store_dedup_flagstat',
+            -module        => 'ReseqTrack::Hive::Process::LoadFile',
+            -parameters    => {
+              type => $self->o('dedup_flagstat_type'),
+              name_file_module => 'ReseqTrack::Hive::NameFile::BaseNameFile',
+              name_file_method => 'basic',
+              name_file_params => {new_full_path => '#bam#.flagstat'},
+              collection_name => $self->o('collection_name'),
+              collect => $self->o('build_collection'),
+            },
+            -rc_name => '200Mb',
+            -hive_capacity  =>  200, 
+            -flow_into => {
+		1 => {
+		    'bismark_methcall' => { 'bam' => '#bam#'},
+		}
+	    }
+    });
+ 
+    push(@analyses, {
         -logic_name => 'bismark_methcall',
         -module        => 'ReseqTrack::Hive::Process::RunBismark',
+        -parameters    => {
+            program_file => $self->o('bismark_methcall_exe'),
+            command => 'methext',
+            'output_dir' => $self->o('final_output_dir')
+        },
+	-rc_name => '200Mb',
+        -hive_capacity  =>  200,
+	-flow_into => {
+	    1 => {
+		'store_dedup_bam' => { 'file' => '#bam#'},
+	    }
+        }
+    });
+
+    push(@analyses, {
+	-logic_name    => 'store_dedup_bam',
+	-module        => 'ReseqTrack::Hive::Process::LoadFile',
 	-parameters    => {
-	    program_file => $self->o('bismark_methcall_exe'),
-	    command => 'methext',
-	    'output_dir' => '#o_dir#'
+	    type => $self->o('dedup_bam_type'),
+	    name_file_module => $self->o('name_file_module'),
+	    name_file_method => $self->o('name_file_method'),
+	    name_file_params => $self->o('dedup_name_file_params'),
+	    final_output_dir => $self->o('final_output_dir'),
+	    collection_name => $self->o('collection_name'),
+	    collect => $self->o('build_collection'),
+	},  
+	-rc_name => '200Mb',
+	-hive_capacity  =>  200,
+	-flow_into => {
+            1 => [ 'mark_seed_complete']
+        },
+     });
+
+    push(@analyses, {
+	-logic_name    => 'mark_seed_complete',
+	-module        => 'ReseqTrack::Hive::Process::UpdateSeed',
+	-parameters    => {
+	    is_complete  => 1,
 	},
-    }); 
+	-meadow_type => 'LOCAL',
+    });
 
     push(@analyses, {
        -logic_name    => 'mark_seed_futile',
