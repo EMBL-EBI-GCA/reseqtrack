@@ -32,8 +32,8 @@ my %options;
   'hive_log_dir=s'  => \$hive_log_dir,
   );
 $reseed //= 1;
-$loop //= 1;
-$run //= 1;
+$loop //= 0;
+$run //= 0;
 $sync //= 0;
 
 my $db = ReseqTrack::DBSQL::DBAdaptor->new(
