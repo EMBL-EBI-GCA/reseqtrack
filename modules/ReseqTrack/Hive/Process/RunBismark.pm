@@ -54,8 +54,10 @@ sub run {
     );
 
     if ($command eq 'aln') {
-	my $chunk_label = $self->param_required('chunk_label');
+	my $base = $self->param_required('run_source_id');
 	my $reference = $self->param_required('reference');
+	my $multicore = $self->param_required('multicore');
+
 	my $fastqs = $self->param_as_array('fastq');
 	foreach my $fastq (@$fastqs) {
 	    check_file_exists($fastq);
@@ -63,10 +65,11 @@ sub run {
 	my $run_alignment;
 	if (scalar(@$fastqs)>1) {
 	    $run_alignment = ReseqTrack::Tools::RunBismark->new(
-		-base => $chunk_label,
+		-base => $base,
                 -mate1_file => $fastqs->[0],
 		-mate2_file => $fastqs->[1],
                 -program => $self->param('program_file'),
+		-multicore => $multicore,
                 -samtools => $self->param('samtools'),
                 -output_format => 'BAM',
                 -working_dir => $self->output_dir,
@@ -76,9 +79,10 @@ sub run {
                 );
 	} else {
 	    $run_alignment = ReseqTrack::Tools::RunBismark->new(
-		-base => $chunk_label,
+		-base => $base,
 		-fragment_file => $fastqs->[0],
 		-program => $self->param('program_file'),
+		-multicore => $multicore,
 		-samtools => $self->param('samtools'),
 		-output_format => 'BAM',
 		-working_dir => $self->output_dir,
@@ -90,11 +94,12 @@ sub run {
 
 	$self->run_program($run_alignment,$command);
 
-	$self->output_param('bam', $run_alignment->output_files->[0]);
+	$self->output_param('bam', $self->output_dir."/".$run_alignment->bam_file);
+	$self->output_param('mapper_report', $self->output_dir."/".$run_alignment->report_file);
     } elsif ($command eq 'methext') {
 	my $fastqs = $self->param_as_array('fastq');
 	my $runmode;
-	if (scalar($fastqs)>1) {
+	if (scalar(@$fastqs)>1) {
 	    $runmode='PAIRED';
 	} else {
 	    $runmode='SINGLE';

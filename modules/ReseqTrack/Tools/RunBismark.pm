@@ -25,8 +25,9 @@ class for running Bismark. Child class of ReseqTrack::Tools::RunProgram
 sub DEFAULT_OPTIONS { return {
         'n' => 1, # The maximum number of mismatches permitted in the "seed". Bowtie1 only option
 	'algorithm' => 'bowtie', # Should Bismark use bowtie or bowtie2
-	'report_mode' => 'comprehensive',
-	'bedgraph' => 1
+	'report_mode' => 0, # comprehensive is the default
+	'bedgraph' => 1,
+	'nondirectional' => 0 # set this to 1 if the library is non-directional
         };
 }
 
@@ -37,12 +38,13 @@ sub new {
     #setting defaults
     $self->program('bismark') unless ( $self->program );
 
-    my ( $base, $fragment_file, $mate1_file, $mate2_file, $rg_tag,$rg_id,$rg_sample,$run_mode,$reference )= rearrange( [qw(BASE FRAGMENT_FILE MATE1_FILE MATE2_FILE RG_TAG RG_ID RG_SAMPLE RUNMODE REFERENCE)], @args);
+    my ( $base, $fragment_file, $mate1_file, $mate2_file, $multicore, $rg_tag,$rg_id,$rg_sample,$run_mode,$reference )= rearrange( [qw(BASE FRAGMENT_FILE MATE1_FILE MATE2_FILE MULTICORE RG_TAG RG_ID RG_SAMPLE RUNMODE REFERENCE)], @args);
 
     $self->base($base);
     $self->fragment_file($fragment_file);
     $self->mate1_file($mate1_file);
     $self->mate2_file($mate2_file);
+    $self->multicore($multicore);
     $self->reference($reference);
     $self->rg_tag($rg_tag);     
     $self->rg_id($rg_id);
@@ -60,7 +62,7 @@ sub new {
               Output is files are stored in $self->output_files
               This method is called by the RunProgram run method
 
-  Example   : my $bismark = ReseqTrack::Tools::RunBismark(
+  Example   : my $bismark = ReseqTrack::Tools::RunBismark->new(
                       -base  => "basename",
                       -reference => '/path/to/reference',
                       -read_group_fields => {'ID' => 1, 'LB' => 'my_lib'},
@@ -100,23 +102,38 @@ sub run_alignment {
     push @cmd_args, "--rg_tag " if $self->rg_tag();
     push @cmd_args, "--rg_id ".$self->rg_id() if $self->rg_id();
     push @cmd_args, "--rg_sample ".$self->rg_sample() if $self->rg_sample();
-    push @cmd_args, "-B ".$self->base() if $self->base();
+    push @cmd_args, "-B ".$self->base() if $self->base() && !$self->multicore(); #multicore and base can't be used simultaneously, wait until Bismark developers fix this
     push @cmd_args, "-o ".$self->working_dir();
+    push @cmd_args, "--multicore ".$self->multicore() if $self->multicore();
     
     my $aln_cmd = join(' ', @cmd_args);
-
     $self->execute_command_line($aln_cmd);
 
     my $output_file;
-    if ($self->base()) {
-	$output_file.=$self->working_dir."/".$self->base().".bam" if $self->fragment_file;
-	$output_file.=$self->working_dir."/".$self->base()."_pe.bam" if $self->mate1_file;
+    my @output_files;
+    opendir DH, $self->working_dir;
+    if ($self->base() && !$self->multicore()) {
+	my $base=$self->base;
+	@output_files= grep {/${base}(_SE_report)?[\.bam|\.txt]/} readdir DH;
+    } elsif ($self->base() && $self->multicore()) {
+	my($filename, $directories, $suffix) = fileparse($self->fragment_file, qr/\.[^.]*/);
+	@output_files= grep {/${filename}${suffix}_bismark_.+[\.bam|\.report\.txt]/} readdir DH;
     } else {
-	throw("[ERROR] I need a prefix name for output name");
+        throw("[ERROR] I need a prefix name for output name");
     }
+    throw("[ERROR] Could not retrieve the \@output_files") if scalar(@output_files)==0;
+
+    for (my $i=0;$i<scalar(@output_files);$i++) {
+	my $res;
+	$res=rename($self->working_dir."/".$output_files[$i],$self->working_dir."/".$self->base."_bismark.bam") if $output_files[$i]=~/\.bam$/;
+	$res=rename($self->working_dir."/".$output_files[$i],$self->working_dir."/".$self->base."_bismark_report.txt") if $output_files[$i]=~/\.txt$/;
+	throw("[ERROR] Rename failed!") if !$res;
+	$self->bam_file($self->base."_bismark.bam") if $output_files[$i]=~/\.bam$/;
+	$self->report_file($self->base."_bismark_report.txt") if $output_files[$i]=~/\.txt$/;
+    }
+    closedir DH;
 
     $self->output_format('BAM');
-    $self->output_files($output_file);
     return;
 }
 
@@ -157,8 +174,9 @@ sub run_methylation_extractor {
 	push @cmd_args, "-p " if $self->runmode eq 'PAIRED';
     }
 
-    push @cmd_args, "--".$self->options->{'report_mode'}." ";
+    push @cmd_args, "--".$self->options->{'report_mode'}." " if $self->options->{'report_mode'};
     push @cmd_args, "--bedGraph " if $self->options->{'bedgraph'};
+    push @cmd_args, "--non_directional" if $self->options->{'nondirectional'};
 
     my $input= $self->input_files->[0];
     push @cmd_args, $input;
@@ -208,6 +226,22 @@ sub run_program {
     return &{ $subs{$command} }($self);
 }
 
+sub bam_file {
+    my ( $self, $arg ) = @_;
+    if ( defined $arg ) {
+	$self->{'bam_file'} = $arg;
+    }
+    return $self->{'bam_file'};
+}
+
+sub report_file {
+    my ( $self, $arg ) = @_;
+    if ( defined $arg ) {
+	$self->{'report_file'} = $arg;
+    }
+    return $self->{'report_file'};
+}
+
 sub fragment_file {
     my ( $self, $arg ) = @_;
 
@@ -235,7 +269,14 @@ sub mate2_file {
     return $self->{mate2_file};
 }
 
+sub multicore {
+    my ( $self, $arg ) = @_;
 
+    if ($arg) {
+        $self->{multicore} = $arg;
+    }
+    return $self->{multicore};
+}
 
 sub runmode {
     my ( $self, $arg ) = @_;
