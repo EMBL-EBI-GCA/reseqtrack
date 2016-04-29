@@ -189,6 +189,7 @@ sub run {
     throw("input_id not correctly formulated") if ! defined $file_details->{'db'}->{'updated'};
 
     my $db = ReseqTrack::DBSQL::DBAdaptor->new(%{$db_params});
+    $db->dbc->disconnect_when_inactive(1);
     my $psa = $db->get_PipelineSeedAdaptor;
     my $pipeline_seed = $psa->fetch_by_dbID($ps_id);
     throw("did not get pipeline_seed for $ps_id") if !$pipeline_seed;
