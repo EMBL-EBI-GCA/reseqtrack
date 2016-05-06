@@ -42,8 +42,8 @@ my $samtools_path           = 'samtools';
 my $intersect_bed_path      = 'intersectBed';
 my $control_experiment_type = 'ChIP-Seq Input';
 my $save_temp_files         = 0;
-my $run_id_regex            = '[ESD]RR\d{6}';
-my $sample_id_regex         = '[ESD]RS\d{6}';
+my $run_id_regex            = '[ESD]RR\d{6,7}';
+my $sample_id_regex         = '[ESD]RS\d{6,7}';
 my $require_control         = 0;
 my $preserve_paths          = 0;
 my $fragment_size_stat_name;
@@ -195,7 +195,7 @@ if ($fragment_size_stat_name) {
         if ( $stat->attribute_name eq $fragment_size_stat_name ) {
 
 # ppqt can find multiple peaks. the first is the most likely, so we use that one
-            ($fragment_size) = split /,/, $stat->attribute_value();
+            ($fragment_size) = grep {$_} split /,/, $stat->attribute_value();
         }
     }
 
@@ -387,7 +387,7 @@ sub get_alt_control_hash {
 
         my @values = split('\t');
         throw( "Multiple input for", $values[0] )
-          if exists $alt_control_hash{ $values[0] };
+if exists $alt_control_hash{ $values[0] };
         $alt_control_hash{ $values[0] } = $values[1];
     }
     close($fh);
