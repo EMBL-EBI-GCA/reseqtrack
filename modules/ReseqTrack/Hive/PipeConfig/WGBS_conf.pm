@@ -11,7 +11,7 @@ sub default_options {
 
     return {
         %{ $self->SUPER::default_options() },
-<<<<<<< HEAD
+
         seeding_module  => 'ReseqTrack::Hive::PipeSeed::BasePipeSeed',
         seeding_options => {
             collection_type    => 'WGBS_FASTQ',
@@ -294,7 +294,6 @@ sub pipeline_analyses {
 
     my @analyses;
 
-<<<<<<< HEAD
     push(
         @analyses,
         {
