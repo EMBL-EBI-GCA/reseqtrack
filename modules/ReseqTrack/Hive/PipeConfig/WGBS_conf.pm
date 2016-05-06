@@ -2,13 +2,16 @@ package ReseqTrack::Hive::PipeConfig::WGBS_conf;
 
 use strict;
 use warnings;
+
 use base ('ReseqTrack::Hive::PipeConfig::ReseqTrackGeneric_conf');
+
 
 sub default_options {
     my ($self) = @_;
 
     return {
         %{ $self->SUPER::default_options() },
+<<<<<<< HEAD
         seeding_module  => 'ReseqTrack::Hive::PipeSeed::BasePipeSeed',
         seeding_options => {
             collection_type    => 'WGBS_FASTQ',
@@ -176,7 +179,6 @@ sub default_options {
             flag_value  => $self->o('duplicate_flag_value'),
             remove_flag => $self->o('filter_duplicates'),
         },
-
     };
 }
 
@@ -259,8 +261,23 @@ sub pipeline_wide_parameters {
         %{ $self->SUPER::pipeline_wide_parameters },
 
         dir_label_params => [ "run_source_id", "chunk_label" ],
+	%{$self->SUPER::resource_classes},  # inherit 'default' from the parent class
+	'200Mb' => { 'LSF' => '-C0 -M200 -q '.$self->o('lsf_queue').' -R"select[mem>200] rusage[mem=200]"' },
+	'500Mb' => { 'LSF' => '-C0 -M500 -q '.$self->o('lsf_queue').' -R"select[mem>500] rusage[mem=500]"' },
+	'800Mb' => { 'LSF' => '-C0 -M800 -q '.$self->o('lsf_queue').' -R"select[mem>800] rusage[mem=800]"' },
+	'1Gb'   => { 'LSF' => '-C0 -M1000 -q '.$self->o('lsf_queue').' -R"select[mem>1000] rusage[mem=1000]"' },
+	'2Gb' => { 'LSF' => '-C0 -M2000 -q '.$self->o('lsf_queue').' -R"select[mem>2000] rusage[mem=2000]"' },
+	'3Gb' => { 'LSF' => '-C0 -M3000 -q '.$self->o('lsf_queue').' -R"select[mem>3000] rusage[mem=3000]"' },
+	'4Gb' => { 'LSF' => '-C0 -M4000 -q '.$self->o('lsf_queue').' -R"select[mem>4000] rusage[mem=4000]"' },
+	'5Gb' => { 'LSF' => '-C0 -M5000 -q '.$self->o('lsf_queue').' -R"select[mem>5000] rusage[mem=5000]"' },
+	'6Gb' => { 'LSF' => '-C0 -M6000 -q '.$self->o('lsf_queue').' -R"select[mem>6000] rusage[mem=6000]"' },
+	'8Gb' => { 'LSF' => '-C0 -M8000 -q '.$self->o('lsf_queue').' -R"select[mem>8000] rusage[mem=8000]"' },
+	'10Gb' => { 'LSF' => '-C0 -M10000 -q '.$self->o('lsf_queue').' -R"select[mem>10000] rusage[mem=10000]"' },
+	'15Gb' => { 'LSF' => '-C0 -M15000 -q '.$self->o('lsf_queue').' -R"select[mem>15000] rusage[mem=15000]"' },
+	'20Gb' => { 'LSF' => '-C0 -M20000 -q '.$self->o('lsf_queue').' -R"select[mem>20000] rusage[mem=20000]"' },
     };
 }
+
 
 sub hive_meta_table {
     my ($self) = @_;
@@ -277,6 +294,7 @@ sub pipeline_analyses {
 
     my @analyses;
 
+<<<<<<< HEAD
     push(
         @analyses,
         {
