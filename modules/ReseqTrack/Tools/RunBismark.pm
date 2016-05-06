@@ -146,7 +146,7 @@ sub run_alignment {
               Output is files are stored in $self->output_files
               This method is called by the RunProgram run method
 
-  Example   : my $bismark = ReseqTrack::Tools::RunAlignment::Bismark(
+  Example   : my $bismark = ReseqTrack::Tools::RunBismark->new(
                       -input_files => ['file1.bam']
                       -working_dir => '/path/to/dir/',
                       -runmode => 'SINGLE'
@@ -184,19 +184,188 @@ sub run_methylation_extractor {
     my $aln_cmd = join(' ', @cmd_args);
 
     $self->execute_command_line($aln_cmd);
+}
 
-    my($filename, $directories, $suffix) = fileparse($input, qr/\.[^.]*/);
+sub cpg_context {
+    my ( $self, $arg ) = @_;
 
-    my @output_files;
-    push @output_files, $self->working_dir."/".$filename.".M-bias_R1.png";
-    push @output_files, $self->working_dir."/".$filename.".M-bias.txt";
-    push @output_files, $self->working_dir."/".$filename."_splitting_report.txt";
-    push @output_files, $self->working_dir."/"."CHG_context_".$filename.".txt";
-    push @output_files, $self->working_dir."/"."CHH_context_".$filename.".txt";
-    push @output_files, $self->working_dir."/"."CpG_context_".$filename.".txt";
-    push @output_files, $self->working_dir."/".$filename.".bedGraph.gz";
+    if ( defined $arg ) {
+        $self->{'cpg_context'} = $arg;
+    } else {
+        my $working_dir=$self->working_dir;
+        my $input= $self->input_files->[0];
 
-    $self->output_files(\@output_files);
+        my($filename, $directories, $suffix) = fileparse($input, qr/\.[^.]*/);
+
+        opendir DH, $working_dir or throw("Cannot open $working_dir: $!");
+
+        my @files= grep { /^CpG.+${filename}\.txt$/ } readdir DH;
+
+        throw("unexpected number of splitting_report files: " . scalar @files) if (@files != 2 && @files !=4);
+
+        closedir DH;
+
+        @files=map{$working_dir."/".$_} @files;
+
+        $self->{'cpg_context'}=\@files;
+
+        return \@files;
+    }
+}
+
+sub chh_context {
+    my ( $self, $arg ) = @_;
+
+    if ( defined $arg ) {
+        $self->{'chh_context'} = $arg;
+    } else {
+        my $working_dir=$self->working_dir;
+        my $input= $self->input_files->[0];
+
+        my($filename, $directories, $suffix) = fileparse($input, qr/\.[^.]*/);
+
+        opendir DH, $working_dir or throw("Cannot open $working_dir: $!");
+
+        my @files= grep { /^CHH.+${filename}\.txt$/ } readdir DH;
+
+        throw("unexpected number of splitting_report files: " . scalar @files) if (@files != 2 && @files !=4);
+
+        closedir DH;
+
+        @files=map{$working_dir."/".$_} @files;
+
+        $self->{'chh_context'}=\@files;
+
+        return \@files;
+    }
+}
+
+sub chg_context {
+    my ( $self, $arg ) = @_;
+
+    if ( defined $arg ) {
+        $self->{'chg_context'} = $arg;
+    } else {
+        my $working_dir=$self->working_dir;
+        my $input= $self->input_files->[0];
+
+        my($filename, $directories, $suffix) = fileparse($input, qr/\.[^.]*/);
+
+        opendir DH, $working_dir or throw("Cannot open $working_dir: $!");
+
+        my @files= grep { /^CHG.+${filename}\.txt$/ } readdir DH;
+
+        throw("unexpected number of splitting_report files: " . scalar @files) if (@files != 2 && @files !=4);
+
+        closedir DH;
+
+	@files=map{$working_dir."/".$_} @files;
+
+        $self->{'chg_context'}=\@files;
+
+        return \@files;
+    }
+}
+
+sub splitting {
+    my ( $self, $arg ) = @_;
+
+    if ( defined $arg ) {
+        $self->{'splitting'} = $arg;
+    } else {
+        my $working_dir=$self->working_dir;
+        my $input= $self->input_files->[0];
+
+        my($filename, $directories, $suffix) = fileparse($input, qr/\.[^.]*/);
+
+        opendir DH, $working_dir or throw("Cannot open $working_dir: $!");
+	
+	my @files= grep {/^${filename}_splitting_report\.txt$/} readdir DH;
+
+        throw("unexpected number of splitting_report files: " . scalar @files) if @files != 1;
+
+        closedir DH;
+
+	$self->{'splitting'}=$working_dir."/".$files[0];
+
+        return $working_dir."/".$files[0];
+    }
+}
+
+
+sub mbias_txt {
+    my ( $self, $arg ) = @_;
+
+    if ( defined $arg ) {
+        $self->{'mbias_txt'} = $arg;
+    } else {
+	my $working_dir=$self->working_dir;
+	my $input= $self->input_files->[0];
+
+	my($filename, $directories, $suffix) = fileparse($input, qr/\.[^.]*/);
+
+	opendir DH, $working_dir or throw("Cannot open $working_dir: $!");
+	my @files= grep {/^$filename.+M-bias\.txt$/} readdir DH;
+
+	throw("unexpected number of mbias_txt files: " . scalar @files) if @files != 1;
+   
+	closedir DH;
+
+	$self->{'mbias_txt'}=$working_dir."/".$files[0];
+
+	return $working_dir."/".$files[0];
+    }
+}
+
+
+sub mbias_png {
+    my ( $self, $arg ) = @_;
+
+    if ( defined $arg ) {
+        $self->{'mbias_png'} = $arg;
+    } else {
+        my $working_dir=$self->working_dir;
+        my $input= $self->input_files->[0];
+
+        my($filename, $directories, $suffix) = fileparse($input, qr/\.[^.]*/);
+
+        opendir DH, $working_dir or throw("Cannot open $working_dir: $!");
+
+	my @files = grep { /^$filename.+M-bias.+\.png$/ } readdir DH;
+
+        throw("unexpected number of mbias_png files: " . scalar @files) if @files != 1;
+
+        closedir DH;
+	
+	$self->{'mbias_png'}=$working_dir."/".$files[0];
+	
+        return $working_dir."/".$files[0];
+    }
+}
+
+sub bedgraph {
+    my ( $self, $arg ) = @_;
+
+    if ( defined $arg ) {
+        $self->{'bedgraph'} = $arg;
+    } else {
+        my $working_dir=$self->working_dir;
+        my $input= $self->input_files->[0];
+
+        my($filename, $directories, $suffix) = fileparse($input, qr/\.[^.]*/);
+
+        opendir DH, $working_dir or throw("Cannot open $working_dir: $!");
+
+        my @files = grep { /^$filename.+bedGraph\.gz$/ } readdir DH;
+
+        throw("unexpected number of mbias_png files: " . scalar @files) if @files != 1;
+
+        closedir DH;
+
+        $self->{'bedgraph'}=$working_dir."/".$files[0];
+
+        return $working_dir."/".$files[0];
+    }
 }
 
 =head2 run_program

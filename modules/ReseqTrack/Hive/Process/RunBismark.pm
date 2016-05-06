@@ -113,6 +113,13 @@ sub run {
 	    );
 	$self->run_program($run_methext,$command);
 
+	$self->output_param('mbias_txt', $run_methext->mbias_txt);
+	$self->output_param('mbias_png', $run_methext->mbias_png);
+	$self->output_param('bedgraph', $run_methext->bedgraph);
+	$self->output_param('chh_context', $run_methext->chh_context);
+	$self->output_param('cpg_context', $run_methext->cpg_context);
+	$self->output_param('chg_context', $run_methext->chg_context);
+	$self->output_param('splitting', $run_methext->splitting);
     }
 }
 
