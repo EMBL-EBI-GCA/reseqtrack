@@ -43,8 +43,8 @@ my $reuse_old_header;
 my $root_trim;
 my $ftp_root;
 my $trim_paths;
-my $run_id_regex = '[ESD]RR\d{6}';
-my $sample_id_regex = '[ESD]RS\d{6}';
+my $run_id_regex = '[ESD]RR\d{6,7}';
+my $sample_id_regex = '[ESD]RS\d{6,7}';
 
 &GetOptions( 
   'dbhost=s'      => \$dbhost,

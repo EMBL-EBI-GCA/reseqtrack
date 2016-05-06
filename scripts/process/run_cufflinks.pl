@@ -25,8 +25,8 @@ my ($library_type, $transcript_annotation);
 my ($store,$verbose,$program,$disable_md5);
 my $host_name = '1000genomes.ebi.ac.uk';
 my %options;
-my $run_id_regex = '[ESD]RR\d{6}';
-my $sample_id_regex = '[ESD]RS\d{6}';
+my $run_id_regex = '[ESD]RR\d{6,7}';
+my $sample_id_regex = '[ESD]RS\d{6,7}';
 
 &GetOptions( 
 	'dbhost=s'      => \$dbhost,

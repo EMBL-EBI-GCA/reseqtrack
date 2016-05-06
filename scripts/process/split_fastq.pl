@@ -36,7 +36,7 @@ my $max_bases;
 my $help;
 my $directory_layout = 'population/sample_id/run_id';
 my $no_split_strategy = 'copy';
-my $run_id_regex = '[ESD]RR\d{6}';
+my $run_id_regex = '[ESD]RR\d{6,7}';
 
 &GetOptions( 
   'dbhost=s'      => \$dbhost,

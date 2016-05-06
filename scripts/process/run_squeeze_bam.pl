@@ -32,8 +32,8 @@ my $directory_layout;
 my $rm_OQ_fields;
 my $rm_dups;
 my @rm_tag_types;
-my $run_id_regex = '[ESD]RR\d{6}';
-my $sample_id_regex = '[ESD]RS\d{6}';
+my $run_id_regex = '[ESD]RR\d{6,7}';
+my $sample_id_regex = '[ESD]RS\d{6,7}';
 
 &GetOptions( 
   'dbhost=s'      => \$dbhost,

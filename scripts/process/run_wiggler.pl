@@ -31,8 +31,8 @@ my ( $name, $type_input, $type_output, $output_dir, $directory_layout,
 my $program;
 my $verbose                 = 0;
 my $host_name               = '1000genomes.ebi.ac.uk';
-my $run_id_regex            = '[ESD]RR\d{6}';
-my $sample_id_regex         = '[ESD]RS\d{6}';
+my $run_id_regex            = '[ESD]RR\d{6,7}';
+my $sample_id_regex         = '[ESD]RS\d{6,7}';
 my $preserve_paths          = 0;
 my $fragment_size_stat_name = '';
 my $dedupe                  = 0;

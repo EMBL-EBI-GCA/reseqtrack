@@ -38,7 +38,7 @@ my $first_read;
 my $last_read;
 my %read_group_fields;
 my $directory_layout;
-my $run_id_regex = '[ESD]RR\d{6}';
+my $run_id_regex = '[ESD]RR\d{6,7}';
 my %options;
 
 &GetOptions( 
