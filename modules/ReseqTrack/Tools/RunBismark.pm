@@ -24,10 +24,12 @@ class for running Bismark. Child class of ReseqTrack::Tools::RunProgram
 
 sub DEFAULT_OPTIONS { return {
         'n' => 1, # The maximum number of mismatches permitted in the "seed". Bowtie1 only option
-	'algorithm' => 'bowtie', # Should Bismark use bowtie or bowtie2
-	'report_mode' => 0, # comprehensive is the default
-	'bedgraph' => 1,
-	'nondirectional' => 0 # set this to 1 if the library is non-directional
+	'algorithm' => 'bowtie', # bismark_mapper option: Should Bismark use bowtie or bowtie2
+	'report_mode' => 0, #  bismark_methylation_extractor option: comprehensive is the default
+	'bedgraph' => 1, #  bismark_methylation_extractor option.
+	'nondirectional' => 0, #  bismark_methylation_extractor option. Set this to 1 if the library is non-directional
+#	'cutoff' => 1 # The minimum number of times a methylation state has to be seen for that nucleotide
+#                      #  before its methylation percentage is reported
         };
 }
 
@@ -38,9 +40,10 @@ sub new {
     #setting defaults
     $self->program('bismark') unless ( $self->program );
 
-    my ( $base, $fragment_file, $mate1_file, $mate2_file, $multicore, $rg_tag,$rg_id,$rg_sample,$run_mode,$reference )= rearrange( [qw(BASE FRAGMENT_FILE MATE1_FILE MATE2_FILE MULTICORE RG_TAG RG_ID RG_SAMPLE RUNMODE REFERENCE)], @args);
+    my ( $base, $cutoff, $fragment_file, $mate1_file, $mate2_file, $multicore, $rg_tag,$rg_id,$rg_sample,$run_mode,$reference )= rearrange( [qw(BASE CUTOFF FRAGMENT_FILE MATE1_FILE MATE2_FILE MULTICORE RG_TAG RG_ID RG_SAMPLE RUNMODE REFERENCE)], @args);
 
     $self->base($base);
+    $self->cutoff($cutoff);
     $self->fragment_file($fragment_file);
     $self->mate1_file($mate1_file);
     $self->mate2_file($mate2_file);
@@ -177,6 +180,7 @@ sub run_methylation_extractor {
     push @cmd_args, "--".$self->options->{'report_mode'}." " if $self->options->{'report_mode'};
     push @cmd_args, "--bedGraph " if $self->options->{'bedgraph'};
     push @cmd_args, "--non_directional" if $self->options->{'nondirectional'};
+    push @cmd_args, "--cutoff ".$self->cutoff() if $self->cutoff;
 
     my $input= $self->input_files->[0];
     push @cmd_args, $input;
@@ -394,6 +398,16 @@ sub run_program {
 
     return &{ $subs{$command} }($self);
 }
+
+sub cutoff {
+    my ( $self, $arg ) = @_;
+
+    if ($arg) {
+        $self->{cutoff} = $arg;
+    }
+    return $self->{cutoff};
+}
+
 
 sub bam_file {
     my ( $self, $arg ) = @_;
