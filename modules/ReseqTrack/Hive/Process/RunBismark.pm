@@ -109,7 +109,8 @@ sub run {
 	my $run_methext=ReseqTrack::Tools::RunBismark->new(
 	    -input_files => $bamfile,
 	    -working_dir => $self->output_dir,
-	    -runmode => $runmode
+	    -runmode => $runmode,
+	    -cutoff => $self->param('cutoff')
 	    );
 	$self->run_program($run_methext,$command);
 

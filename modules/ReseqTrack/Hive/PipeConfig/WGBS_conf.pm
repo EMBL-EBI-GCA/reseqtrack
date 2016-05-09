@@ -44,6 +44,10 @@ sub default_options {
           '/hps/cstor01/nobackup/faang/ernesto/bin/samtools-1.3/samtools',
         'reference' => '/hps/cstor01/nobackup/faang/ernesto/reference/bismark',
 
+	#Methylation extractor options
+	'cutoff' => 5, # The minimum number of times a methylation state has to be seen for that nucleotide
+                       #  before its methylation percentage is reported.
+
         'RGPU' => '#run_source_id#',
         'RGSM' => 'test',
 
@@ -723,6 +727,7 @@ sub pipeline_analyses {
                 command      => 'methext',
                 'output_dir' => $self->o('final_output_dir')
                   . "/bismark_methcall",
+		cutoff => $self->o('cutoff'),
             },
             -rc_name       => '200Mb',
             -hive_capacity => 200,
