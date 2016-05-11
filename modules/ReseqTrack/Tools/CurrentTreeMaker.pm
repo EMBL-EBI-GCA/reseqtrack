@@ -67,7 +67,8 @@ sub new {
 =cut
 
 sub DEFAULT_OPTIONS {return {
-    skip_base_directories => 0, # This is here for 1000genomes project only.
+    skip_base_directories => 0,# This is here for 1000genomes project only.
+    dont_use_nlink => 0
   };}
 
 =head2 run
@@ -219,6 +220,11 @@ sub process_files_in_dir {
     ($trim_dir) = $dir_to_tree =~ /^(.*?)[^\/]+\/*$/;
   }
   my $options = $self->options;
+  
+  if ($options->{'dont_use_nlink'}){
+    $File::Find::dont_use_nlink = 1;
+  }
+
   File::Find::find({
                     wanted => sub{
                         return if -d $_;

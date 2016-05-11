@@ -20,6 +20,7 @@ my $dir_to_tree;
 my $old_tree_name;
 my $trim_dir;
 my $file_list;
+my %options;
 
 &GetOptions( 
       'dbhost=s'      => \$dbhost,
@@ -31,7 +32,8 @@ my $file_list;
       'output_path=s' => \$output_path,      
       'old_tree_name=s' => \$old_tree_name,      
       'file_list=s' => \$file_list,      
-      'trim_dir=s' => \$trim_dir,      
+      'trim_dir=s' => \$trim_dir,
+      'options=s' => \%options,    
      );
 
 my $db = ReseqTrack::DBSQL::DBAdaptor->new(
@@ -53,6 +55,7 @@ my $tree_maker = ReseqTrack::Tools::CurrentTreeMaker->new(
   -dir_to_tree => $dir_to_tree,
   -file_adaptor => $fa,
   -trim_dir => $trim_dir,
+  -options => \%options,
 );
 
 if ($file_list) {
