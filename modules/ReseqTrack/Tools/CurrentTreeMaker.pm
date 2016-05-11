@@ -221,7 +221,7 @@ sub process_files_in_dir {
   }
   my $options = $self->options;
   
-  if ($options->{'dont_use_nlink'} {
+  if ($options->{'dont_use_nlink'}){
     $File::Find::dont_use_nlink = 1;
   }
 
