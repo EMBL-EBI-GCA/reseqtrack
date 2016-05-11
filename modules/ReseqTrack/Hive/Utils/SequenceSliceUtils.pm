@@ -29,6 +29,8 @@ sub fai_to_slices {
       $found_start = 1;
     }
     next LINE if !$found_start;
+    next LINE if ($SQ =~ /_decoy/);  ## CHECKME
+    next LINE if ($SQ =~ /HLA-/);  ## CHECKME
 
     my $slice = ReseqTrack::Hive::Utils::SequenceSlice->new(
         -SQ_name => $SQ,

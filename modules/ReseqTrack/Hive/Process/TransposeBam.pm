@@ -52,19 +52,30 @@ sub run {
       if (!$slice->is_whole_SQ) {
         $region .= ':' . $slice->start . '-' . $slice->end;
       }
+
+#      if ($region =~ /^HLA/) {  #### CHECKME, skip all HLA regions as they mess up with transpose BAM
+#	next;
+#	#$region =~ s/\*/\\\*/g;
+#      }	
       push(@regions, $region);
     }
+
+    my $out_dir = $self->output_dir;
+#    if ($out_dir =~ /\*/) {
+#	$out_dir =~ s/\*/\\\*/g;
+#    }	 
 
     my $bam_transposer = ReseqTrack::Tools::RunTransposeBam->new(
           -input_files => $bams,
           -program => $self->param('program_file'),
-          -working_dir => $self->output_dir,
+          -working_dir => $out_dir,
           -job_name => $self->job_name,
           -regions => \@regions,
           -options => {uniquify_rg => $self->param('uniquify_rg'),
                       build_index => $self->param('create_index'),
-                      shorten_input_names => 1,
-                      },
+                      #shorten_input_names => 1,
+                      shorten_input_names => 2,
+		},
           );
 
     $self->run_program($bam_transposer);
