@@ -21,7 +21,6 @@ sub column_mappings {
   return {
     run_id              => sub { $r->dbID(@_) },
     experiment_id       => sub { $r->experiment_id(@_) },
-    sample_id           => sub { $r->sample_id(@_) },
     run_alias           => sub { $r->run_alias(@_) },
     status              => sub { $r->status(@_) },
     md5                 => sub { $r->md5(@_) },
@@ -29,7 +28,7 @@ sub column_mappings {
     run_center_name     => sub { $r->run_center_name(@_) },
     instrument_platform => sub { $r->instrument_platform(@_) },
     instrument_model    => sub { $r->instrument_model(@_) },
-    run_source_id           => sub { $r->run_source_id(@_) },
+    run_source_id       => sub { $r->run_source_id(@_) },
     submission_id       => sub { $r->submission_id(@_) },
     submission_date     => sub { $r->submission_date(@_) },
   };
@@ -49,13 +48,38 @@ sub fetch_by_source_id {
 }
 
 sub fetch_by_experiment_id {
-  my ($self, $experiment_id) = @_;
-  return $self->fetch_by_column_name( "experiment_id", $experiment_id)
+  my ( $self, $experiment_id ) = @_;
+  return $self->fetch_by_column_name( "experiment_id", $experiment_id );
 }
 
 sub fetch_by_sample_id {
-  my ($self, $sample_id) = @_;
-  return $self->fetch_by_column_name( "sample_id", $sample_id)
+  my ( $self, $sample_id ) = @_;
+
+  my $sql = join( ' ',
+    'select distinct',
+    $self->columns,
+    'from',
+    $self->table_name,
+    ', run',
+    'where',
+    'experiment.sample_id = ?',
+    'and experiment.experiment_id =',
+    $self->table_name . '.experiment_id' );
+
+  my @objects;
+  my $sth = $self->prepare($sql);
+  $sth->bind_param( 1, $sample_id );
+
+  eval { $sth->execute; };
+  if ($@) {
+    throw("Problem running $sql $@");
+  }
+  while ( my $rowHashref = $sth->fetchrow_hashref ) {
+    my $object = $self->object_from_hashref($rowHashref) if ($rowHashref);
+    push( @objects, $object );
+  }
+  $sth->finish;
+  return \@objects;
 }
 
 sub store {

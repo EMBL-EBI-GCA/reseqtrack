@@ -8,12 +8,12 @@ use ReseqTrack::Tools::Exception qw(throw);
 use ReseqTrack::Tools::AttributeUtils qw(create_attribute_for_object);
 
 sub table_name {
-    return "run, experiment,  cv_status, submission";
+    return "run, experiment, cv_status, submission";
 }
 
 sub columns {
     return
-"run.run_id, run.experiment_id, EXTRACTVALUE(experiment_xml, '//EXPERIMENT/DESIGN/SAMPLE_DESCRIPTOR/\@accession') sample_id, run.run_alias, cv_status.status, run.md5, run.center_name, run.run_center_name, run.instrument_platform, run.instrument_model, submission.submission_id, to_char(submission.submission_date, 'YYYY-MM-DD HH24:MI')   submission_date,run.ega_id,replace(EXTRACTVALUE(run.run_xml, '/RUN_SET/RUN/\@run_date'),'T',' ') run_date";
+"run.run_id, run.experiment_id, run.run_alias, cv_status.status, run.md5, run.center_name, run.run_center_name, run.instrument_platform, run.instrument_model, submission.submission_id, to_char(submission.submission_date, 'YYYY-MM-DD HH24:MI')   submission_date,run.ega_id,replace(EXTRACTVALUE(run.run_xml, '/RUN_SET/RUN/\@run_date'),'T',' ') run_date";
 }
 
 sub where {
@@ -30,7 +30,6 @@ sub object_from_hashref {
         -source_id           => $hashref->{RUN_ID},
         -md5                 => $hashref->{MD5},
         -experiment_id       => $hashref->{EXPERIMENT_ID},
-        -sample_id           => $hashref->{SAMPLE_ID},
         -run_alias           => $hashref->{RUN_ALIAS},
         -status              => $hashref->{STATUS},
         -center_name         => $hashref->{CENTER_NAME},

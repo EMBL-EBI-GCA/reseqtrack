@@ -13,11 +13,14 @@ sub table_name {
 
 sub columns {
   return
-"experiment.experiment_id, experiment.study_id, cv_status.status, experiment.md5, experiment.center_name, experiment.experiment_alias, experiment.instrument_platform, experiment.instrument_model, experiment.library_layout, experiment.library_name, experiment.library_strategy, experiment.library_source, experiment.library_selection, experiment.paired_nominal_length, experiment.paired_nominal_sdev, submission.submission_id, to_char(submission.submission_date, 'YYYY-MM-DD HH24:MI') submission_date, experiment.ega_id";
+"experiment.experiment_id, experiment.study_id, cv_status.status, experiment.md5, experiment.center_name, experiment.experiment_alias, experiment.instrument_platform, experiment.instrument_model, experiment.library_layout, experiment.library_name, experiment.library_strategy, experiment.library_source, experiment.library_selection, experiment.paired_nominal_length, experiment.paired_nominal_sdev, submission.submission_id, to_char(submission.submission_date, 'YYYY-MM-DD HH24:MI') submission_date, experiment.ega_id,
+EXTRACTVALUE(experiment.experiment_xml, '//EXPERIMENT/DESIGN/SAMPLE_DESCRIPTOR/\@accession') sample_id
+";
 }
 
 sub where {
-  return "experiment.status_id = cv_status.status_id and experiment.submission_id = submission.submission_id";
+  return
+"experiment.status_id = cv_status.status_id and experiment.submission_id = submission.submission_id";
 }
 
 sub xml_column {
@@ -49,11 +52,11 @@ sub object_from_hashref {
     -library_selection     => $hashref->{LIBRARY_SELECTION},
     -paired_nominal_length => $hashref->{PAIRED_NOMINAL_LENGTH},
     -paired_nominal_sdev   => $hashref->{PAIRED_NOMINAL_SDEV},
-    -submission_id   => $hashref->{SUBMISSION_ID},
-    -submission_date => $hashref->{SUBMISSION_DATE},
+    -submission_id         => $hashref->{SUBMISSION_ID},
+    -submission_date       => $hashref->{SUBMISSION_DATE},
+    -sample_id             => $hashref->{SAMPLE_ID}
   );
-  $self->add_ega_id($exp,$hashref);
-  
+  $self->add_ega_id( $exp, $hashref );
 
   return $exp;
 }
@@ -62,9 +65,9 @@ sub internal_id_column {
   return "experiment.experiment_id";
 }
 
-sub fetch_by_study_id{
-  my ($self,$study_id) = @_;
-  return $self->fetch_by_column_name("experiment.study_id",$study_id);
+sub fetch_by_study_id {
+  my ( $self, $study_id ) = @_;
+  return $self->fetch_by_column_name( "experiment.study_id", $study_id );
 }
 
 1;
