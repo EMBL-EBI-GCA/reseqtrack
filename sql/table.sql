@@ -403,6 +403,7 @@ create table experiment (
     experiment_id int(10) unsigned primary key auto_increment,
     experiment_source_id varchar(15) not null,
     study_id  int(10) unsigned not null ,
+    sample_id int(10) unsigned not null,
     status varchar(50) not null ,
     md5     varchar(32),
     center_name           varchar(100) ,
@@ -423,7 +424,8 @@ create table experiment (
 
 create unique index experiment_src_idx on experiment(experiment_source_id);
 create index experiment_fk1 on experiment(study_id);
-
+create index experiment_fk2 on experiment(sample_id);
+  
 create table sample
 (
     sample_id int(10) unsigned primary key auto_increment,
@@ -449,7 +451,6 @@ create table run
     run_id        int(10) unsigned primary key auto_increment,
     run_source_id	varchar(15) not null,
     experiment_id  int(10) unsigned not null,
-    sample_id  int(10) unsigned not null,
     run_alias varchar(500) not null ,
     status varchar(50) not null ,
     md5 varchar(32),
@@ -463,7 +464,6 @@ create table run
     constraint foreign key (experiment_id) references experiment(experiment_id)
   ) ENGINE=MYISAM;
 
-create index run_fk1 on run(sample_id);
 create index run_fk2 on run(experiment_id);
 create unique index run_src_idx on run(run_source_id);
 
