@@ -42,8 +42,8 @@ sub create_seed_params {
   foreach my $seed_params (@{$self->seed_params}) {
     my ($run, $output_hash) = @$seed_params;
     if (scalar @$output_sample_columns || scalar @$output_sample_attributes) {
-      my $sample = $sa->fetch_by_dbID($run->sample_id);
-      throw('did not get a sample with id '.$run->sample_id) if !$sample;
+      my $sample = $run->experiment->sample;
+      throw('did not get a sample for run '.$run->run_source_id) if !$sample;
       foreach my $column_name (@$output_sample_columns) {
         $output_hash->{$column_name} = &{$sa->column_mappings($sample)->{$column_name}}();
       }

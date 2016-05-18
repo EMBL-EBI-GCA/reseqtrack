@@ -69,10 +69,8 @@ sub fetch_by_sample_id_and_study_id {
     $self->columns,
     'from',
     $self->table_name,
-    ', run',
     'where',
-    'and run.sample_id = ?',
-    'and experiment.experiment_id = run.experiment_id',
+    'and experiment.sample_id = ?',
     'and experiment.study_id = ?' );
 
   my @objects;
