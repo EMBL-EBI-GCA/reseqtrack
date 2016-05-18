@@ -134,7 +134,9 @@ sub load_from_file {
       for ( my $i = 0 ; $i < scalar(@header) ; $i++ ) {
         my $h = $header[$i];
         my $v = $vals[$i];
-
+        
+        next if ($h =~ m/^#/);
+        
         if ( $h eq $columns->[0] ) {
           $item{-SOURCE_ID} = $v;
         }
@@ -250,8 +252,8 @@ sub fk_handlers {
 
         throw( "No study ID set for experiment " . $e->source_id() )
           unless ( $e->study_id );
-        throw( "No sample ID set for run " . $r->source_id() )
-          unless ( $r->sample_id );
+        throw( "No sample ID set for experiment " . $e->source_id() )
+          unless ( $e->sample_id );
 
         my $st_a = $db->get_StudyAdaptor();
         my $stid = $e->study_id();
