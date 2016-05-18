@@ -441,10 +441,13 @@ create table sample
     individual_name varchar(4000) ,
     submission_id varchar(15),
     submission_date datetime,
-    sample_title varchar(4000)
+    sample_title varchar(4000),
+    biosample_id varchar(15),
+    biosample_authority varchar(2),
 ) ENGINE=MYISAM;
 
 create unique index sample_src_idx on sample(sample_source_id);
+create index sample_bs_idx on sample(biosample_id);
 
 create table run
 (

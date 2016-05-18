@@ -19,4 +19,7 @@ alter table experiment modify sample_id int(10) unsigned not null;
 drop index run_fk1 on run;
 alter table run drop column sample_id;
 
-#extend 
+#extend sample to have ref to BioSamples ID
+alter table sample add column biosample_id varchar(15);
+alter table sample add column biosample_authority varchar(2);
+create index sample_bs_idx on sample(biosample_id);
