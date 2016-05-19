@@ -399,6 +399,29 @@ create table study(
 
 create unique index study_src_idx on study(study_source_id);
 
+create table sample
+(
+    sample_id int(10) unsigned primary key auto_increment,
+    sample_source_id varchar(15) not null,
+    status varchar(50),
+    md5     varchar(32),
+    center_name     varchar(100) ,
+    sample_alias    varchar(500) ,
+    tax_id          varchar(15) ,
+    scientific_name varchar(500) ,
+    common_name     varchar(4000) ,
+    anonymized_name varchar(4000) ,
+    individual_name varchar(4000) ,
+    submission_id varchar(15),
+    submission_date datetime,
+    sample_title varchar(4000),
+    biosample_id varchar(15),
+    biosample_authority varchar(2)
+) ENGINE=MYISAM;
+
+create unique index sample_src_idx on sample(sample_source_id);
+create index sample_bs_idx on sample(biosample_id);
+
 create table experiment (
     experiment_id int(10) unsigned primary key auto_increment,
     experiment_source_id varchar(15) not null,
@@ -419,35 +442,13 @@ create table experiment (
     paired_nominal_sdev   int(10),
     submission_id varchar(15),
     submission_date datetime,
-    constraint foreign key (study_id) references study(study_id)
+    constraint foreign key (study_id) references study(study_id),
+    constraint foreign key (sample_id) references sample(sample_id)
 ) ENGINE=MYISAM;
 
 create unique index experiment_src_idx on experiment(experiment_source_id);
 create index experiment_fk1 on experiment(study_id);
 create index experiment_fk2 on experiment(sample_id);
-  
-create table sample
-(
-    sample_id int(10) unsigned primary key auto_increment,
-    sample_source_id varchar(15) not null,
-    status varchar(50),
-    md5     varchar(32),
-    center_name     varchar(100) ,
-    sample_alias    varchar(500) ,
-    tax_id          varchar(15) ,
-    scientific_name varchar(500) ,
-    common_name     varchar(4000) ,
-    anonymized_name varchar(4000) ,
-    individual_name varchar(4000) ,
-    submission_id varchar(15),
-    submission_date datetime,
-    sample_title varchar(4000),
-    biosample_id varchar(15),
-    biosample_authority varchar(2),
-) ENGINE=MYISAM;
-
-create unique index sample_src_idx on sample(sample_source_id);
-create index sample_bs_idx on sample(biosample_id);
 
 create table run
 (
@@ -463,7 +464,6 @@ create table run
     instrument_model    varchar(50),
     submission_id varchar(15),
     submission_date datetime,
-    constraint foreign key (sample_id) references sample(sample_id),
     constraint foreign key (experiment_id) references experiment(experiment_id)
   ) ENGINE=MYISAM;
 
