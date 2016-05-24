@@ -1,4 +1,4 @@
-package ReseqTrack::Hive::PipeConfig::WGBS_merge_conf;
+package ReseqTrack::Hive::PipeConfig::WGBS_conf;
 
 use strict;
 use warnings;
@@ -14,8 +14,7 @@ sub default_options {
 
         seeding_module  => 'ReseqTrack::Hive::PipeSeed::BasePipeSeed',
         seeding_options => {
-            collection_type    => 'WGBS_FASTQ',
-
+            collection_type    => 'FASTQ',
 	    output_columns => $self->o('sample_columns'),
             output_attributes => $self->o('sample_attributes'),
             require_columns => $self->o('require_sample_columns'),
@@ -25,48 +24,12 @@ sub default_options {
         },
 
         regexs     => undef,
-        type_fastq => 'WGBS_FASTQ',
-
-        'biobambam_dir' =>
-          '/nfs/production/reseq-info/work/bin/biobambam2-2.0.10/bin/',
-        'fastqc_exe' => '/hps/cstor01/nobackup/faang/ernesto/bin/FastQC/fastqc',
-        'fastqscreen_exe' =>
-'/hps/cstor01/nobackup/faang/ernesto/bin/FastQScreen_v0.3.1/fastq_screen',
-        'fastqscreen_conf' =>
-'/hps/cstor01/nobackup/faang/ernesto/reference/fastq_screen_databases/fastq_screen.conf',
-        'lsf_queue' => 'production-rh6',
-        'bismark_exe' =>
-          '/hps/cstor01/nobackup/faang/ernesto/bin/bismark_v0.15.0/bismark',
-        'bismark_methcall_exe' =>
-'/hps/cstor01/nobackup/faang/ernesto/bin/bismark_v0.15.0/bismark_methylation_extractor',
-        'samtools_exe' =>
-          '/hps/cstor01/nobackup/faang/ernesto/bin/samtools-1.3/samtools',
-        'reference' => '/hps/cstor01/nobackup/faang/ernesto/reference/bismark',
-
+ 
 	#Methylation extractor options
 	'cutoff' => 5, # The minimum number of times a methylation state has to be seen for that nucleotide
                        #  before its methylation percentage is reported.
 
-        'RGPU' => '#run_source_id#',
-        'RGSM' => 'test',
 
-	'run_bam_type'         => 'WGBS_RUN_BAM',
-        'unfilt_bam_type'      => 'WGBS_UNFILT_BAM',
-	'unfilt_bai_type'      => 'WGBS_UNFILT_BAI',
-        'unfilt_flagstat_type' => 'WGBS_UNFILT_FLAGSTAT',
-        'mapper_report_type'   => 'WGBS_MAPPER_REPORT',
-        'dedup_bam_type'       => 'WGBS_DEDUP_BAM',
-        'dedup_flagstat_type'  => 'WGBS_DEDUP_FLAGSTAT',
-        'fastqc_summary_type'  => 'WGBS_RUN_FASTQC_SUMMARY',
-        'fastqc_report_type'   => 'WGBS_RUN_FASTQC_REPORT',
-        'fastqc_zip_type'      => 'WGBS_RUN_FASTQC_ZIP',
-        'mbiastxt_type'        => 'WGBS_MBIAS_TXT',
-        'mbiaspng_type'        => 'WGBS_MBIAS_PNG',
-	'bedgraph_type'        => 'WGBS_BEDGRAPH',
-	'chhcontext_type'      => 'WGBS_CHHCONTEXT',
-	'cpgcontext_type'      => 'WGBS_CPGCONTEXT',
-	'chgcontext_type'      => 'WGBS_CHGCONTEXT',
-	'splitting_type'      => 'WGBS_SPLITTING',
         'collection_name'      => '#sample_source_id#',
         'build_collection'     => 1,
 
@@ -87,7 +50,7 @@ sub default_options {
         exclude_experiment_attributes => {},
         exclude_study_attributes => {},
         exclude_sample_attributes => {},
-        require_experiment_columns => { instrument_platform => ['ILLUMINA'], },
+	require_experiment_columns => { instrument_platform => ['ILLUMINA'], },
         require_run_columns => { status => ['public', 'private'], },
         require_study_columns => {},
         require_sample_columns => {},
@@ -98,8 +61,6 @@ sub default_options {
             "run_source_id",    "chunk_label"
         ],
 
-        final_output_dir =>
-          "/hps/cstor01/nobackup/faang/ernesto/wgbs_pipeline_merge/#sample_source_id#",
         name_file_module       => 'ReseqTrack::Hive::NameFile::BaseNameFile',
         name_file_method       => 'basic',
         unfilt_bam_file_params => {
@@ -266,10 +227,10 @@ sub resource_classes {
               . $self->o('lsf_queue')
               . ' -R"select[mem>15000] rusage[mem=15000]"'
         },
-	'20Gb' => {
-                'LSF' => '-C0 -M20000 -q '
+	'50Gb' => {
+                'LSF' => '-n 5 -C0 -M50000 -q '
               . $self->o('lsf_queue')
-              . ' -R"select[mem>20000] rusage[mem=20000]"'
+              . ' -R"select[mem>50000] rusage[mem=50000]"'
         },
     };
 }
@@ -278,22 +239,6 @@ sub pipeline_wide_parameters {
     my ($self) = @_;
     return {
         %{ $self->SUPER::pipeline_wide_parameters },
-
-        dir_label_params => [ "run_source_id", "chunk_label" ],
-	%{$self->SUPER::resource_classes},  # inherit 'default' from the parent class
-	'200Mb' => { 'LSF' => '-C0 -M200 -q '.$self->o('lsf_queue').' -R"select[mem>200] rusage[mem=200]"' },
-	'500Mb' => { 'LSF' => '-C0 -M500 -q '.$self->o('lsf_queue').' -R"select[mem>500] rusage[mem=500]"' },
-	'800Mb' => { 'LSF' => '-C0 -M800 -q '.$self->o('lsf_queue').' -R"select[mem>800] rusage[mem=800]"' },
-	'1Gb'   => { 'LSF' => '-C0 -M1000 -q '.$self->o('lsf_queue').' -R"select[mem>1000] rusage[mem=1000]"' },
-	'2Gb' => { 'LSF' => '-C0 -M2000 -q '.$self->o('lsf_queue').' -R"select[mem>2000] rusage[mem=2000]"' },
-	'3Gb' => { 'LSF' => '-C0 -M3000 -q '.$self->o('lsf_queue').' -R"select[mem>3000] rusage[mem=3000]"' },
-	'4Gb' => { 'LSF' => '-C0 -M4000 -q '.$self->o('lsf_queue').' -R"select[mem>4000] rusage[mem=4000]"' },
-	'5Gb' => { 'LSF' => '-C0 -M5000 -q '.$self->o('lsf_queue').' -R"select[mem>5000] rusage[mem=5000]"' },
-	'6Gb' => { 'LSF' => '-C0 -M6000 -q '.$self->o('lsf_queue').' -R"select[mem>6000] rusage[mem=6000]"' },
-	'8Gb' => { 'LSF' => '-C0 -M8000 -q '.$self->o('lsf_queue').' -R"select[mem>8000] rusage[mem=8000]"' },
-	'10Gb' => { 'LSF' => '-C0 -M10000 -q '.$self->o('lsf_queue').' -R"select[mem>10000] rusage[mem=10000]"' },
-	'15Gb' => { 'LSF' => '-C0 -M15000 -q '.$self->o('lsf_queue').' -R"select[mem>15000] rusage[mem=15000]"' },
-	'20Gb' => { 'LSF' => '-C0 -M20000 -q '.$self->o('lsf_queue').' -R"select[mem>20000] rusage[mem=20000]"' },
     };
 }
 
@@ -507,14 +452,14 @@ sub pipeline_analyses {
                 program_file => $self->o('bismark_exe'),
                 samtools     => $self->o('samtools_exe'),
                 reference    => $self->o('reference'),
-                multicore    => 2,
+                multicore    => 5,
                 command      => 'aln',
                 rg_id        => '#run_source_id#',
                 rg_sample    => '#sample_source_id#',
                 output_dir   => $self->o('final_output_dir').'/bismark_mapper',
             },
             -hive_capacity => 200,
-            -rc_name       => '20Gb',
+            -rc_name       => '50Gb',
 	    -flow_into => {
               1 => [ 
 		  ':////accu?bam=[]',':////accu?mapper_report=[]'

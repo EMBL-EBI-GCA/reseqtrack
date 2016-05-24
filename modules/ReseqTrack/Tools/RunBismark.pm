@@ -28,8 +28,6 @@ sub DEFAULT_OPTIONS { return {
 	'report_mode' => 0, #  bismark_methylation_extractor option: comprehensive is the default
 	'bedgraph' => 1, #  bismark_methylation_extractor option.
 	'nondirectional' => 0, #  bismark_methylation_extractor option. Set this to 1 if the library is non-directional
-#	'cutoff' => 1 # The minimum number of times a methylation state has to be seen for that nucleotide
-#                      #  before its methylation percentage is reported
         };
 }
 
@@ -73,9 +71,9 @@ sub new {
                       -mate1_file => '/path/to/mate1',
                       -mate2_file => '/path/to/mate2',
                       -fragment_file => '/path/to/fragment',
-                      -rg_tag 1,
-                      -rg_id SAMPLE1
-                      -rg_sample SAMPLE1
+                      -rg_tag 1, # Write out a Read Group tag to the resulting SAM/BAM file. 
+                      -rg_id SAMPLE1 # Sets the ID field in the @RG header line.
+                      -rg_sample SAMPLE1 # Sets the ID field in the @RG header line.
                       );
 
               $bismark->run_alignment;
@@ -112,29 +110,28 @@ sub run_alignment {
     my $aln_cmd = join(' ', @cmd_args);
     $self->execute_command_line($aln_cmd);
 
-    my $output_file;
     my @output_files;
     opendir DH, $self->working_dir;
-    if ($self->base() && !$self->multicore()) {
+    if ($self->base()) {
 	my $base=$self->base;
-	@output_files= grep {/${base}(_SE_report)?[\.bam|\.txt]/} readdir DH;
-    } elsif ($self->base() && $self->multicore()) {
-	my($filename, $directories, $suffix) = fileparse($self->fragment_file, qr/\.[^.]*/);
-	@output_files= grep {/${filename}${suffix}_bismark_.+[\.bam|\.report\.txt]/} readdir DH;
+	@output_files= grep {/${base}.+[\.bam|\.report.txt]/} readdir DH;
     } else {
-        throw("[ERROR] I need a prefix name for output name");
+        throw("I need a prefix name for output name. Please use Bismark's 'base' parameter");
     }
-    throw("[ERROR] Could not retrieve the \@output_files") if scalar(@output_files)==0;
+    throw("Could not retrieve the \@output_files") if scalar(@output_files)==0;
+
+    @output_files=grep $_ !~/bismark/, @output_files;
 
     for (my $i=0;$i<scalar(@output_files);$i++) {
 	my $res;
 	$res=rename($self->working_dir."/".$output_files[$i],$self->working_dir."/".$self->base."_bismark.bam") if $output_files[$i]=~/\.bam$/;
 	$res=rename($self->working_dir."/".$output_files[$i],$self->working_dir."/".$self->base."_bismark_report.txt") if $output_files[$i]=~/\.txt$/;
 	throw("[ERROR] Rename failed!") if !$res;
-	$self->bam_file($self->base."_bismark.bam") if $output_files[$i]=~/\.bam$/;
-	$self->report_file($self->base."_bismark_report.txt") if $output_files[$i]=~/\.txt$/;
     }
     closedir DH;
+    
+    $self->bam_file($self->base."_bismark.bam");
+    $self->report_file($self->base."_bismark_report.txt");
 
     $self->output_format('BAM');
     return;

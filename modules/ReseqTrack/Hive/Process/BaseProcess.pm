@@ -85,6 +85,7 @@ package ReseqTrack::Hive::Process::BaseProcess;
 
 use strict;
 use ReseqTrack::Tools::Exception qw(throw);
+use Data::Dumper;
 
 use base ('Bio::EnsEMBL::Hive::Process');
 use ReseqTrack::Tools::FileSystemUtils qw(delete_file);

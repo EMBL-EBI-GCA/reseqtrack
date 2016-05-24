@@ -14,14 +14,6 @@ sub param_defaults {
     samtools => undef,
     options => {},
 
-    RGID => undef,
-    RGCN => undef,
-    RGLB => undef,
-    RGPI => undef,
-    RGSM => undef,
-    RGDS => undef,
-    RGPU => undef,
-    RGPL => undef,
     sample_source_id => undef,
     center_name => undef,
     library_name => undef,
@@ -41,37 +33,32 @@ sub run {
     throw("Don't recognise command $command. Acceptable commands are: @allowed_cmds")
 	if (! grep {$command eq $_ } @allowed_cmds);
 
-
-    my %read_group_fields = (
-      ID => $self->param('RGID') // $self->param('run_source_id'),
-      CN => $self->param('RGCN') // $self->param('center_name'),
-      LB => $self->param('RGLB') // $self->param('library_name'),
-      PI => $self->param('RGPI') // $self->param('paired_nominal_length'),
-      SM => $self->param('RGSM') // $self->param('sample_alias'),
-      DS => $self->param('RGDS') // $self->param('study_source_id'),
-      PU => $self->param('RGPU') // $self->param('run_source_id'),
-      PL => $self->param('RGPL') // $self->param('instrument_platform'),
-    );
-
     if ($command eq 'aln') {
 	my $base = $self->param_required('run_source_id');
 	my $reference = $self->param_required('reference');
 	my $multicore = $self->param_required('multicore');
+	my $rgid = $self->param_required('rg_id');
+	my $rgsample = $self->param_required('rg_sample');
 
 	my $fastqs = $self->param_as_array('fastq');
+
 	foreach my $fastq (@$fastqs) {
 	    check_file_exists($fastq);
 	}
 	my $run_alignment;
 	if (scalar(@$fastqs)>1) {
+	    my @sorted_fastqs=sort @$fastqs;
 	    $run_alignment = ReseqTrack::Tools::RunBismark->new(
 		-base => $base,
-                -mate1_file => $fastqs->[0],
-		-mate2_file => $fastqs->[1],
+                -mate1_file => $sorted_fastqs[0],
+		-mate2_file => $sorted_fastqs[1],
                 -program => $self->param('program_file'),
 		-multicore => $multicore,
                 -samtools => $self->param('samtools'),
                 -output_format => 'BAM',
+		-rg_tag=>1,
+		-rg_id=>$rgid,
+		-rg_sample=>$rgsample,
                 -working_dir => $self->output_dir,
                 -reference => $reference,
                 -job_name => $self->job_name,
@@ -85,6 +72,9 @@ sub run {
 		-multicore => $multicore,
 		-samtools => $self->param('samtools'),
 		-output_format => 'BAM',
+		-rg_tag=>1,
+                -rg_id=>$rgid,
+                -rg_sample=>$rgsample,
 		-working_dir => $self->output_dir,
 		-reference => $reference,
 		-job_name => $self->job_name,
