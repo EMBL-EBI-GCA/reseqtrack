@@ -110,17 +110,19 @@ sub run_alignment {
     my $aln_cmd = join(' ', @cmd_args);
     $self->execute_command_line($aln_cmd);
 
+    my $base=$self->base;
+
     my @output_files;
     opendir DH, $self->working_dir;
-    if ($self->base()) {
-	my $base=$self->base;
+    if ($base) {
 	@output_files= grep {/${base}.+[\.bam|\.report.txt]/} readdir DH;
     } else {
         throw("I need a prefix name for output name. Please use Bismark's 'base' parameter");
     }
     throw("Could not retrieve the \@output_files") if scalar(@output_files)==0;
 
-    @output_files=grep $_ !~/bismark/, @output_files;
+    @output_files=grep $_ !~/${base}_bismark\.bam$/, @output_files;
+    @output_files=grep $_ !~/${base}_bismark_report\.txt$/, @output_files;
 
     for (my $i=0;$i<scalar(@output_files);$i++) {
 	my $res;
