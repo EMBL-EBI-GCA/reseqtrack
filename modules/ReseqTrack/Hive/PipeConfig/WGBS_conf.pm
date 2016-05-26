@@ -24,6 +24,11 @@ sub default_options {
         },
 
         regexs     => undef,
+
+	#Bismark mapper option
+	'multicore' => 10, # Sets the number of parallel instances of Bismark to be run concurrently. This forks
+	                   # the Bismark alignment step very early on so that each individual Spawn of Bismark
+	                   # processes only every n-th sequence (n being set by --multicore). 
  
 	#Methylation extractor options
 	'cutoff' => 5, # The minimum number of times a methylation state has to be seen for that nucleotide
@@ -228,7 +233,7 @@ sub resource_classes {
               . ' -R"select[mem>15000] rusage[mem=15000]"'
         },
 	'50Gb' => {
-                'LSF' => '-n 5 -C0 -M50000 -q '
+                'LSF' => '-n 20 -C0 -M50000 -q '
               . $self->o('lsf_queue')
               . ' -R"select[mem>50000] rusage[mem=50000]"'
         },
@@ -452,7 +457,7 @@ sub pipeline_analyses {
                 program_file => $self->o('bismark_exe'),
                 samtools     => $self->o('samtools_exe'),
                 reference    => $self->o('reference'),
-                multicore    => 5,
+                multicore    => $self->o('multicore'),
                 command      => 'aln',
                 rg_id        => '#run_source_id#',
                 rg_sample    => '#sample_source_id#',
