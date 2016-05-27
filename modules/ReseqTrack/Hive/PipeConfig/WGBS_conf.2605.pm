@@ -28,7 +28,7 @@ sub default_options {
 	#Bismark mapper option
 	'multicore' => 10, # Sets the number of parallel instances of Bismark to be run concurrently. This forks
 	                   # the Bismark alignment step very early on so that each individual Spawn of Bismark
-	                   # processes only every n-th sequence (n being set by --multicore).
+	                   # processes only every n-th sequence (n being set by --multicore). 
  
 	#Methylation extractor options
 	'cutoff' => 5, # The minimum number of times a methylation state has to be seen for that nucleotide

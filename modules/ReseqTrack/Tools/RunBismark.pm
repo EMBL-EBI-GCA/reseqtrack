@@ -27,7 +27,7 @@ sub DEFAULT_OPTIONS { return {
 	'algorithm' => 'bowtie', # bismark_mapper option: Should Bismark use bowtie or bowtie2
 	'report_mode' => 0, #  bismark_methylation_extractor option: comprehensive is the default
 	'bedgraph' => 1, #  bismark_methylation_extractor option.
-	'nondirectional' => 0, #  bismark_methylation_extractor option. Set this to 1 if the library is non-directional
+	'nondirectional' => 1, #  The sequencing library was constructed in a non strand-specific manner. Set this to 1 if the library is non-directional
         };
 }
 
@@ -91,6 +91,7 @@ sub run_alignment {
     push @cmd_args, $self->program;
     push @cmd_args, "-n ".$self->options->{'n'};
     push @cmd_args, $self->reference;
+    push @cmd_args, "--non_directional" if $self->options->{'nondirectional'};
 
     if ( $self->fragment_file ) {
         push @cmd_args, $self->fragment_file;
@@ -115,7 +116,7 @@ sub run_alignment {
     my @output_files;
     opendir DH, $self->working_dir;
     if ($base) {
-	@output_files= grep {/${base}.+[\.bam|\.report.txt]/} readdir DH;
+	@output_files= grep {/${base}.+[\.bam|\.report.txt]$/} readdir DH;
     } else {
         throw("I need a prefix name for output name. Please use Bismark's 'base' parameter");
     }
