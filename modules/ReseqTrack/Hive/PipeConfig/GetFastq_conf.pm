@@ -107,6 +107,8 @@ sub default_options {
             output_sample_attributes => $self->o('sample_attribute_keys'),
             output_experiment_columns => $self->o('experiment_columns'),
             output_experiment_attributes => $self->o('experiment_attribute_keys'),
+            output_study_columns => $self->o('study_columns'),
+            output_study_attributes => $self->o('study_attribute_keys'),
           },
 
         get_fastq_module => undef, # module default is ReseqTrack::Tools::GetFastq
