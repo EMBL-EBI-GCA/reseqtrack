@@ -95,10 +95,13 @@ sub run {
 	    $runmode='SINGLE';
 	}
 	my $bamfile = $self->param_required('bam');
+	my $multicore = $self->param_required('multicore');
+
 	check_file_exists($bamfile);
 	my $run_methext=ReseqTrack::Tools::RunBismark->new(
 	    -input_files => $bamfile,
 	    -working_dir => $self->output_dir,
+	    -multicore => $multicore,
 	    -runmode => $runmode,
 	    -cutoff => $self->param('cutoff')
 	    );

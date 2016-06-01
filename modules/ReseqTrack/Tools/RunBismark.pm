@@ -27,7 +27,7 @@ sub DEFAULT_OPTIONS { return {
 	'algorithm' => 'bowtie', # bismark_mapper option: Should Bismark use bowtie or bowtie2
 	'report_mode' => 0, #  bismark_methylation_extractor option: comprehensive is the default
 	'bedgraph' => 1, #  bismark_methylation_extractor option.
-	'nondirectional' => 1, #  The sequencing library was constructed in a non strand-specific manner. Set this to 1 if the library is non-directional
+	'nondirectional' => 0, #  The sequencing library was constructed in a non strand-specific manner. Set this to 1 if the library is non-directional
         };
 }
 
@@ -181,6 +181,7 @@ sub run_methylation_extractor {
     push @cmd_args, "--bedGraph " if $self->options->{'bedgraph'};
     push @cmd_args, "--non_directional" if $self->options->{'nondirectional'};
     push @cmd_args, "--cutoff ".$self->cutoff() if $self->cutoff;
+    push @cmd_args, "--multicore ".$self->multicore() if $self->multicore();
 
     my $input= $self->input_files->[0];
     push @cmd_args, $input;

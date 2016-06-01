@@ -26,7 +26,7 @@ sub default_options {
         regexs     => undef,
 
 	#Bismark mapper option
-	'multicore' => 10, # Sets the number of parallel instances of Bismark to be run concurrently. This forks
+	'multicore' => 2, # Sets the number of parallel instances of Bismark to be run concurrently. This forks
 	                   # the Bismark alignment step very early on so that each individual Spawn of Bismark
 	                   # processes only every n-th sequence (n being set by --multicore).
  
