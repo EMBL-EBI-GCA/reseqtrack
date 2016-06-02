@@ -28,6 +28,9 @@ use base qw(ReseqTrack::Tools::RunProgram);
 								-dbport						=> $dbport,
 								-input_files				=> \@file_list,
 								-program					=> $merge_program,
+								-tabix						=> $tabix,
+								-bgzip						=> $bgzip,
+								-gzip						=> $gzip
 								-file_type					=> $file_type,
 								-target_count				=> $target_count,
 								-goahead					=> $run,
@@ -42,11 +45,11 @@ sub new {
   my $self = $class->SUPER::new(@args);
 
   my (  $db, $dbhost, $dbname, $dbuser, $dbpass, $dbport, $hostname,
-		$goahead, $verbose, $file_type, $target_count, $chr_list) =
+		$goahead, $verbose, $file_type, $target_count, $chr_list, $tabix, $bgzip, $gzip) =
     rearrange(
     [
       qw( DB DBHOST DBNAME DBUSER DBPASS DBPORT HOSTNAME
-      GOAHEAD VERBOSE FILE_TYPE TARGET_COUNT CHR_LIST)
+      GOAHEAD VERBOSE FILE_TYPE TARGET_COUNT CHR_LIST TABIX BGZIP GZIP)
     ],
     @args
     );
@@ -67,6 +70,9 @@ sub new {
 	$self->target_count($target_count);
 	$self->file_type($file_type);
 	$self->chr_list($chr_list);
+	$self->tabix($tabix);
+	$self->bgzip($bgzip);
+	$self->gzip($gzip);
 
 	return $self;
 }
@@ -81,6 +87,7 @@ sub new {
   			  	3a. merge
   			  	3b. change file type to type_MERGED upon successful merge
   			  	3c. change collection type to type_MERGED upon successful merge
+  			  	3d. load the merged file in file table as original file type, so it can be subject to additional merge
   			  	
               Output are merged files at different stages, recorded in the db.  The final merge product is the last file that can no longer merge
 
@@ -131,13 +138,14 @@ sub run {
 			open(OUT, ">", $tmp_list) || throw("Cannot open tmp file $tmp_list");
 			print OUT join ("\n", @merge_list) . "\n";
 			
-			## Need to add job group 
-			## bgadd -L 50 /MyJobGroup
+			## Add job group and define number of jobs to run (50 in this case)
+			system("bgadd -L 50 /merge_stats");
 			
-			my $script = "/nfs/production/reseq-info/work/zheng/accessible_genome_mask/modules/AccessibleGenome/run_mergeBaseQCSumStats.pl";
+			#my $script = "/nfs/production/reseq-info/work/zheng/accessible_genome_mask/modules/AccessibleGenome/run_mergeBaseQCSumStats.pl";
+			my $script = "run_mergeBaseQCSumStats.pl"; ## this should work if the path is set to include reseqtrack/scripts/genome_accessibility_mask
 			#my $cmd = "bsub -g \/merge_stats -R \"rusage[mem=2000] select[panfs_nobackup_production]\" -q production-rh6 -oo $lsf_log -eo $lsf_err ";
 			my $cmd = "bsub -g \/merge_stats -R \"select[panfs_nobackup_production]\" -q production-rh6 -oo $lsf_log -eo $lsf_err ";
-			$cmd .= "perl $script ";
+			$cmd .= "$script ";
 			$cmd .=	" -dbhost " . 		$self->dbhost;
 			$cmd .=	" -dbname " . 		$self->dbname;
 			$cmd .=	" -dbuser " . 		$self->dbuser;
@@ -145,6 +153,9 @@ sub run {
 			$cmd .=	" -dbport " . 		$self->dbport;
 			$cmd .= " -hostname " . 		$self->hostname;
 			$cmd .= " -merge_program " . $self->program;
+			$cmd .= " -tabix " . $self->tabix;
+			$cmd .= " -bgzip " . $self->bgzip;
+			$cmd .= " -gzip " . $self->gzip;			
 			$cmd .= " -file_type " . 	$self->file_type;			
 			$cmd .=	" -file_list " . 	$tmp_list;
 			$cmd .=	" -merged_file_name " . $merged_file;	
@@ -162,7 +173,7 @@ sub run {
 	        if ($exit >=1) {
 	            throw("merge failed\n"); 
 	        }  
-			
+					
 			$cnt = 1;
 			@merge_list = ();
 			@merge_fos_list = ();
@@ -420,6 +431,27 @@ sub verbose {
  my ( $self, $arg ) = @_;
   $self->{verbose} = $arg if ($arg);
  return $self->{verbose};
+}
+
+###
+sub tabix {
+ my ( $self, $arg ) = @_;
+  $self->{tabix} = $arg if ($arg);
+ return $self->{tabix};
+}
+
+###
+sub bgzip {
+ my ( $self, $arg ) = @_;
+  $self->{bgzip} = $arg if ($arg);
+ return $self->{bgzip};
+}
+
+###
+sub gzip {
+ my ( $self, $arg ) = @_;
+  $self->{gzip} = $arg if ($arg);
+ return $self->{gzip};
 }
 
 =head

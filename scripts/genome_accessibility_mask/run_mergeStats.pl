@@ -6,7 +6,8 @@ use ReseqTrack::DBSQL::DBAdaptor;
 use ReseqTrack::Tools::FileSystemUtils;
 use Getopt::Long;
 use IPC::System::Simple qw(system);
-use AccessibleGenome::MergeSampleLevelStats;
+use AccessibleGenome::MergeSampleLevelStats;## It is a bit of circular to call this module in this script. 
+											##The only reason to do this is to allow one to make a MergeSampleLevelStats obj, so the functions and parameters in the object can be used here, to remove the need for passing in lots of parameters.
 
 my (
     $dbhost,
@@ -16,6 +17,9 @@ my (
     $dbname,
     $hostname,
     $merge_program,
+    $tabix,
+    $bgzip,
+    $gzip,
     $file_type,
     $file_list,
     $chr_list,    
@@ -35,6 +39,9 @@ my (
   'dbport=s'    => \$dbport,
   'hostname=s' 			=> \$hostname,
   'merge_program=s'		=> \$merge_program,
+  'tabix=s'				=> \$tabix,
+  'bgzip=s'				=> \$bgzip,
+  'gzip=s'				=> \$gzip,
   'file_type=s'			=> \$file_type,
   'file_list=s'			=> \$file_list,
   'merged_file_name=s'	=>\$merged_file,
@@ -44,10 +51,6 @@ my (
   'goahead!'			=> \$goahead,
   'verbose!'    		=> \$verbose,  
 );
-
-my $tabix = "/nfs/production/reseq-info/work/bin/tabix/tabix";
-my $bgzip = "/nfs/production/reseq-info/work/bin/tabix/bgzip";
-my $gzip = "/usr/bin/gzip";
  
 my $db = ReseqTrack::DBSQL::DBAdaptor->new(
   -host         => $dbhost,
@@ -73,8 +76,7 @@ foreach my $file (@$files) {
 
 my $collection = $ca->fetch_by_name_and_type($col_name, $col_type);
 
-## make a MergeSampleLevelStats obj so I can use the functions in that object
-## can pass in minimal number of parameters that are needed for the functions to call 
+## make a MergeSampleLevelStats obj here, so the functions and parameters in the object can be used directly so they don't need to be re-implemented here 
 my $merger = AccessibleGenome::MergeSampleLevelStats->new(
 	-dbhost						=> $dbhost,
 	-dbname						=> $dbname,
@@ -97,7 +99,7 @@ $merge_cmd .= join(" ", @$files);
 print "merge command is $merge_cmd\n";
 system($merge_cmd);
 
-my $exit = $?>>8;  ### these error handlings don't work, as the command itself will throw. 
+my $exit = $?>>8;  ### these error handlings don't work, as the run itself will throw. 
 if ($exit >=1) {
 	$merger->update_file_type(\@fos, "", $fa);
 	$merger->update_collection_type("ABORTED", $ca);
