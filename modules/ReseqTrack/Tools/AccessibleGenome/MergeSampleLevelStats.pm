@@ -142,7 +142,7 @@ sub run {
 			system("bgadd -L 50 /merge_stats");
 			
 			#my $script = "/nfs/production/reseq-info/work/zheng/accessible_genome_mask/modules/AccessibleGenome/run_mergeBaseQCSumStats.pl";
-			my $script = "run_mergeBaseQCSumStats.pl"; ## this should work if the path is set to include reseqtrack/scripts/genome_accessibility_mask
+			my $script = "run_mergeStats.pl"; ## this should work if the path is set to include reseqtrack/scripts/genome_accessibility_mask
 			#my $cmd = "bsub -g \/merge_stats -R \"rusage[mem=2000] select[panfs_nobackup_production]\" -q production-rh6 -oo $lsf_log -eo $lsf_err ";
 			my $cmd = "bsub -g \/merge_stats -R \"select[panfs_nobackup_production]\" -q production-rh6 -oo $lsf_log -eo $lsf_err ";
 			$cmd .= "$script ";
