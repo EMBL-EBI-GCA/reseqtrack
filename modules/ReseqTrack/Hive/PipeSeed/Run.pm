@@ -14,8 +14,8 @@ sub create_seed_params {
   my $output_experiment_attributes = $self->option_array('output_experiment_attributes');
   my $output_sample_columns = $self->option_array('output_sample_columns');
   my $output_sample_attributes = $self->option_array('output_sample_attributes');
-  my $output_study_columns = $self->option_array('$output_study_columns');
-  my $output_study_attributes = $self->option_array('$$output_study_attributes');
+  my $output_study_columns = $self->option_array('output_study_columns');
+  my $output_study_attributes = $self->option_array('output_study_attributes');
 
   throw('this module will only accept pipelines that work on the run table')
       if $self->table_name ne 'run';
