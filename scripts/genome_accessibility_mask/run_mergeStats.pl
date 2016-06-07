@@ -136,7 +136,11 @@ if ($exit4 >=1) {
 	$merger->update_collection_type("ABORTED", $ca);
 	throw("tabix failed\n"); 
 }   
-			
+
+if ($fa->fetch_by_name($merged_file)) {
+	throw("Merged file $merged_file already exist in database.  Delete it from db and retry");
+}
+				
 $merger->load_file($merged_file);
 $merger->update_file_type(\@fos, "MERGED", $fa);
 $merger->update_collection_type("MERGED", $ca, $collection);

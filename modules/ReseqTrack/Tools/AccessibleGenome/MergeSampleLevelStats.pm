@@ -123,11 +123,6 @@ sub run {
 
 			$self->load_collection(\@merge_fos_list, $ca);
 			$self->update_file_type(\@merge_fos_list, "ONGOING", $fa);
-			
-			#$self->merge_list(\@merge_list);
-			#$self->merge_fos_list(\@merge_fos_list);
-			#$self->fa($fa);
-			#$self->ca($ca);
 
 			my $merged_file = $self->working_dir . "/merge/" . $self->collection->name . ".stats.gz";			
 			my $lsf_log = $self->working_dir . "/lsf_log/" . $self->collection->name . ".stats.gz.log";
@@ -141,7 +136,6 @@ sub run {
 			## Add job group and define number of jobs to run (50 in this case)
 			system("bgadd -L 50 /merge_stats");
 			
-			#my $script = "/nfs/production/reseq-info/work/zheng/accessible_genome_mask/modules/AccessibleGenome/run_mergeBaseQCSumStats.pl";
 			my $script = "run_mergeStats.pl"; ## this should work if the path is set to include reseqtrack/scripts/genome_accessibility_mask
 			#my $cmd = "bsub -g \/merge_stats -R \"rusage[mem=2000] select[panfs_nobackup_production]\" -q production-rh6 -oo $lsf_log -eo $lsf_err ";
 			my $cmd = "bsub -g \/merge_stats -R \"select[panfs_nobackup_production]\" -q production-rh6 -oo $lsf_log -eo $lsf_err ";
@@ -454,29 +448,4 @@ sub gzip {
  return $self->{gzip};
 }
 
-=head
-sub merge_list {
- my ( $self, $arg ) = @_;
-   $self->{merge_list} = $arg if ( $arg);
- return $self->{merge_list};
-}
-
-sub merge_fos_list {
- my ( $self, $arg ) = @_;
-   $self->{merge_fos_list} = $arg if ( $arg);
- return $self->{merge_fos_list};
-}
-
-sub fa {
- my ( $self, $arg ) = @_;
-   $self->{fa} = $arg if ( $arg);
- return $self->{fa};
-}
-
-sub ca {
- my ( $self, $arg ) = @_;
-   $self->{ca} = $arg if ( $arg);
- return $self->{ca};
-}
-=cut
 return 1;
