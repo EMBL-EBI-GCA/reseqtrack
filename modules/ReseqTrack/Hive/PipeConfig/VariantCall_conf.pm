@@ -102,6 +102,7 @@ sub default_options {
         'bcftools_exe' => '/nfs/1000g-work/G1K/work/bin/samtools/bcftools/bcftools',
         'bgzip_exe' => '/nfs/1000g-work/G1K/work/bin/tabix/bgzip',
         'java_exe' => '/usr/bin/java',
+        'jvm_args'	=> '-Xmx4g',
         'gatk_dir' => '/nfs/1000g-work/G1K/work/bin/gatk/dist/',
         'freebayes_exe' => '/nfs/1000g-work/G1K/work/bin/freebayes/bin/freebayes',
 
@@ -372,6 +373,7 @@ sub pipeline_analyses {
               reference => $self->o('reference'),
               gatk_dir => $self->o('gatk_dir'),
               java_exe => $self->o('java_exe'),
+              jvm_args => $self->o('jvm_args'),
               options => $self->o('call_by_gatk_options'),
               region_overlap => 100,
               reseqtrack_options => {
@@ -483,7 +485,7 @@ sub pipeline_analyses {
                 encode_file_id => 'vcf',
               },
           },
-          -rc_name => '35Gb',
+          -rc_name => '50Gb',
           -hive_capacity  =>  100,
           -flow_into => {
               1 => { ':////accu?freebayes_vcf=[fan_index]' => {'freebayes_vcf' => '#vcf#', 'fan_index' => '#fan_index#'}},

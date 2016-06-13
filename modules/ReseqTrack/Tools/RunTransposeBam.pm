@@ -62,7 +62,6 @@ sub run_program{
     my $input_files = $self->input_files;
     throw("do not have any input files") if !@$input_files;
     if ( $self->options('shorten_input_names')) {
-       #$input_files = [values %{$self->get_short_input_names}];
        $input_files = [values %{$self->get_short_input_names($self->options('shorten_input_names'))}];
     }
 
@@ -76,7 +75,8 @@ sub run_program{
     
     my @cmd_words = ('cat');	 
     push(@cmd_words, $tmp_file);
-    push @cmd_words,  ' | xargs -s 300000';
+    #push @cmd_words,  ' | xargs -s 300000';
+    push @cmd_words,  ' | xargs';
     push @cmd_words, $self->program;
     foreach my $region (@$regions) {
       push(@cmd_words, '-r', $region);
