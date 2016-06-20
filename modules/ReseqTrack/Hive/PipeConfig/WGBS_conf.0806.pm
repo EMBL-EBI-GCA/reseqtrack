@@ -58,7 +58,7 @@ sub default_options {
 	require_experiment_columns => { instrument_platform => ['ILLUMINA'], },
         require_run_columns => { status => ['public', 'private'], },
         require_study_columns => {},
-	require_sample_columns => {},
+        require_sample_columns => {},
         exclude_sample_columns => {},
 
         'dir_label_params_list' => [
@@ -792,7 +792,7 @@ sub pipeline_analyses {
             -parameters => {
                 program_file   => $self->o('samtools_exe'),
                 command        => 'flagstat',
-                add_attributes => 1,
+                add_attributes => 0,
                 reference      => $self->o('reference'),
             },
             -rc_name       => '2Gb',
@@ -801,7 +801,6 @@ sub pipeline_analyses {
                 1 => {
                     'store_dedup_flagstat' => {
                         'file' => '#metrics#',
-			'dedup_attribute_metrics' => '#attribute_metrics#',
                         'bam'  => '#bam#'
                     }
                 }
@@ -829,7 +828,6 @@ sub pipeline_analyses {
             -flow_into     => {
                 1 => {
                     'store_dedup_bam' => {
-			'dedup_attribute_metrics' => '#dedup_attribute_metrics#',
                         'file'            => '#bam#',
                         'dedup_flagstat' => '#file#'
                     },
@@ -855,35 +853,10 @@ sub pipeline_analyses {
             },
             -rc_name       => '200Mb',
             -hive_capacity => 200,
-            -flow_into => { 
-		1 => { 
-		    'dedup_attributes' => {
-			'dedup_attribute_metrics' => '#dedup_attribute_metrics#',
-			'dedup_bam' => '#file#' 
-		    }, 
-		}, 
-	    }
+            -flow_into =>
+	    { 1 => { 'bam_factory' => { 'dedup_bam' => '#file#' }, }, }
 	  }
 	  );
-
-    push(@analyses, {
-         -logic_name => 'dedup_attributes',
-         -module        => 'ReseqTrack::Hive::Process::UpdateAttribute',
-         -parameters => {
-             attribute_metrics => '#dedup_attribute_metrics#',
-             collection_type => $self->o('dedup_bam_type'),
-             collection_name => $self->o('collection_name'),
-         },
-         -rc_name => '200Mb',
-         -hive_capacity  =>  200,
-         -flow_into => {
-             1 => {
-                 'bam_factory' => {
-                     'dedup_bam'=> '#dedup_bam#',
-                 }
-             },
-         },
-         });
 
     push(
         @analyses,

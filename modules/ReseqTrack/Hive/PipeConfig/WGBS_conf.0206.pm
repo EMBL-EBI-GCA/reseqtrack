@@ -58,7 +58,7 @@ sub default_options {
 	require_experiment_columns => { instrument_platform => ['ILLUMINA'], },
         require_run_columns => { status => ['public', 'private'], },
         require_study_columns => {},
-	require_sample_columns => {},
+        require_sample_columns => {},
         exclude_sample_columns => {},
 
         'dir_label_params_list' => [
@@ -85,13 +85,6 @@ sub default_options {
         unfilt_flagstat_file_params => {
             new_dir       => '#final_output_dir#/bismark_mapper',
             new_basename  => '#sample_source_id#.bismark.unfilt.GRCh38',
-            add_datestamp => 1,
-            suffix        => '.flagstat',
-        },
-
-	dup_flagstat_file_params => {
-            new_dir       => '#final_output_dir#/bismark_mapper',
-            new_basename  => '#sample_source_id#.dup.bismark.GRCh38',
             add_datestamp => 1,
             suffix        => '.flagstat',
         },
@@ -607,15 +600,14 @@ sub pipeline_analyses {
             -hive_capacity => 200,
             -flow_into     => {
                 1 => {
-		    'store_unfilt_flagstat' => {
-			'file'=> '#metrics#',
-			'bam'=> '#bam#'
+                    'store_unfilt_flagstat' => {
+                        'file' => '#metrics#',
+                        'bam'  => '#bam#'
                     }
                 }
 	    },
         }
 	);
-
 
       push(
         @analyses,
@@ -637,6 +629,7 @@ sub pipeline_analyses {
             -flow_into     => {
                 1 => {
                     'store_unfilt_bam' => {
+                        'bam'             => '#bam#',
                         'file'            => '#bam#',
                         'unfilt_flagstat' => '#file#'
                     }
@@ -686,82 +679,9 @@ sub pipeline_analyses {
             },
             -rc_name       => '800Mb',
             -hive_capacity => 100,
-            -flow_into     => { 1 => { 'dup_flagstat' => { 'bam' => '#bam#' } }, },
+            -flow_into     => { 1 => { 'dedup_bam' => { 'bam' => '#bam#' } }, },
 	  }
 	  );
-
-    push(
-        @analyses,
-	{
-            -logic_name => 'dup_flagstat',
-            -module     => 'ReseqTrack::Hive::Process::RunSamtools',
-            -parameters => {
-                program_file   => $self->o('samtools_exe'),
-                command        => 'flagstat',
-                add_attributes => 1,
-                reference      => $self->o('reference'),
-            },
-            -rc_name       => '2Gb',
-            -hive_capacity => 200,
-            -flow_into     => {
-                1 => {
-                    'dup_attributes' => {
-			'dup_metrics' => '#metrics#',
-                        'dup_attribute_metrics' => '#attribute_metrics#',
-                        'bam'  => '#bam#'
-                    }
-                }
-            },
-     }
-     );
-
-    push(@analyses, {
-         -logic_name => 'dup_attributes',
-         -module        => 'ReseqTrack::Hive::Process::UpdateAttribute',
-         -parameters => {
-             attribute_metrics => '#dup_attribute_metrics#',
-             collection_type => $self->o('unfilt_bam_type'),
-             collection_name => $self->o('collection_name'),
-         },
-         -rc_name => '200Mb',
-         -hive_capacity  =>  200,
-         -flow_into => {
-             1 => {
-                 'store_dup_flagstat' => {
-                     'file'=> '#dup_metrics#',
-                     'bam'=> '#bam#'
-                 }
-             },
-         },
-	 });
-
-    push(
-        @analyses,
-	{
-            -logic_name  => 'store_dup_flagstat',
-            -module      => 'ReseqTrack::Hive::Process::LoadFile',
-            -meadow_type => 'LOCAL',
-            -parameters  => {
-                type             => $self->o('dup_flagstat_type'),
-                name_file_module => 'ReseqTrack::Hive::NameFile::BaseNameFile',
-                name_file_method => 'basic',
-                name_file_params => $self->o('dup_flagstat_file_params'),
-                final_output_dir => $self->o('final_output_dir'),
-                collection_name  => $self->o('collection_name'),
-                collect          => $self->o('build_collection'),
-            },
-            -rc_name       => '200Mb',
-            -hive_capacity => 200,
-            -flow_into     => {
-                1 => {
-                    'dedup_bam' => {
-                        'bam'            => '#bam#',
-                        'dup_flagstat' => '#file#'
-                    },
-                }
-            },
-	}
-	);
 
     push(
         @analyses,
@@ -784,7 +704,7 @@ sub pipeline_analyses {
         }
 	);
 
-       push(
+      push(
         @analyses,
 	  {
             -logic_name => 'dedup_flagstat',
@@ -792,7 +712,7 @@ sub pipeline_analyses {
             -parameters => {
                 program_file   => $self->o('samtools_exe'),
                 command        => 'flagstat',
-                add_attributes => 1,
+                add_attributes => 0,
                 reference      => $self->o('reference'),
             },
             -rc_name       => '2Gb',
@@ -801,7 +721,6 @@ sub pipeline_analyses {
                 1 => {
                     'store_dedup_flagstat' => {
                         'file' => '#metrics#',
-			'dedup_attribute_metrics' => '#attribute_metrics#',
                         'bam'  => '#bam#'
                     }
                 }
@@ -829,7 +748,6 @@ sub pipeline_analyses {
             -flow_into     => {
                 1 => {
                     'store_dedup_bam' => {
-			'dedup_attribute_metrics' => '#dedup_attribute_metrics#',
                         'file'            => '#bam#',
                         'dedup_flagstat' => '#file#'
                     },
@@ -855,35 +773,10 @@ sub pipeline_analyses {
             },
             -rc_name       => '200Mb',
             -hive_capacity => 200,
-            -flow_into => { 
-		1 => { 
-		    'dedup_attributes' => {
-			'dedup_attribute_metrics' => '#dedup_attribute_metrics#',
-			'dedup_bam' => '#file#' 
-		    }, 
-		}, 
-	    }
+            -flow_into =>
+	    { 1 => { 'bam_factory' => { 'dedup_bam' => '#file#' }, }, }
 	  }
 	  );
-
-    push(@analyses, {
-         -logic_name => 'dedup_attributes',
-         -module        => 'ReseqTrack::Hive::Process::UpdateAttribute',
-         -parameters => {
-             attribute_metrics => '#dedup_attribute_metrics#',
-             collection_type => $self->o('dedup_bam_type'),
-             collection_name => $self->o('collection_name'),
-         },
-         -rc_name => '200Mb',
-         -hive_capacity  =>  200,
-         -flow_into => {
-             1 => {
-                 'bam_factory' => {
-                     'dedup_bam'=> '#dedup_bam#',
-                 }
-             },
-         },
-         });
 
     push(
         @analyses,
