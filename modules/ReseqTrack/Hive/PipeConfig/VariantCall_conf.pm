@@ -21,7 +21,6 @@ config_options=-callgroup_type CALLGROUP_BAM
 
       -callgroup_type, type of collection (of bams) in the reseqtrack database used for seeding the pipeline
       -reference, fasta file of your reference genome.  Should have a .fai
-      -coverage_per_sample, average depth of coverage in each bam file. Passed to CallBySamtools.
 
   Options that have defaults but you will often want to set them in your pipeline.cofig_options table/column:
 
@@ -47,14 +46,14 @@ config_options=-callgroup_type CALLGROUP_BAM
       -call_by_gatk, boolean, default 1, turn on/off calling by gatk UnifiedGenotyper
       -call_by_freebayes, boolean, default 1, turn on/off calling by freebayes
       -call_by_gatk_options, key/val pairs, passed on to the CallByGATK module
-      -call_by_samtools_options, key/val pairs, passed on to the CallBySamtools module
+      -call_by_samtools_options, key/val pairs, passed on to the CallBySamtools module; useful one is depth, which is the cut off for excessive depth per 
+sample. 250 is good for 1KG low coverage data; 500 is good for 1KG exome data
       -call_by_freebayes_options, key/val pairs, passed on to the CallByFreebayes module
 
       Paths of executables:
       -transpose_exe, (default is to work it out from your environment variable $RESEQTRACK)
       -samtools_exe, (default /nfs/1000g-work/G1K/work/bin/samtools/samtools)
       -bcftools_exe, (default /nfs/1000g-work/G1K/work/bin/samtools/bcftools/bcftools)
-      -vcfutils_exe, (default /nfs/1000g-work/G1K/work/bin/samtools/bcftools/vcfutils.pl)
       -bgzip_exe, (default /nfs/1000g-work/G1K/work/bin/tabix/bgzip)
       -gatk_dir, (default /nfs/1000g-work/G1K/work/bin/gatk/dist/)
 
@@ -101,8 +100,9 @@ sub default_options {
         'transpose_exe' => $self->o('ENV', 'RESEQTRACK').'/c_code/transpose_bam/transpose_bam',
         'samtools_exe' => '/nfs/1000g-work/G1K/work/bin/samtools/samtools',
         'bcftools_exe' => '/nfs/1000g-work/G1K/work/bin/samtools/bcftools/bcftools',
-        'vcfutils_exe' => '/nfs/1000g-work/G1K/work/bin/samtools/bcftools/vcfutils.pl',
         'bgzip_exe' => '/nfs/1000g-work/G1K/work/bin/tabix/bgzip',
+        'java_exe' => '/usr/bin/java',
+        'jvm_args'	=> '-Xmx4g',
         'gatk_dir' => '/nfs/1000g-work/G1K/work/bin/gatk/dist/',
         'freebayes_exe' => '/nfs/1000g-work/G1K/work/bin/freebayes/bin/freebayes',
 
@@ -110,8 +110,9 @@ sub default_options {
         call_by_freebayes_options => {}, # use module defaults
 
         call_by_samtools_options => {
-          depth_of_coverage => '#expr(#num_samples# * #coverage_per_sample#)expr#',
-          },
+          ploidy_file => undef,
+          sample_ped => undef, 
+        },
 
         'fai' => $self->o('reference') . '.fai',
         'target_bed_file' => undef,
@@ -123,7 +124,7 @@ sub default_options {
         'call_by_gatk' => 1,
         'call_by_freebayes' => 1,
 
-        'vcf_type' => undef,
+        'vcf_type' => 'VCF',
 
         'callgroup_type' => $self->o('callgroup_type'),
         'require_collection_columns' => {'type' => $self->o('callgroup_type')},
@@ -149,8 +150,6 @@ sub default_options {
 sub pipeline_create_commands {
     my ($self) = @_;
 
-    #my $sql = 'ALTER TABLE analysis_data MODIFY data MEDIUMTEXT';
-
     return [
         @{$self->SUPER::pipeline_create_commands},  # inheriting database and hive tables' creation
     #    $self->db_execute_command('pipeline_db', $sql),
@@ -173,14 +172,17 @@ sub resource_classes {
     my ($self) = @_;
     return {
             %{$self->SUPER::resource_classes},
-            '200Mb' => { 'LSF' => '-C0 -M200 -q '.$self->o('lsf_queue').' -R"select[mem>200] rusage[mem=200]"' },
-            '500Mb' => { 'LSF' => '-C0 -M500 -q '.$self->o('lsf_queue').' -R"select[mem>500] rusage[mem=500]"' },
-            '1Gb'   => { 'LSF' => '-C0 -M1000 -q '.$self->o('lsf_queue').' -R"select[mem>1000] rusage[mem=1000]"' },
-            '2Gb' => { 'LSF' => '-C0 -M2000 -q '.$self->o('lsf_queue').' -R"select[mem>2000] rusage[mem=2000]"' },
-            '4Gb' => { 'LSF' => '-C0 -M4000 -q '.$self->o('lsf_queue').' -R"select[mem>4000] rusage[mem=4000]"' },
-            '5Gb' => { 'LSF' => '-C0 -M5000 -q '.$self->o('lsf_queue').' -R"select[mem>5000] rusage[mem=5000]"' },
-            '8Gb' => { 'LSF' => '-C0 -M8000 -q '.$self->o('lsf_queue').' -R"select[mem>8000] rusage[mem=8000]"' },
-            '12Gb' => { 'LSF' => '-C0 -M12000 -q '.$self->o('lsf_queue').' -R"select[mem>12000] rusage[mem=12000]"' },
+            '200Mb' => { 'LSF' => '-C0 -M200 -q '.$self->o('lsf_queue').' -R"select[mem>200] rusage[mem=200] select[' .$self->o('lsf_resource') . ']"' },
+            '500Mb' => { 'LSF' => '-C0 -M500 -q '.$self->o('lsf_queue').' -R"select[mem>500] rusage[mem=500] select[' .$self->o('lsf_resource') . ']"' },
+            '1Gb'   => { 'LSF' => '-C0 -M1000 -q '.$self->o('lsf_queue').' -R"select[mem>1000] rusage[mem=1000] select[' .$self->o('lsf_resource') . ']"' },
+            '2Gb' => { 'LSF' => '-C0 -M2000 -q '.$self->o('lsf_queue').' -R"select[mem>2000] rusage[mem=2000] select[' .$self->o('lsf_resource') . ']"' },
+            '4Gb' => { 'LSF' => '-C0 -M4000 -q '.$self->o('lsf_queue').' -R"select[mem>4000] rusage[mem=4000] select[' .$self->o('lsf_resource') . ']"' },
+            '5Gb' => { 'LSF' => '-C0 -M5000 -q '.$self->o('lsf_queue').' -R"select[mem>5000] rusage[mem=5000] select[' .$self->o('lsf_resource') . ']"' },
+            '8Gb' => { 'LSF' => '-C0 -M8000 -q '.$self->o('lsf_queue').' -R"select[mem>8000] rusage[mem=8000] select[' .$self->o('lsf_resource') . ']"' },
+            '12Gb' => { 'LSF' => '-C0 -M12000 -q '.$self->o('lsf_queue').' -R"select[mem>12000] rusage[mem=12000] select[' .$self->o('lsf_resource') . ']"' },
+            '16Gb' => { 'LSF' => '-C0 -M16000 -q '.$self->o('lsf_queue').' -R"select[mem>16000] rusage[mem=16000] select[' .$self->o('lsf_resource') . ']"' },
+    		'35Gb' => { 'LSF' => '-C0 -M35000 -q '.$self->o('lsf_queue').' -R"select[mem>35000] rusage[mem=35000] select[' .$self->o('lsf_resource') . ']"' },
+    		'50Gb' => { 'LSF' => '-C0 -M50000 -q '.$self->o('lsf_queue').' -R"select[mem>50000] rusage[mem=50000] select[' .$self->o('lsf_resource') . ']"' },
     };
 }
 
@@ -258,7 +260,7 @@ sub pipeline_analyses {
                 bed => $self->o('target_bed_file'),
                 region_overlap => 100,
             },
-            -rc_name => '500Mb',
+            -rc_name => '8Gb',
             -analysis_capacity  =>  4,
             -hive_capacity  =>  200,
             -flow_into => {
@@ -275,10 +277,10 @@ sub pipeline_analyses {
                 bed => $self->o('target_bed_file'),
                 reseqtrack_options => {
                   flows_factory => {
-                      1 => $self->o('call_by_samtools'),
+                      4 => $self->o('call_by_samtools'),
                       2 => $self->o('call_by_gatk'),
                       3 => $self->o('call_by_freebayes'),
-                      4 => 1,
+                      1 => 1,
                   },
                 },
             },
@@ -286,7 +288,7 @@ sub pipeline_analyses {
             -analysis_capacity  =>  4,
             -hive_capacity  =>  200,
             -flow_into => {
-                '1' => { 'call_by_samtools' => {'region2' => '#callgroup#.#SQ_start#.#bp_start#.#SQ_end#.#bp_end#',
+                '4' => { 'call_by_samtools' => {'region2' => '#callgroup#.#SQ_start#.#bp_start#.#SQ_end#.#bp_end#',
                                                 'SQ_start' => '#SQ_start#', 'bp_start' => '#bp_start#', 'SQ_end' => '#SQ_end#', 'bp_end' => '#bp_end#', 'fan_index' => '#fan_index#',
                                                 }},
                 '2' => { 'call_by_gatk' => {'region2' => '#callgroup#.#SQ_start#.#bp_start#.#SQ_end#.#bp_end#',
@@ -295,7 +297,7 @@ sub pipeline_analyses {
                 '3' => { 'call_by_freebayes' => {'region2' => '#callgroup#.#SQ_start#.#bp_start#.#SQ_end#.#bp_end#',
                                                 'SQ_start' => '#SQ_start#', 'bp_start' => '#bp_start#', 'SQ_end' => '#SQ_end#', 'bp_end' => '#bp_end#', 'fan_index' => '#fan_index#',
                                                 }},
-                '4' => [ ':////accu?bp_start=[fan_index]', ':////accu?bp_end=[fan_index]'],
+                '1' => [ ':////accu?bp_start=[fan_index]', ':////accu?bp_end=[fan_index]'],
             },
       });
     push(@analyses, {
@@ -305,19 +307,19 @@ sub pipeline_analyses {
             -parameters    => {
               reseqtrack_options => {
                   flows_non_factory => {
-                      1 => $self->o('call_by_samtools'),
+                      4 => $self->o('call_by_samtools'),
                       2 => $self->o('call_by_gatk'),
                       3 => $self->o('call_by_freebayes'),
-                      4 => 1,
+                      1 => 1,
                   },
                 delete_param => ['bam','bai'],
               }
             },
             -flow_into => {
-                1 => [ ':////accu?samtools_vcf=[fan_index]' ],
+                4 => [ ':////accu?samtools_vcf=[fan_index]' ],
                 2 => [ ':////accu?gatk_vcf=[fan_index]' ],
                 3 => [ ':////accu?freebayes_vcf=[fan_index]' ],
-                4 => [ ':////accu?bp_start=[fan_index]', ':////accu?bp_end=[fan_index]' ],
+                1 => [ ':////accu?bp_start=[fan_index]', ':////accu?bp_end=[fan_index]' ],
             },
       });
     push(@analyses, {
@@ -328,9 +330,7 @@ sub pipeline_analyses {
               reference => $self->o('reference'),
               samtools => $self->o('samtools_exe'),
               bcftools => $self->o('bcftools_exe'),
-              vcfutils => $self->o('vcfutils_exe'),
               bgzip => $self->o('bgzip_exe'),
-              coverage_per_sample => $self->o('coverage_per_sample'),
               options => $self->o('call_by_samtools_options'),
               region_overlap => 100,
               reseqtrack_options => {
@@ -352,9 +352,7 @@ sub pipeline_analyses {
               reference => $self->o('reference'),
               samtools => $self->o('samtools_exe'),
               bcftools => $self->o('bcftools_exe'),
-              vcfutils => $self->o('vcfutils_exe'),
               bgzip => $self->o('bgzip_exe'),
-              coverage_per_sample => $self->o('coverage_per_sample'),
               options => $self->o('call_by_samtools_options'),
               region_overlap => 100,
               reseqtrack_options => {
@@ -374,6 +372,8 @@ sub pipeline_analyses {
               module_name => 'CallByGATK',
               reference => $self->o('reference'),
               gatk_dir => $self->o('gatk_dir'),
+              java_exe => $self->o('java_exe'),
+              jvm_args => $self->o('jvm_args'),
               options => $self->o('call_by_gatk_options'),
               region_overlap => 100,
               reseqtrack_options => {
@@ -394,6 +394,7 @@ sub pipeline_analyses {
               module_name => 'CallByGATK',
               reference => $self->o('reference'),
               gatk_dir => $self->o('gatk_dir'),
+              java_exe => $self->o('java_exe'),
               options => $self->o('call_by_gatk_options'),
               region_overlap => 100,
               reseqtrack_options => {
@@ -462,12 +463,35 @@ sub pipeline_analyses {
                 encode_file_id => 'vcf',
               },
           },
-          -rc_name => '12Gb',
+          -rc_name => '16Gb',
+          -hive_capacity  =>  100,
+          -flow_into => {
+              1 => { ':////accu?freebayes_vcf=[fan_index]' => {'freebayes_vcf' => '#vcf#', 'fan_index' => '#fan_index#'}},
+              -1 => [ 'call_by_freebayes_himem3' ],
+          },
+      });
+      
+       push(@analyses, {
+          -logic_name    => 'call_by_freebayes_himem3',
+          -module        => 'ReseqTrack::Hive::Process::RunVariantCall',
+          -parameters    => {
+              module_name => 'CallByFreebayes',
+              reference => $self->o('reference'),
+              freebayes => $self->o('freebayes_exe'),
+              bgzip => $self->o('bgzip_exe'),
+              options => $self->o('call_by_freebayes_options'),
+              region_overlap => 100,
+              reseqtrack_options => {
+                encode_file_id => 'vcf',
+              },
+          },
+          -rc_name => '50Gb',
           -hive_capacity  =>  100,
           -flow_into => {
               1 => { ':////accu?freebayes_vcf=[fan_index]' => {'freebayes_vcf' => '#vcf#', 'fan_index' => '#fan_index#'}},
           },
-      });
+      });   
+      
     push(@analyses, {
           -logic_name => 'decide_mergers',
           -module        => 'ReseqTrack::Hive::Process::BaseProcess',
