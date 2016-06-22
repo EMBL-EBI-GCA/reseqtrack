@@ -135,6 +135,7 @@ sub run_alignment {
     
     $self->bam_file($self->base."_bismark.bam");
     $self->report_file($self->base."_bismark_report.txt");
+    $self->mapper_report_metrics;
 
     $self->output_format('BAM');
     return;
@@ -424,6 +425,46 @@ sub report_file {
 	$self->{'report_file'} = $arg;
     }
     return $self->{'report_file'};
+}
+
+sub mapper_report_metrics {
+    my $self=shift;
+
+    my %data;
+    my @metrics;
+
+    open (FH, '<', $self->report_file) or throw("$!");
+    while(<FH>) {
+	if (/^Sequences analysed in total:\t(\d+)/) {
+	    $data{total_reads} = $1;
+        } 
+	elsif (/^Number of alignments with a unique best hit from the different alignments:\t(\d+)/) {
+	    $data{uniquely_mapped} = $1;
+	}
+	elsif (/^Mapping efficiency:\t(\d+)/) {
+	    $data{mapping_efficiency} = $1;
+	}
+	elsif (/^Sequences with no alignments under any condition:\t(\d+)/) {
+	    $data{unmapped_reads} = $1;
+	}
+	elsif (/^Sequences did not map uniquely:\t(\d+)/) {
+	    $data{multimap_reads} = $1;
+	}
+    }
+    close FH;
+
+    push @metrics, \%data;
+
+    $self->mapper_metrics_object( \@metrics );
+    return ( \@metrics );
+}
+
+sub mapper_metrics_object {
+    my ( $self, $arg ) = @_;
+    if ($arg) {
+	$self->{'mapper_metrics_object'} = $arg;;
+    }
+    return $self->{'mapper_metrics_object'};
 }
 
 sub fragment_file {

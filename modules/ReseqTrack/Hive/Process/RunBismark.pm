@@ -13,6 +13,7 @@ sub param_defaults {
     program_file => undef,
     samtools => undef,
     options => {},
+    add_attributes => 0,
 
     sample_source_id => undef,
     center_name => undef,
@@ -41,6 +42,8 @@ sub run {
 	my $rgsample = $self->param_required('rg_sample');
 
 	my $fastqs = $self->param_as_array('fastq');
+
+	my $add_attributes = $self->param( 'add_attributes' ) ? 1 : 0;  
 
 	foreach my $fastq (@$fastqs) {
 	    check_file_exists($fastq);
@@ -83,6 +86,12 @@ sub run {
 	}
 
 	$self->run_program($run_alignment,$command);
+
+	if ($add_attributes) {
+	    my $generated_metrics = $run_alignment->mapper_metrics_object;
+	    throw('metrics object not found') unless $generated_metrics;
+	    $self->output_param('attribute_metrics', $generated_metrics);
+	}
 
 	$self->output_param('bam', $self->output_dir."/".$run_alignment->bam_file);
 	$self->output_param('mapper_report', $self->output_dir."/".$run_alignment->report_file);

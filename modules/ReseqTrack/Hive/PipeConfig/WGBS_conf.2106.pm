@@ -394,7 +394,7 @@ sub pipeline_analyses {
 		    name_file_method => $self->o('name_file_method'),
 		    name_file_params => $self->o('fastqc_name_file_params'),
 		    final_output_dir => $self->o('final_output_dir'),
-		    collection_name  => '#run_source_id#',
+		    collection_name  => $self->o('collection_name'),
 		    collect          => $self->o('build_collection'),
 		    file             => '#fastqc_summary#',
 		},
@@ -417,7 +417,7 @@ sub pipeline_analyses {
                 name_file_method   => $self->o('name_file_method'),
                 name_file_params   => $self->o('fastqc_name_file_params'),
                 final_output_dir   => $self->o('final_output_dir'),
-                collection_name    => '#run_source_id#',
+                collection_name    => $self->o('collection_name'),
                 collect            => $self->o('build_collection'),
                 file               => '#fastqc_report#',
                 reseqtrack_options => { delete_param => ['store_fastqc_zip'], }
@@ -439,7 +439,7 @@ sub pipeline_analyses {
                 name_file_method => $self->o('name_file_method'),
                 name_file_params => $self->o('fastqc_zip_name_file_params'),
                 final_output_dir => $self->o('final_output_dir'),
-                collection_name  => '#run_source_id#',
+                collection_name  => $self->o('collection_name'),
                 collect          => $self->o('build_collection'),
                 file             => '#fastqc_zip#',
             },
@@ -474,15 +474,10 @@ sub pipeline_analyses {
             -hive_capacity => 200,
             -rc_name       => '70Gb',
 	    -flow_into => {
-		1 => {
-                    'store_mapper_report' => {
-                        bam => '#bam#',
-                        mapper_report => '#mapper_report#',
-			mapper_attribute_metrics => '#attribute_metrics#',
-                        run_source_id => '#run_source_id#'
-                    }
-		},
-	    }
+              1 => [ 
+		  ':////accu?bam=[]',':////accu?mapper_report=[]'
+		  ]
+	    },
 	    }
 	    );
            
@@ -502,71 +497,40 @@ sub pipeline_analyses {
 		    suffix        => '.txt',
 		},
 		final_output_dir => $self->o('final_output_dir')."/bismark_mapper",
-		collection_name  => '#run_source_id#',
+		collection_name  => $self->o('collection_name'),
 		collect          => $self->o('build_collection'),
 	    },
 	    -rc_name       => '200Mb',
 	    -hive_capacity => 200,
 	    -flow_into     => {
 		1 => {
-		    'store_run_bam' => {
-			file => '#bam#',
-			mapper_attribute_metrics => '#mapper_attribute_metrics#',
-			run_source_id => '#run_source_id#'
-		    }},
+		    'store_run_bam' => {file => '#bam#' }},
 	    },
 	}
 	);
 
-     push(
+    push(
         @analyses,
-	 {
+        {
             -logic_name => 'store_run_bam',
             -module     => 'ReseqTrack::Hive::Process::LoadFile',
             -parameters => {
-                type             => $self->o('run_bam_type'),
+		type             => $self->o('run_bam_type'),
                 name_file_module => $self->o('name_file_module'),
                 name_file_method => $self->o('name_file_method'),
-                name_file_params =>  {
+		name_file_params =>  {
                     add_datestamp => 1,
                     suffix        => '.bam',
-                },
+		},
                 final_output_dir => $self->o('final_output_dir')."/bismark_mapper",
-                collection_name  => '#run_source_id#',
+                collection_name  => $self->o('collection_name'),
                 collect          => $self->o('build_collection'),
             },
             -analysis_capacity => 20,
             -flow_into =>
-            { 
-		1 => { 'mapper_attributes' => { 
-		    bam => '#file#',
-		    mapper_attribute_metrics => '#mapper_attribute_metrics#',
-		    run_source_id => '#run_source_id#'
-		       }, 
-		},
-	    }
-	 }
-	 );
-
-	 push(@analyses, {
-	     -logic_name => 'mapper_attributes',
-	     -module        => 'ReseqTrack::Hive::Process::UpdateAttribute',
-	     -parameters => {
-		 attribute_metrics => '#mapper_attribute_metrics#',
-		 collection_type => $self->o('run_bam_type'),
-		 collection_name => '#run_source_id#',
-	     },
-	     -rc_name => '200Mb',
-	     -hive_capacity  =>  200,
-	     -flow_into => {
-		 1 => {
-		     'bam_sort' => {
-			 bam => '#bam#',
-		     }
-		 },
-	     },
-         });
-    
+            { 1 => { 'bam_sort' => { 'bam' => '#file#' }, }, },
+        }
+        );
 
     push(
         @analyses,
