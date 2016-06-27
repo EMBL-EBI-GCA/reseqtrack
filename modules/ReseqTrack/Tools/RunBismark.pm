@@ -435,21 +435,51 @@ sub mapper_report_metrics {
 
     open (FH, '<', $self->report_file) or throw("$!");
     while(<FH>) {
-	if (/^Sequences analysed in total:\t(\d+)/) {
-	    $data{total_reads} = $1;
-        } 
-	elsif (/^Number of alignments with a unique best hit from the different alignments:\t(\d+)/) {
-	    $data{uniquely_mapped} = $1;
-	}
-	elsif (/^Mapping efficiency:\t(\d+)/) {
-	    $data{mapping_efficiency} = $1;
-	}
-	elsif (/^Sequences with no alignments under any condition:\t(\d+)/) {
-	    $data{unmapped_reads} = $1;
-	}
-	elsif (/^Sequences did not map uniquely:\t(\d+)/) {
-	    $data{multimap_reads} = $1;
-	}
+        if (/^Sequence(?:s)*(?: pairs)* analysed in total:\t(\d+)/) {
+            $data{total_reads} = $1;
+        }
+        elsif (/^Number of (?:paired-end )*alignments with a unique best hit(?: from the different alignments)*:\t(\d+)/) {
+            $data{uniquely_mapped} = $1;
+        }
+        elsif (/^Mapping efficiency:\t(\d*\.?\d*)%?/) {
+            $data{mapping_efficiency} = $1;
+        }
+        elsif (/^Sequence(?:s)* (?:pairs )*with no alignments under any condition:\t(\d+)/) {
+            $data{unmapped_reads} = $1;
+        }
+        elsif (/^Sequence(?:s)* (?:pairs )*did not map uniquely:\t(\d+)/) {
+            $data{multimap_reads} = $1;
+        }
+        elsif (/^Total number of C's analysed:\t(\d+)/) {
+            $data{total_cytosines} = $1;
+        }
+        elsif (/^Total methylated C's in CpG context:\t(\d+)/) {
+            $data{methylatedCs_CpG_context} = $1;
+        }
+        elsif (/^Total methylated C's in CHG context:\t(\d+)/) {
+            $data{methylatedCs_CHG_context} = $1;
+        }
+        elsif (/^Total methylated C's in CHH context:\t(\d+)/) {
+            $data{methylatedCs_CHH_context} = $1;
+        }
+        elsif (/^Total unmethylated C's in CpG context:\t(\d+)/) {
+            $data{unmethylatedCs_CpG_context} = $1;
+        }
+        elsif (/^Total unmethylated C's in CHG context:\t(\d+)/) {
+            $data{unmethylatedCs_CHG_context} = $1;
+        }
+        elsif (/^Total unmethylated C's in CHH context:\t(\d+)/) {
+            $data{unmethylatedCs_CHH_context} = $1;
+        }
+        elsif (/^C methylated in CpG context:\t(\d*\.?\d*)%/) {
+            $data{perc_methylatedCs_CpG_context} = $1;
+        }
+        elsif (/^C methylated in CHG context:\t(\d*\.?\d*)%/) {
+            $data{perc_methylatedCs_CHG_context} = $1;
+        }
+        elsif (/^C methylated in CHH context:\t(\d*\.?\d*)%/) {
+            $data{perc_methylatedCs_CHH_context} = $1;
+        }
     }
     close FH;
 
