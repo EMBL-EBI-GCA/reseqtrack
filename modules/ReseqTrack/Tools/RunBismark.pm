@@ -24,10 +24,10 @@ class for running Bismark. Child class of ReseqTrack::Tools::RunProgram
 
 sub DEFAULT_OPTIONS { return {
         'n' => 1, # The maximum number of mismatches permitted in the "seed". Bowtie1 only option
-	'algorithm' => 'bowtie', # Should Bismark use bowtie or bowtie2
-	'report_mode' => 0, # comprehensive is the default
-	'bedgraph' => 1,
-	'nondirectional' => 0 # set this to 1 if the library is non-directional
+	'algorithm' => 'bowtie', # bismark_mapper option: Should Bismark use bowtie or bowtie2
+	'report_mode' => 0, #  bismark_methylation_extractor option: comprehensive is the default
+	'bedgraph' => 1, #  bismark_methylation_extractor option.
+	'nondirectional' => 0, #  The sequencing library was constructed in a non strand-specific manner. Set this to 1 if the library is non-directional
         };
 }
 
@@ -38,9 +38,10 @@ sub new {
     #setting defaults
     $self->program('bismark') unless ( $self->program );
 
-    my ( $base, $fragment_file, $mate1_file, $mate2_file, $multicore, $rg_tag,$rg_id,$rg_sample,$run_mode,$reference )= rearrange( [qw(BASE FRAGMENT_FILE MATE1_FILE MATE2_FILE MULTICORE RG_TAG RG_ID RG_SAMPLE RUNMODE REFERENCE)], @args);
+    my ( $base, $cutoff, $fragment_file, $mate1_file, $mate2_file, $multicore, $rg_tag,$rg_id,$rg_sample,$run_mode,$reference )= rearrange( [qw(BASE CUTOFF FRAGMENT_FILE MATE1_FILE MATE2_FILE MULTICORE RG_TAG RG_ID RG_SAMPLE RUNMODE REFERENCE)], @args);
 
     $self->base($base);
+    $self->cutoff($cutoff);
     $self->fragment_file($fragment_file);
     $self->mate1_file($mate1_file);
     $self->mate2_file($mate2_file);
@@ -70,9 +71,9 @@ sub new {
                       -mate1_file => '/path/to/mate1',
                       -mate2_file => '/path/to/mate2',
                       -fragment_file => '/path/to/fragment',
-                      -rg_tag 1,
-                      -rg_id SAMPLE1
-                      -rg_sample SAMPLE1
+                      -rg_tag 1, # Write out a Read Group tag to the resulting SAM/BAM file. 
+                      -rg_id SAMPLE1 # Sets the ID field in the @RG header line.
+                      -rg_sample SAMPLE1 # Sets the ID field in the @RG header line.
                       );
 
               $bismark->run_alignment;
@@ -90,6 +91,7 @@ sub run_alignment {
     push @cmd_args, $self->program;
     push @cmd_args, "-n ".$self->options->{'n'};
     push @cmd_args, $self->reference;
+    push @cmd_args, "--non_directional" if $self->options->{'nondirectional'};
 
     if ( $self->fragment_file ) {
         push @cmd_args, $self->fragment_file;
@@ -109,29 +111,31 @@ sub run_alignment {
     my $aln_cmd = join(' ', @cmd_args);
     $self->execute_command_line($aln_cmd);
 
-    my $output_file;
+    my $base=$self->base;
+
     my @output_files;
     opendir DH, $self->working_dir;
-    if ($self->base() && !$self->multicore()) {
-	my $base=$self->base;
-	@output_files= grep {/${base}(_SE_report)?[\.bam|\.txt]/} readdir DH;
-    } elsif ($self->base() && $self->multicore()) {
-	my($filename, $directories, $suffix) = fileparse($self->fragment_file, qr/\.[^.]*/);
-	@output_files= grep {/${filename}${suffix}_bismark_.+[\.bam|\.report\.txt]/} readdir DH;
+    if ($base) {
+	@output_files= grep {/${base}.+[\.bam|\.report.txt]$/} readdir DH;
     } else {
-        throw("[ERROR] I need a prefix name for output name");
+        throw("I need a prefix name for output name. Please use Bismark's 'base' parameter");
     }
-    throw("[ERROR] Could not retrieve the \@output_files") if scalar(@output_files)==0;
+    throw("Could not retrieve the \@output_files") if scalar(@output_files)==0;
+
+    @output_files=grep $_ !~/${base}_bismark\.bam$/, @output_files;
+    @output_files=grep $_ !~/${base}_bismark_report\.txt$/, @output_files;
 
     for (my $i=0;$i<scalar(@output_files);$i++) {
 	my $res;
 	$res=rename($self->working_dir."/".$output_files[$i],$self->working_dir."/".$self->base."_bismark.bam") if $output_files[$i]=~/\.bam$/;
 	$res=rename($self->working_dir."/".$output_files[$i],$self->working_dir."/".$self->base."_bismark_report.txt") if $output_files[$i]=~/\.txt$/;
 	throw("[ERROR] Rename failed!") if !$res;
-	$self->bam_file($self->base."_bismark.bam") if $output_files[$i]=~/\.bam$/;
-	$self->report_file($self->base."_bismark_report.txt") if $output_files[$i]=~/\.txt$/;
     }
     closedir DH;
+    
+    $self->bam_file($self->base."_bismark.bam");
+    $self->report_file($self->base."_bismark_report.txt");
+    $self->mapper_report_metrics;
 
     $self->output_format('BAM');
     return;
@@ -146,7 +150,7 @@ sub run_alignment {
               Output is files are stored in $self->output_files
               This method is called by the RunProgram run method
 
-  Example   : my $bismark = ReseqTrack::Tools::RunAlignment::Bismark(
+  Example   : my $bismark = ReseqTrack::Tools::RunBismark->new(
                       -input_files => ['file1.bam']
                       -working_dir => '/path/to/dir/',
                       -runmode => 'SINGLE'
@@ -177,6 +181,8 @@ sub run_methylation_extractor {
     push @cmd_args, "--".$self->options->{'report_mode'}." " if $self->options->{'report_mode'};
     push @cmd_args, "--bedGraph " if $self->options->{'bedgraph'};
     push @cmd_args, "--non_directional" if $self->options->{'nondirectional'};
+    push @cmd_args, "--cutoff ".$self->cutoff() if $self->cutoff;
+    push @cmd_args, "--multicore ".$self->multicore() if $self->multicore();
 
     my $input= $self->input_files->[0];
     push @cmd_args, $input;
@@ -184,19 +190,188 @@ sub run_methylation_extractor {
     my $aln_cmd = join(' ', @cmd_args);
 
     $self->execute_command_line($aln_cmd);
+}
 
-    my($filename, $directories, $suffix) = fileparse($input, qr/\.[^.]*/);
+sub cpg_context {
+    my ( $self, $arg ) = @_;
 
-    my @output_files;
-    push @output_files, $self->working_dir."/".$filename.".M-bias_R1.png";
-    push @output_files, $self->working_dir."/".$filename.".M-bias.txt";
-    push @output_files, $self->working_dir."/".$filename."_splitting_report.txt";
-    push @output_files, $self->working_dir."/"."CHG_context_".$filename.".txt";
-    push @output_files, $self->working_dir."/"."CHH_context_".$filename.".txt";
-    push @output_files, $self->working_dir."/"."CpG_context_".$filename.".txt";
-    push @output_files, $self->working_dir."/".$filename.".bedGraph.gz";
+    if ( defined $arg ) {
+        $self->{'cpg_context'} = $arg;
+    } else {
+        my $working_dir=$self->working_dir;
+        my $input= $self->input_files->[0];
 
-    $self->output_files(\@output_files);
+        my($filename, $directories, $suffix) = fileparse($input, qr/\.[^.]*/);
+
+        opendir DH, $working_dir or throw("Cannot open $working_dir: $!");
+
+        my @files= grep { /^CpG.+${filename}\.txt$/ } readdir DH;
+
+        throw("unexpected number of splitting_report files: " . scalar @files) if (@files != 2 && @files !=4);
+
+        closedir DH;
+
+        @files=map{$working_dir."/".$_} @files;
+
+        $self->{'cpg_context'}=\@files;
+
+        return \@files;
+    }
+}
+
+sub chh_context {
+    my ( $self, $arg ) = @_;
+
+    if ( defined $arg ) {
+        $self->{'chh_context'} = $arg;
+    } else {
+        my $working_dir=$self->working_dir;
+        my $input= $self->input_files->[0];
+
+        my($filename, $directories, $suffix) = fileparse($input, qr/\.[^.]*/);
+
+        opendir DH, $working_dir or throw("Cannot open $working_dir: $!");
+
+        my @files= grep { /^CHH.+${filename}\.txt$/ } readdir DH;
+
+        throw("unexpected number of splitting_report files: " . scalar @files) if (@files != 2 && @files !=4);
+
+        closedir DH;
+
+        @files=map{$working_dir."/".$_} @files;
+
+        $self->{'chh_context'}=\@files;
+
+        return \@files;
+    }
+}
+
+sub chg_context {
+    my ( $self, $arg ) = @_;
+
+    if ( defined $arg ) {
+        $self->{'chg_context'} = $arg;
+    } else {
+        my $working_dir=$self->working_dir;
+        my $input= $self->input_files->[0];
+
+        my($filename, $directories, $suffix) = fileparse($input, qr/\.[^.]*/);
+
+        opendir DH, $working_dir or throw("Cannot open $working_dir: $!");
+
+        my @files= grep { /^CHG.+${filename}\.txt$/ } readdir DH;
+
+        throw("unexpected number of splitting_report files: " . scalar @files) if (@files != 2 && @files !=4);
+
+        closedir DH;
+
+	@files=map{$working_dir."/".$_} @files;
+
+        $self->{'chg_context'}=\@files;
+
+        return \@files;
+    }
+}
+
+sub splitting {
+    my ( $self, $arg ) = @_;
+
+    if ( defined $arg ) {
+        $self->{'splitting'} = $arg;
+    } else {
+        my $working_dir=$self->working_dir;
+        my $input= $self->input_files->[0];
+
+        my($filename, $directories, $suffix) = fileparse($input, qr/\.[^.]*/);
+
+        opendir DH, $working_dir or throw("Cannot open $working_dir: $!");
+	
+	my @files= grep {/^${filename}_splitting_report\.txt$/} readdir DH;
+
+        throw("unexpected number of splitting_report files: " . scalar @files) if @files != 1;
+
+        closedir DH;
+
+	$self->{'splitting'}=$working_dir."/".$files[0];
+
+        return $working_dir."/".$files[0];
+    }
+}
+
+
+sub mbias_txt {
+    my ( $self, $arg ) = @_;
+
+    if ( defined $arg ) {
+        $self->{'mbias_txt'} = $arg;
+    } else {
+	my $working_dir=$self->working_dir;
+	my $input= $self->input_files->[0];
+
+	my($filename, $directories, $suffix) = fileparse($input, qr/\.[^.]*/);
+
+	opendir DH, $working_dir or throw("Cannot open $working_dir: $!");
+	my @files= grep {/^$filename.+M-bias\.txt$/} readdir DH;
+
+	throw("unexpected number of mbias_txt files: " . scalar @files) if @files != 1;
+   
+	closedir DH;
+
+	$self->{'mbias_txt'}=$working_dir."/".$files[0];
+
+	return $working_dir."/".$files[0];
+    }
+}
+
+
+sub mbias_png {
+    my ( $self, $arg ) = @_;
+
+    if ( defined $arg ) {
+        $self->{'mbias_png'} = $arg;
+    } else {
+        my $working_dir=$self->working_dir;
+        my $input= $self->input_files->[0];
+
+        my($filename, $directories, $suffix) = fileparse($input, qr/\.[^.]*/);
+
+        opendir DH, $working_dir or throw("Cannot open $working_dir: $!");
+
+	my @files = grep { /^$filename.+M-bias.+\.png$/ } readdir DH;
+
+        throw("unexpected number of mbias_png files: " . scalar @files) if @files != 1;
+
+        closedir DH;
+	
+	$self->{'mbias_png'}=$working_dir."/".$files[0];
+	
+        return $working_dir."/".$files[0];
+    }
+}
+
+sub bedgraph {
+    my ( $self, $arg ) = @_;
+
+    if ( defined $arg ) {
+        $self->{'bedgraph'} = $arg;
+    } else {
+        my $working_dir=$self->working_dir;
+        my $input= $self->input_files->[0];
+
+        my($filename, $directories, $suffix) = fileparse($input, qr/\.[^.]*/);
+
+        opendir DH, $working_dir or throw("Cannot open $working_dir: $!");
+
+        my @files = grep { /^$filename.+bedGraph\.gz$/ } readdir DH;
+
+        throw("unexpected number of mbias_png files: " . scalar @files) if @files != 1;
+
+        closedir DH;
+
+        $self->{'bedgraph'}=$working_dir."/".$files[0];
+
+        return $working_dir."/".$files[0];
+    }
 }
 
 =head2 run_program
@@ -226,6 +401,16 @@ sub run_program {
     return &{ $subs{$command} }($self);
 }
 
+sub cutoff {
+    my ( $self, $arg ) = @_;
+
+    if ($arg) {
+        $self->{cutoff} = $arg;
+    }
+    return $self->{cutoff};
+}
+
+
 sub bam_file {
     my ( $self, $arg ) = @_;
     if ( defined $arg ) {
@@ -240,6 +425,76 @@ sub report_file {
 	$self->{'report_file'} = $arg;
     }
     return $self->{'report_file'};
+}
+
+sub mapper_report_metrics {
+    my $self=shift;
+
+    my %data;
+    my @metrics;
+
+    open (FH, '<', $self->report_file) or throw("$!");
+    while(<FH>) {
+        if (/^Sequence(?:s)*(?: pairs)* analysed in total:\t(\d+)/) {
+            $data{total_reads} = $1;
+        }
+        elsif (/^Number of (?:paired-end )*alignments with a unique best hit(?: from the different alignments)*:\t(\d+)/) {
+            $data{uniquely_mapped} = $1;
+        }
+        elsif (/^Mapping efficiency:\t(\d*\.?\d*)%?/) {
+            $data{mapping_efficiency} = $1;
+        }
+        elsif (/^Sequence(?:s)* (?:pairs )*with no alignments under any condition:\t(\d+)/) {
+            $data{unmapped_reads} = $1;
+        }
+        elsif (/^Sequence(?:s)* (?:pairs )*did not map uniquely:\t(\d+)/) {
+            $data{multimap_reads} = $1;
+        }
+        elsif (/^Total number of C's analysed:\t(\d+)/) {
+            $data{total_cytosines} = $1;
+        }
+        elsif (/^Total methylated C's in CpG context:\t(\d+)/) {
+            $data{methylatedCs_CpG_context} = $1;
+        }
+        elsif (/^Total methylated C's in CHG context:\t(\d+)/) {
+            $data{methylatedCs_CHG_context} = $1;
+        }
+        elsif (/^Total methylated C's in CHH context:\t(\d+)/) {
+            $data{methylatedCs_CHH_context} = $1;
+        }
+        elsif (/^Total unmethylated C's in CpG context:\t(\d+)/) {
+            $data{unmethylatedCs_CpG_context} = $1;
+        }
+        elsif (/^Total unmethylated C's in CHG context:\t(\d+)/) {
+            $data{unmethylatedCs_CHG_context} = $1;
+        }
+        elsif (/^Total unmethylated C's in CHH context:\t(\d+)/) {
+            $data{unmethylatedCs_CHH_context} = $1;
+        }
+        elsif (/^C methylated in CpG context:\t(\d*\.?\d*)%/) {
+            $data{perc_methylatedCs_CpG_context} = $1;
+        }
+        elsif (/^C methylated in CHG context:\t(\d*\.?\d*)%/) {
+            $data{perc_methylatedCs_CHG_context} = $1;
+        }
+        elsif (/^C methylated in CHH context:\t(\d*\.?\d*)%/) {
+            $data{perc_methylatedCs_CHH_context} = $1;
+        }
+    }
+    close FH;
+
+    push @metrics, \%data;
+
+    $self->mapper_metrics_object( \@metrics );
+    return ( \@metrics );
+}
+
+sub mapper_metrics_object {
+    my ( $self, $arg ) = @_;
+    if ($arg) {
+	$self->{'mapper_metrics_object'} = $arg;;
+    }
+    return $self->{'mapper_metrics_object'};
 }
 
 sub fragment_file {
