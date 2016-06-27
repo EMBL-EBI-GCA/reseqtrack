@@ -326,8 +326,9 @@ sub pipeline_analyses {
                 output_study_attributes => $self->o('study_attributes'),
                 output_experiment_attributes => $self->o('experiment_attributes'),
             },
-            -flow_into => {
-                2 => [ 'find_source_fastqs' ],
+	    -flow_into => {
+                '2->A' => [ 'find_source_fastqs' ],
+                'A->1' => [ 'decide_merge_libraries'  ],
             },
 	 });
 
@@ -581,8 +582,9 @@ sub pipeline_analyses {
                 create_index       => 0,
             },
             -analysis_capacity => 20,
-            -flow_into =>
-	    { 1 => { 'decide_merge_libraries' => { 'bam' => '#bam#' }, }, },
+	    -flow_into => {
+                1 => [ ':////accu?bam=[]'],
+            },
         }
 	);
 	    
