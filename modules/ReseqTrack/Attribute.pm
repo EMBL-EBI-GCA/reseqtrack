@@ -15,12 +15,13 @@ sub new{
   my ($class, @args) = @_;
   my $self = $class->SUPER::new(@args);
   
-  my ($table_name, $other_id, $attribute_name, $attribute_value ) =
-      rearrange([qw(TABLE_NAME OTHER_ID ATTRIBUTE_NAME ATTRIBUTE_VALUE ) ], @args);
+  my ($table_name, $other_id, $attribute_name, $attribute_value, $attribute_units ) =
+      rearrange([qw(TABLE_NAME OTHER_ID ATTRIBUTE_NAME ATTRIBUTE_VALUE ATTRIBUTE_UNITS) ], @args);
   $self->table_name($table_name);
   $self->other_id($other_id);
   $self->attribute_name($attribute_name);
   $self->attribute_value($attribute_value);
+  $self->attribute_units($attribute_units);
   return $self;
 }
 
@@ -69,6 +70,13 @@ sub attribute_value{
   return $self->{attribute_value};
 }
 
+sub attribute_units{
+  my ($self, $arg) = @_;
+  if(defined $arg){
+    $self->{attribute_units} = $arg;
+  }
+  return $self->{attribute_units};
+}
 
 
 

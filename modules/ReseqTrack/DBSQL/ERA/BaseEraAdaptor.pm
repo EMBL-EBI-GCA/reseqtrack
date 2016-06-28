@@ -65,6 +65,7 @@ sub attach_attributes_from_xml {
 
         my $key   = uc( $element->first_child_text('TAG') );
         my $value = $element->first_child_text('VALUE');
+        my $units = $element->first_child_text('UNITS');
         
         for ( $key, $value ) {
           s/^\s+|\s+$//g;
@@ -72,7 +73,7 @@ sub attach_attributes_from_xml {
 
         if ($value) {
           push @attributes,
-            create_attribute_for_object( $object, $key, $value );
+            create_attribute_for_object( $object, $key, $value, $units );
         }
        }
     }

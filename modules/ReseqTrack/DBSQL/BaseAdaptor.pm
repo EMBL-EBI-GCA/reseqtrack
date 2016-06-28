@@ -198,12 +198,12 @@ sub store_attributes{
   my ($self, $object, $update) = @_;
   throw("Can't store attributes for ".$object." that isnt a ReseqTrack::HasHistory ")  unless($object->isa("ReseqTrack::HasHistory"));
   my $attr_a = $self->db->get_AttributeAdaptor();
-  
+
   if($object->attributes){
-    foreach my $statistics(@{$object->attributes}){
-      $statistics->other_id($object->dbID);
-      $statistics->table_name($object->object_table_name);
-      $attr_a->store($statistics, $update);
+    foreach my $attribute(@{$object->attributes}){
+      $attribute->other_id($object->dbID);
+      $attribute->table_name($object->object_table_name);
+      $attr_a->store($attribute, $update);
     }
   }
 }
