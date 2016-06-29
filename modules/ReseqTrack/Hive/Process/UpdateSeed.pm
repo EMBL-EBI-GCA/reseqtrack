@@ -39,7 +39,7 @@ sub run {
         if !grep {$_} ($is_failed, $is_complete, $delete_seeds);
 
     my $db = ReseqTrack::DBSQL::DBAdaptor->new(%{$self->param('reseqtrack_db')});
-
+    $db->dbc->disconnect_when_inactive(1);
     my $psa = $db->get_PipelineSeedAdaptor;
     my $pipeline_seed = $psa->fetch_by_dbID($ps_id);
     throw("did not get pipeline_seed for $ps_id") if !$pipeline_seed;

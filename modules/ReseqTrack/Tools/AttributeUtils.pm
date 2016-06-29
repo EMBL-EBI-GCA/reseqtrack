@@ -12,7 +12,7 @@ use vars qw (@ISA  @EXPORT);
 @EXPORT = qw(create_attribute_for_object remove_outdated_attributes);
 
 sub create_attribute_for_object {
-	my ( $object, $name, $value ) = @_;
+	my ( $object, $name, $value, $units ) = @_;
 	throw(
 		    "Must pass create_attribute_for_object a ReseqTrack::HasHistory object "
 			. "not "
@@ -30,7 +30,8 @@ sub create_attribute_for_object {
 		-table_name      => $object->object_table_name,
 		-other_id        => $object->dbID,
 		-attribute_name  => $name,
-		-attribute_value => $value
+		-attribute_value => $value,
+    -attribute_units => $units,
 	);
 	return $attribute;
 }

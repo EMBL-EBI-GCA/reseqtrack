@@ -379,6 +379,7 @@ CREATE TABLE attribute(
    other_id int(10) unsigned NOT  NULL,      
    attribute_name VARCHAR(100) NOT NULL,
    attribute_value VARCHAR(4000) NOT NULL,
+   attribute_units varchar(4000),
    PRIMARY KEY (attribute_id),
    key(attribute_name),
    key(other_id, table_name),

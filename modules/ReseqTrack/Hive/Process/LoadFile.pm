@@ -27,6 +27,7 @@ sub param_defaults {
     name_file_params => {},
     clobber => 0,
     host_name => '1000genomes.ebi.ac.uk',
+    record_pipeline_output => 1,
   };
 }
 
@@ -41,8 +42,13 @@ sub run {
     my $collect = $self->param('collect') ? 1 : 0;
     my $collection_name = $collect ? $self->param_required('collection_name') : undef;
     my $host_name = $self->param('host_name');
-    my $pipeline_seed_id = $self->param_required('ps_id');
     my $clobber = $self->param('clobber') ? 1 : 0;
+    my $do_pipeline_output = $self->param_required('record_pipeline_output');
+    
+    my $pipeline_seed_id;
+    if ($do_pipeline_output) {
+      $pipeline_seed_id =     $self->param_required('ps_id') 
+    }
 
     my $current_file_paths = $self->param_as_array('file');
     throw('no files') if !@$current_file_paths;
@@ -129,12 +135,14 @@ sub run {
         $action = 'CREATED';
       }
 
-      my $pipeline_output = ReseqTrack::PipelineOutput->new(
-        -pipeline_seed_id => $pipeline_seed_id,
-        -table_name => 'file', -output => $file,
-        -action => $action,
-      );
-      $poa->store($pipeline_output);
+      if ($do_pipeline_output){
+        my $pipeline_output = ReseqTrack::PipelineOutput->new(
+          -pipeline_seed_id => $pipeline_seed_id,
+          -table_name => 'file', -output => $file,
+          -action => $action,
+        );
+        $poa->store($pipeline_output);
+      }
       push(@file_objects, $file);
     }
 

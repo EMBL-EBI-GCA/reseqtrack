@@ -23,3 +23,6 @@ alter table run drop column sample_id;
 alter table sample add column biosample_id varchar(15);
 alter table sample add column biosample_authority varchar(2);
 create index sample_bs_idx on sample(biosample_id);
+  
+#alter attribute to have units
+alter table attribute add column attribute_units varchar(4000);
