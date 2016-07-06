@@ -256,14 +256,19 @@ sub store_new_collection {
 		
 
 =pod
+This script does some very basic QA to the FASTQ files, in preparation for aligning them to the reference genome.  After a run went through QA, the script changes the collection type of the run in the database; the new collection type reflects the QA results and the reason why a run failed.  Here is a list of new collection types, and associated explanations. 
+FQ_OK: run passed QA
+NOT_ILLUMINA: run was not created by a ILLUMINA platform
+NOT_PUBLIC: run failed as it is private data
+WRONG_FILE_CNT: run failed because it has wrong number of fastq files based on library layout
+VAR_READ_CNT_MATES: run failed becasue mate1 and mate2 have different read length
+VAR_READ_LEN: run failed becasue reads in a fastq file have different read length
+TOO_SHORT: run failed because read length is shorter than the minimal read length
+FAILED_FQCHK: run failed Seqtk fqchk; at this step the script compares the read count from archive and read count calculated by fqchk; pass if they agree fail otherwise. 
 
+Example command line:
+> perl /nfs/production/reseq-info/work/zheng/reseqtrack/trunk/scripts/qc/fastq_simple_qa_by_seqtk.pl $WRITE_DB_ARGS -dbname zheng_map_1kg_p3_hs38 -run_id ERR022062 -collection_type FASTQ -program /nfs/production/reseq-info/work/bin/seqtk/seqtk -new_collection_type FQ_OK -min_length 70 -clobber -output_dir /nfs/gns/homes/zheng/tmp		
 
-perl $ZHENG_RT/scripts/qc/fastq_simple_qa_by_seqtk.pl $WRITE_DB_ARGS -dbname zheng_map_high_cov_reads_to_GRCh38 -run_id SRR826460 -collection_type ARCHIVE_FASTQ -new_collection_type FASTQ_OK -min_length 70 -clobber -output_dir ~/tmp -program /nfs/1000g-work/G1K/work/bin/seqtk/seqtk
- 
- 
-> perl /nfs/production/reseq-info/work/zheng/reseqtrack/trunk/scripts/qc/fastq_simple_qa_by_seqtk.pl $WRITE_DB_ARGS -dbname zheng_map_1kg_p3_hs38 -run_id ERR022062 -collection_type FASTQ -program /nfs/production/reseq-info/work/bin/seqtk/seqtk -output_dir /nfs/gns/homes/zheng/tmp		
-
--clobber
 
 
 

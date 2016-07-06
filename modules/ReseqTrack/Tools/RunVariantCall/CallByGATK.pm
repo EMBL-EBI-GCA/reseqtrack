@@ -57,9 +57,9 @@ sub new {
 
 # This is to set default parameters
 sub DEFAULT_OPTIONS { return {
-        'dcov' => 50,
-        'stand_emit_conf' => 30.0,
-        'stand_call_conf' => 30.0,
+        'dcov' => 200,
+        'stand_emit_conf' => 50.0,
+        'stand_call_conf' => 10.0,
         'glm' => 'SNP',
         };
 }
@@ -143,8 +143,11 @@ ReseqTrack::Tools::RunVariantCall::CallByGATK
 
 This is a class for running unified genotyper in the GATK tool kits to call variants
 Please refer to GATK website for details of the algorithm:
-http://www.broadinstitute.org/gsa/wiki/index.php/Unified_genotyper
+http://gatkforums.broadinstitute.org/gatk/discussion/2804/howto-call-variants-with-the-unifiedgenotyper#latest
 It is a sub class of a ReseqTrack::Tools::RunVariantCall.
+
+
+http://gatkforums.broadinstitute.org/gatk/discussion/2804/howto-call-variants-with-the-unifiedgenotyper#latest
 
 When run, the module will generate java command like below:
  
@@ -169,7 +172,8 @@ For exomes, a straight DP filter shouldn't be used because the relationship betw
 By default the Unified Genotyper downsamples each sample's coverage to no more than 250x (so there will be at most 250 * number_of_samples reads at 
 a site). Unless there is a good reason for wanting to change this value, we suggest using this default value especially for exome processing; allowing 
 too much coverage will require a lot more memory to run. When running on projects with many samples at low coverage (e.g. 1000 Genomes with 4x 
-coverage per sample) we usually lower this value to about 10 times the average coverage: '-dcov 40'.
+coverage per sample) we usually lower this value to about 10 times the average coverage: '-dcov 40'.  However, the latest GATK3.5 require a minimum -dcov value of 
+200 when downsampling to coverage. Values less than this can produce problematic downsampling artifacts while providing only insignificant improvements in memory usage in most cases.
 
 ## About exome studies
 

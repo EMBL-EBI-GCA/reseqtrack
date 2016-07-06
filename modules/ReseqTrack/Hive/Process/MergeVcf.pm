@@ -29,6 +29,10 @@ sub run {
     my $vcfs = $self->param_as_array('vcf');
     my $bp_start = $self->param_as_array('bp_start');
     my $bp_end = $self->param_as_array('bp_end');
+    
+    print "number of VCFs to merge: " . scalar @$vcfs . "\n";
+    print "number of bp starts: " . scalar @$bp_start . "\n"; 
+    print "number of bp ends: " . scalar @$bp_end . "\n";
 
     throw("unexpected number of vcf files") if scalar @$vcfs != scalar @$bp_start;
     throw("unexpected number of vcf files") if scalar @$vcfs != scalar @$bp_end;
