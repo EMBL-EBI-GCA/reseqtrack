@@ -107,22 +107,29 @@ if ( $crai_obj->type !~ /CRAI/i || $crai_obj->type !~ /PUSHED/i ) {
         throw("This file has to be a CRAI file that have been pushed to the dropbox");
 }
 
-my $bas_path = $input_cram_name . ".bas";
-$bas_path =~ s/.cram//;
-my $bas_obj = $fa->fetch_by_name($bas_path); 
-throw("No file object is found; perhaps the BAS file hasn't been created yet, $bas_path\n") if (!$bas_obj);
+my $bas_obj;
+if ($input_cram_name !~ /tags_stripped/) {
+	my $bas_path = $input_cram_name . ".bas";
+	$bas_path =~ s/.cram//;
+	if ($input_cram_name !~ /bam/ ) {
+		$bas_path =~ s/\.bas/\.bam\.bas/;
+	}
+	$bas_obj = $fa->fetch_by_name($bas_path); 
+	throw("No file object is found; perhaps the BAS file hasn't been created yet, $bas_path\n") if (!$bas_obj);
+	
 
-if ( $bas_obj->type !~ /BAS/i || $bas_obj->type !~ /PUSHED/i ) { 
-        throw("This file has to be a BAS file that have been pushed to the dropbox");
-}
+	if ( $bas_obj->type !~ /BAS/i || $bas_obj->type !~ /PUSHED/i ) { 
+	        throw("This file has to be a BAS file that have been pushed to the dropbox");
+	}
+}	
 
 move_file_and_load_in_g1k_db($fo);
 move_file_and_load_in_g1k_db($crai_obj);
-move_file_and_load_in_g1k_db($bas_obj);
+move_file_and_load_in_g1k_db($bas_obj) if ($input_cram_name !~ /tags_stripped/);
 
 check_md5_change_file_type_and_archive_file($fo);  
 check_md5_change_file_type_and_archive_file($crai_obj);
-check_md5_change_file_type_and_archive_file($bas_obj);
+check_md5_change_file_type_and_archive_file($bas_obj) if ($input_cram_name !~ /tags_stripped/);
 
 ########## SUBS #########
 sub move_file_and_load_in_g1k_db {  ## need to delete the original file from ebi nodes, perhaps with a separate script
@@ -162,7 +169,7 @@ sub move_file_and_load_in_g1k_db {  ## need to delete the original file from ebi
         my $new_file_path = $new_dir . $filen;
 
 		$new_file_path =~ s/\.bam\.cram/\.cram/;
-		
+		$new_file_path =~ s/_tags_stripped//;
 		### This bit is to handle the cases when file has been moved to staging but the db dropped so the job failed
 		unless (-e $file_path_in_dropbox) {
 			if (-e $new_file_path) {
@@ -214,6 +221,7 @@ sub check_md5_change_file_type_and_archive_file {
 	my $ori_md5 = $fo->md5;
 	my $ori_file_name = basename($fo->name); 
 	$ori_file_name =~ s/\.bam\.cram/\.cram/;
+	$ori_file_name =~ s/_tags_stripped//;
 	my $g1k_fos = $g1k_db->get_FileAdaptor->fetch_by_filename($ori_file_name);
 	if ( !$g1k_fos || scalar(@$g1k_fos) == 0) {
 		#throw("No file is found in the g1k db with the basename of " . basename($fo->name) );
@@ -325,12 +333,12 @@ sub check_md5_change_file_type_and_archive_file {
 
 source /nfs/1000g-work/G1K/work/zheng/reseqtrack-code-1059-tags-pre-hive-metadata-merge.sh
 
-perl /nfs/1000g-work/G1K/work/zheng/reseqtrack_from_git//scripts/file/mv_and_archive_files.pl \
+perl /nfs/1000g-work/G1K/work/zheng/reseqtrack_from_git/scripts/file/mv_and_archive_files.pl \
 $WRITE_DB_ARGS -dbname zheng_map_1kg_p3_hs38_test \
 -g1k_dbhost mysql-g1kdcc-public -g1k_dbuser g1krw -g1k_dbpass thousandgenomes -g1k_dbport 4197 -g1k_dbname g1k_archive_staging_track \
 -cram /panfs/nobackup/production/reseq-info/zheng/map_1kg_p3_hs38_by_alt_bwamem_test/IGSR_alignment/NA12347/alignment/NA12347.alt_bwamem_GRCh38DH.20150522.low_cov_test.bam.cram \
--move_to_dir /nfs/1000g-work/G1K/archive_staging/test \
+-move_to_dir /nfs/1000g-work/G1K/archive_staging/ \
 -run \
 -verbose
 
-
+/nfs/1000g-work/G1K/archive_staging/ftp/data_collections/1000_genomes_project/data
