@@ -5,7 +5,7 @@ use warnings;
 
 use ReseqTrack::Tools::Exception qw(throw);
 use ReseqTrack::Tools::Argument qw(rearrange);
-use ReseqTrack::Tools::FileSystemUtils qw(check_file_exists check_executable);
+use ReseqTrack::Tools::FileSystemUtils qw(check_file_exists check_executable get_lines_from_file);
 use POSIX qw(ceil);
 
 use base qw(ReseqTrack::Tools::RunVariantCall);
@@ -13,11 +13,9 @@ use base qw(ReseqTrack::Tools::RunVariantCall);
 =head2 new
 
   Arg [-bcftools_path]    :
-          string, optional, path to bcftools if it cannot be worked out from samtools path
-  Arg [-vcfutils_path]    :
-          string, optional, path to vcfutils.pl if it cannot be worked out from samtools path         
+          string, optional, path to bcftools if it cannot be worked out from samtools path      
   Arg [-parameters]   :
-      hashref, command line options to use with "samtools mpileup", "bcftools view" and "vcfutils.pl"
+      hashref, command line options to use with "samtools mpileup", "bcftools call"
       Here is a list of options: samtools mpileup [-EBug] [-C capQcoef]  [-l list] [-M capMapQ] [-Q minBaseQ] [-q minMapQ] 
       Here is a list of options: bcftools view [-AbFGNQSucgv] [-D seqDict] [-l listLoci] [-i gapSNPratio] [-t mutRate] [-p varThres] [-P prior] [-1 nGroup1] [-d minFrac] [-U nPerm] [-X permThres] [-T trioType] 
   Arg [-super_pop_name]    :
@@ -33,11 +31,10 @@ use base qw(ReseqTrack::Tools::RunVariantCall);
                 -program                 => "/path/to/samtools",
                 -working_dir             => '/path/to/dir/',  ## this is working dir and output dir
                 -bcftools_path           => '/path/to/bcftools/',
-                -vcfutils_path           => '/path/to/vcfutils.pl/',
                 -reference               => '/path/to/ref/',
                 -parameters              => {	'mpileup'=>'-ug', 
-                								'bcfview'=>'-bvcg', 
-                								'vcfutils'=>'-D 100' }
+                								'bcfcall'=>'-mv', 
+                							 }
                 -chrom                   => '1',
                 -region                  => '1-1000000',
                 -output_name_prefix      => PHASE1,
@@ -47,39 +44,32 @@ use base qw(ReseqTrack::Tools::RunVariantCall);
 =cut
 
 sub DEFAULT_OPTIONS { return {
-        mpileup => '-EDS -e20 -h100 -L250 -o40 -C50 -m1 -F0.002 -d 250 -P ILLUMINA -ug', # mainly the defaults
-        bcfview => '-p 0.5 -vcg', #default options
-        vcfutils => '-D 10000000 -d 2 -a 2 -Q 10 -w 3 -W 10 -1 1e-4 -2 1e-100 -3 0 -4 1e-4 -e 1e-4', # vcfutils defaults
-        depth_of_coverage => undef,
-        };
+        mpileup => '-Eug -t DP -t SP -t AD -P ILLUMINA -pm3 -F0.2 -C50', 
+        bcfcall => '-mvA',
+        depth => 250,
+        ploidy => 'GRCh38',
+    };
 }
+
+## the above mpileup parameters are from 1KG phase3 paper, supplementary section, use -d 500 for exome data, the default -d 250 for LC data
 
 sub new {
   my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
 
-  my ( $bcftools, $vcfutils, $bgzip)
+  my ( $bcftools, $bgzip)
     = rearrange([ qw(
-    BCFTOOLS VCFUTILS BGZIP
+    BCFTOOLS BGZIP
     )], @args);    
   
   ## Set defaults
   $self->program('samtools') if (! $self->program);
   $self->bcftools($bcftools|| 'bcftools');
-  $self->vcfutils($vcfutils|| 'vcfutils.pl');
   $self->bgzip($bgzip|| 'bgzip');
 
   return $self;
 }
 
-=head
-sub DEFAULT_OPTIONS { return {
-        'mpileup' => '-ug',
-        'bcfview' => '-bvcg',
-        'vcfutils' => '-d 2',
-        };
-}
-=cut
 
 =head2 run_program
 
@@ -99,24 +89,23 @@ sub run_program {
     throw("do not have have a reference") if !$self->reference;
     check_file_exists($self->reference);
     check_executable($self->bcftools);
-    check_executable($self->vcfutils);
     check_executable($self->bgzip);
 
     throw("Please provide parameters for running mpileup") if !$self->options('mpileup');
-    throw("Please provide parameters for running bcfview") if !$self->options('bcfview');
-    throw("Please provide parameters for running vcfutils") if !$self->options('vcfutils');
+    throw("Please provide parameters for running bcfcall") if !$self->options('bcfcall');
 
     my $output_vcf = $self->working_dir .'/'. $self->job_name . '.vcf.gz';
     $output_vcf =~ s{//}{/};
-
+    $self->output_files($output_vcf);
+    
     my @cmd_words;
     push(@cmd_words, $self->program, 'mpileup');
     push(@cmd_words, $self->options->{'mpileup'});
 
-    if (my $coverage = $self->options->{'depth_of_coverage'}) {
-      push(@cmd_words, '-d', ceil(5.5*$coverage)); # should exceed the -D flag for vcfutils
+    if ($self->options->{'depth'}) {
+      push(@cmd_words, '-d', $self->options->{'depth'}); # if depth is not provided, then the default of 250 will be used for -d
     }
-
+	
     push(@cmd_words, '-f', $self->reference);
 
     if (my $region = $self->chrom) {
@@ -127,28 +116,87 @@ sub run_program {
     }    
     push(@cmd_words, @{$self->input_files});
 
-    push(@cmd_words, '|', $self->bcftools, 'view');
-    push(@cmd_words, $self->options->{'bcfview'});
-    push(@cmd_words, '-', '|');
-
-    push(@cmd_words, $self->vcfutils, 'varFilter');
-    push(@cmd_words, $self->options->{'vcfutils'});
-
-    if (my $coverage = $self->options->{'depth_of_coverage'}) {
-      push(@cmd_words, '-D', ceil(5*$coverage));
+    push(@cmd_words, '|', $self->bcftools, 'call');
+    push(@cmd_words, $self->options->{'bcfcall'});
+    
+    my $subset_ped;
+    if ($self->options->{'sample_ped'}) {
+        $subset_ped = $self->subset_ped_by_input_bam;
+        #print "subset ped is $subset_ped\n";
+    }    
+    if ($self->options->{'ploidy_file'}) {
+	    push(@cmd_words, "--ploidy-file", $self->options->{'ploidy_file'});
+	    push(@cmd_words, "-S" ,  $subset_ped);
+    }
+    elsif  ($self->options->{'ploidy'})   {
+        push(@cmd_words, "--ploidy", $self->options->{'ploidy'});
+        push(@cmd_words, "-S" ,  $subset_ped);
     }
 
     push(@cmd_words, '|', $self->bgzip, '-c');
     push(@cmd_words, '>', $output_vcf);
 
     my $cmd = join(' ', @cmd_words);
-    $self->output_files($output_vcf);
+
     $self->execute_command_line ($cmd);
 
+	unlink $subset_ped;
     return $self;
-
 }
 
+## as each input transposed bams will contain a subset of all samples, and each sample list are likely to be different between chrom regions
+## 'bcftools call' -S demands a ped file that matches the samples in bam files  
+## this sub is to create a ped file containing exactly the same samples as in the input bam
+sub subset_ped_by_input_bam {
+	my ($self) = @_;
+	
+	my $main_ped_lines = get_lines_from_file($self->options->{'sample_ped'});
+	
+	my $tmp_sample_list = $self->output_files->[0] . ".samples";
+	$tmp_sample_list =~ s/.vcf.gz//;
+	
+	my $subset_ped_file = $self->output_files->[0] . ".ped";
+	$subset_ped_file =~ s/.vcf.gz//;
+	
+	my $del_cmd = "rm $tmp_sample_list";
+	$self->execute_command_line ($del_cmd) if (-e $tmp_sample_list);
+	
+	foreach my $bam ( @{$self->input_files})  {
+		my $cmd = $self->program . " view " . $bam . " -H " . "| grep \@RG >> $tmp_sample_list";
+		$self->execute_command_line ($cmd); 
+	}
+	
+	my $samples = get_lines_from_file($tmp_sample_list);
+
+	my %sample_hash;
+	foreach my $line (@$samples) {
+        chomp $line;
+        my @tmps = split(/\t/, $line);
+        my $sample;
+        foreach my $tmp (@tmps) {
+            $sample = $tmp if $tmp =~ /^SM:/;
+        }    
+        $sample =~ s/^SM://;
+        $sample_hash{$sample} = 1;
+	}
+	
+	open(OUT, ">", $subset_ped_file) || throw("Cannot open output file $subset_ped_file");
+	foreach my $main_ped_line (@$main_ped_lines) {
+        chomp $main_ped_line;
+        next if ($main_ped_line =~ /Family/);       
+        my @tmp = split(/\t/, $main_ped_line);
+        $tmp[2] = 0;
+        $tmp[3] = 0;
+        if ($sample_hash{$tmp[1]}) {
+        	print OUT join("\t", @tmp) . "\n";
+        }
+        
+	}
+	unlink $tmp_sample_list;
+	#$self->{'subset_ped_file'} = $subset_ped_file;    
+	return  $subset_ped_file;  
+}
+	
 
 sub bcftools{
   my ($self, $bcftools) = @_;
@@ -156,14 +204,6 @@ sub bcftools{
     $self->{'bcftools'} = $bcftools;
   }
   return $self->{'bcftools'};
-}
-
-sub vcfutils{
-  my ($self, $vcfutils) = @_;
-  if ($vcfutils) {
-    $self->{'vcfutils'} = $vcfutils;
-  }
-  return $self->{'vcfutils'};
 }
 
 sub bgzip{
@@ -190,7 +230,7 @@ It is a sub class of a ReseqTrack::Tools::RunVariantCall.
 It generates and run command like to call SNPs and indels for multiple diploid individuals:
 
 >samtools mpileup -P ILLUMINA -ugf ref.fa *.bam | bcftools view -bcvg - > var.raw.bcf 
->bcftools view var.raw.bcf | vcfutils.pl varFilter -D 2000 > var.flt.vcf
+>bcftools call var.raw.bcf > var.flt.vcf
 
 Petr's parameter when doing the 1kg runs:
 

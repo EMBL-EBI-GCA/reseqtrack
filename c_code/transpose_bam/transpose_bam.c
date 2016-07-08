@@ -143,6 +143,7 @@ int merge_regions(int num_infiles, samfile_t **in_bams, char **in_fnames, bamFil
       fprintf(stderr, "could not recognise region %s\n", regions[i]);
       return -1;
     }
+
     for (insert_i = i; insert_i > 0; insert_i--) {
       if (insert_tid > tid[insert_i-1])
         break;

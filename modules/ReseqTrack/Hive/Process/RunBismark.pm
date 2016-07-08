@@ -13,15 +13,8 @@ sub param_defaults {
     program_file => undef,
     samtools => undef,
     options => {},
+    add_attributes => 0,
 
-    RGID => undef,
-    RGCN => undef,
-    RGLB => undef,
-    RGPI => undef,
-    RGSM => undef,
-    RGDS => undef,
-    RGPU => undef,
-    RGPL => undef,
     sample_source_id => undef,
     center_name => undef,
     library_name => undef,
@@ -41,37 +34,34 @@ sub run {
     throw("Don't recognise command $command. Acceptable commands are: @allowed_cmds")
 	if (! grep {$command eq $_ } @allowed_cmds);
 
-
-    my %read_group_fields = (
-      ID => $self->param('RGID') // $self->param('run_source_id'),
-      CN => $self->param('RGCN') // $self->param('center_name'),
-      LB => $self->param('RGLB') // $self->param('library_name'),
-      PI => $self->param('RGPI') // $self->param('paired_nominal_length'),
-      SM => $self->param('RGSM') // $self->param('sample_alias'),
-      DS => $self->param('RGDS') // $self->param('study_source_id'),
-      PU => $self->param('RGPU') // $self->param('run_source_id'),
-      PL => $self->param('RGPL') // $self->param('instrument_platform'),
-    );
-
     if ($command eq 'aln') {
 	my $base = $self->param_required('run_source_id');
 	my $reference = $self->param_required('reference');
 	my $multicore = $self->param_required('multicore');
+	my $rgid = $self->param_required('rg_id');
+	my $rgsample = $self->param_required('rg_sample');
 
 	my $fastqs = $self->param_as_array('fastq');
+
+	my $add_attributes = $self->param( 'add_attributes' ) ? 1 : 0;  
+
 	foreach my $fastq (@$fastqs) {
 	    check_file_exists($fastq);
 	}
 	my $run_alignment;
 	if (scalar(@$fastqs)>1) {
+	    my @sorted_fastqs=sort @$fastqs;
 	    $run_alignment = ReseqTrack::Tools::RunBismark->new(
 		-base => $base,
-                -mate1_file => $fastqs->[0],
-		-mate2_file => $fastqs->[1],
+                -mate1_file => $sorted_fastqs[0],
+		-mate2_file => $sorted_fastqs[1],
                 -program => $self->param('program_file'),
 		-multicore => $multicore,
                 -samtools => $self->param('samtools'),
                 -output_format => 'BAM',
+		-rg_tag=>1,
+		-rg_id=>$rgid,
+		-rg_sample=>$rgsample,
                 -working_dir => $self->output_dir,
                 -reference => $reference,
                 -job_name => $self->job_name,
@@ -85,6 +75,9 @@ sub run {
 		-multicore => $multicore,
 		-samtools => $self->param('samtools'),
 		-output_format => 'BAM',
+		-rg_tag=>1,
+                -rg_id=>$rgid,
+                -rg_sample=>$rgsample,
 		-working_dir => $self->output_dir,
 		-reference => $reference,
 		-job_name => $self->job_name,
@@ -93,6 +86,12 @@ sub run {
 	}
 
 	$self->run_program($run_alignment,$command);
+
+	if ($add_attributes) {
+	    my $generated_metrics = $run_alignment->mapper_metrics_object;
+	    throw('metrics object not found') unless $generated_metrics;
+	    $self->output_param('attribute_metrics', $generated_metrics);
+	}
 
 	$self->output_param('bam', $self->output_dir."/".$run_alignment->bam_file);
 	$self->output_param('mapper_report', $self->output_dir."/".$run_alignment->report_file);
@@ -105,14 +104,25 @@ sub run {
 	    $runmode='SINGLE';
 	}
 	my $bamfile = $self->param_required('bam');
+	my $multicore = $self->param_required('multicore');
+
 	check_file_exists($bamfile);
 	my $run_methext=ReseqTrack::Tools::RunBismark->new(
 	    -input_files => $bamfile,
 	    -working_dir => $self->output_dir,
-	    -runmode => $runmode
+	    -multicore => $multicore,
+	    -runmode => $runmode,
+	    -cutoff => $self->param('cutoff')
 	    );
 	$self->run_program($run_methext,$command);
 
+	$self->output_param('mbias_txt', $run_methext->mbias_txt);
+	$self->output_param('mbias_png', $run_methext->mbias_png);
+	$self->output_param('bedgraph', $run_methext->bedgraph);
+	$self->output_param('chh_context', $run_methext->chh_context);
+	$self->output_param('cpg_context', $run_methext->cpg_context);
+	$self->output_param('chg_context', $run_methext->chg_context);
+	$self->output_param('splitting', $run_methext->splitting);
     }
 }
 

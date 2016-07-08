@@ -1,7 +1,7 @@
 CC = gcc
 CFLAGS=-O3 -D_GNU_SOURCE
-HTSPATH=/nfs/1000g-work/G1K/work/bin/htslib/
-SAMPATH=/nfs/1000g-work/G1K/work/bin/samtools/
+HTSPATH=/nfs/production/reseq-info/work/bin/htslib-1.2.1/
+SAMPATH=/nfs/production/reseq-info/work/bin/samtools/
 LDFLAGS=-L$(HTSPATH) -L$(SAMPATH) -Wl,-rpath,$(HTSPATH),-rpath,$(SAMPATH)
 
 all: transpose_bam
