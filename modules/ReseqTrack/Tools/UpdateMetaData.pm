@@ -391,17 +391,19 @@ sub report {
 }
 
 sub summarise {
-  my ($self) = @_;
+  my ($self,$quiet) = @_;
+
+  $quiet = $quiet // 0;
 
   my $ss = $self->summary_stats();
 
-  $self->log("Summary:");
+  $self->log("Summary:") unless ($quiet);
 
   for my $type ( sort keys %$ss ) {
     my $checked = $ss->{$type}{checked};
     my $stored  = $ss->{$type}{stored};
 
-    $self->log("$type checked $checked stored $stored");
+    $self->log("$type checked $checked stored $stored") if (!$quiet || $stored > 0);
   }
 
 }
