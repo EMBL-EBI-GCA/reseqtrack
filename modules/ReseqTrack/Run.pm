@@ -19,7 +19,7 @@ sub new {
     $experiment_id,       $run_alias,        $status,
     $md5,                 $center_name,      $run_center_name,
     $instrument_platform, $instrument_model, $source_id,
-    $sample_id,           $submission_id, $submission_date
+    $submission_id,       $submission_date
     )
     = rearrange(
     [
@@ -33,7 +33,6 @@ sub new {
         INSTRUMENT_PLATFORM
         INSTRUMENT_MODEL
         SOURCE_ID
-        SAMPLE_ID
         SUBMISSION_ID
         SUBMISSION_DATE)
     ],
@@ -49,29 +48,24 @@ sub new {
   $self->instrument_platform($instrument_platform);
   $self->instrument_model($instrument_model);
   $self->source_id($source_id);
-  $self->sample_id($sample_id);
   $self->submission_id($submission_id);
   $self->submission_date($submission_date);
   return $self;
 }
 
-
 sub experiment {
   my ($self) = @_;
-  
+
   if ( $self->adaptor && $self->experiment_id ) {
-      my $ea = $self->adaptor->db->get_ExperimentAdaptor;
-      return $ea->fetch_by_dbID($self->experiment_id);
+    my $ea = $self->adaptor->db->get_ExperimentAdaptor;
+    return $ea->fetch_by_dbID( $self->experiment_id );
   }
 }
 
 sub sample {
   my ($self) = @_;
-  
-  if ( $self->adaptor && $self->sample_id ) {
-      my $sa = $self->adaptor->db->get_SampleAdaptor;
-      return $sa->fetch_by_dbID($self->sample_id);
-  }
+  #for backwards compatability
+  return $self->experiment->sample
 }
 
 sub name {
@@ -85,25 +79,25 @@ sub source_id {
 }
 
 sub run_source_id {
-	my ($self,$arg) =@_;
-	
-	if ($arg) {
+  my ( $self, $arg ) = @_;
+
+  if ($arg) {
     $self->{run_source_id} = $arg;
   }
   return $self->{run_source_id};
 }
 
-sub submission_id{
-  my ($self, $arg) = @_;
-  if($arg){
+sub submission_id {
+  my ( $self, $arg ) = @_;
+  if ($arg) {
     $self->{submission_id} = $arg;
   }
   return $self->{submission_id};
 }
 
-sub submission_date{
-  my ($self, $arg) = @_;
-  if($arg){
+sub submission_date {
+  my ( $self, $arg ) = @_;
+  if ($arg) {
     $self->{submission_date} = $arg;
   }
   return $self->{submission_date};
@@ -155,12 +149,6 @@ sub instrument_model {
   my ( $self, $arg ) = @_;
   if ($arg) { $self->{instrument_model} = $arg; }
   return $self->{instrument_model};
-}
-
-sub sample_id {
-  my ( $self, $arg ) = @_;
-  if ($arg) { $self->{sample_id} = $arg; }
-  return $self->{sample_id};
 }
 
 sub object_table_name {

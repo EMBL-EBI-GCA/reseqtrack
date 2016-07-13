@@ -143,7 +143,7 @@ else {
 $reseq_db->dbc->db_handle->commit();
 
 $updater->report() unless ($quiet);
-$updater->summarise() if ($summarise);
+$updater->summarise($quiet) if ($summarise);
 
 sub usage {
     exec( 'perldoc', $0 );

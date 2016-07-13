@@ -10,24 +10,12 @@ sub create_seed_params {
   my ($self) = @_;
   my $options = $self->options;
 
-  my $output_experiment_columns = ref($options->{'output_experiment_columns'}) eq 'ARRAY' ? $options->{'output_experiment_columns'}
-                      : defined $options->{'output_experiment_columns'} ? [$options->{'output_experiment_columns'}]
-                      : [];
-  my $output_experiment_attributes = ref($options->{'output_experiment_attributes'}) eq 'ARRAY' ? $options->{'output_experiment_attributes'}
-                      : defined $options->{'output_experiment_attributes'} ? [$options->{'output_experiment_attributes'}]
-                      : [];
-  my $output_sample_columns = ref($options->{'output_sample_columns'}) eq 'ARRAY' ? $options->{'output_sample_columns'}
-                      : defined $options->{'output_sample_columns'} ? [$options->{'output_sample_columns'}]
-                      : [];
-  my $output_sample_attributes = ref($options->{'output_sample_attributes'}) eq 'ARRAY' ? $options->{'output_sample_attributes'}
-                      : defined $options->{'output_sample_attributes'} ? [$options->{'output_sample_attributes'}]
-                      : [];
-  my $output_study_columns = ref($options->{'output_study_columns'}) eq 'ARRAY' ? $options->{'output_study_columns'}
-                      : defined $options->{'output_study_columns'} ? [$options->{'output_study_columns'}]
-                      : [];
-  my $output_study_attributes = ref($options->{'output_study_attributes'}) eq 'ARRAY' ? $options->{'output_study_attributes'}
-                      : defined $options->{'output_study_attributes'} ? [$options->{'output_study_attributes'}]
-                      : [];
+  my $output_experiment_columns = $self->option_array('output_experiment_columns');
+  my $output_experiment_attributes = $self->option_array('output_experiment_attributes');
+  my $output_sample_columns = $self->option_array('output_sample_columns');
+  my $output_sample_attributes = $self->option_array('output_sample_attributes');
+  my $output_study_columns = $self->option_array('output_study_columns');
+  my $output_study_attributes = $self->option_array('output_study_attributes');
 
   throw('this module will only accept pipelines that work on the run table')
       if $self->table_name ne 'run';
@@ -42,8 +30,8 @@ sub create_seed_params {
   foreach my $seed_params (@{$self->seed_params}) {
     my ($run, $output_hash) = @$seed_params;
     if (scalar @$output_sample_columns || scalar @$output_sample_attributes) {
-      my $sample = $sa->fetch_by_dbID($run->sample_id);
-      throw('did not get a sample with id '.$run->sample_id) if !$sample;
+      my $sample = $run->experiment->sample;
+      throw('did not get a sample for run '.$run->run_source_id) if !$sample;
       foreach my $column_name (@$output_sample_columns) {
         $output_hash->{$column_name} = &{$sa->column_mappings($sample)->{$column_name}}();
       }

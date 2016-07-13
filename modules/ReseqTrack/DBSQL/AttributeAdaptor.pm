@@ -21,7 +21,7 @@ sub new {
 
 sub columns{
   return "attribute.attribute_id, attribute.other_id, attribute.table_name, ".
-      "attribute.attribute_name, attribute.attribute_value";
+      "attribute.attribute_name, attribute.attribute_value, attribute.attribute_units";
 }
 
 sub table_name{
@@ -89,7 +89,8 @@ sub store{
   	$attribute->dbID($exists->dbID);
   	$attribute->adaptor($self);
   	
-    if($update && $exists->attribute_value ne $attribute->attribute_value){
+    if($update &&
+      ($exists->attribute_value ne $attribute->attribute_value || $exists->attribute_units // '' ne $attribute->attribute_units // '')){
       $attribute->dbID($exists->dbID);
 #      print "existing stats id is " . $exists->dbID . "\n";
 #			print "reassigned stats id is: " . $attribute->dbID . "\n";
@@ -101,12 +102,13 @@ sub store{
   
   
   my $sql = "insert into attribute (other_id, table_name, attribute_name, ".
-      "attribute_value) values(?, ?, ?, ?)";
+      "attribute_value, attribute_units) values(?, ?, ?, ?, ?)";
   my $sth = $self->prepare($sql);
   $sth->bind_param(1, $attribute->other_id);
   $sth->bind_param(2, $attribute->table_name);
   $sth->bind_param(3, $attribute->attribute_name);
   $sth->bind_param(4, $attribute->attribute_value);
+  $sth->bind_param(5, $attribute->attribute_units);
   $sth->execute;
   
   my $dbID = $sth->{'mysql_insertid'};
@@ -125,6 +127,7 @@ sub update{
       ", other_id = ? ".
       ", attribute_name = ? ".
       ", attribute_value = ? ".
+      ", attribute_units = ? ".
       "where attribute_id = ? ";
   my $sth = $self->prepare($sql);
 
@@ -132,9 +135,11 @@ sub update{
   $sth->bind_param(2, $attribute->other_id);
   $sth->bind_param(3, $attribute->attribute_name);
   $sth->bind_param(4, $attribute->attribute_value);
-  $sth->bind_param(5, $attribute->dbID);  
+  $sth->bind_param(5, $attribute->attribute_units);
+  $sth->bind_param(6, $attribute->dbID);  
   $sth->execute; 
   $sth->finish; 
+  
   return $attribute; 
 }
 
@@ -149,6 +154,7 @@ sub object_from_hashref{
     -table_name => $hashref->{table_name},
     -attribute_name => $hashref->{attribute_name},
     -attribute_value => $hashref->{attribute_value},
+    -attribute_units => $hashref->{attribute_units},
       );
   return $attribute;
 }

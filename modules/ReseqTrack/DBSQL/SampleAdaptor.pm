@@ -19,20 +19,22 @@ sub column_mappings {
   throw("must be passed an object") unless ($s);
 
   return {
-    sample_id       => sub { $s->dbID(@_) },
-    status          => sub { $s->status(@_) },
-    md5             => sub { $s->md5(@_) },
-    center_name     => sub { $s->center_name(@_) },
-    sample_alias    => sub { $s->sample_alias(@_) },
-    tax_id          => sub { $s->tax_id(@_) },
-    scientific_name => sub { $s->scientific_name(@_) },
-    common_name     => sub { $s->common_name(@_) },
-    anonymized_name => sub { $s->anonymized_name(@_) },
-    individual_name => sub { $s->individual_name(@_) },
-    sample_title    => sub { $s->sample_title(@_) },
-    sample_source_id       => sub { $s->sample_source_id(@_) },
-    submission_id   => sub { $s->submission_id(@_) },
-    submission_date => sub { $s->submission_date(@_) },
+    sample_id           => sub { $s->dbID(@_) },
+    status              => sub { $s->status(@_) },
+    md5                 => sub { $s->md5(@_) },
+    center_name         => sub { $s->center_name(@_) },
+    sample_alias        => sub { $s->sample_alias(@_) },
+    tax_id              => sub { $s->tax_id(@_) },
+    scientific_name     => sub { $s->scientific_name(@_) },
+    common_name         => sub { $s->common_name(@_) },
+    anonymized_name     => sub { $s->anonymized_name(@_) },
+    individual_name     => sub { $s->individual_name(@_) },
+    sample_title        => sub { $s->sample_title(@_) },
+    sample_source_id    => sub { $s->sample_source_id(@_) },
+    submission_id       => sub { $s->submission_id(@_) },
+    submission_date     => sub { $s->submission_date(@_) },
+    biosample_id        => sub { $s->biosample_id(@_) },
+    biosample_authority => sub { $s->biosample_authority(@_) },
   };
 }
 
@@ -47,6 +49,11 @@ sub table_name {
 sub fetch_by_source_id {
   my ( $self, $source_id ) = @_;
   return pop @{ $self->fetch_by_column_name( "sample_source_id", $source_id ) };
+}
+
+sub fetch_by_biosample_id {
+  my ( $self, $source_id ) = @_;
+  return pop @{ $self->fetch_by_column_name( "biosample_id", $source_id ) };
 }
 
 sub store {
