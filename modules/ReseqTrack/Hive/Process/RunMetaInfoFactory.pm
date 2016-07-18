@@ -197,7 +197,8 @@ sub runs_factory {
 
       RUN:
       foreach my $run (@{$ra->fetch_by_experiment_id($experiment->dbID)}) {
-        next RUN if $run->sample_id != $sample_id;
+
+	next RUN if $run->experiment->sample_id != $sample_id;
 
         foreach my $column_name (keys %$require_run_columns) {
           my $required = $require_run_columns->{$column_name};
