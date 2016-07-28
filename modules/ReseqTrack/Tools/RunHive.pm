@@ -178,6 +178,9 @@ sub run_beekeeper {
       check_directory_exists($log_dir);
       push( @cmd_words, '-hive_log_dir', $log_dir);
     }
+    if ($self->options('submission_options')){
+      push( @cmd_words, '-submission_options',$self->options('submission_options'));
+    }
     push(@cmd_words, '&>', '/dev/null');
 
     my $cmd = join( ' ', @cmd_words );

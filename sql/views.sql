@@ -25,7 +25,7 @@ e.library_strategy
 from study st
 join experiment e on st.study_id = e.study_id
 join run r on e.experiment_id = r.experiment_id
-join sample s on r.sample_id = s.sample_id
+join sample s on e.sample_id = s.sample_id
 left outer join attribute pop on pop.table_name = 'sample' and pop.attribute_name = 'POPULATION' and pop.other_id = s.sample_id
 left outer join attribute rc on rc.table_name = 'run' and rc.attribute_name = 'READ_COUNT' and rc.other_id = r.run_id
 left outer join attribute bc on bc.table_name = 'run' and bc.attribute_name = 'BASE_COUNT' and bc.other_id = r.run_id

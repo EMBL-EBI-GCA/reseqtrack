@@ -10,31 +10,36 @@ use ReseqTrack::Tools::RunHive;
 use Cwd qw(getcwd);
 use DateTime::Format::MySQL qw(parse_datetime);
 
-my ($dbhost, $dbuser, $dbpass, $dbport, $dbname);
-my ($hive_user, $hive_pass);
-my ($pipeline_name, $hive_db_id, $reseed, $loop, $run, $sync, $hive_log_dir, $max_seeds);
+my ( $dbhost, $dbuser, $dbpass, $dbport, $dbname );
+my ( $hive_user, $hive_pass );
+my (
+  $pipeline_name, $hive_db_id, $reseed,
+  $loop,          $run,        $sync,
+  $hive_log_dir,  $max_seeds,  $submission_options
+);
 
 my %options;
-&GetOptions( 
-  'dbhost=s'      => \$dbhost,
-  'dbname=s'      => \$dbname,
-  'dbuser=s'      => \$dbuser,
-  'dbpass=s'      => \$dbpass,
-  'dbport=i'      => \$dbport,
-  'hive_user=s'      => \$hive_user,
-  'hive_pass=s'      => \$hive_pass,
-  'pipeline_name=s'  => \$pipeline_name,
-  'hive_db_id=s'  => \$hive_db_id,
-  'reseed!'  => \$reseed,
-  'max_seeds=i' => \$max_seeds,
-  'loop!' => \$loop,
-  'run!' => \$run,
-  'hive_log_dir=s'  => \$hive_log_dir,
-  );
+&GetOptions(
+  'dbhost=s'             => \$dbhost,
+  'dbname=s'             => \$dbname,
+  'dbuser=s'             => \$dbuser,
+  'dbpass=s'             => \$dbpass,
+  'dbport=i'             => \$dbport,
+  'hive_user=s'          => \$hive_user,
+  'hive_pass=s'          => \$hive_pass,
+  'pipeline_name=s'      => \$pipeline_name,
+  'hive_db_id=s'         => \$hive_db_id,
+  'reseed!'              => \$reseed,
+  'max_seeds=i'          => \$max_seeds,
+  'loop!'                => \$loop,
+  'run!'                 => \$run,
+  'hive_log_dir=s'       => \$hive_log_dir,
+  'submission_options=s' => \$submission_options,
+);
 $reseed //= 1;
-$loop //= 0;
-$run //= 0;
-$sync //= 0;
+$loop   //= 0;
+$run    //= 0;
+$sync   //= 0;
 
 my $db = ReseqTrack::DBSQL::DBAdaptor->new(
   -host   => $dbhost,
@@ -42,16 +47,17 @@ my $db = ReseqTrack::DBSQL::DBAdaptor->new(
   -port   => $dbport,
   -dbname => $dbname,
   -pass   => $dbpass,
-    );
+);
 
 throw("must specify a hive_db_id or a pipeline_name")
-    if ! defined $hive_db_id && ! defined $pipeline_name;
+  if !defined $hive_db_id && !defined $pipeline_name;
 my $hive_db;
-if (defined $hive_db_id) {
+if ( defined $hive_db_id ) {
   $hive_db = $db->get_HiveDBAdaptor->fetch_by_dbID($hive_db_id);
   throw("did not find a hive_db with id $hive_db_id") if !$hive_db;
-  if (defined $pipeline_name) {
-    throw("inconsistent pipeline names: $pipeline_name ".$hive_db->pipeline->name)
+  if ( defined $pipeline_name ) {
+    throw( "inconsistent pipeline names: $pipeline_name "
+        . $hive_db->pipeline->name )
       if $pipeline_name ne $hive_db->pipeline->name;
   }
 }
@@ -59,43 +65,49 @@ else {
   my $pipeline = $db->get_PipelineAdaptor->fetch_by_name($pipeline_name);
   throw("did not find pipeline with name $pipeline_name") if !$pipeline;
 
-  my $hive_dbs = $db->get_HiveDBAdaptor->fetch_by_pipeline($pipeline, 1);
+  my $hive_dbs = $db->get_HiveDBAdaptor->fetch_by_pipeline( $pipeline, 1 );
   throw("did not find a hive_db for $pipeline_name") if !@$hive_dbs;
 
   # preferentially take a pipeline that is already seeded:
-  my @seeded_hive_dbs = grep {$_->is_seeded} @$hive_dbs;
+  my @seeded_hive_dbs = grep { $_->is_seeded } @$hive_dbs;
   if (@seeded_hive_dbs) {
     $hive_dbs = \@seeded_hive_dbs;
   }
 
   # preferentially take the newest hive_db:
-  ($hive_db) = sort {DateTime::Format::MySQL->parse_datetime($b->created)->epoch <=> DateTime::Format::MySQL->parse_datetime($a->created)->epoch} @$hive_dbs;
+  ($hive_db) = sort {
+    DateTime::Format::MySQL->parse_datetime( $b->created )
+      ->epoch <=> DateTime::Format::MySQL->parse_datetime( $a->created )->epoch
+  } @$hive_dbs;
 }
 
 my $hive_dbname = $hive_db->name;
-my $hive_port = $hive_db->port;
-my $hive_host = $hive_db->host;
+my $hive_port   = $hive_db->port;
+my $hive_host   = $hive_db->host;
+
 #$url =~ s{^(\w*)://(?:[^/\@]*\@)?}{$1://$hive_user:$hive_pass\@};
 print "selected hive_db name=$hive_dbname port=$hive_port host=$hive_host\n";
 
 my $run_hive = ReseqTrack::Tools::RunHive->new(
-    -hive_dbname => $hive_dbname,
-    -hive_scripts_dir => $hive_db->hive_version .'/scripts',
-    -hive_user => $hive_user, -hive_password => $hive_pass,
-    -hive_host => $hive_host, -hive_port => $hive_port,
-    );
+  -hive_dbname      => $hive_dbname,
+  -hive_scripts_dir => $hive_db->hive_version . '/scripts',
+  -hive_user        => $hive_user,
+  -hive_password    => $hive_pass,
+  -hive_host        => $hive_host,
+  -hive_port        => $hive_port,
+);
 
 if ($reseed) {
-  if ($hive_db->is_seeded) {
+  if ( $hive_db->is_seeded ) {
     print "no need to reseed hive_db; it is already seeded\n";
   }
   else {
-    my $input_id = '{"seed_time"=>'.time;
-    if (defined $max_seeds) {
-      $input_id .= ',"max_seeds" => '.$max_seeds;
+    my $input_id = '{"seed_time"=>' . time;
+    if ( defined $max_seeds ) {
+      $input_id .= ',"max_seeds" => ' . $max_seeds;
     }
     $input_id .= '}';
-    $run_hive->run('seed', 'get_seeds', $input_id);
+    $run_hive->run( 'seed', 'get_seeds', $input_id );
 
     $hive_db->is_seeded(1);
     $db->get_HiveDBAdaptor->update($hive_db);
@@ -105,16 +117,18 @@ if ($reseed) {
 if ($sync) {
   $run_hive->run('sync');
 }
-if ($run || $loop) {
-  $run_hive->options('loop', $loop);
+if ( $run || $loop ) {
+  $run_hive->options( 'loop', $loop );
   if ($hive_log_dir) {
     $run_hive->output_dir($hive_log_dir);
-    $run_hive->options('use_log_dir', 1);
+    $run_hive->options( 'use_log_dir', 1 );
+  }
+  if ($submission_options) {
+    $run_hive->options( 'submission_options', $submission_options );
   }
   $run_hive->run('run');
 
 }
-
 
 =pod
 

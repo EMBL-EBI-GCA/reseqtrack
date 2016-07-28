@@ -23,10 +23,8 @@ sub check_run {
   my ( $self, $run, $current_copy ) = @_;
 
   my $collection_adaptor = $self->reseq_db->get_CollectionAdaptor();
-  my $sample_adaptor     = $self->reseq_db->get_SampleAdaptor();
 
-  my $sample_id = $run->sample_id;
-  my $sample    = $sample_adaptor->fetch_by_dbID($sample_id);
+  my $sample    = $run->experiment->sample;
 
   my $sample_name        = $sample->sample_alias;
   my $sample_name_reg_ex = qr/\Q$sample_name\E/;
