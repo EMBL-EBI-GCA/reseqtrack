@@ -75,8 +75,8 @@ sub run_program{
     
     my @cmd_words = ('cat');	 
     push(@cmd_words, $tmp_file);
-    #push @cmd_words,  ' | xargs -s 300000';
-    push @cmd_words,  ' | xargs';
+    push @cmd_words,  ' | xargs -s 2000000';
+    #push @cmd_words,  ' | xargs';
     push @cmd_words, $self->program;
     foreach my $region (@$regions) {
       push(@cmd_words, '-r', $region);

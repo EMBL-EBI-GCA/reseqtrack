@@ -183,6 +183,9 @@ sub resource_classes {
             '16Gb' => { 'LSF' => '-C0 -M16000 -q '.$self->o('lsf_queue').' -R"select[mem>16000] rusage[mem=16000] select[' .$self->o('lsf_resource') . ']"' },
     		'35Gb' => { 'LSF' => '-C0 -M35000 -q '.$self->o('lsf_queue').' -R"select[mem>35000] rusage[mem=35000] select[' .$self->o('lsf_resource') . ']"' },
     		'50Gb' => { 'LSF' => '-C0 -M50000 -q '.$self->o('lsf_queue').' -R"select[mem>50000] rusage[mem=50000] select[' .$self->o('lsf_resource') . ']"' },
+    		'100Gb' => { 'LSF' => '-C0 -M100000 -q '.$self->o('lsf_queue').' -R"select[mem>100000] rusage[mem=100000] select[' .$self->o('lsf_resource') . ']"' },
+    		'200Gb' => { 'LSF' => '-C0 -M200000 -q '.$self->o('lsf_queue').' -R"select[mem>200000] rusage[mem=200000] select[' .$self->o('lsf_resource') . ']" -P bigmem' },
+
     };
 }
 
@@ -261,7 +264,7 @@ sub pipeline_analyses {
                 region_overlap => 100,
             },
             -rc_name => '8Gb',
-            -analysis_capacity  =>  4,
+            -analysis_capacity  =>  20,
             -hive_capacity  =>  200,
             -flow_into => {
                 '1->A' => [ 'regions_factory_2' ],
@@ -312,7 +315,7 @@ sub pipeline_analyses {
                       3 => $self->o('call_by_freebayes'),
                       1 => 1,
                   },
-                delete_param => ['bam','bai'],
+                #delete_param => ['bam','bai'],
               }
             },
             -flow_into => {
@@ -380,7 +383,7 @@ sub pipeline_analyses {
                 encode_file_id => 'vcf',
               },
           },
-          -rc_name => '2Gb',
+          -rc_name => '4Gb',
           -hive_capacity  =>  200,
           -flow_into => {
               1 => { ':////accu?gatk_vcf=[fan_index]' => {'gatk_vcf' => '#vcf#', 'fan_index' => '#fan_index#'}},
@@ -401,7 +404,7 @@ sub pipeline_analyses {
                 encode_file_id => 'vcf',
               },
           },
-          -rc_name => '4Gb',
+          -rc_name => '8Gb',
           -hive_capacity  =>  100,
           -flow_into => {
               1 => { ':////accu?gatk_vcf=[fan_index]' => {'gatk_vcf' => '#vcf#', 'fan_index' => '#fan_index#'}},
@@ -442,14 +445,14 @@ sub pipeline_analyses {
                 encode_file_id => 'vcf',
               },
           },
-          -rc_name => '8Gb',
+          -rc_name => '16Gb',
           -hive_capacity  =>  100,
           -flow_into => {
               1 => { ':////accu?freebayes_vcf=[fan_index]' => {'freebayes_vcf' => '#vcf#', 'fan_index' => '#fan_index#'}},
               -1 => [ 'call_by_freebayes_himem2' ],
           },
       });
-    push(@analyses, {
+       push(@analyses, {
           -logic_name    => 'call_by_freebayes_himem2',
           -module        => 'ReseqTrack::Hive::Process::RunVariantCall',
           -parameters    => {
@@ -463,29 +466,7 @@ sub pipeline_analyses {
                 encode_file_id => 'vcf',
               },
           },
-          -rc_name => '16Gb',
-          -hive_capacity  =>  100,
-          -flow_into => {
-              1 => { ':////accu?freebayes_vcf=[fan_index]' => {'freebayes_vcf' => '#vcf#', 'fan_index' => '#fan_index#'}},
-              -1 => [ 'call_by_freebayes_himem3' ],
-          },
-      });
-      
-       push(@analyses, {
-          -logic_name    => 'call_by_freebayes_himem3',
-          -module        => 'ReseqTrack::Hive::Process::RunVariantCall',
-          -parameters    => {
-              module_name => 'CallByFreebayes',
-              reference => $self->o('reference'),
-              freebayes => $self->o('freebayes_exe'),
-              bgzip => $self->o('bgzip_exe'),
-              options => $self->o('call_by_freebayes_options'),
-              region_overlap => 100,
-              reseqtrack_options => {
-                encode_file_id => 'vcf',
-              },
-          },
-          -rc_name => '50Gb',
+          -rc_name => '200Gb',
           -hive_capacity  =>  100,
           -flow_into => {
               1 => { ':////accu?freebayes_vcf=[fan_index]' => {'freebayes_vcf' => '#vcf#', 'fan_index' => '#fan_index#'}},
@@ -554,7 +535,7 @@ sub pipeline_analyses {
               reseqtrack_options => {
                 decode_file_id => 'freebayes_vcf',
                 denestify => ['freebayes_vcf','bp_start','bp_end'],
-                delete_param => 'freebayes_vcf',
+                #delete_param => 'freebayes_vcf',
               },
           },
           -flow_into => { '1' => [ 'store_vcf' ], },

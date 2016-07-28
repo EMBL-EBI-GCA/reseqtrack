@@ -46,12 +46,12 @@ use base qw(ReseqTrack::Tools::RunVariantCall);
 sub DEFAULT_OPTIONS { return {
         mpileup => '-Eug -t DP -t SP -t AD -P ILLUMINA -pm3 -F0.2 -C50', 
         bcfcall => '-mvA',
-        depth => 250,
+        depth => 700000,
         ploidy => 'GRCh38',
     };
 }
 
-## the above mpileup parameters are from 1KG phase3 paper, supplementary section, use -d 500 for exome data, the default -d 250 for LC data
+## the above mpileup parameters are from 1KG phase3 paper, supplementary section, use -d "500 X number of samples" for exome data, use -d "250 x number of samples"  for LC data
 
 sub new {
   my ( $class, @args ) = @_;
