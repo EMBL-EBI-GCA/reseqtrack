@@ -364,7 +364,7 @@ sub pipeline_analyses {
                   delete_param => 'fastq',
                 },
             },
-            -rc_name => '8Gb', # Note the 'hardened' version of BWA may need 8Gb RAM or more
+            -rc_name => '10Gb', # Note the 'hardened' version of BWA may need 8Gb RAM or more
             -hive_capacity  =>  100,
             -flow_into => {
                 1 => ['sort_chunks'],
@@ -900,7 +900,7 @@ sub pipeline_analyses {
                 reference 			=> $self->o('reference'),
                 cramtools_options 	=> {'preserve-read-names' => 1, 'capture-all-tags' => 1, 'ignore-tags' => 'OQ:CQ:BQ','lossy-quality-score-spec' => '\'*8\''},
             },
-	    	-rc_name => '4Gb',
+	    	-rc_name => '8Gb',
             -hive_capacity  =>  200,
             -flow_into => {
                 1 => {'store_cram' => {'file'=>'#cram#'}},
@@ -946,10 +946,10 @@ sub pipeline_analyses {
             -module        => 'ReseqTrack::Hive::Process::LoadFile',
             -parameters    => {
               type => $self->o('crai_type'),
-              file => '#crai#',
+              file => '#file#',
               name_file_module => 'ReseqTrack::Hive::NameFile::BaseNameFile',
               name_file_method => 'basic',
-              name_file_params => {new_full_path => '#crai#'},
+              name_file_params => {new_full_path => '#file#'},
                clobber => 1,
             },
             -rc_name => '200Mb',

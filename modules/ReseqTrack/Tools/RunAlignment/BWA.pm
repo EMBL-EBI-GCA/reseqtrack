@@ -112,7 +112,8 @@ sub run_sampe_alignment {
     push(@cmd_words, $self->program, 'sampe');
     push(@cmd_words, '-P') if $self->options('load_fm_index');
     push(@cmd_words, '-s') if $self->options('disable_smith_waterman');
-    if ($self->paired_length) {
+
+    if ($self->paired_length && !$self->options('ignore_paired_length')) {
       my $max_insert_size = 3 * $self->paired_length;
       push(@cmd_words, '-a', $max_insert_size);
     }
