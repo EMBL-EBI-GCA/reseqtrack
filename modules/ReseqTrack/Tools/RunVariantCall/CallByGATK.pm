@@ -58,7 +58,7 @@ sub new {
 # This is to set default parameters
 sub DEFAULT_OPTIONS { return {
         'dcov' => 200,
-        'stand_emit_conf' => 50.0,
+        'stand_emit_conf' => 10.0,
         'stand_call_conf' => 10.0,
         'glm' => 'SNP',
         };
