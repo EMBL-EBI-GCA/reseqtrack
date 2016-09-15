@@ -111,7 +111,7 @@ sub get_filepaths_per_run {
     while(<FH>) {
         chomp;
         my ($run_source_id,$file)=split/\t/;
-        throw("Error reading $file_list. I need two tab-separated columns: run_source_id\\tfilepath") unless ($run_source_id && $file);
+        throw("Error reading $file_list at line: \'$_\'. I need two tab-separated columns: run_source_id\\tfilepath") unless ($run_source_id && $file);
         push @{$files{$run_source_id}},$file;
     }
 
