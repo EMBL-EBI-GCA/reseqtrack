@@ -164,9 +164,10 @@ This script is used to do two things:
   -hive_db_id, refers to a dbID in the hive_db table. Must specify either this or -pipeline_name
   -reseed, boolean flag to add a new seed job to the pipeline. Default is 1. Use -noreseed to disable.
   -max_seeds, integer, optional maximum number of new seed jobs to add to the pipeline.
-  -run, boolean flag to run the pipeline. Default is 1. Use -norun to disable.
+  -run, boolean flag to run the pipeline. Default is 0, you will need to include this to run the script.
   -sync, boolean flag to sync the pipeline. Default is 0.
-  -loop, boolean flag to run the pipeline continuously until nothing let to be done.  Default is 1. Use -noloop to disable.
+  -loop, boolean flag to run the pipeline continuously until nothing let to be done.  Default is 0, you need to set this
+         so that the pipeline will proceed over multiple stages and retries.
   -hive_log_dir, optional path to a directory.
         All stdout and stderr for all hive jobs will be written to this directory
         Unnecessary except for debugging because important messages are stored in the hive db.
