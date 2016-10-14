@@ -72,6 +72,11 @@ foreach my $path(keys(%$hash)){
 #    throw("Can't rename files using this script".$path." to ".$new_path.
 #	  " is not possible");
 #  }
+  print "\n".$new_dir."\n";
+  if (!-d $new_dir) {
+    my @args = ("mkdir", "$new_dir");
+    system(@args) == 0 or die "system @args failed: $?";
+  }
   move_file_in_db_and_dir([$file], $new_dir, $file->type, $db);
   unless(-e $new_path){
     throw("Failed to move ".$path." to ".$new_path);
