@@ -453,7 +453,7 @@ sub move_by_rsync {
   my ($from, $to) = @_;
   throw("no from") if !$from;
   throw("no to") if !$to;
-  my $rsyncer = File::Rsync->new({'remove-sent-files' => 1});
+  my $rsyncer = File::Rsync->new({'remove-source-files' => 1});
   my $success = $rsyncer->exec({src => $from, dest => $to});
   if (!$success) {
     throw(join('', "move_by_rsync failed from $from to $to ", $rsyncer->err));
