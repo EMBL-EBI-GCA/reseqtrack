@@ -8,3 +8,5 @@ tabix: http://sourceforge.net/projects/samtools/files/tabix/
 vcftools: http://sourceforge.net/projects/vcftools/files/
 
 Please use the -help option to see more details about using the script.
+
+Updated 2nd February 2017 to handle multi-allelic sites.
