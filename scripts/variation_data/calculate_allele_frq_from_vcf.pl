@@ -82,7 +82,6 @@ else {
 ####################
 sub process {
 	my ( $samples_string, $population )= @_;
-	
 	my $cmd;
 	if ($no_tabix) {
 		$cmd = "$vcf_subset -c $samples_string $vcf | $vcf_fill_an_ac | cut -f1-8";
@@ -90,19 +89,20 @@ sub process {
 	else {
 		$cmd = "$tabix -f -h $vcf $region | $vcf_subset -c $samples_string | $vcf_fill_an_ac | cut -f1-8";
 	}
-	
+
 	open(CMD, $cmd." | ") or die("Failed to open ".$cmd." $!");
 	
 	while(<CMD>){
 	  next if(/\#/);
 	  chomp;
-	  
 	  my @values = split /\t/, $_;
 	  my @info = split /\;/, $values[7];
 	  
 	  my $ac;
 	  my $an; 
 	  my $af = 0;
+
+	  my $alt_alleles = $values[4];
 	  
 	  foreach my $info(@info){
 	    if($info =~ /^AC/){
@@ -122,11 +122,68 @@ sub process {
 	    die("Failed to find an from ".join("\t", $values[7]));
 	  }
 	  
-	  $af = sprintf "%.2f", $ac/$an if($ac);
-	  
-	  my $site_info = join ("\t", $values[0], $values[1],$values[2],$values[3], $values[4]);
+	  #multiple alleles
+	  if($ac =~ m/,/){
+	    #$cmd can return multiple alleles in varying order T,A or A,T, for example
+	    #need to account for this for combining populations in output
+	    
+	    #first, have we seen this site already?
+	    my $site_and_ref = join ("\t", $values[0], $values[1],$values[2],$values[3]);
+	    #if we have seen this before
+	    if(/^$site_and_ref.*/ ~~ %result_hash){
+		#make sure we have only one match
+		my @site_match = grep /^$site_and_ref.*/, keys %result_hash;
+		die("A multi-allelic site can't be distinguished from another site.\n") if scalar(@site_match) > 1;
+		#get results hash alt allele string to use instead
+		$alt_alleles = (split /\t/, $site_match[0])[4];
+		#check alleles are the same
+		my @result_alt_alleles = split /,/, $alt_alleles;
+		my @curr_alt_alleles = split /,/, $values[4];
+		@result_alt_alleles = sort { $a cmp $b } @result_alt_alleles;
+		@curr_alt_alleles = sort { $a cmp $b } @curr_alt_alleles;
+		die ("Different alt alleles.\n") if (!(@result_alt_alleles ~~ @curr_alt_alleles));
+		# return to original orders
+		@result_alt_alleles = split /,/, $alt_alleles;
+		@curr_alt_alleles = split /,/, $values[4];
+		my @ordered_acs;
+		my @acs = split /,/, $ac;	
+		#put new allele counts into same order as the result hash entry
+		ALLELE: for (my $i = 0; $i < scalar(@result_alt_alleles); $i++){
+		  for(my $j =0; $j < scalar(@curr_alt_alleles); $j++){
+			if($result_alt_alleles[$i] eq $curr_alt_alleles[$j]){
+			  $ordered_acs[$i] = $acs[$j];
+			  next ALLELE;
+			}	
+		  }
+		}
+		#for each allele, now calc the frequency and put the output strings together
+		my @afs;
+		foreach my $ord_ac (@ordered_acs){
+		  my $allele_freq = sprintf "%.2f", $ord_ac/$an;
+		  push @afs, $allele_freq;
+		}
+		$af = join(",",@afs);
+		$ac = join(",",@ordered_acs);
+	    }
+	    else{
+		#multiple alleles but first time we've seen this site
+		#just need to calc afs
+		my @acs = split /,/, $ac;
+		my @afs;
+		foreach my $ind_ac (@acs){
+		  my $allele_freq = sprintf "%.2f", $ind_ac/$an;
+		  push @afs, $allele_freq;
+		}		
+		$af = join(",",@afs);
+	    }
+	  }
+	  else{
+		#not multiple alleles, so just do calc of AF
+	  	$af = sprintf "%.2f", $ac/$an if($ac);
+	  }	  
+	  my $site_info = join ("\t", $values[0], $values[1],$values[2],$values[3], $alt_alleles);
 	  my $site_stats = join ("\t", $an, $ac, $af);
-	  
+
 	  $result_hash{$site_info}{$population} = $site_stats;		
 	}
 	return 1;
@@ -172,8 +229,24 @@ sub print_hash {
 		foreach my $p ( keys %{$hash->{$site}} ) {
 			my @data = split(/\t/, $hash->{$site}->{$p});
 			$total_cnt_all_pops{$site} += $data[0];
-			$alt_cnt_all_pops{$site} += $data[1];
-		}	
+			if($data[1] =~ m/,/){#multiple alt alleles
+			  if($alt_cnt_all_pops{$site} eq 0){
+			    $alt_cnt_all_pops{$site} = $data[1];
+			  }
+			  else{
+				my @curr_totals = split /,/, $alt_cnt_all_pops{$site};
+				my @new_cnts = split /,/, $data[1];
+				for(my $i=0; $i<scalar(@curr_totals);$i++){
+				  $curr_totals[$i] = $curr_totals[$i] + $new_cnts[$i];
+				}
+				my $new_all_alt_cnt = join(",",@curr_totals);
+				$alt_cnt_all_pops{$site} = $new_all_alt_cnt;
+			  }
+			}
+			else{#not multiple alt alleles
+			  $alt_cnt_all_pops{$site} += $data[1];
+			}
+		}
 		my @meta_array = split(/\t/, $site);
 		my $pos = $meta_array[0] . "." . $meta_array[1];
 		$position_hash{$pos} = $site;
@@ -196,7 +269,21 @@ sub print_hash {
 			my $site = $position_hash{$site_pos};		
 			print $out_h "$site\t";
 			print $out_h $total_cnt_all_pops{$site} . "\t" . $alt_cnt_all_pops{$site} . "\t";
-			printf $out_h "%.2f", $alt_cnt_all_pops{$site}/$total_cnt_all_pops{$site};
+			my $alt_afs_all_pops;
+			if($alt_cnt_all_pops{$site} =~ m/,/){
+			  #handle multi-allelic site
+			  my @alt_cnts = split /,/, $alt_cnt_all_pops{$site};
+			  my @alt_afs;
+			  foreach my $alt_cnt (@alt_cnts){
+				my $alt_af = sprintf "%.2f", $alt_cnt/$total_cnt_all_pops{$site};
+				push @alt_afs, $alt_af;
+			  }
+			  $alt_afs_all_pops = join(',',@alt_afs);
+			}
+			else{
+				$alt_afs_all_pops = sprintf "%.2f", $alt_cnt_all_pops{$site}/$total_cnt_all_pops{$site};
+			}
+			print $out_h $alt_afs_all_pops;
 			print $out_h "\t";
 			my @numbers;
 			foreach my $pop_key ( keys %{$hash->{$site}} ) {
