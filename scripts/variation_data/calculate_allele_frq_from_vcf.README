@@ -1,0 +1,12 @@
+VCF files of variant sites and genotypes, released by the 1000 Genomes Project, are usually annotated with allele frequencies (AF) at the global and continental super population levels.  Many users also want the AF of certain variants for the specific populations of interest.
+
+This script takes a VCF file, a matching sample panel file, a chromosomal region, one or more population names, it then calculates population-wide allele
+frequency for sites within the chromosomal region defined. When no population is specified, allele fequences will be calcuated for all populations in the VCF files, one at a time.
+
+To run this script, you need to install the following software:
+tabix: http://sourceforge.net/projects/samtools/files/tabix/
+vcftools: http://sourceforge.net/projects/vcftools/files/
+
+Please use the -help option to see more details about using the script.
+
+Updated 2nd February 2017 to handle multi-allelic sites.
