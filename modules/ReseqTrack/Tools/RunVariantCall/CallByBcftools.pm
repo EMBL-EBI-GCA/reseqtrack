@@ -1,4 +1,4 @@
-package ReseqTrack::Tools::RunVariantCall::CallBySamtools;
+package ReseqTrack::Tools::RunVariantCall::CallByBcftools;
 
 use strict;
 use warnings;
@@ -12,29 +12,28 @@ use base qw(ReseqTrack::Tools::RunVariantCall);
 
 =head2 new
 
-  Arg [-bcftools_path]    :
-          string, optional, path to bcftools if it cannot be worked out from samtools path      
   Arg [-parameters]   :
-      hashref, command line options to use with "samtools mpileup", "bcftools call"
-      Here is a list of options: samtools mpileup [-EBug] [-C capQcoef]  [-l list] [-M capMapQ] [-Q minBaseQ] [-q minMapQ] 
-      Here is a list of options: bcftools view [-AbFGNQSucgv] [-D seqDict] [-l listLoci] [-i gapSNPratio] [-t mutRate] [-p varThres] [-P prior] [-1 nGroup1] [-d minFrac] [-U nPerm] [-X permThres] [-T trioType] 
+      hashref, command line options to use with "bcftools mpileup", "bcftools call"
+      Here is a list of options: bcftools mpileup [-E] [-P platform STR] [-p] [-m min-ireads INT] [-F gap-frac FLOAT] [-a annotate LIST] [ -C adjust-MQ INT] 
+      Here is a list of options: bcftools call [-m] [-v] [-A] [--ploidy <assembly>] [-o output <file>] [-O output-type] [-S samples-file <file>]
+
   Arg [-super_pop_name]    :
       string, default is "unknownPop", used in output file name and collection name
       
   + Arguments for ReseqTrack::Tools::RunProgram parent class
 
-  Function  : Creates a new ReseqTrack::Tools::RunVariantCall::CallBySamtools object.
-  Returntype: ReseqTrack::Tools::RunVariantCall::CallBySamtools
+  Function  : Creates a new ReseqTrack::Tools::RunVariantCall::CallByBcftools object.
+  Returntype: ReseqTrack::Tools::RunVariantCall::CallByBcftools
   Exceptions: 
-  Example   : my $varCall_bySamtools = ReseqTrack::Tools::RunVariantCall::CallBySamtools->new(
+  Example   : my $varCall_byBcftools = ReseqTrack::Tools::RunVariantCall::CallByBcftools->new(
                 -input_files             => ['/path/sam1', '/path/sam2'],
-                -program                 => "/path/to/samtools",
+                -program                 => "/path/to/bcftools",
+                -samtools                 => '/path/to/samtools/',
                 -working_dir             => '/path/to/dir/',  ## this is working dir and output dir
-                -bcftools_path           => '/path/to/bcftools/',
                 -reference               => '/path/to/ref/',
-                -parameters              => {	'mpileup'=>'-ug', 
-                								'bcfcall'=>'-mv', 
-                							 }
+                -options              => {	'mpileup'=>'-ug', 
+                                                'bcfcall'=>'-mv', 
+                			    }
                 -chrom                   => '1',
                 -region                  => '1-1000000',
                 -output_name_prefix      => PHASE1,
@@ -44,8 +43,8 @@ use base qw(ReseqTrack::Tools::RunVariantCall);
 =cut
 
 sub DEFAULT_OPTIONS { return {
-        mpileup => '-Eug -t DP -t SP -t AD -P ILLUMINA -pm3 -F0.2 -C50', 
-        bcfcall => '-mvA',
+        mpileup => '-E -a DP -a SP -a AD -P ILLUMINA -pm3 -F0.2 -C50', 
+        bcfcall => '-mvA -O z',
         depth => 700000,
         ploidy => 'GRCh38',
 	sample_ped => '/nfs/production/reseq-info/work/reference/g1k_integrated_call_samples.20130502.ALL.ped'
@@ -58,15 +57,13 @@ sub new {
   my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
 
-  my ( $bcftools, $bgzip)
+  my ( $bcftools, $samtools)
     = rearrange([ qw(
-    BCFTOOLS BGZIP
-    )], @args);    
+    BCFTOOLS SAMTOOLS)], @args);    
   
   ## Set defaults
-  $self->program('samtools') if (! $self->program);
-  $self->bcftools($bcftools|| 'bcftools');
-  $self->bgzip($bgzip|| 'bgzip');
+  $self->program('bcftools') if (! $self->program);
+  $self->samtools($samtools || 'samtools');
 
   return $self;
 }
@@ -74,7 +71,7 @@ sub new {
 
 =head2 run_program
 
-  Arg [1]   : ReseqTrack::Tools::RunVariantCall::CallBySamtools
+  Arg [1]   : ReseqTrack::Tools::RunVariantCall::CallByBcftools
   Function  : uses samtools to call variants in $self->input_files.
               Output is files are stored in $self->output_files
               This method is called by the RunProgram run method
@@ -89,8 +86,7 @@ sub run_program {
 
     throw("do not have have a reference") if !$self->reference;
     check_file_exists($self->reference);
-    check_executable($self->bcftools);
-    check_executable($self->bgzip);
+    check_executable($self->samtools);
 
     throw("Please provide parameters for running mpileup") if !$self->options('mpileup');
     throw("Please provide parameters for running bcfcall") if !$self->options('bcfcall');
@@ -117,7 +113,7 @@ sub run_program {
     }    
     push(@cmd_words, @{$self->input_files});
 
-    push(@cmd_words, '|', $self->bcftools, 'call');
+    push(@cmd_words, '|', $self->program, 'call');
     push(@cmd_words, $self->options->{'bcfcall'});
     
     my $subset_ped;
@@ -134,8 +130,7 @@ sub run_program {
         push(@cmd_words, "-S" ,  $subset_ped);
     }
 
-    push(@cmd_words, '|', $self->bgzip, '-c');
-    push(@cmd_words, '>', $output_vcf);
+    push(@cmd_words, "-o", $output_vcf);
 
     my $cmd = join(' ', @cmd_words);
 
@@ -163,7 +158,7 @@ sub subset_ped_by_input_bam {
 	$self->execute_command_line ($del_cmd) if (-e $tmp_sample_list);
 	
 	foreach my $bam ( @{$self->input_files})  {
-		my $cmd = $self->program . " view " . $bam . " -H " . "| grep \@RG >> $tmp_sample_list";
+		my $cmd = $self->samtools . " view " . $bam . " -H " . "| grep \@RG >> $tmp_sample_list";
 		$self->execute_command_line ($cmd); 
 	}
 	
@@ -197,52 +192,33 @@ sub subset_ped_by_input_bam {
 	#$self->{'subset_ped_file'} = $subset_ped_file;    
 	return  $subset_ped_file;  
 }
+
+sub samtools{
+    my ($self, $samtools) = @_;
+    if ($samtools) {
+	$self->{'samtools'} = $samtools;
+    }
+    return $self->{'samtools'};
+}
+
 	
-
-sub bcftools{
-  my ($self, $bcftools) = @_;
-  if ($bcftools) {
-    $self->{'bcftools'} = $bcftools;
-  }
-  return $self->{'bcftools'};
-}
-
-sub bgzip{
-  my ($self, $bgzip) = @_;
-  if ($bgzip) {
-    $self->{'bgzip'} = $bgzip;
-  }
-  return $self->{'bgzip'};
-}
-
 1;
 
 =pod
 
 =head1 NAME
 
-ReseqTrack::Tools::RunVariantCall::CallBySamtools
+ReseqTrack::Tools::RunVariantCall::CallByBcftools
 
 =head1 SYNOPSIS
 
-This is a class for running mpileup and BCFtools to call variants
+This is a class for running BCFtools mpileup and BCFtools call to identify the variants
 It is a sub class of a ReseqTrack::Tools::RunVariantCall.
 
 It generates and run command like to call SNPs and indels for multiple diploid individuals:
 
->samtools mpileup -P ILLUMINA -ugf ref.fa *.bam | bcftools view -bcvg - > var.raw.bcf 
->bcftools call var.raw.bcf > var.flt.vcf
+>bcftools mpileup -P ILLUMINA -E ref.fa *.bam | bcftools call -o new.vcf.gz -O z
 
-Petr's parameter when doing the 1kg runs:
-
-samtools mpileup -EDS -C50 -m2 -F0.0005 -d 10000 -P ILLUMINA
-bcftools view -p 0.99
-
-and with ploidy 1 for chrY and non-pseudosomal regions of male chrX
-(1-60000 and 2699521-154931043). Ploidy can be set as an additional
-column to -s option of bcftools view, the accepted values are 1 or 2.
-
-For exome studies, extract on-target sites at the end using a tabix command (see mpileup web site use case example)
 
 
 

@@ -114,6 +114,11 @@ sub default_options {
           sample_ped => undef, 
         },
 
+	call_by_bcftools_options => {
+          ploidy_file => undef,
+          sample_ped => undef,
+        },
+
         'fai' => $self->o('reference') . '.fai',
         'target_bed_file' => undef,
 
@@ -280,6 +285,7 @@ sub pipeline_analyses {
                 bed => $self->o('target_bed_file'),
                 reseqtrack_options => {
                   flows_factory => {
+		      5 => $self->o('call_by_bcftools'),
                       4 => $self->o('call_by_samtools'),
                       2 => $self->o('call_by_gatk'),
                       3 => $self->o('call_by_freebayes'),
@@ -291,6 +297,9 @@ sub pipeline_analyses {
             -analysis_capacity  =>  4,
             -hive_capacity  =>  200,
             -flow_into => {
+		'5' => { 'call_by_bcftools' => {'region2' => '#callgroup#.#SQ_start#.#bp_start#.#SQ_end#.#bp_end#',
+                                                'SQ_start' => '#SQ_start#', 'bp_start' => '#bp_start#', 'SQ_end' => '#SQ_end#', 'bp_end' => '#bp_end#', 'fan_index' => '#fan_index#',
+			 }},
                 '4' => { 'call_by_samtools' => {'region2' => '#callgroup#.#SQ_start#.#bp_start#.#SQ_end#.#bp_end#',
                                                 'SQ_start' => '#SQ_start#', 'bp_start' => '#bp_start#', 'SQ_end' => '#SQ_end#', 'bp_end' => '#bp_end#', 'fan_index' => '#fan_index#',
                                                 }},
@@ -310,6 +319,7 @@ sub pipeline_analyses {
             -parameters    => {
               reseqtrack_options => {
                   flows_non_factory => {
+		      5 => $self->o('call_by_bcftools'),
                       4 => $self->o('call_by_samtools'),
                       2 => $self->o('call_by_gatk'),
                       3 => $self->o('call_by_freebayes'),
@@ -319,6 +329,7 @@ sub pipeline_analyses {
               }
             },
             -flow_into => {
+		5 => [ ':////accu?bcftools_vcf=[fan_index]' ],
                 4 => [ ':////accu?samtools_vcf=[fan_index]' ],
                 2 => [ ':////accu?gatk_vcf=[fan_index]' ],
                 3 => [ ':////accu?freebayes_vcf=[fan_index]' ],
@@ -369,6 +380,47 @@ sub pipeline_analyses {
           },
       });
     push(@analyses, {
+          -logic_name    => 'call_by_bcftools',
+          -module        => 'ReseqTrack::Hive::Process::RunVariantCall',
+          -parameters    => {
+              module_name => 'CallByBcftools',
+              reference => $self->o('reference'),
+              samtools => $self->o('samtools_exe'),
+              bcftools => $self->o('bcftools_exe'),
+              options => $self->o('call_by_bcftools_options'),
+              region_overlap => 100,
+              reseqtrack_options => {
+                encode_file_id => 'vcf',
+              },
+          },
+          -rc_name => '500Mb',
+          -hive_capacity  =>  200,
+          -flow_into => {
+              1 => { ':////accu?bcftools_vcf=[fan_index]' => {'bcftools_vcf' => '#vcf#', 'fan_index' => '#fan_index#'}},
+              -1 => [ 'call_by_bcftools_himem' ],
+          },
+	 });
+    push(@analyses, {
+          -logic_name    => 'call_by_bcftools_himem',
+          -module        => 'ReseqTrack::Hive::Process::RunVariantCall',
+          -parameters    => {
+              module_name => 'CallByBcftools',
+              reference => $self->o('reference'),
+              samtools => $self->o('samtools_exe'),
+              bcftools => $self->o('bcftools_exe'),
+              options => $self->o('call_by_bcftools_options'),
+              region_overlap => 100,
+              reseqtrack_options => {
+                encode_file_id => 'vcf',
+              },
+          },
+          -rc_name => '1Gb',
+          -hive_capacity  =>  200,
+          -flow_into => {
+              1 => { ':////accu?bcftools_vcf=[fan_index]' => {'bcftools_vcf' => '#vcf#', 'fan_index' => '#fan_index#'}},
+          },
+	 });
+     push(@analyses, {
           -logic_name    => 'call_by_gatk',
           -module        => 'ReseqTrack::Hive::Process::RunVariantCall',
           -parameters    => {
@@ -481,15 +533,17 @@ sub pipeline_analyses {
               reseqtrack_options => {
                 flows_non_factory => {
                     1 => $self->o('call_by_samtools'),
-                    2 => $self->o('call_by_gatk'),
-                    3 => $self->o('call_by_freebayes'),
+		    2 => $self->o('call_by_bcftools'),
+                    3 => $self->o('call_by_gatk'),
+                    4 => $self->o('call_by_freebayes'),
                 },
               },
           },
             -flow_into => {
                 '1' => { 'merge_samtools_vcf' => {'caller' => 'samtools'}},
-                '2' => { 'merge_gatk_vcf' => {'caller' => 'gatk'}},
-                '3' => { 'merge_freebayes_vcf' => {'caller' => 'freebayes'}},
+		'2' => { 'merge_bcftools_vcf' => {'caller' => 'bcftools'}},
+                '3' => { 'merge_gatk_vcf' => {'caller' => 'gatk'}},
+                '4' => { 'merge_freebayes_vcf' => {'caller' => 'freebayes'}},
             },
       });
 
@@ -510,6 +564,22 @@ sub pipeline_analyses {
           -rc_name => '500Mb',
           -hive_capacity  =>  200,
       });
+    push(@analyses, {
+          -logic_name    => 'merge_bcftools_vcf',
+          -module        => 'ReseqTrack::Hive::Process::MergeVcf',
+          -parameters    => {
+              vcf => '#bcftools_vcf#',
+              bgzip => $self->o('bgzip_exe'),
+              reseqtrack_options => {
+                decode_file_id => 'bcftools_vcf',
+                denestify => ['bcftools_vcf','bp_start','bp_end'],
+                delete_param => 'bcftools_vcf',
+              },
+          },
+          -flow_into => { '1' => [ 'store_vcf' ], },
+          -rc_name => '500Mb',
+          -hive_capacity  =>  200,
+	 });
     push(@analyses, {
           -logic_name    => 'merge_gatk_vcf',
           -module        => 'ReseqTrack::Hive::Process::MergeVcf',

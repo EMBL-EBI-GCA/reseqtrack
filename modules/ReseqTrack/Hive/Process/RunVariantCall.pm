@@ -61,6 +61,10 @@ sub run {
       $module_args{'-vcfutils'} = $self->param('vcfutils');
       $module_args{'-bgzip'} = $self->param('bgzip');
     }
+    elsif ($module_name eq 'CallByBcftools') {
+	$module_args{'-program'} = $self->param('bcftools');
+	$module_args{'-samtools'} = $self->param('samtools');
+    }
     elsif ($module_name eq 'CallByGATK') {
       $module_args{'-java_exe'} = $self->param('java_exe');
       $module_args{'-jvm_args'} = $self->param('jvm_args');

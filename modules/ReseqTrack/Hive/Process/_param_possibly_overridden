@@ -1,0 +1,1071 @@
+BaseProcess.pm:        Hive process modules can then call $self->output_dir and $self->job_name to return sensible names
+BaseProcess.pm:      -parameters => {
+BaseProcess.pm:            3=>'20-' means only flow down #3 if there are 20 or fewer fastq files
+BaseProcess.pm:  Example   : $self->output_param('bam', '/path/to/new_file.bam');
+BaseProcess.pm:  my $base_params = $self->param('_BaseProcess_params');
+BaseProcess.pm:    $base_params->{'output_hash'}->{$param_name} = $arg;
+BaseProcess.pm:    return $base_params->{'output_hash'}->{$param_name};
+BaseProcess.pm:  return $base_params->{'output_hash'} // {};
+BaseProcess.pm:  Example   : $self->prepare_factory_output_id({run_id => 'ERR000001'});
+BaseProcess.pm:  my $base_params = $self->param('_BaseProcess_params');
+BaseProcess.pm:  push(@{$base_params->{'factory_outputs'}}, $data_hash);
+BaseProcess.pm:  Example   : my $output_dir = $self->output_dir
+BaseProcess.pm:  my $base_params = $self->param('_BaseProcess_params');
+BaseProcess.pm:    $base_params->{'output_dir'} = $dir;
+BaseProcess.pm:  if (!defined $base_params->{'output_dir'}) {
+BaseProcess.pm:    if ($self->param_is_defined('output_dir')) {
+BaseProcess.pm:      $base_params->{'output_dir'} = $self->param('output_dir');
+BaseProcess.pm:    elsif($self->param_is_defined('root_output_dir')) {
+BaseProcess.pm:      if ($self->param_is_defined('dir_label_params')) {
+BaseProcess.pm:        $base_params->{'output_dir'} = join('/', $self->param('root_output_dir'),
+BaseProcess.pm:                map {$self->param($_)}
+BaseProcess.pm:                grep {$self->param_is_defined($_)}
+BaseProcess.pm:                @{$self->param('dir_label_params')});
+BaseProcess.pm:        $base_params->{'output_dir'} = $self->param('root_output_dir');
+BaseProcess.pm:    throw('cannot make a sensible output directory') if ! $base_params->{'output_dir'};
+BaseProcess.pm:    $base_params->{'output_dir'} =~ s/\s+//g;
+BaseProcess.pm:    $base_params->{'output_dir'} =~ s{//+}{/}g;
+BaseProcess.pm:  return $base_params->{'output_dir'};
+BaseProcess.pm:  Example   : my $job_name = $self->job_name;
+BaseProcess.pm:  my $base_params = $self->param('_BaseProcess_params');
+BaseProcess.pm:  if (!$base_params->{'job_name'}) {
+BaseProcess.pm:    my $analysis_label = $self->input_job->analysis->logic_name;
+BaseProcess.pm:    if ($self->param_is_defined('dir_label_params')) {
+BaseProcess.pm:            map {$self->param($_)}
+BaseProcess.pm:            grep {$self->param_is_defined($_)}
+BaseProcess.pm:            @{$self->param('dir_label_params')})[-1];
+BaseProcess.pm:      $job_label = $self->input_job->dbID;
+BaseProcess.pm:    $base_params->{'job_name'} = join('.', grep {length($_)} $job_label, $analysis_label);
+BaseProcess.pm:  return $base_params->{'job_name'};
+BaseProcess.pm:  Example   : my $bam_list = $self->file_param('bam');
+BaseProcess.pm:  my $val = $self->param($param_name);
+BaseProcess.pm:  Example   : $self->run_program($run_samtools_object, 'merge');
+BaseProcess.pm:  $self->dbc->disconnect_when_inactive(1);
+BaseProcess.pm:  my $return = eval{$run_program_object->run(@args);};
+BaseProcess.pm:  $self->dbc->disconnect_when_inactive(0);
+BaseProcess.pm:  print "term_sig is ".$run_program_object->term_sig . "\n";
+BaseProcess.pm:  if ($run_program_object->term_sig) {
+BaseProcess.pm:  $self->param('_BaseProcess_params', {});
+BaseProcess.pm:  my $reseqtrack_options = $self->param_is_defined('reseqtrack_options') ? $self->param('reseqtrack_options') : {};
+BaseProcess.pm:  $self->param('reseqtrack_options', undef);
+BaseProcess.pm:  if (my $denestify_params = $reseqtrack_options->{'denestify'}) {
+BaseProcess.pm:      next PARAM if ! $self->param_is_defined($param_name);
+BaseProcess.pm:      _add_to_flat_array($flat_array, $self->param($param_name));
+BaseProcess.pm:      $self->param($param_name, $flat_array);
+BaseProcess.pm:  if (my $decode_params = $reseqtrack_options->{'decode_file_id'}) {
+BaseProcess.pm:      next PARAM if ! $self->param_is_defined($param_name);
+BaseProcess.pm:      my $data_structure = $self->param($param_name);
+BaseProcess.pm:      $data_structure = $self->_get_files($data_structure);
+BaseProcess.pm:      $self->param($param_name, $data_structure);
+BaseProcess.pm:  if (my $delete_params = $reseqtrack_options->{'delete_param'}) {
+BaseProcess.pm:    my $root_output_dir = $self->param('root_output_dir');
+BaseProcess.pm:      next PARAM if ! $self->param_is_defined($param_name);
+BaseProcess.pm:      my $files = $self->param($param_name);
+BaseProcess.pm:    $self->_files_to_delete([grep { /^$root_output_dir/ } @delete_files]);
+BaseProcess.pm:    $self->_params_to_delete([keys %delete_params]);
+BaseProcess.pm:  my $flows_factory = $reseqtrack_options->{'flows_factory'} // 2;
+BaseProcess.pm:  $self->_flows_factory($flows_factory);
+BaseProcess.pm:  my $flows_non_factory = $reseqtrack_options->{'flows_non_factory'} //
+BaseProcess.pm:                        ((grep {$_ == 1} @{$self->_flows_factory}) ? undef : 1);
+BaseProcess.pm:  $self->_flows_non_factory($flows_non_factory);
+BaseProcess.pm:  my $flows_do_count = $reseqtrack_options->{'flows_do_count'} // {};
+BaseProcess.pm:  $self->_flows_do_count($flows_do_count);
+BaseProcess.pm:  my $do_count_param = $reseqtrack_options->{'flows_do_count_param'} // {};
+BaseProcess.pm:  $self->_flows_do_count_param($do_count_param);
+BaseProcess.pm:  my $encode_params = $reseqtrack_options->{'encode_file_id'} // [];
+BaseProcess.pm:  $self->_params_to_encode($encode_params);
+BaseProcess.pm:  $self->input_job->autoflow(0);
+BaseProcess.pm:  my $delete_params = $self->_params_to_delete;
+BaseProcess.pm:  my $encode_params = $self->_params_to_encode;
+BaseProcess.pm:  while (my ($key, $val) = each %{$self->output_param}) {
+BaseProcess.pm:      $val = $self->_make_file_ids($val);
+BaseProcess.pm:      $val = @$val ? $val->[0] : undef;
+BaseProcess.pm:    $self->param($key, $val);
+BaseProcess.pm:  my $flows_factory = $self->_flows_factory();
+BaseProcess.pm:  my $flows_non_factory = $self->_flows_non_factory();
+BaseProcess.pm:  my $flows_do_count_hash = $self->_flows_do_count();
+BaseProcess.pm:  my $flows_do_count_param = $self->_flows_do_count_param();
+BaseProcess.pm:  if ($flows_do_count_param && $self->param_is_defined($flows_do_count_param)) {
+BaseProcess.pm:    my $data_structure = $self->param($flows_do_count_param);
+BaseProcess.pm:    if ($flows_do_count_hash->{$flow}) {
+BaseProcess.pm:      my ($require_num, $modifier) = @{$flows_do_count_hash->{$flow}};
+BaseProcess.pm:      next FLOW if $modifier eq '-' && $require_num < $num_files_base;
+BaseProcess.pm:  my $factory_outputs = $self->param('_BaseProcess_params')->{'factory_outputs'};
+BaseProcess.pm:    my @flows_for_count = grep {defined $flows_do_count_hash->{$_}} @$flows_factory;
+BaseProcess.pm:    my @flows_no_count = grep {! defined $flows_do_count_hash->{$_}} @$flows_factory;
+BaseProcess.pm:        if (exists $extra_data_hash->{$flows_do_count_param}) {
+BaseProcess.pm:          my $data_structure = $extra_data_hash->{$flows_do_count_param};
+BaseProcess.pm:            my ($require_num, $modifier) = @{$flows_do_count_hash->{$flow}};
+BaseProcess.pm:            next FLOW if $modifier eq '-' && $require_num < $num_files;
+BaseProcess.pm:          $param_value = $self->_make_file_ids($param_value);
+BaseProcess.pm:          $param_value = @$param_value ? $param_value->[0] : undef;
+BaseProcess.pm:        $new_factory_hash->{$param_name} = $param_value;
+BaseProcess.pm:      $self->dataflow_output_id($output_hashes, $flow);
+BaseProcess.pm:    $self->dataflow_output_id(\%base_output, $flow);
+BaseProcess.pm:  foreach my $file (@{$self->_files_to_delete}) {
+BaseProcess.pm:  my $base_params = $self->param('_BaseProcess_params');
+BaseProcess.pm:      $base_params->{'flows_non_factory'} = [];
+BaseProcess.pm:      $base_params->{'flows_non_factory'} = $arg;
+BaseProcess.pm:      $base_params->{'flows_non_factory'} = \@flows;
+BaseProcess.pm:      $base_params->{'flows_non_factory'} = [$arg];
+BaseProcess.pm:  return $base_params->{'flows_non_factory'} // [];
+BaseProcess.pm:  my $base_params = $self->param('_BaseProcess_params');
+BaseProcess.pm:      $base_params->{'flows_factory'} = [];
+BaseProcess.pm:      $base_params->{'flows_factory'} = $arg;
+BaseProcess.pm:      $base_params->{'flows_factory'} = \@flows;
+BaseProcess.pm:      $base_params->{'flows_factory'} = [$arg];
+BaseProcess.pm:  return $base_params->{'flows_factory'} // [];
+BaseProcess.pm:  my $base_params = $self->param('_BaseProcess_params');
+BaseProcess.pm:      my ($require_num, $modifier) = $condition =~ /(\d+)([+-]?)/;
+BaseProcess.pm:      $base_params->{'flows_do_count'}->{$flow} = [$require_num, $modifier];
+BaseProcess.pm:  return $base_params->{'flows_do_count'} // {};
+BaseProcess.pm:  my $base_params = $self->param('_BaseProcess_params');
+BaseProcess.pm:    $base_params->{'flows_do_count_param'} = $param;
+BaseProcess.pm:  return $base_params->{'flows_do_count_param'};
+BaseProcess.pm:  my $base_params = $self->param('_BaseProcess_params');
+BaseProcess.pm:    $base_params->{'params_to_encode'} = $params;
+BaseProcess.pm:  return $base_params->{'params_to_encode'} // [];
+BaseProcess.pm:  my $hive_dbc = $self->dbc();
+BaseProcess.pm:  my $sth = $hive_dbc->prepare($sql) or die "could not prepare $sql: ".$hive_dbc->errstr;
+BaseProcess.pm:  return $self->__structure_to_file_paths($data_structure, $sth);
+BaseProcess.pm:  my $hive_dbc = $self->dbc();
+BaseProcess.pm:  my $sth_insert = $hive_dbc->prepare($sql_insert) or die "could not prepare $sql_insert: ".$hive_dbc->errstr;
+BaseProcess.pm:      $data_structure->[$i] = __structure_to_file_ids($data_structure->[$i], $sth_insert);
+BaseProcess.pm:    $sth_insert->bind_param(1, $data_structure);
+BaseProcess.pm:    $sth_insert->execute() or die 'could not execute '.$sth_insert->statement .': '.$sth_insert->errstr;
+BaseProcess.pm:    my $file_id = $sth_insert->{'mysql_insertid'};
+BaseProcess.pm:      $data_structure->[$i] = $self->__structure_to_file_paths($data_structure->[$i], $sth);
+BaseProcess.pm:      my $new_key = $self->__structure_to_file_paths($key, $sth);
+BaseProcess.pm:      my $new_value = $self->__structure_to_file_paths($value, $sth);
+BaseProcess.pm:    if (my $file = $self->_file_cache($file_id)) {
+BaseProcess.pm:      $sth->bind_param(1, $file_id);
+BaseProcess.pm:      $sth->execute() or die 'could not execute '.$sth->statement .': '.$sth->errstr;
+BaseProcess.pm:      my $file = $sth->fetchall_arrayref->[0]->[0];
+BaseProcess.pm:      $self->_file_cache($file_id, $file);
+BaseProcess.pm:  my $base_params = $self->param('_BaseProcess_params');
+BaseProcess.pm:    $base_params->{'params_to_delete'} = $arg;
+BaseProcess.pm:  return $base_params->{'params_to_delete'} // [];
+BaseProcess.pm:  my $base_params = $self->param('_BaseProcess_params');
+BaseProcess.pm:    push(@{$base_params->{'files_to_delete'}}, @$files);
+BaseProcess.pm:  return $base_params->{'files_to_delete'} // [];
+BaseProcess.pm:  my $base_params = $self->param('_BaseProcess_params');
+BaseProcess.pm:    $base_params->{'file_cache'}->{$dbID} = $name;
+BaseProcess.pm:  return $base_params->{'file_cache'}->{$dbID};
+BWA.pm:    $self->param_required('fastq');
+BWA.pm:    my $run_id = $self->param_required('run_id');
+BWA.pm:    my $reference = $self->param_required('reference');
+BWA.pm:    my $fastqs = $self->param_as_array('fastq');
+BWA.pm:      ID => $self->param('RGID') // $self->param('run_source_id'),
+BWA.pm:      CN => $self->param('RGCN') // $self->param('center_name'),
+BWA.pm:      LB => $self->param('RGLB') // $self->param('library_name'),
+BWA.pm:      PI => $self->param('RGPI') // $self->param('paired_nominal_length'),
+BWA.pm:      SM => $self->param('RGSM') // $self->param('sample_alias'),
+BWA.pm:      DS => $self->param('RGDS') // $self->param('study_source_id'),
+BWA.pm:      PU => $self->param('RGPU') // $self->param('run_source_id'),
+BWA.pm:      PL => $self->param('RGPL') // $self->param('instrument_platform'),
+BWA.pm:    my $run_alignment = ReseqTrack::Tools::RunAlignment::BWA->new(
+BWA.pm:          -input_files => $fastqs,
+BWA.pm:          -program => $self->param('program_file'),
+BWA.pm:          -samtools => $self->param('samtools'),
+BWA.pm:          -output_format => 'BAM',
+BWA.pm:          -working_dir => $self->output_dir,
+BWA.pm:          -reference => $reference,
+BWA.pm:          -job_name => $self->job_name,
+BWA.pm:          -paired_length => $read_group_fields{'PI'},
+BWA.pm:          -read_group_fields => \%read_group_fields,
+BWA.pm:          -options => $self->param('options'),
+BWA.pm:    $self->run_program($run_alignment);
+BWA.pm:    $self->output_param('bam', $run_alignment->output_files->[0]);
+ConvertBedToBigBed.pm:  $self->param_required( 'bed' );
+ConvertBedToBigBed.pm:  my $chr_file        = $self->param_required( 'chr_file' );
+ConvertBedToBigBed.pm:  my $bedToBigBedPath = $self->param_required( 'bedToBigBedPath' );
+ConvertBedToBigBed.pm:  my $min_score       = $self->param('min_score');
+ConvertBedToBigBed.pm:  my $max_score       = $self->param('max_score');
+ConvertBedToBigBed.pm:  my $rescale_scores  = $self->param('rescale_scores');
+ConvertBedToBigBed.pm:  my $in_columns      = $self->param('in_columns');
+ConvertBedToBigBed.pm:  my $out_columns     = $self->param('out_columns');
+ConvertBedToBigBed.pm:  my $add_names       = $self->param('add_names');
+ConvertBedToBigBed.pm:  my $name_prefix     = $self->param('name_prefix');
+ConvertBedToBigBed.pm:  my $verbose         = $self->param('verbose');
+ConvertBedToBigBed.pm:  my $beds            = $self->param_as_array( 'bed' );
+ConvertBedToBigBed.pm:  $self->output_param( 'bigbed', $output_files[0] );
+ConvertBedToBigBed.pm:            $in_columns->{$out_key}
+ConvertBedToBigBed.pm:    my $score_index = $column - 1;
+ConvertBedToBigBed.pm:    my $stats = Statistics::Descriptive::Full->new();
+ConvertBedToBigBed.pm:        $stats->add_data($score);
+ConvertBedToBigBed.pm:    my $q1 = $stats->percentile(25);
+ConvertBedToBigBed.pm:    my $q3 = $stats->percentile(75);
+ConvertBedToBigBed.pm:        my $min    = $stats->min();
+ConvertBedToBigBed.pm:        my $median = $stats->percentile(50);
+ConvertBedToBigBed.pm:        my $max    = $stats->max();
+ConvertBedToBigBed.pm:    map { $cols[ $col_mappings->{$_} - 1 ] = $_ if $col_mappings->{$_} }
+ConvertBedToBigBed.pm:    my $range     = $max_score - $min_score;
+ConvertBedToBigBed.pm:            ( asinh($original_score) - asinh($q1) ) /
+ConvertBedToBigBed.pm:              ( asinh($q3) - asinh($q1) )
+FindBam.pm:	my $db_params = $self->param_required('reseqtrack_db');
+FindBam.pm:	my $sample = $self->param_required('sample');
+FindBam.pm:	my $bam_type = $self->param_required('bam_type');
+FindBam.pm:	my $db = ReseqTrack::DBSQL::DBAdaptor->new(%{$db_params});
+FindBam.pm:	my $f_objs = $db->get_FileAdaptor->fetch_all_like_name($sample);
+FindBam.pm:	$db->dbc->disconnect_when_inactive(1);
+FindBam.pm:		#print "fetched file: " . $fo->name . "\n";
+FindBam.pm:		next if ($fo->type ne $bam_type);
+FindBam.pm:		next unless ($fo->name =~ /\.mapped/);
+FindBam.pm:		next if ($fo->name =~ /high_coverage/);
+FindBam.pm:		$bam = $fo->name;
+FindBam.pm:	$self->output_param('bam', $bam);  
+GetFastq.pm:    my $run_id = $self->param_required('run_id');
+GetFastq.pm:    my $db_params = $self->param_required('reseqtrack_db');
+GetFastq.pm:    my $module = $self->param('module') // param_defaults()->{'module'};
+GetFastq.pm:    my $source_root_dir = $self->param('source_root_dir');
+GetFastq.pm:    my $clobber = $self->param('clobber');
+GetFastq.pm:    my $era_dbuser = $self->param_required('era_dbuser');
+GetFastq.pm:    my $era_dbpass = $self->param_required('era_dbpass');
+GetFastq.pm:		my $era_dbname = $self->param('era_dbname');
+GetFastq.pm:    my $db = ReseqTrack::DBSQL::DBAdaptor->new(%{$db_params});
+GetFastq.pm:    my $run = $db->get_RunAdaptor->fetch_by_dbID($run_id);
+GetFastq.pm:    while (my ($key, $value) = each %{$self->param('module_options')}) {
+GetFastq.pm:      $constructor_hash{'-'.$key} = $value;
+GetFastq.pm:    $constructor_hash{-output_dir} = $self->output_dir;
+GetFastq.pm:    $constructor_hash{-run_info} = $run;
+GetFastq.pm:    $constructor_hash{-source_root_dir} = $source_root_dir;
+GetFastq.pm:    $constructor_hash{-clobber} = $clobber;
+GetFastq.pm:    $constructor_hash{-db} = $era_db;
+GetFastq.pm:    my $fastq_getter = $module->new (%constructor_hash);
+GetFastq.pm:    $db->dbc->disconnect_when_inactive(1);
+GetFastq.pm:    my $num_files = $fastq_getter->run;
+GetFastq.pm:      $self->flows_non_factory(undef);
+GetFastq.pm:    $self->output_param('fastq', $fastq_getter->output_files);
+GetFastq.pm:    $self->output_param('fastq_md5', $fastq_getter->md5_hash);
+GtVcf2SiteVcf.pm:    my $gt_vcf = $self->param_required('gt_vcf');
+GtVcf2SiteVcf.pm:	my $output_dir = $self->output_dir;
+GtVcf2SiteVcf.pm:    my $output_file = $output_dir . "/" . $self->job_name . ".site.vcf"; 
+GtVcf2SiteVcf.pm:		$command = "zcat $gt_vcf | cut -f1-8 > $output_file";
+GtVcf2SiteVcf.pm:		$command = "cut -f1-8 $gt_vcf > $output_file";
+GtVcf2SiteVcf.pm:    $self->output_param('site_vcf', $output_file);
+ImportCollection.pm:    my $collection_type = $self->param('collection_type');
+ImportCollection.pm:    my $collection_name = $self->param('collection_name');
+ImportCollection.pm:    my $collection_id = $self->param('collection_id');
+ImportCollection.pm:    $self->param_required('output_param');
+ImportCollection.pm:    my $db = ReseqTrack::DBSQL::DBAdaptor->new(%{$self->param_required('reseqtrack_db')});
+ImportCollection.pm:    my $ca = $db->get_CollectionAdaptor;
+ImportCollection.pm:    my $collection = $ca->fetch_by_name_and_type($self->param('collection_name'), $self->param('collection_type'));
+ImportCollection.pm:    my $collection = defined $collection_id ? $ca->fetch_by_dbID($collection_id)
+ImportCollection.pm:                  : $ca->fetch_by_name_and_type($collection_name, $collection_type);
+ImportCollection.pm:    my $output_name_param = $self->param('output_param');
+ImportCollection.pm:    my $output_values = $collection ? [map {$_->name} @{$collection->others}] : [];
+ImportCollection.pm:    $self->output_param($output_name_param, $output_values);
+ImportCollection.pm:    $db->dbc->disconnect_when_inactive(1);
+JobFactory.pm:    my $values = $self->param_as_array('factory_value');
+JobFactory.pm:      $self->prepare_factory_output_id({'factory_value' => $value});
+LoadFile.pm:    $self->param_required('file');
+LoadFile.pm:    my $db_params = $self->param_required('reseqtrack_db');
+LoadFile.pm:    my $type = $self->param('type');
+LoadFile.pm:    my $md5_hash = $self->param('md5');
+LoadFile.pm:    my $collect = $self->param('collect') ? 1 : 0;
+LoadFile.pm:    my $collection_name = $collect ? $self->param_required('collection_name') : undef;
+LoadFile.pm:    my $host_name = $self->param('host_name');
+LoadFile.pm:    my $clobber = $self->param('clobber') ? 1 : 0;
+LoadFile.pm:    my $do_pipeline_output = $self->param_required('record_pipeline_output');
+LoadFile.pm:      $pipeline_seed_id =     $self->param_required('ps_id') 
+LoadFile.pm:    my $current_file_paths = $self->param_as_array('file');
+LoadFile.pm:    my $name_file_module = $self->param('name_file_module') // param_defaults()->{'name_file_module'};
+LoadFile.pm:    my $renamer = $name_file_module->new(
+LoadFile.pm:          -method => $self->param('name_file_method') // param_defaults()->{'name_file_method'},
+LoadFile.pm:          -params => $self->param('name_file_params'),
+LoadFile.pm:          -files => $current_file_paths,
+LoadFile.pm:    $renamer->derive_paths;
+LoadFile.pm:    my $file_map = $renamer->file_map;
+LoadFile.pm:      my $new_path = $file_map->{$old_path};
+LoadFile.pm:    my $db = ReseqTrack::DBSQL::DBAdaptor->new(%{$db_params});
+LoadFile.pm:      my $file_type_rules = $db->get_FileTypeRuleAdaptor->fetch_all_in_order;
+LoadFile.pm:    if (grep {!$md5_hash->{$_}} @$current_file_paths) {
+LoadFile.pm:      $db->dbc->disconnect_when_inactive(1);
+LoadFile.pm:        $md5_hash->{$current_path} //= file_md5_hex($current_path);
+LoadFile.pm:      $db->dbc->disconnect_when_inactive(0);
+LoadFile.pm:    my $fa = $db->get_FileAdaptor;
+LoadFile.pm:    my $poa = $db->get_PipelineOutputAdaptor;
+LoadFile.pm:      my $load_path = $file_map->{$current_path} || $current_path;
+LoadFile.pm:      my $md5 = $md5_hash->{$current_path};
+LoadFile.pm:      $file->md5($md5);
+LoadFile.pm:      if (my $move_path = $file_map->{$current_path}) {
+LoadFile.pm:      if (my $existing_file = $fa->fetch_by_name($load_path)) {
+LoadFile.pm:        $pipeline_seed //= $db->get_PipelineSeedAdaptor->fetch_by_dbID($pipeline_seed_id);
+LoadFile.pm:        $file->dbID($existing_file->dbID);
+LoadFile.pm:        my $history = ReseqTrack::History->new(
+LoadFile.pm:          -other_id => $file->dbID, -table_name => 'file',
+LoadFile.pm:          -comment => 'updated by pipeline '.$pipeline_seed->pipeline->name,
+LoadFile.pm:        $file->history($history);
+LoadFile.pm:        $fa->update($file);
+LoadFile.pm:        $fa->store($file);
+LoadFile.pm:        my $pipeline_output = ReseqTrack::PipelineOutput->new(
+LoadFile.pm:          -pipeline_seed_id => $pipeline_seed_id,
+LoadFile.pm:          -table_name => 'file', -output => $file,
+LoadFile.pm:          -action => $action,
+LoadFile.pm:        $poa->store($pipeline_output);
+LoadFile.pm:      my $collection = ReseqTrack::Collection->new(
+LoadFile.pm:          -name => $collection_name, -type => $type // $file_objects[0]->type,
+LoadFile.pm:          -others => \@file_objects, -table_name =>'file',
+LoadFile.pm:      $db->get_CollectionAdaptor->store($collection);
+LoadFile.pm:      $self->output_param('file', $load_file_paths->[0]);
+LoadFile.pm:      $self->output_param('file', $load_file_paths);
+LobSTR.pm:    $self->param_required('fastq');
+LobSTR.pm:    my $ref_index_prefix = $self->param_required('ref_index_prefix');
+LobSTR.pm:    my $fastqs = $self->param_as_array('fastq');
+LobSTR.pm:      LB => $self->param('library_name'),
+LobSTR.pm:      SM => $self->param('sample_source_id'),
+LobSTR.pm:    my $run_alignment = ReseqTrack::Tools::RunAlignment::LobSTR->new(
+LobSTR.pm:          -input_files => $fastqs,
+LobSTR.pm:          -program => $self->param('program_file'),
+LobSTR.pm:          -working_dir => $self->output_dir,
+LobSTR.pm:          -job_name => $self->job_name,
+LobSTR.pm:          -ref_index_prefix => $ref_index_prefix,
+LobSTR.pm:          -read_group_fields => \%read_group_fields,
+LobSTR.pm:          -options => $self->param('options'),
+LobSTR.pm:    $self->run_program($run_alignment);
+LobSTR.pm:    $self->output_param('bam', $run_alignment->output_files->[0]);
+Macs2Attribute.pm:  $self->param_required('bam'); 
+Macs2Attribute.pm:  my $bed           = $self->param_required('bed'); 
+Macs2Attribute.pm:  my $bams         = $self->param_as_array( 'bam' );
+Macs2Attribute.pm:  my $db_param = $self->param_required('reseqtrack_db');
+Macs2Attribute.pm:  my $samtools   = $self->param_required('samtools');
+Macs2Attribute.pm:  my $bedtools    = $self->param_required('bedtools');
+Macs2Attribute.pm:  $self->output_param('attribute_metrics',  \%peak_stats );
+Macs2Attribute.pm:    my $stats = Statistics::Descriptive::Full->new();
+Macs2Attribute.pm:        open $bed_fh, '-|', 'gzip', '-dc', $bed_file;
+Macs2Attribute.pm:        my $length = $end - $start + 1;
+Macs2Attribute.pm:        $stats->add_data($length);
+Macs2Attribute.pm:    $peak_stats{region_count}           = $stats->count();
+Macs2Attribute.pm:    $peak_stats{region_length_mean}     = $stats->mean();
+Macs2Attribute.pm:    $peak_stats{region_length_median}   = $stats->median();
+Macs2Attribute.pm:    $peak_stats{region_length_std_dev}  = $stats->standard_deviation();
+Macs2Attribute.pm:    $peak_stats{region_length_variance} = $stats->variance();
+Macs2Attribute.pm:    $peak_stats{region_length_total}    = $stats->sum();
+Macs2Attribute.pm:      execute_pipe_system_command("$samtools_path view -c $bam_file");
+Macs2Attribute.pm:        "$bedtools_path intersect -a $bam_file -b $bed_file -bed | wc -l");
+MergeByPaste.pm:    $self->param_required('files');
+MergeByPaste.pm:    my $files =  $self->param_as_array('files');
+MergeByPaste.pm:    my $program = $self->param('program');
+MergeByPaste.pm:    my $save_files_from_deletion =  $self->param('save_files_from_deletion');
+MergeByPaste.pm:    #my @sorted_files = sort{$a cmp $b} @$files; ### No need to sort here as the $self->input_files random the order again
+MergeByPaste.pm:    my $site_vcf = $self->param('site_vcf');
+MergeByPaste.pm:	my $sites = $self->output_dir . "/" . basename($site_vcf) . ".$$.sites";  ### the file is written to #vcf_base_name# level, not to the nested #sample# level
+MergeByPaste.pm:	my $object = ReseqTrack::Tools::Concatenate_by_paste->new (
+MergeByPaste.pm:		-program					=> $program,
+MergeByPaste.pm:		-input_files				=> $files,
+MergeByPaste.pm:		-working_dir				=> $self->output_dir,
+MergeByPaste.pm:		-job_name					=> $self->job_name,
+MergeByPaste.pm:		-save_files_from_deletion	=> $save_files_from_deletion,
+MergeByPaste.pm:	$self->run_program($object);
+MergeByPaste.pm:    $self->output_param('matrix', $object->output_files->[0]);
+MergeVcf.pm:    $self->param_required('vcf');
+MergeVcf.pm:    $self->param_required('bp_start');
+MergeVcf.pm:    $self->param_required('bp_end');
+MergeVcf.pm:    my $bgzip = $self->param('bgzip');
+MergeVcf.pm:    my $tabix = $self->param('tabix');
+MergeVcf.pm:    my $run_tabix = $self->param('run_tabix');
+MergeVcf.pm:    my $vcfs = $self->param_as_array('vcf');
+MergeVcf.pm:    my $bp_start = $self->param_as_array('bp_start');
+MergeVcf.pm:    my $bp_end = $self->param_as_array('bp_end');
+MergeVcf.pm:    $self->dbc->disconnect_when_inactive(1);
+MergeVcf.pm:    my $output_dir = $self->output_dir;
+MergeVcf.pm:    my $job_name = $self->job_name;
+MergeVcf.pm:    open my $OUT, "| $bgzip -c > $output_file";
+MergeVcf.pm:      my $vcf_path = $vcfs->[$i];
+MergeVcf.pm:      throw("missing bp_start for $vcf_path") if ! defined $bp_start->[$i];
+MergeVcf.pm:      throw("missing bp_end for $vcf_path") if ! defined $bp_end->[$i];
+MergeVcf.pm:        open $IN, "$bgzip -cd $vcf_path |" or throw("cannot open $vcf_path: $!");
+MergeVcf.pm:        next LINE if $pos < $bp_start->[$i];
+MergeVcf.pm:        next LINE if $pos > $bp_end->[$i];
+MergeVcf.pm:      system("$tabix -p vcf $output_file") ==0 or throw("tabix failed $!");
+MergeVcf.pm:    $self->dbc->disconnect_when_inactive(0);
+MergeVcf.pm:    $self->output_param('vcf' => $output_file);
+MergeVcf.pm:      $self->output_param('tbi' => "$output_file.tbi");
+Multicov.pm:    $self->param_required('bams');
+Multicov.pm:    my $bams =  $self->param_as_array('bams');   
+Multicov.pm:    my $site_vcf = $self->param_required('site_vcf');
+Multicov.pm:	my $sample = $self->param('sample');
+Multicov.pm:    my $program = $self->param('program');
+Multicov.pm:	my $stream_out = $self->param('stream_out');
+Multicov.pm:	my $options = $self->param('options');
+Multicov.pm:	my $save_files_from_deletion = $self->param('save_files_from_deletion');
+Multicov.pm: 	my $run_multicov = ReseqTrack::Tools::BedTools_multicov->new(
+Multicov.pm: 		-program					=> $program,
+Multicov.pm:		-input_files				=> $bams,
+Multicov.pm:		-bed						=> $site_vcf,
+Multicov.pm:		-stream_out					=> $stream_out,
+Multicov.pm:		-working_dir				=> $self->output_dir,
+Multicov.pm:		-options					=> $options,
+Multicov.pm:		-job_name					=> $sample,
+Multicov.pm:	$self->run_program($run_multicov);
+Multicov.pm:    my $output_files = $run_multicov->output_files;
+Multicov.pm:    mkpath($self->output_dir) unless (-d $self->output_dir);
+Multicov.pm:    my $tmp_out = $output_files->[0] . ".tmp";
+Multicov.pm:    my $cut_cmd = "cut -f1-8 --complement " . $output_files->[0] . " > " . $tmp_out;  ## This is to get the last columns of the vcf file which contain depth
+Multicov.pm:    my $header = $self->output_dir . "/" .   basename($site_vcf) . "." . $sample . ".$$.header";
+Multicov.pm:    $self->output_param('sample_depth_file', $depth_only_file);
+Multicov.pm:    unlink($output_files->[0]);
+PPQT.pm:  $self->param_required( 'bam' );
+PPQT.pm:  $self->param_required( 'rscript_path' );
+PPQT.pm:  $self->param_required( 'samtools' );
+PPQT.pm:  my $add_attributes = $self->param( 'add_attributes' ) ? 1 : 0;  
+PPQT.pm:  my $bams              = $self->param_as_array( 'bam' );
+PPQT.pm:  my $rscript_path      = $self->param( 'rscript_path' );
+PPQT.pm:  my $samtools_path     = $self->param( 'samtools' );
+PPQT.pm:  my $keep_metrics_file = $self->param( 'keep_metrics_file' );
+PPQT.pm:  my $keep_plot         = $self->param( 'keep_plot' );
+PPQT.pm:  my $keep_rdata        = $self->param( 'keep_rdata' );
+PPQT.pm:  my $ppqt_no_dups      = $self->param( 'ppqt_no_dups' );
+PPQT.pm:  my $metrics_generator = ReseqTrack::Tools::QC::PPQT->new(
+PPQT.pm:      -program       => $self->param('program_file'),
+PPQT.pm:      -rscript_path  => $rscript_path,
+PPQT.pm:      -samtools_path => $samtools_path,
+PPQT.pm:      -input_files   => $bams,
+PPQT.pm:      -keep_metrics  => $keep_metrics_file, 
+PPQT.pm:      -keep_plot     => $keep_plot, 
+PPQT.pm:      -keep_rdata    => $keep_rdata, 
+PPQT.pm:      -no_dups       => $ppqt_no_dups, 
+PPQT.pm:      -working_dir   => $self->output_dir,
+PPQT.pm:      -job_name      => $self->job_name,
+PPQT.pm:  $self->run_program( $metrics_generator );
+PPQT.pm:  $self->output_param( 'ppqt_metrics', $metrics_generator->output_metrics_files ) if $keep_metrics_file;
+PPQT.pm:  $self->output_param( 'ppqt_pdf', $metrics_generator->output_pdf_files ) if $keep_plot; 
+PPQT.pm:  $self->output_param( 'ppqt_rdata', $metrics_generator->output_rdata_files ) if $keep_rdata;
+PPQT.pm:    my $generated_metrics = $metrics_generator->output_metrics_object;
+PPQT.pm:    $self->output_param('attribute_metrics', $generated_metrics);
+ReheaderBam.pm:    $self->param_required('bam');
+ReheaderBam.pm:    my $bams = $self->param_as_array('bam');
+ReheaderBam.pm:    $self->param_required('fastq');
+ReheaderBam.pm:    my $fastqs = $self->param_as_array('fastq');
+ReheaderBam.pm:    if ($self->param_is_defined('dict_file')) {
+ReheaderBam.pm:      $dict_file = $self->param('dict_file');
+ReheaderBam.pm:    elsif ($self->param_is_defined('reference')) {
+ReheaderBam.pm:      $dict_file = $self->param('reference');
+ReheaderBam.pm:    my $reheader_object = ReseqTrack::Tools::ReheaderBam->new(
+ReheaderBam.pm:      -input_files  => $bams,
+ReheaderBam.pm:      -working_dir  => $self->output_dir,
+ReheaderBam.pm:      -job_name     => $self->job_name,
+ReheaderBam.pm:      -program      => $self->param('samtools'),
+ReheaderBam.pm:      -header_lines_file => $self->param('header_lines_file'),
+ReheaderBam.pm:      -dict_file => $dict_file,
+ReheaderBam.pm:      -extra_header_lines => \@extra_header_lines,
+ReheaderBam.pm:      -options      => {reuse_old_header => 1,
+ReheaderBam.pm:      -SQ_fields_hash => {AS => $self->param('SQ_assembly'),
+ReheaderBam.pm:                          SP => $self->param('SQ_species'),
+ReheaderBam.pm:                          UR => $self->param('SQ_uri')},
+ReheaderBam.pm:    $self->run_program($reheader_object);
+ReheaderBam.pm:    my $output_files = ref($self->param('bam')) ? $reheader_object->output_files : $reheader_object->output_files->[0];
+ReheaderBam.pm:    $self->output_param('bam' => $output_files);
+RunApplyRecalibration.pm:    $self->param_required('vcf');
+RunApplyRecalibration.pm:    $self->param_required('recal_file');
+RunApplyRecalibration.pm:    $self->param_required('tranches_file');
+RunApplyRecalibration.pm:    my $reference = $self->param_required('reference');
+RunApplyRecalibration.pm:    my $vcf_arr = $self->param_as_array('vcf');
+RunApplyRecalibration.pm:    my $tranches_arr = $self->param_as_array('tranches_file');
+RunApplyRecalibration.pm:    my $recal_arr = $self->param_as_array('recal_file');
+RunApplyRecalibration.pm:    my $gatk_object = ReseqTrack::Tools::RunVariantCall::RunApplyRecalibration->new(
+RunApplyRecalibration.pm:      -input_vcf    => $vcf_arr->[0],
+RunApplyRecalibration.pm:      -tranches_file => $tranches_arr->[0],
+RunApplyRecalibration.pm:      -recal_file   => $recal_arr->[0],
+RunApplyRecalibration.pm:      -working_dir  => $self->output_dir,
+RunApplyRecalibration.pm:      -reference    => $reference,
+RunApplyRecalibration.pm:      -job_name     => $self->job_name,
+RunApplyRecalibration.pm:      -java_exe     => $self->param('java_exe'),
+RunApplyRecalibration.pm:      -jvm_args     => $self->param('jvm_args'),
+RunApplyRecalibration.pm:      -gatk_path    => $self->param('gatk_dir'),
+RunApplyRecalibration.pm:      -options      => $self->param('options'),
+RunApplyRecalibration.pm:    $self->run_program($gatk_object);
+RunApplyRecalibration.pm:    $self->output_param('vcf', $gatk_object->output_files->[0]);
+RunBamImprovement.pm:    $self->param_required('bam');
+RunBamImprovement.pm:    my $bams = $self->param_as_array('bam');
+RunBamImprovement.pm:    my $reference = $self->param_required('reference');
+RunBamImprovement.pm:    my $command = $self->param_required('command');
+RunBamImprovement.pm:    my $gatk_object = $gatk_module->new(
+RunBamImprovement.pm:      -input_files  => $bams,
+RunBamImprovement.pm:      -working_dir  => $self->output_dir,
+RunBamImprovement.pm:      -reference    => $reference,
+RunBamImprovement.pm:      -job_name     => $self->job_name,
+RunBamImprovement.pm:      -java_exe     => $self->param('java_exe'),
+RunBamImprovement.pm:      -jvm_args     => $self->param('jvm_args'),
+RunBamImprovement.pm:      -gatk_path    => $self->param('gatk_dir'),
+RunBamImprovement.pm:      -options      => $self->param('gatk_module_options'),
+RunBamImprovement.pm:      -known_sites_files => $self->param('known_sites_vcf'),
+RunBamImprovement.pm:    if ($command eq 'realign' && defined $self->param('intervals_file')) {
+RunBamImprovement.pm:      $gatk_object->intervals_file($self->param('intervals_file'));
+RunBamImprovement.pm:    $self->run_program($gatk_object, $command);
+RunBamImprovement.pm:    $self->output_param('bam', $gatk_object->output_bam);
+RunBioBamBam.pm:    $self->param_required('bam');
+RunBioBamBam.pm:    my $bams = $self->param_as_array('bam');
+RunBioBamBam.pm:    my $command = $self->param_required('command');
+RunBioBamBam.pm:    %options = (%options, %{$self->param('options')});
+RunBioBamBam.pm:    my $biobambam_object = ReseqTrack::Tools::RunBioBamBam->new(
+RunBioBamBam.pm:      -input_files			=> $bams,
+RunBioBamBam.pm:      -working_dir			=> $self->output_dir,
+RunBioBamBam.pm:      -job_name				=> $self->job_name,
+RunBioBamBam.pm:      -biobambam_dir		=> $self->param('biobambam_dir'),
+RunBioBamBam.pm:      -options				=> \%options,
+RunBioBamBam.pm:      -create_index			=> $self->param('create_index'),
+RunBioBamBam.pm:      -sort_order			=> $self->param('sort_order'),
+RunBioBamBam.pm:      -command				=> $command,
+RunBioBamBam.pm:      -keep_metrics			=> 0,
+RunBioBamBam.pm:      -remove_duplicates	=> 0.
+RunBioBamBam.pm:    $self->run_program($biobambam_object);
+RunBioBamBam.pm:    my $output_bams = $biobambam_object->output_bam_files;
+RunBioBamBam.pm:    my $output_bais = $biobambam_object->output_bai_files;
+RunBioBamBam.pm:    $self->output_param('bam', $output_bams);
+RunBioBamBam.pm:    $self->output_param('bai', $output_bais);
+RunBismark.pm:    my $command = $self->param_required('command');
+RunBismark.pm:	my $base = $self->param_required('run_source_id');
+RunBismark.pm:	my $reference = $self->param_required('reference');
+RunBismark.pm:	my $multicore = $self->param_required('multicore');
+RunBismark.pm:	my $rgid = $self->param_required('rg_id');
+RunBismark.pm:	my $rgsample = $self->param_required('rg_sample');
+RunBismark.pm:	my $fastqs = $self->param_as_array('fastq');
+RunBismark.pm:	my $add_attributes = $self->param( 'add_attributes' ) ? 1 : 0;  
+RunBismark.pm:	    $run_alignment = ReseqTrack::Tools::RunBismark->new(
+RunBismark.pm:		-base => $base,
+RunBismark.pm:                -mate1_file => $sorted_fastqs[0],
+RunBismark.pm:		-mate2_file => $sorted_fastqs[1],
+RunBismark.pm:                -program => $self->param('program_file'),
+RunBismark.pm:		-multicore => $multicore,
+RunBismark.pm:                -samtools => $self->param('samtools'),
+RunBismark.pm:                -output_format => 'BAM',
+RunBismark.pm:		-rg_tag=>1,
+RunBismark.pm:		-rg_id=>$rgid,
+RunBismark.pm:		-rg_sample=>$rgsample,
+RunBismark.pm:                -working_dir => $self->output_dir,
+RunBismark.pm:                -reference => $reference,
+RunBismark.pm:                -job_name => $self->job_name,
+RunBismark.pm:                -options => $self->param('options'),
+RunBismark.pm:	    $run_alignment = ReseqTrack::Tools::RunBismark->new(
+RunBismark.pm:		-base => $base,
+RunBismark.pm:		-fragment_file => $fastqs->[0],
+RunBismark.pm:		-program => $self->param('program_file'),
+RunBismark.pm:		-multicore => $multicore,
+RunBismark.pm:		-samtools => $self->param('samtools'),
+RunBismark.pm:		-output_format => 'BAM',
+RunBismark.pm:		-rg_tag=>1,
+RunBismark.pm:                -rg_id=>$rgid,
+RunBismark.pm:                -rg_sample=>$rgsample,
+RunBismark.pm:		-working_dir => $self->output_dir,
+RunBismark.pm:		-reference => $reference,
+RunBismark.pm:		-job_name => $self->job_name,
+RunBismark.pm:		-options => $self->param('options'),
+RunBismark.pm:	$self->run_program($run_alignment,$command);
+RunBismark.pm:	    my $generated_metrics = $run_alignment->mapper_metrics_object;
+RunBismark.pm:	    $self->output_param('attribute_metrics', $generated_metrics);
+RunBismark.pm:	$self->output_param('bam', $self->output_dir."/".$run_alignment->bam_file);
+RunBismark.pm:	$self->output_param('mapper_report', $self->output_dir."/".$run_alignment->report_file);
+RunBismark.pm:	my $fastqs = $self->param_as_array('fastq');
+RunBismark.pm:	my $bamfile = $self->param_required('bam');
+RunBismark.pm:	my $multicore = $self->param_required('multicore');
+RunBismark.pm:	my $run_methext=ReseqTrack::Tools::RunBismark->new(
+RunBismark.pm:	    -input_files => $bamfile,
+RunBismark.pm:	    -working_dir => $self->output_dir,
+RunBismark.pm:	    -multicore => $multicore,
+RunBismark.pm:	    -runmode => $runmode,
+RunBismark.pm:	    -cutoff => $self->param('cutoff')
+RunBismark.pm:	$self->run_program($run_methext,$command);
+RunBismark.pm:	$self->output_param('mbias_txt', $run_methext->mbias_txt);
+RunBismark.pm:	$self->output_param('mbias_png', $run_methext->mbias_png);
+RunBismark.pm:	$self->output_param('bedgraph', $run_methext->bedgraph);
+RunBismark.pm:	$self->output_param('chh_context', $run_methext->chh_context);
+RunBismark.pm:	$self->output_param('cpg_context', $run_methext->cpg_context);
+RunBismark.pm:	$self->output_param('chg_context', $run_methext->chg_context);
+RunBismark.pm:	$self->output_param('splitting', $run_methext->splitting);
+RunCramtools.pm:    $self->param_required('bam');
+RunCramtools.pm:    my $bams = $self->param_as_array('bam');
+RunCramtools.pm:	#$self->param_required('reference');
+RunCramtools.pm:    my $options = $self->param('cramtools_options');
+RunCramtools.pm:	my $output_file_name = $self->output_dir . "/" . basename($bams->[0]) . ".cram";
+RunCramtools.pm:	my $cram = ReseqTrack::Tools::ConvertBam->new (
+RunCramtools.pm:		-input_files 		=> $bams,
+RunCramtools.pm:		-program			=> $self->param('program_file'),  
+RunCramtools.pm:		-cramtools_jar_file => $self->param('cramtools_jar_file'),
+RunCramtools.pm:		-java_exe			=> $self->param('java_exe'),
+RunCramtools.pm:		-jvm_args			=> $self->param('jvm_args'),
+RunCramtools.pm:		-output_format 		=> 'cram',
+RunCramtools.pm:		-options 			=> $options,
+RunCramtools.pm:		-reference_fasta 	=> $self->param('reference'),
+RunCramtools.pm:		-working_dir		=> $self->output_dir,
+RunCramtools.pm:		-output_file 		=> $output_file_name,
+RunCramtools.pm:    $self->run_program($cram);
+RunCramtools.pm:    my $output_files = $cram->output_files;
+RunCramtools.pm:	if (basename($output_files->[0]) =~ /\.cram$/i) {
+RunCramtools.pm:		$self->output_param('cram'  => $output_files);
+RunCramtools.pm:	elsif (basename($output_files->[0]) =~ /\.crai$/i) {
+RunCramtools.pm:		$self->output_param('crai'  => $output_files);
+RunFastqc.pm:    $self->param_required('fastq');
+RunFastqc.pm:    my $store_attributes = $self->param('store_attributes') ? 1 : 0;
+RunFastqc.pm:    my $db_params = $store_attributes ? $self->param_required('reseqtrack_db') : undef;
+RunFastqc.pm:    my $fastqs = $self->param_as_array('fastq');
+RunFastqc.pm:    my $fastq = $fastqs->[0];
+RunFastqc.pm:      $db = ReseqTrack::DBSQL::DBAdaptor->new(%{$db_params});
+RunFastqc.pm:      $fastq_object = $db->get_FileAdaptor->fetch_by_name($fastq);
+RunFastqc.pm:      $db->dbc->disconnect_when_inactive(1);
+RunFastqc.pm:    my $output_dir = $self->output_dir;
+RunFastqc.pm:    my $fastqc = ReseqTrack::Tools::QC::FastQC->new(
+RunFastqc.pm:      -job_name => $self->job_name,
+RunFastqc.pm:      -program => $self->param('program_file'),
+RunFastqc.pm:      -keep_text => 1,
+RunFastqc.pm:      -keep_summary => 1,
+RunFastqc.pm:      -keep_zip => 1,
+RunFastqc.pm:      -working_dir => $output_dir,
+RunFastqc.pm:      -input_files => $fastqs,
+RunFastqc.pm:    $self->run_program($fastqc);
+RunFastqc.pm:    my @summary_paths = grep { /_summary\.txt$/ } @{$fastqc->output_files};
+RunFastqc.pm:    my @report_paths = grep { /_report\.txt$/ } @{$fastqc->output_files};
+RunFastqc.pm:    my @zip_paths = grep { /\.zip$/ } @{$fastqc->output_files};
+RunFastqc.pm:      $db->dbc->disconnect_when_inactive(0);
+RunFastqc.pm:      my $attributes = $fastq_object->attributes;
+RunFastqc.pm:      $fastq_object->uniquify_attributes($attributes);
+RunFastqc.pm:      $db->get_FileAdaptor->store_attributes($fastq_object);
+RunFastqc.pm:    $self->output_param('fastqc_summary', $summary_path);
+RunFastqc.pm:    $self->output_param('fastqc_report', $report_path);
+RunFastqc.pm:    $self->output_param('fastqc_zip', $zip_path);
+RunFastQScreen.pm:    $self->param_required('fastq');
+RunFastQScreen.pm:    my $fastqs = $self->param_as_array('fastq');
+RunFastQScreen.pm:    my $output_dir = $self->output_dir;
+RunFastQScreen.pm:    my $conf_file = $self->param('conf_file');
+RunFastQScreen.pm:    my $fastqscreen = ReseqTrack::Tools::QC::FastQScreen->new(
+RunFastQScreen.pm:      -conf_file => $conf_file,
+RunFastQScreen.pm:      -job_name => $self->job_name,
+RunFastQScreen.pm:      -program => $self->param('program_file'),
+RunFastQScreen.pm:      -keep_text => 1,
+RunFastQScreen.pm:      -keep_summary => 1,
+RunFastQScreen.pm:      -keep_zip => 1,
+RunFastQScreen.pm:      -working_dir => $output_dir,
+RunFastQScreen.pm:      -input_files => $fastqs,
+RunFastQScreen.pm:    $self->run_program($fastqscreen);
+RunHotspot.pm:  $self->param_required( 'bam' );
+RunHotspot.pm:  my $bams     =  $self->param_as_array( 'bam' );
+RunHotspot.pm:  my $options  =  $self->param('options');
+RunHotspot.pm:  my $hotspot = ReseqTrack::Tools::RunPeakCall::Hotspot->new(
+RunHotspot.pm:		   -input_files   => $bams,
+RunHotspot.pm:		   -working_dir   => $self->output_dir,
+RunHotspot.pm:		   -program       => $self->param('program_file'),
+RunHotspot.pm:		   -job_name      => $self->job_name,
+RunHotspot.pm:                   -options       => $options,
+RunHotspot.pm:  $self->run_program( $hotspot ); 
+RunHotspot.pm:  $self->output_param( 'hotspot_bed', $hotspot->output_hotspot_bed );
+RunHotspot.pm:  $self->output_param( 'peak_bed', $hotspot->output_peak_bed ); 
+RunMacs2.pm:  $self->param_required( 'bam' );
+RunMacs2.pm:  $self->param_required( 'broad' );
+RunMacs2.pm:  my $bams             =  $self->param_as_array( 'bam' );
+RunMacs2.pm:  my $samtools_path    =  $self->param( 'samtools_path' );
+RunMacs2.pm:  my $control_files    =  $self->param( 'control_files' );
+RunMacs2.pm:  my $fragment_size    =  $self->param( 'fragment_size' );
+RunMacs2.pm:  my $broad            =  $self->param( 'broad' );
+RunMacs2.pm:  my $options          = $self->param('options');
+RunMacs2.pm:  my $macs = ReseqTrack::Tools::RunPeakCall::Macs2->new(
+RunMacs2.pm:					-input_files   => $bams,
+RunMacs2.pm:					-working_dir   => $self->output_dir,
+RunMacs2.pm:					-options       => $self->param('options'),
+RunMacs2.pm:					-program       => $self->param('program_file'),
+RunMacs2.pm:					-job_name      => $self->job_name,
+RunMacs2.pm:					-fragment_size => $fragment_size_stat,
+RunMacs2.pm:					-control_files => $control_files,
+RunMacs2.pm:					-samtools_path => $samtools_path,
+RunMacs2.pm:                                        -options       => $options,
+RunMacs2.pm:  $self->run_program( $macs ); 
+RunMacs2.pm:  $self->output_param( 'bed', $macs->bed_file ); 
+RunMacs2.pm:  $self->output_param( 'bed_xls', $macs->output_bed_xls );
+RunMacs2.pm:  $self->output_param( 'support_bed', $macs->output_support_bed );
+RunMetaInfoFactory.pm:    my $sample_id = $self->param_required('sample_id');
+RunMetaInfoFactory.pm:    my $require_experiment_columns = $self->param('require_experiment_columns') || param_defaults()->{'require_experiment_columns'};
+RunMetaInfoFactory.pm:    my $require_experiment_attributes = $self->param('require_experiment_attributes') || param_defaults()->{'require_experiment_attributes'};
+RunMetaInfoFactory.pm:    my $exclude_experiment_attributes = $self->param('exclude_experiment_attributes') || param_defaults()->{'exclude_experiment_attributes'};
+RunMetaInfoFactory.pm:    my $require_study_columns = $self->param('require_study_columns') || param_defaults()->{'require_study_columns'};
+RunMetaInfoFactory.pm:    my $require_study_attributes = $self->param('require_study_attributes') || param_defaults()->{'require_study_attributes'};
+RunMetaInfoFactory.pm:    my $exclude_study_attributes = $self->param('exclude_study_attributes') || param_defaults()->{'exclude_study_attributes'};
+RunMetaInfoFactory.pm:    my $db = ReseqTrack::DBSQL::DBAdaptor->new(%{$self->param('reseqtrack_db')});
+RunMetaInfoFactory.pm:    my $sta = $db->get_StudyAdaptor;
+RunMetaInfoFactory.pm:    my $ea = $db->get_ExperimentAdaptor;
+RunMetaInfoFactory.pm:    foreach my $experiment (@{$ea->fetch_by_sample_id($sample_id)}) {
+RunMetaInfoFactory.pm:        my $required = $require_experiment_columns->{$column_name};
+RunMetaInfoFactory.pm:        my $val = &{$ea->column_mappings($experiment)->{$column_name}}();
+RunMetaInfoFactory.pm:        my ($attribute) = grep {$_->attribute_name eq $attr_name} @{$experiment->attributes};
+RunMetaInfoFactory.pm:        my $required = $require_experiment_attributes->{$attr_name};
+RunMetaInfoFactory.pm:        next EXP if !grep {$attribute->attribute_value eq $_} @$required;
+RunMetaInfoFactory.pm:        my ($attribute) = grep {$_->attribute_name eq $attr_name} @{$experiment->attributes};
+RunMetaInfoFactory.pm:        my $excluded = $exclude_experiment_attributes->{$attr_name};
+RunMetaInfoFactory.pm:        next EXP if grep {$attribute->attribute_value eq $_} @$excluded;
+RunMetaInfoFactory.pm:      my $study = $sta->fetch_by_dbID($experiment->study_id);
+RunMetaInfoFactory.pm:        my $required = $require_study_columns->{$column_name};
+RunMetaInfoFactory.pm:        my $val = &{$sta->column_mappings($study)->{$column_name}}();
+RunMetaInfoFactory.pm:        my ($attribute) = grep {$_->attribute_name eq $attr_name} @{$study->attributes};
+RunMetaInfoFactory.pm:        my $required = $require_study_attributes->{$attr_name};
+RunMetaInfoFactory.pm:        next EXP if !grep {$attribute->attribute_value eq $_} @$required;
+RunMetaInfoFactory.pm:        my ($attribute) = grep {$_->attribute_name eq $attr_name} @{$study->attributes};
+RunMetaInfoFactory.pm:        my $excluded = $exclude_study_attributes->{$attr_name};
+RunMetaInfoFactory.pm:        next EXP if grep {$attribute->attribute_value eq $_} @$excluded;
+RunMetaInfoFactory.pm:      $library_names{$experiment->library_name} = 1;
+RunMetaInfoFactory.pm:      $self->prepare_factory_output_id({'library_name' => $library_name});
+RunMetaInfoFactory.pm:    my $library_name = $self->param('library_name');
+RunMetaInfoFactory.pm:    my $experiment_source_id = $self->param('experiment_source_id');
+RunMetaInfoFactory.pm:    my $sample_id = $self->param_required('sample_id');
+RunMetaInfoFactory.pm:    my $output_run_columns = $self->param('output_run_columns') || [];
+RunMetaInfoFactory.pm:    my $output_run_attributes = $self->param('output_run_attributes') || [];
+RunMetaInfoFactory.pm:    my $output_experiment_columns = $self->param('output_experiment_columns') || [];
+RunMetaInfoFactory.pm:    my $output_experiment_attributes = $self->param('output_experiment_attributes') || [];
+RunMetaInfoFactory.pm:    my $output_study_columns = $self->param('output_study_columns') || [];
+RunMetaInfoFactory.pm:    my $output_study_attributes = $self->param('output_study_attributes') || [];
+RunMetaInfoFactory.pm:    my $require_run_columns = $self->param('require_run_columns') || param_defaults()->{'require_run_columns'};
+RunMetaInfoFactory.pm:    my $require_run_attributes = $self->param('require_run_attributes') || param_defaults()->{'require_run_attributes'};
+RunMetaInfoFactory.pm:    my $exclude_run_attributes = $self->param('exclude_run_attributes') || param_defaults()->{'exclude_run_attributes'};
+RunMetaInfoFactory.pm:    my $require_experiment_columns = $self->param('require_experiment_columns') || param_defaults()->{'require_experiment_columns'};
+RunMetaInfoFactory.pm:    my $require_experiment_attributes = $self->param('require_experiment_attributes') || param_defaults()->{'require_experiment_attributes'};
+RunMetaInfoFactory.pm:    my $exclude_experiment_attributes = $self->param('exclude_experiment_attributes') || param_defaults()->{'exclude_experiment_attributes'};
+RunMetaInfoFactory.pm:    my $require_study_columns = $self->param('require_study_columns') || param_defaults()->{'require_study_columns'};
+RunMetaInfoFactory.pm:    my $require_study_attributes = $self->param('require_study_attributes') || param_defaults()->{'require_study_attributes'};
+RunMetaInfoFactory.pm:    my $exclude_study_attributes = $self->param('exclude_study_attributes') || param_defaults()->{'exclude_study_attributes'};
+RunMetaInfoFactory.pm:    my $db = ReseqTrack::DBSQL::DBAdaptor->new(%{$self->param('reseqtrack_db')});
+RunMetaInfoFactory.pm:    my $ra = $db->get_RunAdaptor;
+RunMetaInfoFactory.pm:    my $ea = $db->get_ExperimentAdaptor;
+RunMetaInfoFactory.pm:    my $sta = $db->get_StudyAdaptor;
+RunMetaInfoFactory.pm:      $experiments = $ea->fetch_by_column_name('library_name', $library_name);
+RunMetaInfoFactory.pm:      my $experiment = $ea->fetch_by_source_id( $experiment_source_id );  
+RunMetaInfoFactory.pm:        my $required = $require_experiment_columns->{$column_name};
+RunMetaInfoFactory.pm:        my $val = &{$ea->column_mappings($experiment)->{$column_name}}();
+RunMetaInfoFactory.pm:        my ($attribute) = grep {$_->attribute_name eq $attr_name} @{$experiment->attributes};
+RunMetaInfoFactory.pm:        my $required = $require_experiment_attributes->{$attr_name};
+RunMetaInfoFactory.pm:        next EXP if !grep {$attribute->attribute_value eq $_} @$required;
+RunMetaInfoFactory.pm:        my ($attribute) = grep {$_->attribute_name eq $attr_name} @{$experiment->attributes};
+RunMetaInfoFactory.pm:        my $excluded = $exclude_experiment_attributes->{$attr_name};
+RunMetaInfoFactory.pm:        next EXP if grep {$attribute->attribute_value eq $_} @$excluded;
+RunMetaInfoFactory.pm:      my $study = $sta->fetch_by_dbID($experiment->study_id);
+RunMetaInfoFactory.pm:        my $required = $require_study_columns->{$column_name};
+RunMetaInfoFactory.pm:        my $val = &{$sta->column_mappings($study)->{$column_name}}();
+RunMetaInfoFactory.pm:        my ($attribute) = grep {$_->attribute_name eq $attr_name} @{$study->attributes};
+RunMetaInfoFactory.pm:        my $required = $require_study_attributes->{$attr_name};
+RunMetaInfoFactory.pm:        next EXP if !grep {$attribute->attribute_value eq $_} @$required;
+RunMetaInfoFactory.pm:        my ($attribute) = grep {$_->attribute_name eq $attr_name} @{$study->attributes};
+RunMetaInfoFactory.pm:        my $excluded = $exclude_study_attributes->{$attr_name};
+RunMetaInfoFactory.pm:        next EXP if grep {$attribute->attribute_value eq $_} @$excluded;
+RunMetaInfoFactory.pm:      foreach my $run (@{$ra->fetch_by_experiment_id($experiment->dbID)}) {
+RunMetaInfoFactory.pm:	next RUN if $run->experiment->sample_id != $sample_id;
+RunMetaInfoFactory.pm:          my $required = $require_run_columns->{$column_name};
+RunMetaInfoFactory.pm:          my $val = &{$ra->column_mappings($run)->{$column_name}}();
+RunMetaInfoFactory.pm:          my ($attribute) = grep {$_->attribute_name eq $attr_name} @{$run->attributes};
+RunMetaInfoFactory.pm:          my $required = $require_run_attributes->{$attr_name};
+RunMetaInfoFactory.pm:          next RUN if !grep {$attribute->attribute_value eq $_} @$required;
+RunMetaInfoFactory.pm:          my ($attribute) = grep {$_->attribute_name eq $attr_name} @{$run->attributes};
+RunMetaInfoFactory.pm:          my $excluded = $exclude_run_attributes->{$attr_name};
+RunMetaInfoFactory.pm:          next RUN if grep {$attribute->attribute_value eq $_} @$excluded;
+RunMetaInfoFactory.pm:        my %output_hash = (run_id => $run->dbID);
+RunMetaInfoFactory.pm:          $output_hash{$column_name} = &{$ra->column_mappings($run)->{$column_name}}();
+RunMetaInfoFactory.pm:          my ($attribute) = grep {$_->attribute_name eq $attr_name} @{$run->attributes};
+RunMetaInfoFactory.pm:          $output_hash{$attr_name} = $attribute->attribute_value;
+RunMetaInfoFactory.pm:          $output_hash{$column_name} = &{$ea->column_mappings($experiment)->{$column_name}}();
+RunMetaInfoFactory.pm:          my ($attribute) = grep {$_->attribute_name eq $attr_name} @{$experiment->attributes};
+RunMetaInfoFactory.pm:          $output_hash{$attr_name} = $attribute->attribute_value;
+RunMetaInfoFactory.pm:          $output_hash{$column_name} = &{$sta->column_mappings($study)->{$column_name}}();
+RunMetaInfoFactory.pm:          my ($attribute) = grep {$_->attribute_name eq $attr_name} @{$study->attributes};
+RunMetaInfoFactory.pm:          $output_hash{$attr_name} = $attribute->attribute_value;
+RunMetaInfoFactory.pm:        $self->prepare_factory_output_id(\%output_hash);
+RunMetaInfoFactory.pm:    $db->dbc->disconnect_when_inactive(1);
+RunMetaInfoFactory.pm:    &{$factories{$self->param_required('factory_type')}}($self);
+RunPicard.pm:    $self->param_required('bam');
+RunPicard.pm:    my $bams = $self->param_as_array('bam');
+RunPicard.pm:    my $command = $self->param_required('command');
+RunPicard.pm:    my $add_attributes = $self->param( 'add_attributes' ) ? 1 : 0;  
+RunPicard.pm:    my @allowed_cmds = ReseqTrack::Tools::RunPicard->get_valid_commands;
+RunPicard.pm:    %options = (%options, %{$self->param('options')});
+RunPicard.pm:    my $picard_object = ReseqTrack::Tools::RunPicard->new(
+RunPicard.pm:      -input_files  => $bams,
+RunPicard.pm:      -working_dir  => $self->output_dir,
+RunPicard.pm:      -job_name     => $self->job_name,
+RunPicard.pm:      -java_exe     => $self->param('java_exe'),
+RunPicard.pm:      -jvm_options  => $self->param('jvm_args'),
+RunPicard.pm:      -picard_dir     => $self->param('picard_dir'),
+RunPicard.pm:      -options      => \%options,
+RunPicard.pm:      -create_index => $self->param('create_index'),
+RunPicard.pm:      -keep_metrics => 0,
+RunPicard.pm:    $self->run_program($picard_object, $command);
+RunPicard.pm:    my $output_bams = $picard_object->output_bam_files;
+RunPicard.pm:    my $output_bais = $picard_object->output_bai_files;
+RunPicard.pm:    $self->output_param('bam', $output_bams);
+RunPicard.pm:    $self->output_param('bai', $output_bais);
+RunPicard.pm:      my $generated_metrics = $picard_object->output_metrics_object;
+RunPicard.pm:      $self->output_param('attribute_metrics', $generated_metrics); 
+RunSamtools.pm:    $self->param_required('bam');
+RunSamtools.pm:    my $bams = $self->param_as_array('bam');
+RunSamtools.pm:    my $command = $self->param_required('command');
+RunSamtools.pm:    my $add_attributes = $self->param( 'add_attributes' ) ? 1 : 0;  
+RunSamtools.pm:    my $options = $self->param('samtools_options');
+RunSamtools.pm:    my $samtools_object = ReseqTrack::Tools::RunSamtools->new(
+RunSamtools.pm:      -input_files  => $bams,
+RunSamtools.pm:      -program      => $self->param('program_file'),
+RunSamtools.pm:      -working_dir  => $self->output_dir,
+RunSamtools.pm:      -job_name     => $self->job_name,
+RunSamtools.pm:      -reference    => $self->param('reference'),
+RunSamtools.pm:      -options      => $options,
+RunSamtools.pm:    $self->run_program($samtools_object, $command);
+RunSamtools.pm:    my $output_files = $samtools_object->output_files;
+RunSamtools.pm:	if (basename($output_files->[0]) =~ /\.cram/i  || basename($output_files->[0]) =~ /\.crai/i) {
+RunSamtools.pm:		print "cram output is $output_files->[0]\n";
+RunSamtools.pm:		$self->output_param($command eq 'index' ? 'crai' : 'cram'  => $output_files);
+RunSamtools.pm:          $self->output_param('metrics' => $output_files);
+RunSamtools.pm:            my $generated_metrics = $samtools_object->output_metrics_object;
+RunSamtools.pm:            $self->output_param('attribute_metrics', $generated_metrics);
+RunSamtools.pm:		print "bam output is $output_files->[0]\n";
+RunSamtools.pm:	    $self->output_param($command eq 'index' ? 'bai' : 'bam'  => $output_files);
+RunSqueezeBam.pm:    $self->param_required('bam');
+RunSqueezeBam.pm:    my $bams = $self->param_as_array('bam');
+RunSqueezeBam.pm:    my $bam_squeezer = ReseqTrack::Tools::RunBamSqueeze->new(
+RunSqueezeBam.pm:      -input_files  => $bams,
+RunSqueezeBam.pm:      -working_dir  => $self->output_dir,
+RunSqueezeBam.pm:      -program      => $self->param('program_file'),
+RunSqueezeBam.pm:      -job_name     => $self->job_name,
+RunSqueezeBam.pm:      -rm_tag_types => $self->param('rm_tag_types'),
+RunSqueezeBam.pm:      -options      => {keepOQ => $self->param('rm_OQ_fields') ? 0 : 1,
+RunSqueezeBam.pm:                        keepDups => $self->param('rm_dups') ? 0 : 1},
+RunSqueezeBam.pm:    $self->run_program($bam_squeezer);
+RunSqueezeBam.pm:    $self->output_param('bam' => $bam_squeezer->output_files->[0]);
+RunValidateBam.pm:    $self->param_required('bam');
+RunValidateBam.pm:    my $bams = $self->param_as_array('bam');
+RunValidateBam.pm:    my $bam_validator = ReseqTrack::Tools::RunValidateBam->new(
+RunValidateBam.pm:      -input_files  => $bams,
+RunValidateBam.pm:      -working_dir  => $self->output_dir,
+RunValidateBam.pm:      -program      => $self->param('program_file'),
+RunValidateBam.pm:    $self->run_program($bam_validator);
+RunValidateBam.pm:    my $output_files = ref($self->param('bam')) ? $bam_validator->output_files : $bam_validator->output_files->[0];
+RunValidateBam.pm:    $self->output_param('bas' => $output_files);
+RunVariantCall.pm:    $self->param_required('bam');
+RunVariantCall.pm:    my $bam = $self->param_as_array('bam');
+RunVariantCall.pm:    my $module_name = $self->param_required('module_name');
+RunVariantCall.pm:    my $fai = $self->param_required('fai');
+RunVariantCall.pm:    my $SQ_start = $self->param_required('SQ_start');
+RunVariantCall.pm:    my $SQ_end = $self->param_required('SQ_end');
+RunVariantCall.pm:    my $bp_start = $self->param_required('bp_start');
+RunVariantCall.pm:    my $bp_end = $self->param_required('bp_end');
+RunVariantCall.pm:    my $overlap = $self->param('overlap');
+RunVariantCall.pm:    $slices->[0]->extend($overlap);
+RunVariantCall.pm:      $module_args{'-program'} = $self->param('samtools');
+RunVariantCall.pm:      $module_args{'-bcftools'} = $self->param('bcftools');
+RunVariantCall.pm:      $module_args{'-vcfutils'} = $self->param('vcfutils');
+RunVariantCall.pm:      $module_args{'-bgzip'} = $self->param('bgzip');
+RunVariantCall.pm:	$module_args{'-program'} = $self->param('bcftools');
+RunVariantCall.pm:	$module_args{'-samtools'} = $self->param('samtools');
+RunVariantCall.pm:      $module_args{'-java_exe'} = $self->param('java_exe');
+RunVariantCall.pm:      $module_args{'-jvm_args'} = $self->param('jvm_args');
+RunVariantCall.pm:      $module_args{'-gatk_path'} = $self->param('gatk_dir');
+RunVariantCall.pm:      $module_args{'-program'} = $self->param('freebayes');
+RunVariantCall.pm:      $module_args{'-bgzip'} = $self->param('bgzip');
+RunVariantCall.pm:      $module_args{'-program'} = $self->param('lobstr');
+RunVariantCall.pm:      $module_args{'-noise_model'} = $self->param_required('noise_model');
+RunVariantCall.pm:      $module_args{'-str_info'} = $self->param_required('str_info');
+RunVariantCall.pm:      $module_args{'-ref_index_prefix'} = $self->param_required('ref_index_prefix');
+RunVariantCall.pm:      $module_args{'-bgzip'} = $self->param('bgzip');
+RunVariantCall.pm:      $self->param('reference', $self->param('ref_index_prefix'));
+RunVariantCall.pm:    my $variant_caller = $module->new(
+RunVariantCall.pm:          -input_files => $bam,
+RunVariantCall.pm:          -working_dir => $self->output_dir,
+RunVariantCall.pm:          -job_name => $self->job_name,
+RunVariantCall.pm:          -chrom => $slices->[0]->SQ_name,
+RunVariantCall.pm:          -reference => $self->param_required('reference'),
+RunVariantCall.pm:          -options => $self->param('options'),
+RunVariantCall.pm:    if (!$slices->[0]->is_whole_SQ) {
+RunVariantCall.pm:      $variant_caller->region_start($slices->[0]->start);
+RunVariantCall.pm:      $variant_caller->region_end($slices->[0]->end);
+RunVariantCall.pm:    $self->run_program($variant_caller);
+RunVariantCall.pm:    $self->output_param('vcf' => $variant_caller->output_files->[0]);
+RunVariantRecalibrator.pm:    $self->param_required('vcf');
+RunVariantRecalibrator.pm:    $self->param_required('resources');
+RunVariantRecalibrator.pm:    my $vcfs = $self->param_as_array('vcf');
+RunVariantRecalibrator.pm:    my $reference = $self->param_required('reference');
+RunVariantRecalibrator.pm:    while( my ($name, $string) = each %{$self->param('resources')}) {
+RunVariantRecalibrator.pm:    my $gatk_object = ReseqTrack::Tools::RunVariantCall::RunVariantRecalibrator->new(
+RunVariantRecalibrator.pm:      -input_files  => $vcfs,
+RunVariantRecalibrator.pm:      -working_dir  => $self->output_dir,
+RunVariantRecalibrator.pm:      -reference    => $reference,
+RunVariantRecalibrator.pm:      -job_name     => $self->job_name,
+RunVariantRecalibrator.pm:      -java_exe     => $self->param('java_exe'),
+RunVariantRecalibrator.pm:      -jvm_args     => $self->param('jvm_args'),
+RunVariantRecalibrator.pm:      -gatk_path    => $self->param('gatk_dir'),
+RunVariantRecalibrator.pm:      -options      => $self->param('options'),
+RunVariantRecalibrator.pm:      -annotations  => $self->param('annotations'),
+RunVariantRecalibrator.pm:      -resources    => \%resources
+RunVariantRecalibrator.pm:    $self->run_program($gatk_object);
+RunVariantRecalibrator.pm:    $self->output_param('recal_file', $gatk_object->output_recal_file);
+RunVariantRecalibrator.pm:    $self->output_param('tranches_file', $gatk_object->output_tranches_file);
+RunVariantRecalibrator.pm:    $self->output_param('tranches_pdf', $gatk_object->output_pdf_file);
+RunWiggler.pm:  $self->param_required( 'bam' );
+RunWiggler.pm:  my $bams                    = $self->param_as_array( 'bam' );
+RunWiggler.pm:  my $samtools_path           = $self->param( 'samtools_path' );
+RunWiggler.pm:  my $fragment_size           = $self->param( 'fragment_size' );
+RunWiggler.pm:  my $options                 = $self->param( 'options' );
+RunWiggler.pm:  my $collection_name         = $self->param( 'collection_name' );
+RunWiggler.pm:  my $bam_type                = $self->param( 'bam_type' );
+RunWiggler.pm:  my $fragment_size_stat_name = $self->param( 'fragment_size_stat_name' );
+RunWiggler.pm:  my $bedGraph_to_bigWig_path = $self->param( 'bedGraph_to_bigWig_path' );
+RunWiggler.pm:  my $output_format           = $self->param( 'output_format' );
+RunWiggler.pm:  my $chrom_sizes_file        = $self->param( 'chrom_sizes_file' );
+RunWiggler.pm:  my $dedup                   = $self->param( 'dedup' );
+RunWiggler.pm:  my $chrom_fastq_file        = $self->param_required( 'chrom_fasta_file' ); 
+RunWiggler.pm:  my $mappability_tracks      = $self->param_required( 'mappability_tracks' );
+RunWiggler.pm:  my $mcr_root                = $self->param_required( 'mcr_root' );
+RunWiggler.pm:    my $db = ReseqTrack::DBSQL::DBAdaptor->new(%{$self->param_required('reseqtrack_db')});
+RunWiggler.pm:    my $ca = $db->get_CollectionAdaptor;
+RunWiggler.pm:    my $collection = $ca->fetch_by_name_and_type( $collection_name, $bam_type );
+RunWiggler.pm:    my $stats = $collection->attributes();
+RunWiggler.pm:      if ( $stat->attribute_name eq $fragment_size_stat_name ) { 
+RunWiggler.pm:          $fragment_size = $stat->attribute_value;
+RunWiggler.pm:    $db->dbc->disconnect_when_inactive(1);    
+RunWiggler.pm:  my $wiggler = ReseqTrack::Tools::RunWiggler->new(
+RunWiggler.pm:			                -input_files           => $bams,
+RunWiggler.pm:					-working_dir           => $self->output_dir,
+RunWiggler.pm:					-options               => $self->param('options'),
+RunWiggler.pm:					-program               => $self->param('program_file'),
+RunWiggler.pm:					-job_name              => $self->job_name,
+RunWiggler.pm:					-samtools_path         => $samtools_path,
+RunWiggler.pm:                                        -output_format         => $output_format,
+RunWiggler.pm:                                        -bedGraphToBigWig_path => $bedGraph_to_bigWig_path,
+RunWiggler.pm:                                        -chrom_sizes_file      => $chrom_sizes_file,
+RunWiggler.pm:                                        -dedupe                => $dedup, 
+RunWiggler.pm:                                        -mcr_root              => $mcr_root,
+RunWiggler.pm:  $self->run_program( $wiggler ); 
+RunWiggler.pm:  $self->output_param( 'bedgraph', ${$wiggler->output_files}[0] ) if $output_format eq 'bg'; 
+RunWiggler.pm:  $self->output_param( 'bigwig', ${$wiggler->output_files}[0] )   if $output_format eq 'bw'; 
+SampleFactory.pm:    my $vcf = $self->param_required('vcf');
+SampleFactory.pm:    my $tabix = $self->param('tabix');
+SampleFactory.pm:    open (my $IN, "$tabix $vcf -H |") || throw("Cannot open VCF file $vcf by tabix $!");
+SampleFactory.pm:             $self->prepare_factory_output_id({'sample' 	=> $column_headers[$i],
+SampleFactory.pm:             								   'fan_index'	=> $i-9 });
+SeedFactory.pm:    my $db = ReseqTrack::DBSQL::DBAdaptor->new(%{$self->param_required('reseqtrack_db')});
+SeedFactory.pm:    my $seeding_module = $self->param_required('seeding_module');
+SeedFactory.pm:    my $dbname = $self->dbc->dbname;
+SeedFactory.pm:    my $host = $self->dbc->host;
+SeedFactory.pm:    my $port = $self->dbc->port;
+SeedFactory.pm:    my ($hive_db) = @{$db->get_HiveDBAdaptor->fetch_by_column_names(
+SeedFactory.pm:    my $meta_adaptor = $db->get_MetaAdaptor;
+SeedFactory.pm:    my $lock_string = $hive_db->pipeline->name . '.lock';
+SeedFactory.pm:    my $pipeline = $hive_db->pipeline;
+SeedFactory.pm:    my $seeder = $seeding_module->new(
+SeedFactory.pm:            -options => $self->param('seeding_options'),
+SeedFactory.pm:            -pipeline => $pipeline,
+SeedFactory.pm:    $seeder->create_seed_params;
+SeedFactory.pm:    my $psa = $db->get_PipelineSeedAdaptor;
+SeedFactory.pm:    my $seed_params_array = $seeder->seed_params;
+SeedFactory.pm:    if ($self->param_is_defined('max_seeds')) {
+SeedFactory.pm:      splice(@$seed_params_array, $self->param('max_seeds'));
+SeedFactory.pm:          if $seed->adaptor->table_name ne $pipeline->table_name;
+SeedFactory.pm:      my $pipeline_seed = ReseqTrack::PipelineSeed->new
+SeedFactory.pm:           -seed_id         => $seed->dbID,
+SeedFactory.pm:           -hive_db         => $hive_db,
+SeedFactory.pm:           -is_running      => 1,
+SeedFactory.pm:      $psa->store($pipeline_seed);
+SeedFactory.pm:      $output_hash->{'ps_id'} = $pipeline_seed->dbID;
+SeedFactory.pm:      $self->prepare_factory_output_id($output_hash);
+SeedFactory.pm:    $hive_db->is_seeded(0);
+SeedFactory.pm:    $db->get_HiveDBAdaptor->update($hive_db);
+SequenceSliceFactory.pm:  my $fai = $self->param_required('fai');
+SequenceSliceFactory.pm:  my $bed = $self->param('bed');
+SequenceSliceFactory.pm:  my $max_sequences = $self->param('max_sequences');
+SequenceSliceFactory.pm:  my $num_bases = $self->param('num_bases');
+SequenceSliceFactory.pm:  my $SQ_start = $self->param('SQ_start');
+SequenceSliceFactory.pm:  my $SQ_end = $self->param('SQ_end');
+SequenceSliceFactory.pm:  my $bp_start = $self->param('bp_start');
+SequenceSliceFactory.pm:  my $bp_end = $self->param('bp_end');
+SequenceSliceFactory.pm:    my @split_slices = map {@{$_->split($num_bases)}} @$slices;
+SequenceSliceFactory.pm:    if ($base_counter == 0 || $base_counter + $slice->length > $num_bases
+SequenceSliceFactory.pm:      $base_counter = $slice->length;
+SequenceSliceFactory.pm:      $child_slices[-1][1] = $slice;
+SequenceSliceFactory.pm:      $base_counter += $slice->length;
+SequenceSliceFactory.pm:    my $SQ_start = $child->[0]->SQ_name;
+SequenceSliceFactory.pm:    my $SQ_end = $child->[1]->SQ_name;
+SequenceSliceFactory.pm:    my $bp_start = $child->[0]->start;
+SequenceSliceFactory.pm:    my $bp_end = $child->[1]->end;
+SequenceSliceFactory.pm:#      if ($bp_start != 1 || $bp_end != $child->[1]->SQ_length) {
+SequenceSliceFactory.pm:#        $label .= ".$bp_start-$bp_end";
+SequenceSliceFactory.pm:#      $label .= "-$SQ_end";
+SequenceSliceFactory.pm:#      $label .= ".$bp_end" if $bp_end != $child->[1]->SQ_length;
+SequenceSliceFactory.pm:    $self->prepare_factory_output_id({
+SequenceSliceFactory.pm:            'SQ_start' => $child->[0]->SQ_name,
+SequenceSliceFactory.pm:            'bp_start' => $child->[0]->start,
+SequenceSliceFactory.pm:            'SQ_end' => $child->[1]->SQ_name,
+SequenceSliceFactory.pm:            'bp_end' => $child->[1]->end,
+SplitFastq.pm:    my $max_reads = $self->param_required('max_reads');
+SplitFastq.pm:    $self->param_required('fastq');
+SplitFastq.pm:    my $program_file = $self->param('program_file');
+SplitFastq.pm:    my $output_dir = $self->output_dir;
+SplitFastq.pm:    my $run_source_id = $self->param_required('run_source_id');
+SplitFastq.pm:    my $run_alias = $self->param('run_alias');
+SplitFastq.pm:    $regexs_ref = $self->param('regexs') 
+SplitFastq.pm:              if $self->param('regexs') && ref($self->param('regexs')) eq 'ARRAY';
+SplitFastq.pm:    my $fastqs = $self->param_as_array('fastq');
+SplitFastq.pm:    my $run_split = ReseqTrack::Tools::RunSplit->new(
+SplitFastq.pm:        -input_files => $fastqs,
+SplitFastq.pm:        -program => $program_file,
+SplitFastq.pm:        -working_dir => $output_dir,
+SplitFastq.pm:        -line_count => 4*$max_reads
+SplitFastq.pm:    $self->run_program($run_split);
+SplitFastq.pm:    my $output_file_hash = $run_split->output_file_hash;
+SplitFastq.pm:      my @labels_mate1 = keys %{$output_file_hash->{$mate1}};
+SplitFastq.pm:        throw("no matching mate2 file with label $label") if (!$output_file_hash->{$mate2}->{$label});
+SplitFastq.pm:        my @files = map {$output_file_hash->{$_}->{$label}} ($mate1, $mate2);
+SplitFastq.pm:        $self->prepare_factory_output_id({'fastq' => \@files, 'chunk' => "mate_chunk$label"});
+SplitFastq.pm:      foreach my $label (sort {$a <=> $b} keys %{$output_file_hash->{$frag}}) {
+SplitFastq.pm:        my $file_path = $output_file_hash->{$frag}{$label};
+SplitFastq.pm:        $self->prepare_factory_output_id({'fastq' => $file_path, 'chunk' => "frag_chunk$label"});
+TransposeBam.pm:    $self->param_required('bam');
+TransposeBam.pm:    my $bams = $self->param_as_array('bam');
+TransposeBam.pm:    my $fai = $self->param_required('fai');
+TransposeBam.pm:    my $bed = $self->param('bed');
+TransposeBam.pm:    my $SQ_start = $self->param_required('SQ_start');
+TransposeBam.pm:    my $SQ_end = $self->param_required('SQ_end');
+TransposeBam.pm:    my $bp_start = $self->param_required('bp_start');
+TransposeBam.pm:    my $bp_end = $self->param_required('bp_end');
+TransposeBam.pm:    my $overlap = $self->param('region_overlap');
+TransposeBam.pm:    my $create_index = $self->param('create_index');
+TransposeBam.pm:      $slice->extend($overlap);
+TransposeBam.pm:      my $region = $slice->SQ_name;
+TransposeBam.pm:      if (!$slice->is_whole_SQ) {
+TransposeBam.pm:        $region .= ':' . $slice->start . '-' . $slice->end;
+TransposeBam.pm:    my $out_dir = $self->output_dir;
+TransposeBam.pm:    my $bam_transposer = ReseqTrack::Tools::RunTransposeBam->new(
+TransposeBam.pm:          -input_files => $bams,
+TransposeBam.pm:          -program => $self->param('program_file'),
+TransposeBam.pm:          -working_dir => $out_dir,
+TransposeBam.pm:          -job_name => $self->job_name,
+TransposeBam.pm:          -regions => \@regions,
+TransposeBam.pm:          -options => {uniquify_rg => $self->param('uniquify_rg'),
+TransposeBam.pm:                      build_index => $self->param('create_index'),
+TransposeBam.pm:    $self->run_program($bam_transposer);
+TransposeBam.pm:    $self->output_param('bam', $bam_transposer->output_bam_file);
+TransposeBam.pm:      $self->output_param('bai', $bam_transposer->output_bai_file);
+UpdateAttribute.pm:    $self->param_required('attribute_metrics');
+UpdateAttribute.pm:    my $collection_type = $self->param_required('collection_type');
+UpdateAttribute.pm:    my $collection_name = $self->param_required('collection_name');
+UpdateAttribute.pm:    my $db_param = $self->param_required('reseqtrack_db');
+UpdateAttribute.pm:    my $attribute_prefix_column = $self->param('attribute_prefix_column');
+UpdateAttribute.pm:    my $attribute_metrics = $self->param_as_array('attribute_metrics'); 
+UpdateAttribute.pm:    my $db = ReseqTrack::DBSQL::DBAdaptor->new(%{$db_param});
+UpdateAttribute.pm:    $db->dbc->disconnect_when_inactive(1);
+UpdateAttribute.pm:    my $ca = $db->get_CollectionAdaptor;
+UpdateAttribute.pm:    my $collection =  $ca->fetch_by_name_and_type( $collection_name, $collection_type );
+UpdateAttribute.pm:        my $prefix = $metrics->{$attribute_prefix_column};
+UpdateAttribute.pm:    my $attributes = $collection->uniquify_attributes(\@statistics);
+UpdateAttribute.pm:    $collection->attributes($attributes);
+UpdateAttribute.pm:    $ca->store_attributes($collection);
+UpdateSeed.pm:    my $ps_id = $self->param_required('ps_id');
+UpdateSeed.pm:    my $is_complete = $self->param('is_complete') ? 1 : 0;
+UpdateSeed.pm:    my $is_failed = $self->param('is_failed') ? 1 : 0;
+UpdateSeed.pm:    my $is_futile = $self->param('is_futile') ? 1 : 0;
+UpdateSeed.pm:    my $delete_seeds = $self->param('delete_seeds') ? 1 : 0;
+UpdateSeed.pm:    my $attributes = $self->param('ps_attributes');
+UpdateSeed.pm:    my $db = ReseqTrack::DBSQL::DBAdaptor->new(%{$self->param('reseqtrack_db')});
+UpdateSeed.pm:    $db->dbc->disconnect_when_inactive(1);
+UpdateSeed.pm:    my $psa = $db->get_PipelineSeedAdaptor;
+UpdateSeed.pm:    my $pipeline_seed = $psa->fetch_by_dbID($ps_id);
+UpdateSeed.pm:    my $self_dbname = $self->dbc->dbname;
+UpdateSeed.pm:    my $ps_dbname = $pipeline_seed->hive_db->name;
+UpdateSeed.pm:      my $all_seeds = $psa->fetch_by_seed_and_pipeline($pipeline_seed->seed, $pipeline_seed->pipeline);
+UpdateSeed.pm:      $psa->delete($all_seeds);
+UpdateSeed.pm:      my $attribute = ReseqTrack::Attribute->new(
+UpdateSeed.pm:        -table_name => 'pipeline_seed', -other_id => $ps_id,
+UpdateSeed.pm:        -attribute_name => $key,
+UpdateSeed.pm:        -attribute_value => $value,
+UpdateSeed.pm:      $pipeline_seed->attributes($attribute);
+UpdateSeed.pm:      $psa->update_failed($pipeline_seed, $is_futile);
+UpdateSeed.pm:      $psa->update_completed($pipeline_seed);
