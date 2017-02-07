@@ -105,7 +105,7 @@ sub fetch_incomplete_by_event{
 
 sub fetch_by_filename{
   my ($self, $name) = @_;
-  $name =~ s/_/\_/g;
+  $name =~ s/_/\\_/g;
   my $sql = "select ".$self->columns." from file ".
       "where name like ? ";
   my $name_like = '%/'.$name;
@@ -129,7 +129,7 @@ sub fetch_by_filename{
 
 sub fetch_by_dirname{
   my ($self, $name) = @_;
-  $name =~ s/_/\_/g;
+  $name =~ s/_/\\_/g;
   my $sql = "select ".$self->columns." from file ".
       "where name like ? ";
   my $name_like = $name."%";
@@ -147,7 +147,7 @@ sub fetch_by_dirname{
 
 sub fetch_all_like_name{
   my ($self, $name) = @_;
-  $name =~ s/_/\_/g;
+  $name =~ s/_/\\_/g;
   my $sql = "select ".$self->columns." from file ".
       "where name like ? ";
   my $name_like = "%".$name."%";
@@ -166,7 +166,7 @@ sub fetch_all_like_name{
 
 sub fetch_all_like_path{
   my ($self, $name) = @_;
-  $name =~ s/_/\_/g;
+  $name =~ s/_/\\_/g;
   my $sql = "select ".$self->columns." from file ".
       "where name like ? ";
   my $name_like = $name."%";
