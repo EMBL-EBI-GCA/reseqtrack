@@ -44,10 +44,9 @@ use base qw(ReseqTrack::Tools::RunVariantCall);
 
 sub DEFAULT_OPTIONS { return {
         mpileup => '-E -a DP -a SP -a AD -P ILLUMINA -pm3 -F0.2 -C50', 
-        bcfcall => '-mvA -O z',
+        bcfcall => '-mv -O z',
         depth => 700000,
-        ploidy => 'GRCh38',
-	sample_ped => '/nfs/production/reseq-info/work/reference/g1k_integrated_call_samples.20130502.ALL.ped'
+        ploidy => 'GRCh38'
     };
 }
 
