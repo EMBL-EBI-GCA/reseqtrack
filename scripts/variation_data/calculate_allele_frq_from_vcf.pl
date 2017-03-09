@@ -3,6 +3,7 @@
 use strict;
 use Getopt::Long;
 use IPC::System::Simple qw(system);
+use IPC::Open2;
 
 my ($vcf,
 	$sample_panel,
@@ -17,6 +18,7 @@ my ($vcf,
 	$no_tabix,
 	$help,
 	%result_hash,
+  %selected_pop_samples,
 );
 	
 &GetOptions( 
@@ -45,7 +47,6 @@ if($no_tabix){
   }
 }
 
-
 	 	
 $tabix = "/nfs/1000g-work/G1K/work/bin/tabix/tabix" if (!$tabix);
 $vcftools_dir = "/nfs/1000g-work/G1K/work/bin/vcftools" if (!$vcftools_dir);
@@ -55,138 +56,240 @@ $vcf_subset = $vcftools_dir . "/perl/vcf-subset";
 $vcf_fill_an_ac = $vcftools_dir . "/perl/fill-an-ac";
 
 my $panel_hash = parse_sample_panel($sample_panel);
+my @selected_pops;
 
 if ( (defined $user_input_pop_string && $user_input_pop_string =~ /ALL/i) || !$user_input_pop_string) {
-	foreach my $pop (keys %$panel_hash ) {
-		process(join(",", @{$panel_hash->{$pop}}), $pop);
-	}	
-	print_hash(\%result_hash, "all");
+  push @selected_pops, keys %$panel_hash;
+  $user_input_pop_string = "ALL";
+	#foreach my $pop (keys %$panel_hash ) {
+	#	process(join(",", @{$panel_hash->{$pop}}), $pop);
+	#}	
+	#print_hash(\%result_hash, "all");
 }
-
 else {
 	my @user_input_pops = split(/,/, $user_input_pop_string);
 	foreach my $pop (keys %$panel_hash ) {
 		foreach my $user_pop (@user_input_pops) {
 			$user_pop =~ s/^\s+|\s+$//;
 			if ($pop =~ /$user_pop/i) {
-				process(join(",", @{$panel_hash->{$pop}}), $user_pop);
+        push @selected_pops, $user_pop;
+				#process(join(",", @{$panel_hash->{$pop}}), $user_pop);
 			}
 		}	
 	}	
-	print_hash(\%result_hash, $user_input_pop_string);  
+	#print_hash(\%result_hash, $user_input_pop_string);  
 }	
 
+foreach my $p (@selected_pops){
+  #print $p."\n";
+}
+
+#my %selected_pop_samples;
+foreach my $p (@selected_pops){
+  $selected_pop_samples{$p} = join(",", @{$panel_hash->{$p}});
+}
+
+process(\%selected_pop_samples);
 
 ####################
 ###### SUBS ########
 ####################
 sub process {
-	my ( $samples_string, $population )= @_;
-	my $cmd;
+	my (%pop_samples) = %{shift @_};
+  my @pops;
+  push @pops, keys %pop_samples;
+
+
+  #print header for output file
+  my $file_region = $region =~ s/:/\./r;
+  my $outfile = "$out_dir/calculated_fra.process$$" . "." . $file_region . "." . $user_input_pop_string.".txt";
+  $outfile =~ s/,/_/g;
+  $outfile =~ s/\s+//;
+  my $out_h;
+  open ($out_h, ">", $outfile) || die("Cannot open output file $outfile");
+  print $out_h "CHR\tPOS\tID\tREF\tALT\t";
+  print $out_h "ALL_POP_TOTAL_CNT\tALL_POP_ALT_CNT\tALL_POP_FRQ\t";
+  foreach my $pop ( @pops ) {
+    print $out_h $pop . "_TOTAL_CNT\t";
+    print $out_h $pop . "_ALT_CNT\t";
+    print $out_h $pop . "_FRQ\t";
+  }
+
+
+	my $vcf_cmd;
 	if ($no_tabix) {
-		$cmd = "$vcf_subset -c $samples_string $vcf | $vcf_fill_an_ac | cut -f1-8";
+		$vcf_cmd = "cat $vcf";
 	}
 	else {
-		$cmd = "$tabix -f -h $vcf $region | $vcf_subset -c $samples_string | $vcf_fill_an_ac | cut -f1-8";
+		$vcf_cmd = "$tabix -f -h $vcf $region";# | $vcf_subset -c $samples_string | $vcf_fill_an_ac | cut -f1-8";
 	}
 
-	open(CMD, $cmd." | ") or die("Failed to open ".$cmd." $!");
-	
-	while(<CMD>){
-	  next if(/\#/);
-	  chomp;
-	  my @values = split /\t/, $_;
-	  my @info = split /\;/, $values[7];
-	  
-	  my $ac;
-	  my $an; 
-	  my $af = 0;
+	open(VCF, $vcf_cmd." | ") or die("Failed to open ".$vcf_cmd." $!");
 
-	  my $alt_alleles = $values[4];
-	  
-	  foreach my $info(@info){
-	    if($info =~ /^AC/){
-	      my ($tag, $num) = split /\=/, $info;
-	      $ac = $num;
-	    }
-	    if($info =~ /^AN/){
-	      my ($tag, $num) = split /\=/, $info;
-	      $an = $num;
-	    }
-	  }
-	  
-	  if(!defined($ac)){
-	    die("Failed to find ac from ".join("\t", $values[7]));
-	  }
-	  if(!$an){
-	    die("Failed to find an from ".join("\t", $values[7]));
-	  }
-	  
-	  #multiple alleles
-	  if($ac =~ m/,/){
-	    #$cmd can return multiple alleles in varying order T,A or A,T, for example
-	    #need to account for this for combining populations in output
-	    
-	    #first, have we seen this site already?
-	    my $site_and_ref = join ("\t", $values[0], $values[1],$values[2],$values[3]);
-	    #if we have seen this before
-	    if(/^$site_and_ref.*/ ~~ %result_hash){
-		#make sure we have only one match
-		my @site_match = grep /^$site_and_ref.*/, keys %result_hash;
-		die("A multi-allelic site can't be distinguished from another site.\n") if scalar(@site_match) > 1;
-		#get results hash alt allele string to use instead
-		$alt_alleles = (split /\t/, $site_match[0])[4];
-		#check alleles are the same
-		my @result_alt_alleles = split /,/, $alt_alleles;
-		my @curr_alt_alleles = split /,/, $values[4];
-		@result_alt_alleles = sort { $a cmp $b } @result_alt_alleles;
-		@curr_alt_alleles = sort { $a cmp $b } @curr_alt_alleles;
-		die ("Different alt alleles.\n") if (!(@result_alt_alleles ~~ @curr_alt_alleles));
-		# return to original orders
-		@result_alt_alleles = split /,/, $alt_alleles;
-		@curr_alt_alleles = split /,/, $values[4];
-		my @ordered_acs;
-		my @acs = split /,/, $ac;	
-		#put new allele counts into same order as the result hash entry
-		ALLELE: for (my $i = 0; $i < scalar(@result_alt_alleles); $i++){
-		  for(my $j =0; $j < scalar(@curr_alt_alleles); $j++){
-			if($result_alt_alleles[$i] eq $curr_alt_alleles[$j]){
-			  $ordered_acs[$i] = $acs[$j];
-			  next ALLELE;
-			}	
-		  }
-		}
-		#for each allele, now calc the frequency and put the output strings together
-		my @afs;
-		foreach my $ord_ac (@ordered_acs){
-		  my $allele_freq = sprintf "%.2f", $ord_ac/$an;
-		  push @afs, $allele_freq;
-		}
-		$af = join(",",@afs);
-		$ac = join(",",@ordered_acs);
-	    }
-	    else{
-		#multiple alleles but first time we've seen this site
-		#just need to calc afs
-		my @acs = split /,/, $ac;
-		my @afs;
-		foreach my $ind_ac (@acs){
-		  my $allele_freq = sprintf "%.2f", $ind_ac/$an;
-		  push @afs, $allele_freq;
-		}		
-		$af = join(",",@afs);
-	    }
-	  }
-	  else{
-		#not multiple alleles, so just do calc of AF
-	  	$af = sprintf "%.2f", $ac/$an if($ac);
-	  }	  
-	  my $site_info = join ("\t", $values[0], $values[1],$values[2],$values[3], $alt_alleles);
-	  my $site_stats = join ("\t", $an, $ac, $af);
+  #Read VCF in batches
+  #for each batch
+    #process each pop
+      #AN,AC,AF calcs
+    #print batch output
+  #set batch size in n
+  my $n = 100000;
+  my @header;
+  my $head = 1;
+  my $line;
+  my @body;
+  my $body_ln_cnt = 0;
 
-	  $result_hash{$site_info}{$population} = $site_stats;		
-	}
-	return 1;
+
+  while(<VCF>){
+    chomp;
+    $line = $_;
+    #print $line."\n";
+    #read header
+    if($head){
+      if($line =~ /^#/){
+        my $hline = $line."\n";
+        push @header, $hline;
+        #print $hline;
+      }
+      else{
+        $head = 0;
+      }
+    }
+    #process body
+    if(!$head){
+      $body_ln_cnt++;
+      my $bline = $line."\n";
+      push @body, $bline;
+
+      if(($body_ln_cnt % $n) == 0){
+        #print scalar(keys %result_hash)." keys\n";
+        print_VCF_block_results($out_h, \@pops, \%result_hash);
+        #empty structures before next block
+        @body = ();
+        %result_hash = ();
+        #print scalar(@body)."\n";
+      } 
+
+    }
+  }
+  #process last block of lines from body
+  process_VCF_block(\@header, \@body, \%pop_samples, \@pops);
+  print_VCF_block_results($out_h, \@pops, \%result_hash);
+
+  return 1;
+}
+
+sub process_VCF_block(){
+  my @header = @{shift @_};
+  my @body = @{shift @_};
+  my %pop_samples = %{shift @_};
+  my @pops = @{shift @_};
+
+  foreach my $p (@pops){
+    #print $p."\n";
+    my $samples_string = $pop_samples{$p};
+    #print $samples_string."\n";
+
+    $region =~ s/:/\./;
+    my $tmpfile = "$out_dir/tmp_calculated_fra.process$$" . "." . $region . "." . $p.".vcf";
+    $tmpfile =~ s/,/_/g;
+    $tmpfile =~ s/\s+//;
+    die "$tmpfile already exists\n" if(-e $tmpfile);
+    my $tmp_h;
+    open ($tmp_h, ">", $tmpfile) || die("Cannot open output file $tmpfile");
+
+    my @mini_vcf = (@header, @body);
+    for(my $v=0;$v<scalar(@mini_vcf);$v++){
+      print $tmp_h $mini_vcf[$v];
+    }
+    close $tmp_h;
+
+    my $pop_vcf_cmd = "cat $tmpfile | $vcf_subset -c $samples_string | $vcf_fill_an_ac | cut -f1-8";
+    open(POP_VCF, $pop_vcf_cmd." |") or die("Failed to open ".$pop_vcf_cmd." $!");
+    #my $pop_line_cnt = 0;
+    POPVCFLINE: while(<POP_VCF>){
+      chomp;
+      my $ret_line = $_;
+      #print $ret_line."\n";
+      next POPVCFLINE if($ret_line =~ /^#/);
+      #$pop_line_cnt++;
+      process_ac_an_line($ret_line, $p);
+    }
+    #print "pop lines returned from an/ac: $pop_line_cnt\n";
+    close(POP_VCF);
+    system("rm $tmpfile");
+  }
+}
+
+sub process_ac_an_line{
+  my $line = shift @_;
+  my $population = shift @_;
+  #print $line."\n";
+
+  
+  my @values = split /\t/, $line;
+  my @info = split /\;/, $values[7];
+
+  my $ac;
+  my $an;
+  my $af = 0;
+  my $alt_alleles = $values[4];
+
+    foreach my $info(@info){
+      if($info =~ /^AC/){
+        my ($tag, $num) = split /\=/, $info;
+        $ac = $num;
+      }
+      if($info =~ /^AN/){
+        my ($tag, $num) = split /\=/, $info;
+        $an = $num;
+      }
+    }
+    
+    if(!defined($ac)){
+      die("Failed to find ac from ".join("\t", $values[7]));
+    }
+    if(!$an){
+      die("Failed to find an from ".join("\t", $values[7]));
+    }
+
+    #multiple alleles
+    if($ac =~ m/,/){
+      #$cmd can return multiple alleles in varying order T,A or A,T, for example
+      #need to account for this for combining populations in output
+      #reporting in alphabetical order for consistency across pops
+      my @alts = split /,/, $values[4];
+      my @sorted_alts = sort @alts;
+      $alt_alleles = join ",", @sorted_alts;
+      my @acs = split /,/, $ac;
+      my @sorted_acs;
+      # puts AC values into sorted order
+      ALLELE: for (my $i = 0; $i < scalar(@sorted_alts); $i++){
+        for(my $j =0; $j < scalar(@alts); $j++){
+          if($sorted_alts[$i] eq $alts[$j]){
+            $sorted_acs[$i] = $acs[$j];
+            next ALLELE;
+          } 
+        }
+      }
+      #calc frequencies and convert to string
+      my @afs;
+      foreach my $sort_ac (@sorted_acs){
+        my $allele_freq = sprintf "%.2f", $sort_ac/$an;
+        push @afs, $allele_freq;
+      }
+      $af = join(",",@afs);
+      $ac = join(",",@sorted_acs);
+    }
+    else{
+      #not multi-allelic, so just do calc
+      $af = sprintf "%.2f", $ac/$an if($ac);
+    }
+
+    my $site_info = join ("\t", $values[0], $values[1],$values[2],$values[3], $alt_alleles);
+    my $site_stats = join ("\t", $an, $ac, $af);
+    #print $population." ".$site_info." ".$site_stats." being added to result hash\n";
+    $result_hash{$site_info}{$population} = $site_stats; 
 }
 
 
@@ -200,33 +303,29 @@ sub parse_sample_panel {
 		chomp;
 		my $sample_line = $_;
 		my ($sample, $pop_in_panel, $sup_pop, $platform) = split(/\t/, $sample_line);
-		push @{$pop_sample_hash{$pop_in_panel}}, $sample;
+    #add unless it looks like the header
+		push @{$pop_sample_hash{$pop_in_panel}}, $sample unless $sample eq "sample";
 	}
 	return \%pop_sample_hash;
 }	
 
-sub print_hash {
-	my ($hash, $p) = @_;
-	
-	my $out_h;
-	my @pops;
+sub print_VCF_block_results{
+  my $out_h = shift @_;
+  my @pops = @{shift @_};
+  my $hash = shift @_;
 	my %total_cnt_all_pops;
 	my %alt_cnt_all_pops;
 	
-	$region =~ s/:/\./;
-	my $outfile = "$out_dir/calculated_fra.process$$" . "." . $region . "." . $p;
-	$outfile =~ s/,/_/g;
-	$outfile =~ s/\s+//;
-	open ($out_h, ">", $outfile) || die("Cannot open output file $outfile");
-	
-	print $out_h "CHR\tPOS\tID\tREF\tALT\t";
-	
+  my @random_sites;	
 	my %position_hash;
+  #print scalar(keys %{$hash})." keys in hash in print\n";
 	foreach my $site (keys %{$hash}) {
-		@pops = keys %{$hash->{$site}};
+    #print $site."\n";
 		$total_cnt_all_pops{$site} = 0;
 		$alt_cnt_all_pops{$site} = 0;
-		foreach my $p ( keys %{$hash->{$site}} ) {
+		foreach my $p (@pops) {
+      #print "popoulation p: $p\n";
+      #print $hash->{$site}->{$p}."\n";
 			my @data = split(/\t/, $hash->{$site}->{$p});
 			$total_cnt_all_pops{$site} += $data[0];
 			if($data[1] =~ m/,/){#multiple alt alleles
@@ -248,25 +347,30 @@ sub print_hash {
 			}
 		}
 		my @meta_array = split(/\t/, $site);
-		my $pos = $meta_array[0] . "." . $meta_array[1];
-		$position_hash{$pos} = $site;
+    #print $site." site\n";
+		#my $pos = $meta_array[0] . "." . $meta_array[1];
+    #print $pos."\n";
+    push @random_sites, {
+      'chr' => $meta_array[0],
+      'loc' => $meta_array[1],
+      'rs' => $meta_array[2],
+      'ref' => $meta_array[3],
+      'alt' => $meta_array[4]
+    };
+		#$position_hash{$pos} = $site;
 	}	
+  #print scalar(keys %position_hash)." keys in position hash\n";	
+	my @sorted_sites = sort {
+    $a->{'chr'} <=> $b->{'chr'} ||
+    $a->{'loc'} <=> $b->{'loc'} ||
+    $a->{'rs'} cmp $b->{'rs'} ||
+    $a->{'ref'} cmp $b->{'ref'} ||
+    $a->{'alt'} cmp $b->{'alt'}
+  } @random_sites;
 	
-	my @sorted_positions = sort {$a<=>$b} keys %position_hash;
-	
-	if ( $p eq "all" ) {
-		my @pop_header;
-		push @pop_header, "ALL_POP_TOTAL_CNT", "ALL_POP_ALT_CNT", "ALL_POP_FRQ";
-		foreach my $pop ( @pops ) {
-			push @pop_header, $pop . "_TOTAL_CNT";	
-			push @pop_header, $pop . "_ALT_CNT";
-			push @pop_header, $pop . "_FRQ";
-		}
-				
-		print $out_h join ("\t",@pop_header) . "\n"; 		
-		
-		foreach my $site_pos (@sorted_positions) {
-			my $site = $position_hash{$site_pos};		
+	#print scalar(@sorted_sites)." sorted positions in results\n";			
+		foreach my $s (@sorted_sites) {
+      my $site = $s->{'chr'}."\t".$s->{'loc'}."\t".$s->{'rs'}."\t".$s->{'ref'}."\t".$s->{'alt'};
 			print $out_h "$site\t";
 			print $out_h $total_cnt_all_pops{$site} . "\t" . $alt_cnt_all_pops{$site} . "\t";
 			my $alt_afs_all_pops;
@@ -286,36 +390,12 @@ sub print_hash {
 			print $out_h $alt_afs_all_pops;
 			print $out_h "\t";
 			my @numbers;
-			foreach my $pop_key ( keys %{$hash->{$site}} ) {
+			foreach my $pop_key (@pops ) {
 				push @numbers, $hash->{$site}->{$pop_key};
 			}
 			print $out_h join ("\t", @numbers) . "\n";
-		}
-	}
-	else {
-		my @user_pops = split(/,/, $p);	
-		my @header;
-		foreach my $user_p ( @user_pops) {
-			$user_p =~ s/^\s+|\s+$//;
-			push @header, $user_p . "_TOTAL_CNT";
-			push @header, $user_p . "_ALT_CNT";
-			push @header, $user_p . "_FRQ";
-		}	
 		
-		print $out_h join ("\t", @header) . "\n";
-		
-		foreach my $site_pos (@sorted_positions) {
-			my $site = $position_hash{$site_pos};	
-			print $out_h "$site\t";
-			my @numbers;
-			foreach my $pop_key (@user_pops) {  ### this way the header population will match the numbers
-			       
-				push @numbers, $hash->{$site}->{$pop_key};
-			}
-			print $out_h join ("\t", @numbers) . "\n";
 		}
-	}
-	print STDERR $outfile."\n";
 }		
 
 
