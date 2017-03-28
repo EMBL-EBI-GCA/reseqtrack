@@ -6,6 +6,10 @@ inc/
 Build
 !Build/
 Build.bat
+c_code/split/split
+c_code/split/split.o
+c_code/validate_bam/validate_bam
+c_code/validate_bam/validate_bam.o
 .last_cover_stats
 /Makefile
 /Makefile.old
