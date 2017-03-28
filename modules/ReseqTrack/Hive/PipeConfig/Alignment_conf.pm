@@ -594,7 +594,7 @@ sub pipeline_analyses {
             -parameters => {
                 program_file => $self->o('squeeze_exe'),
                 'rm_OQ_fields' => 1,
-                'rm_tag_types' => ['XM:i', 'XG:i', 'XO:i', 'pa:f'],
+                'rm_tag_types' => ['XM:i', 'XG:i', 'XO:i', 'pa:f','BD:Z', 'BI:Z'],
                 reseqtrack_options => {
                   delete_param => ['bam'],
                 }
@@ -788,7 +788,7 @@ sub pipeline_analyses {
             -parameters => {
                 program_file => $self->o('squeeze_exe'),
                 'rm_OQ_fields' => 1,
-                'rm_tag_types' => ['XM:i', 'XG:i', 'XO:i', 'pa:f'],
+                'rm_tag_types' => ['XM:i', 'XG:i', 'XO:i', 'pa:f','BD:Z', 'BI:Z'],
                 reseqtrack_options => {
                   delete_param => ['bam'],
                 },

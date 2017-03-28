@@ -127,6 +127,8 @@ sub create_indel_realign_bam {
   push(@cmd_words, '--disable_bam_indexing');
   push(@cmd_words, '--targetIntervals', $self->intervals_file);
 
+  push(@cmd_words, '-allowPotentiallyMisencodedQuals') if ($self->options('allowPotentiallyMisencodedQuals'));
+
   foreach my $vcf (@{$self->known_sites_files}) {
     push(@cmd_words, '-known', $vcf);
   }

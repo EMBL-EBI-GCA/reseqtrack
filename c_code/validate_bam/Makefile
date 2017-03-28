@@ -1,7 +1,7 @@
 CC = gcc
 CFLAGS=-O3 -D_GNU_SOURCE
 #SAMPATH=/nfs/1000g-work/G1K/work/bin/samtools_dev/samtools
-SAMPATH=/nfs/production/reseq-info/work/bin/samtools
+SAMPATH=/nfs/production/reseq-info/work/bin/samtools-0.1.18
 LDFLAGS=-L$(SAMPATH) -Wl,-rpath,$(SAMPATH)
 
 all: validate_bam
