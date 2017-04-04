@@ -70,6 +70,8 @@ sub run {
     else {
       $psa->update_completed($pipeline_seed);
     }
+
+    $db->dbc->disconnect_if_idle();
     
 }
 

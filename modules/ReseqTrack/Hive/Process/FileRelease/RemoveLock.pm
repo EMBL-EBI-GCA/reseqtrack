@@ -22,6 +22,7 @@ sub run {
 
     my $meta_adaptor = $db->get_MetaAdaptor;
     delete_lock_string("file_release.lock", $meta_adaptor);
+    $db->dbc->disconnect_if_idle();
 }
 
 1;

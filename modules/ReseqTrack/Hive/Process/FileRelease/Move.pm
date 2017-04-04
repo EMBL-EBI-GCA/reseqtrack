@@ -194,6 +194,8 @@ sub run {
       }
       $fa->update($index_object,0,$change_name);
     }
+
+    $db->dbc->disconnect_if_idle();
 }
 
 1;

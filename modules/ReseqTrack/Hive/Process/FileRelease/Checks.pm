@@ -216,6 +216,7 @@ sub run {
         last CHECK;
       }
     }
+    $db->dbc->disconnect_if_idle();
     return;
 }
 

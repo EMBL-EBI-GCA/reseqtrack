@@ -51,6 +51,7 @@ sub run {
         $self->prepare_factory_output_id( $file->dbID, \%output_params );
       }
     }
+    $db->dbc->disconnect_if_idle();
 }
 
 1;
