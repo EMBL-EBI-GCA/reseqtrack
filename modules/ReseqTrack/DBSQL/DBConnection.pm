@@ -70,6 +70,8 @@ sub new {
     rearrange([qw(DBNAME HOST DRIVER USER PASS PORT 
                   DISCONNECT_WHEN_INACTIVE DBCONN WAIT_TIMEOUT)], @_);
 
+  print ($db,$host,$driver,$user,$password,$port, $inactive_disconnect, $dbconn, $wait_timeout);
+
   my $self = {};
   bless $self, $class;
 
@@ -128,7 +130,7 @@ sub new {
       $self->disconnect_when_inactive($inactive_disconnect);
     }
   }
-  print Dumper($self);
+  # print Dumper($self);
   return $self;
 }
 
