@@ -117,8 +117,8 @@ sub new {
       $self->disconnect_when_inactive($inactive_disconnect);
     }
   }
-  # return $self;
   print $self;
+  return $self;
 }
 
 
