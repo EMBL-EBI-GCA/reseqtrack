@@ -7,6 +7,8 @@ use ReseqTrack::DBSQL::StatementHandle;
 
 use ReseqTrack::Tools::Exception qw(throw warning stack_trace_dump);
 use ReseqTrack::Tools::Argument qw(rearrange);
+use Data::Dumper;
+
 
 =head2 new
 
@@ -117,7 +119,7 @@ sub new {
       $self->disconnect_when_inactive($inactive_disconnect);
     }
   }
-  print $self;
+  print Dumper($self);
   return $self;
 }
 
