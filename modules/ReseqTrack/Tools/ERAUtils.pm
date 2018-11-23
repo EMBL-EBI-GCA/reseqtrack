@@ -12,6 +12,7 @@ use ReseqTrack::DBSQL::ERADBAdaptor;
 use ReseqTrack::Tools::FileSystemUtils;
 use ReseqTrack::Tools::RunMetaInfoUtils;
 use ReseqTrack::Tools::Intersection;
+use Data::Dumper;
 
 
 use vars qw (@ISA  @EXPORT);
@@ -36,7 +37,7 @@ sub get_erapro_conn{
     -pass   => $dbpass,
       );
   # return $db;
-  print $db;
+  print DUmper($db);
 }
 
 
