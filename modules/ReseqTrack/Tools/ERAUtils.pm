@@ -36,8 +36,20 @@ sub get_erapro_conn{
     -dbname => $dbname // 'ERAPRO_HX',
     -pass   => $dbpass,
       );
-  # return $db;
-  print Dumper($db);
+  return $db;
+  # print Dumper($db);
+  # $VAR1 = bless( {
+  #                '_dbc' => bless( {
+  #                                   '_port' => 3306,
+  #                                   '_host' => 'mysql',
+  #                                   '_driver' => 'Oracle',
+  #                                   '_password' => ,
+  #                                   '_dbname' => 'ERAPRO',
+  #                                   '_username' => 'ops$laura',
+  #                                   '_timeout' => 0
+  #                                 }, 'ReseqTrack::DBSQL::DBConnection' )
+  #              }, 'ReseqTrack::DBSQL::ERADBAdaptor' );
+
 }
 
 
