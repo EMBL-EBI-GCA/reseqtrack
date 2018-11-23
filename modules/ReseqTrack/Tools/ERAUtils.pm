@@ -37,7 +37,7 @@ sub get_erapro_conn{
     -pass   => $dbpass,
       );
   # return $db;
-  print DUmper($db);
+  print Dumper($db);
 }
 
 
