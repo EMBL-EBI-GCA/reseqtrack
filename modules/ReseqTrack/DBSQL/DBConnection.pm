@@ -61,65 +61,64 @@ use ReseqTrack::Tools::Argument qw(rearrange);
 =cut
 
 sub new {
-  print "test_no2";
+  my $class = shift;
 
- #  my $class = shift;
+  my ($db,$host,$driver,$user,$password,$port, $inactive_disconnect, $dbconn, $wait_timeout) =
+    rearrange([qw(DBNAME HOST DRIVER USER PASS PORT 
+                  DISCONNECT_WHEN_INACTIVE DBCONN WAIT_TIMEOUT)], @_);
 
- #  my ($db,$host,$driver,$user,$password,$port, $inactive_disconnect, $dbconn, $wait_timeout) =
- #    rearrange([qw(DBNAME HOST DRIVER USER PASS PORT 
- #                  DISCONNECT_WHEN_INACTIVE DBCONN WAIT_TIMEOUT)], @_);
+  my $self = {};
+  bless $self, $class;
 
- #  my $self = {};
- #  bless $self, $class;
+  if($dbconn) {
+    if($db || $host || $driver || $password || $port || $inactive_disconnect) {
+      throw("Cannot specify other arguments when -DBCONN argument used.");
+    }
 
- #  if($dbconn) {
- #    if($db || $host || $driver || $password || $port || $inactive_disconnect) {
- #      throw("Cannot specify other arguments when -DBCONN argument used.");
- #    }
+    $self->dbname($dbconn->dbname());
+    $self->username($dbconn->username());
+    $self->host($dbconn->host());
+    $self->password($dbconn->password());
+    $self->port($dbconn->port());
+    $self->driver($dbconn->driver());
 
- #    $self->dbname($dbconn->dbname());
- #    $self->username($dbconn->username());
- #    $self->host($dbconn->host());
- #    $self->password($dbconn->password());
- #    $self->port($dbconn->port());
- #    $self->driver($dbconn->driver());
+    if($dbconn->disconnect_when_inactive()) {
+      $self->disconnect_when_inactive(1);
+    }
+  } else {
+    $db   || throw("-DBNAME argument is required.");
+    $user || throw("-USER argument is required.");
 
- #    if($dbconn->disconnect_when_inactive()) {
- #      $self->disconnect_when_inactive(1);
- #    }
- #  } else {
- #    $db   || throw("-DBNAME argument is required.");
- #    $user || throw("-USER argument is required.");
-
- #    $driver ||= 'mysql';
- #    $host   ||= 'mysql';
+    $driver ||= 'mysql';
+    $host   ||= 'mysql';
     
- #    if(!defined($port)){
- #      $port   = 3306;
- #      if($host eq "ensembldb.ensembl.org"){
-	# if( $db =~ /\w+_\w+_\w+_(\d+)/){
-	#   if($1 >= 48){
-	#     $port = 5306;
-	#   }
-	# }
- #      }
- #    }
+    if(!defined($port)){
+      $port   = 3306;
+      if($host eq "ensembldb.ensembl.org"){
+	if( $db =~ /\w+_\w+_\w+_(\d+)/){
+	  if($1 >= 48){
+	    $port = 5306;
+	  }
+	}
+      }
+    }
 
- #    $wait_timeout   ||= 0;
+    $wait_timeout   ||= 0;
 
- #    $self->username( $user );
- #    $self->host( $host );
- #    $self->dbname( $db );
- #    $self->password( $password );
- #    $self->port($port);
- #    $self->driver($driver);
- #    $self->timeout($wait_timeout);
+    $self->username( $user );
+    $self->host( $host );
+    $self->dbname( $db );
+    $self->password( $password );
+    $self->port($port);
+    $self->driver($driver);
+    $self->timeout($wait_timeout);
 
- #    if($inactive_disconnect) {
- #      $self->disconnect_when_inactive($inactive_disconnect);
- #    }
- #  }
- #  return $self;
+    if($inactive_disconnect) {
+      $self->disconnect_when_inactive($inactive_disconnect);
+    }
+  }
+  # return $self;
+  print $self;
 }
 
 
