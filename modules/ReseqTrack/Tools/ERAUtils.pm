@@ -27,15 +27,16 @@ use vars qw (@ISA  @EXPORT);
 
 
 sub get_erapro_conn{
-  print 'test_me';
-  # my ($dbuser, $dbpass, $dbname) = @_;
+  # print 'test_me';
+  my ($dbuser, $dbpass, $dbname) = @_;
   
-  # my $db = ReseqTrack::DBSQL::ERADBAdaptor->new(
-  #   -user   => $dbuser,
-  #   -dbname => $dbname // 'ERAPRO_HX',
-  #   -pass   => $dbpass,
-  #     );
+  my $db = ReseqTrack::DBSQL::ERADBAdaptor->new(
+    -user   => $dbuser,
+    -dbname => $dbname // 'ERAPRO_HX',
+    -pass   => $dbpass,
+      );
   # return $db;
+  print $db;
 }
 
 
