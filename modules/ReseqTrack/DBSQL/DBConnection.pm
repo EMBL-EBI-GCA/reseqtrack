@@ -62,6 +62,7 @@ use Data::Dumper;
 
 =cut
 
+
 sub new {
   my $class = shift;
 
@@ -91,7 +92,7 @@ sub new {
       $self->disconnect_when_inactive(1);
     }
   } else {
-    print 4;
+    print 4; # comes here at the moment and then
     $db   || throw("-DBNAME argument is required.");
     $user || throw("-USER argument is required.");
 
@@ -99,7 +100,7 @@ sub new {
     $host   ||= 'mysql'; # Oracle
     
     if(!defined($port)){
-      print 5;
+      print 5; # it comes here then.
       $port   = 3306; # 1541
       if($host eq "ensembldb.ensembl.org"){
 	if( $db =~ /\w+_\w+_\w+_(\d+)/){
