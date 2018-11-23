@@ -15,18 +15,19 @@ use ReseqTrack::DBSQL::ERA::SampleAdaptor;
 use base qw(ReseqTrack::DBSQL::DBAdaptor);
 
 sub new{
-  my ($class, @args) = @_;
-  my $has_driver = 0;
-  foreach my $arg(@args){
-    if($arg && $arg =~ /driver/i){
-      $has_driver = 1;
-    }
-  }
-  unless($has_driver){
-    push(@args, ('-driver', 'Oracle'));
-  }
-  my $self = $class->SUPER::new(@args);
-  return $self;
+  print "test_again";
+  # my ($class, @args) = @_;
+  # my $has_driver = 0;
+  # foreach my $arg(@args){
+  #   if($arg && $arg =~ /driver/i){
+  #     $has_driver = 1;
+  #   }
+  # }
+  # unless($has_driver){
+  #   push(@args, ('-driver', 'Oracle'));
+  # }
+  # my $self = $class->SUPER::new(@args);
+  # return $self;
 }
 
 sub get_ERARunMetaInfoAdaptor{
