@@ -73,7 +73,9 @@ sub new {
   bless $self, $class;
 
   if($dbconn) {
+    print 1;
     if($db || $host || $driver || $password || $port || $inactive_disconnect) {
+      print 2;
       throw("Cannot specify other arguments when -DBCONN argument used.");
     }
 
@@ -85,20 +87,25 @@ sub new {
     $self->driver($dbconn->driver());
 
     if($dbconn->disconnect_when_inactive()) {
+      print 3;
       $self->disconnect_when_inactive(1);
     }
   } else {
+    print 4;
     $db   || throw("-DBNAME argument is required.");
     $user || throw("-USER argument is required.");
 
     $driver ||= 'mysql';
-    $host   ||= 'mysql';
+    $host   ||= 'mysql'; # Oracle
     
     if(!defined($port)){
-      $port   = 3306;
+      print 5;
+      $port   = 3306; # 1541
       if($host eq "ensembldb.ensembl.org"){
 	if( $db =~ /\w+_\w+_\w+_(\d+)/){
+    print 6;
 	  if($1 >= 48){
+      print 7;
 	    $port = 5306;
 	  }
 	}
@@ -116,6 +123,7 @@ sub new {
     $self->timeout($wait_timeout);
 
     if($inactive_disconnect) {
+      print 8;
       $self->disconnect_when_inactive($inactive_disconnect);
     }
   }
