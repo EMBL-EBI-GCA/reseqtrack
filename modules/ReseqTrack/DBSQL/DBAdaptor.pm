@@ -37,6 +37,7 @@ use ReseqTrack::DBSQL::PipelineAdaptor;
 use ReseqTrack::DBSQL::HiveDBAdaptor;
 use ReseqTrack::DBSQL::PipelineSeedAdaptor;
 use ReseqTrack::DBSQL::PipelineOutputAdaptor;
+use Data::Dumper;
 
 sub new {
   my($class, @args) = @_;
@@ -50,7 +51,7 @@ sub new {
   }else{
     $self->dbc(new ReseqTrack::DBSQL::DBConnection(@args));
   }
-  # print $self;
+  print Dumper($self);
   return $self;
 }
 
