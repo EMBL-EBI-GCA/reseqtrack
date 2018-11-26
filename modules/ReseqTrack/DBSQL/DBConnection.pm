@@ -69,8 +69,13 @@ sub new {
   my ($db,$host,$driver,$user,$password,$port, $inactive_disconnect, $dbconn, $wait_timeout) =
     rearrange([qw(DBNAME HOST DRIVER USER PASS PORT 
                   DISCONNECT_WHEN_INACTIVE DBCONN WAIT_TIMEOUT)], @_);
+  # test
+  my @test = ($db,$host,$driver,$user,$password,$port, $inactive_disconnect, $dbconn, $wait_timeout);
+    print "@test\n";
 
-  print ($db,$host,$driver,$user,$password,$port, $inactive_disconnect, $dbconn, $wait_timeout);
+
+    # print ($db,$host,$driver,$user,$password,$port, $inactive_disconnect, $dbconn, $wait_timeout);
+    # ERAPROOracleops$laura-dataset_id
 
   my $self = {};
   bless $self, $class;

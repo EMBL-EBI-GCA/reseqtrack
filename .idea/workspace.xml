@@ -3,7 +3,6 @@
   <component name="ChangeListManager">
     <list default="true" id="90f27f51-0b4f-4105-92ad-7a11124fef6e" name="Default Changelist" comment="">
       <change beforePath="$PROJECT_DIR$/modules/ReseqTrack/DBSQL/DBConnection.pm" beforeDir="false" afterPath="$PROJECT_DIR$/modules/ReseqTrack/DBSQL/DBConnection.pm" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/modules/ReseqTrack/DBSQL/ERADBAdaptor.pm" beforeDir="false" afterPath="$PROJECT_DIR$/modules/ReseqTrack/DBSQL/ERADBAdaptor.pm" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -13,14 +12,15 @@
   </component>
   <component name="FileEditorManager">
     <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
-      <file pinned="false" current-in-tab="false">
+      <file pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/modules/ReseqTrack/DBSQL/DBConnection.pm">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="324">
-              <caret line="72" column="2" lean-forward="true" selection-start-line="72" selection-start-column="2" selection-end-line="72" selection-end-column="2" />
+            <state relative-caret-position="427">
+              <caret line="78" lean-forward="true" selection-start-line="78" selection-end-line="78" />
               <folding>
                 <element signature="e#54#62#0#Perl5" expanded="true" />
                 <element signature="n#new#0" />
+                <element signature="e#3179#3275#0#Perl5" expanded="true" />
                 <element signature="n#connect#0" />
               </folding>
             </state>
@@ -39,11 +39,11 @@
           </provider>
         </entry>
       </file>
-      <file pinned="false" current-in-tab="true">
+      <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/modules/ReseqTrack/DBSQL/ERADBAdaptor.pm">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="523">
-              <caret line="31" column="15" lean-forward="true" selection-start-line="31" selection-start-column="15" selection-end-line="31" selection-end-column="15" />
+            <state relative-caret-position="535">
+              <caret line="25" column="3" lean-forward="true" selection-start-line="25" selection-start-column="3" selection-end-line="25" selection-end-column="3" />
               <folding>
                 <element signature="e#88#124#0#Perl5" expanded="true" />
               </folding>
@@ -66,10 +66,12 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/modules/ReseqTrack/Tools/Argument.pm">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="412">
-              <caret line="117" column="15" lean-forward="true" selection-start-line="117" selection-start-column="15" selection-end-line="117" selection-end-column="15" />
+            <state relative-caret-position="516">
+              <caret line="133" column="65" lean-forward="true" selection-start-line="133" selection-start-column="65" selection-end-line="133" selection-end-column="65" />
               <folding>
                 <element signature="e#922#4001#0#Perl5 POD" />
+                <element signature="e#4137#4195#0#Perl5" expanded="true" />
+                <element signature="e#4348#4411#0#Perl5" expanded="true" />
               </folding>
             </state>
           </provider>
@@ -79,14 +81,15 @@
   </component>
   <component name="FindInProjectRecents">
     <findStrings>
-      <find>rearrange</find>
       <find>print</find>
       <find>dbc</find>
       <find>shift</find>
       <find>new</find>
-      <find>sub dbc</find>
       <find>dbc</find>
       <find>$class</find>
+      <find>sub dbc</find>
+      <find>rearrange</find>
+      <find>DISCONNECT_WHEN_INACTIVE</find>
     </findStrings>
   </component>
   <component name="Git.Settings">
@@ -97,8 +100,8 @@
       <list>
         <option value="$PROJECT_DIR$/modules/ReseqTrack/Tools/ERAUtils.pm" />
         <option value="$PROJECT_DIR$/modules/ReseqTrack/DBSQL/DBAdaptor.pm" />
-        <option value="$PROJECT_DIR$/modules/ReseqTrack/DBSQL/DBConnection.pm" />
         <option value="$PROJECT_DIR$/modules/ReseqTrack/DBSQL/ERADBAdaptor.pm" />
+        <option value="$PROJECT_DIR$/modules/ReseqTrack/DBSQL/DBConnection.pm" />
       </list>
     </option>
   </component>
@@ -174,18 +177,18 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1542987137655</updated>
-      <workItem from="1543232456560" duration="10122000" />
+      <workItem from="1543232456560" duration="11777000" />
     </task>
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="10122000" />
+    <option name="totallyTimeSpent" value="11777000" />
   </component>
   <component name="ToolWindowManager">
     <frame x="595" y="26" width="1317" height="953" extended-state="0" />
     <editor active="true" />
     <layout>
-      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.37114197" />
+      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.23148148" />
       <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
       <window_info id="Favorites" order="2" side_tool="true" />
       <window_info anchor="bottom" id="Message" order="0" />
@@ -226,34 +229,12 @@
     </breakpoint-manager>
   </component>
   <component name="editorHistoryManager">
-    <entry file="file://$PROJECT_DIR$/modules/ReseqTrack/Tools/Argument.pm">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="412">
-          <caret line="117" column="15" lean-forward="true" selection-start-line="117" selection-start-column="15" selection-end-line="117" selection-end-column="15" />
-          <folding>
-            <element signature="e#922#4001#0#Perl5 POD" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/modules/ReseqTrack/Tools/ERAUtils.pm">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="390">
           <caret line="33" column="42" selection-start-line="33" selection-start-column="30" selection-end-line="33" selection-end-column="42" />
           <folding>
             <element signature="e#851#871#0#Perl5" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/modules/ReseqTrack/DBSQL/DBConnection.pm">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="324">
-          <caret line="72" column="2" lean-forward="true" selection-start-line="72" selection-start-column="2" selection-end-line="72" selection-end-column="2" />
-          <folding>
-            <element signature="e#54#62#0#Perl5" expanded="true" />
-            <element signature="n#new#0" />
-            <element signature="n#connect#0" />
           </folding>
         </state>
       </provider>
@@ -270,10 +251,35 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/modules/ReseqTrack/DBSQL/ERADBAdaptor.pm">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="523">
-          <caret line="31" column="15" lean-forward="true" selection-start-line="31" selection-start-column="15" selection-end-line="31" selection-end-column="15" />
+        <state relative-caret-position="535">
+          <caret line="25" column="3" lean-forward="true" selection-start-line="25" selection-start-column="3" selection-end-line="25" selection-end-column="3" />
           <folding>
             <element signature="e#88#124#0#Perl5" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/modules/ReseqTrack/Tools/Argument.pm">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="516">
+          <caret line="133" column="65" lean-forward="true" selection-start-line="133" selection-start-column="65" selection-end-line="133" selection-end-column="65" />
+          <folding>
+            <element signature="e#922#4001#0#Perl5 POD" />
+            <element signature="e#4137#4195#0#Perl5" expanded="true" />
+            <element signature="e#4348#4411#0#Perl5" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/modules/ReseqTrack/DBSQL/DBConnection.pm">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="427">
+          <caret line="78" lean-forward="true" selection-start-line="78" selection-end-line="78" />
+          <folding>
+            <element signature="e#54#62#0#Perl5" expanded="true" />
+            <element signature="n#new#0" />
+            <element signature="e#3179#3275#0#Perl5" expanded="true" />
+            <element signature="n#connect#0" />
           </folding>
         </state>
       </provider>
