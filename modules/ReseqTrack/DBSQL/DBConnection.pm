@@ -72,7 +72,16 @@ sub new {
   # test
   my @test = ($db,$host,$driver,$user,$password,$port, $inactive_disconnect, $dbconn, $wait_timeout);
     # print "@test\n";
-    print @test[0];
+    print "0-: @test[0]\n";
+    print "1-: @test[1]\n";
+    print "2-: @test[2]\n";
+    print "3-: @test[3]\n";
+    print "4-: @test[4]\n";
+    print "5-: @test[5]\n";
+    print "6-: @test[6]\n";
+    print "7-: @test[7]\n";
+    print "8-: @test[8]\n";
+
 # this is what we get: ERAPRO  Oracle ops$laura -dataset_id
 
     # print ($db,$host,$driver,$user,$password,$port, $inactive_disconnect, $dbconn, $wait_timeout);
