@@ -50,7 +50,7 @@ sub new {
   }else{
     $self->dbc(new ReseqTrack::DBSQL::DBConnection(@args));
   }
- 
+  print $self;
   return $self;
 }
 
