@@ -71,8 +71,9 @@ sub new {
                   DISCONNECT_WHEN_INACTIVE DBCONN WAIT_TIMEOUT)], @_);
   # test
   my @test = ($db,$host,$driver,$user,$password,$port, $inactive_disconnect, $dbconn, $wait_timeout);
-    print "@test\n";
-
+    # print "@test\n";
+    print @test[0];
+# this is what we get: ERAPRO  Oracle ops$laura -dataset_id
 
     # print ($db,$host,$driver,$user,$password,$port, $inactive_disconnect, $dbconn, $wait_timeout);
     # ERAPROOracleops$laura-dataset_id
