@@ -13,6 +13,7 @@ use ReseqTrack::DBSQL::ERA::RunAdaptor;
 use ReseqTrack::DBSQL::ERA::ExperimentAdaptor;
 use ReseqTrack::DBSQL::ERA::SampleAdaptor;
 use base qw(ReseqTrack::DBSQL::DBAdaptor);
+use Data::Dumper;
 
 sub new{
   # print "test_again"
@@ -27,7 +28,7 @@ sub new{
     push(@args, ('-driver', 'Oracle'));
   }
   my $self = $class->SUPER::new(@args);
-  # print $self;
+  print Dumper($self);
   return $self;
 }
 

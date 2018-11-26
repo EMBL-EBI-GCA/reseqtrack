@@ -51,7 +51,7 @@ sub new {
   }else{
     $self->dbc(new ReseqTrack::DBSQL::DBConnection(@args));
   }
-  print Dumper($self);
+  # print Dumper($self);
   return $self;
 }
 
