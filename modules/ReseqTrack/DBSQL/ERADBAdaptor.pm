@@ -28,7 +28,7 @@ sub new{
     push(@args, ('-driver', 'Oracle'));
   }
   my $self = $class->SUPER::new(@args);
-  print Dumper($self);
+  # print Dumper($self);
   return $self;
 }
 
