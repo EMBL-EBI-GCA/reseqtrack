@@ -72,11 +72,11 @@ sub new {
   # test
   my @test = ($db,$host,$driver,$user,$password,$port, $inactive_disconnect, $dbconn, $wait_timeout);
     # print "@test\n";
-    print "0-: @test[0]\n";
+    print "0-: @test[0]\n"; # ERAPRO
     print "1-: @test[1]\n";
-    print "2-: @test[2]\n";
-    print "3-: @test[3]\n";
-    print "4-: @test[4]\n";
+    print "2-: @test[2]\n"; # Oracle
+    print "3-: @test[3]\n"; # ops$laura
+    print "4-: @test[4]\n"; # -dataset_id
     print "5-: @test[5]\n";
     print "6-: @test[6]\n";
     print "7-: @test[7]\n";
