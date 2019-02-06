@@ -111,10 +111,18 @@ sub load_type_by_study_id {
 
   my $stored_count  = 0;
   my $checked_count = scalar(@$objects);
+  my @pooled_experiments = Empty;
 
   for my $object (@$objects) {
-    my $current_record =
-      $reseq_adaptor->fetch_by_source_id( $object->source_id );
+    my $current_record = $reseq_adaptor->fetch_by_source_id( $object->source_id );
+
+    # Checking if the experiment has pooled samples (this causes issues in the database)
+    # This check does NOT solve the problem, but it does make it detectable
+    if ($type eq 'experiment') {
+      if ($object->pool_id > 0) {
+        push @pooled_experiments, $object->source_id;
+      }
+    }
 
     $fk_handler_sub->( $object, $reseq_db );
     my $run_stat_update;
@@ -154,8 +162,21 @@ sub load_type_by_study_id {
     }
   }
 
+
   $self->log("$type checked $checked_count stored $stored_count")
     unless ( $self->quiet );
+
+  # Report if there are experiments with pooled samples
+  if (@pooled_experiments){
+    my $pooled_experiments_list = join("\n        ",@pooled_experiments),"\n";
+    $self->log(qq{
+*************************************************
+** Encountered experiments with pooled samples **
+*************************************************
+    Affected experiments count: $pooled_experiments_list
+*************************************************
+    })
+  }
   $self->summary_stats( $type, $checked_count, $stored_count );
 }
 
