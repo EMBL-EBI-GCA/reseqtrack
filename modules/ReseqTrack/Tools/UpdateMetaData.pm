@@ -81,7 +81,7 @@ STUDY: for my $study (@$studies) {
     }
 
     $self->log( "Checking " . $study->source_id ) unless ($quiet);
-  TYPE: for my $type (@$types) {
+    for my $type (@$types) {
       $self->log("...for $type") if ($verbose);
       $self->load_type_by_study_id( $type, $study->source_id(),
         $update_existing, $load_new, $force_update );
