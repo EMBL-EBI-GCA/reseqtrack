@@ -20,14 +20,14 @@ sub new {
     $instr_model,           $lib_layout,          $lib_name,
     $lib_strategy,          $lib_source,          $lib_selection,
     $paired_nominal_length, $paired_nominal_sdev, $source_id,
-    $submission_id,         $submission_date,     $sample_id
+    $submission_id,         $submission_date,     $sample_id, $is_pool
     )
     = rearrange(
     [
       qw( STUDY_ID STATUS MD5 CENTER_NAME
         EXPERIMENT_ALIAS INSTRUMENT_PLATFORM INSTRUMENT_MODEL LIBRARY_LAYOUT
         LIBRARY_NAME LIBRARY_STRATEGY LIBRARY_SOURCE LIBRARY_SELECTION
-        PAIRED_NOMINAL_LENGTH PAIRED_NOMINAL_SDEV SOURCE_ID SUBMISSION_ID SUBMISSION_DATE SAMPLE_ID)
+        PAIRED_NOMINAL_LENGTH PAIRED_NOMINAL_SDEV SOURCE_ID SUBMISSION_ID SUBMISSION_DATE SAMPLE_ID IS_POOL)
     ],
     @args
     );
@@ -50,6 +50,7 @@ sub new {
   $self->submission_id($submission_id);
   $self->submission_date($submission_date);
   $self->sample_id($sample_id);
+  $self->is_pool($is_pool);
 
   return $self;
 }
@@ -84,7 +85,6 @@ sub source_id {
 
 sub experiment_source_id {
   my ( $self, $arg ) = @_;
-
   if ($arg) {
     $self->{experiment_source_id} = $arg;
   }
@@ -223,6 +223,12 @@ sub sample_id {
   my ( $self, $arg ) = @_;
   if ($arg) { $self->{sample_id} = $arg; }
   return $self->{sample_id};
+}
+
+sub is_pool {
+  my ( $self, $arg ) = @_;
+  if ($arg) { $self->{is_pool} = $arg; }
+  return $self->{is_pool};
 }
 
 sub object_table_name {
