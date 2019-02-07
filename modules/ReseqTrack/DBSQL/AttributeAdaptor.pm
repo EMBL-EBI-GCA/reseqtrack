@@ -90,7 +90,8 @@ sub store{
   	$attribute->adaptor($self);
   	
     if($update &&
-      ($exists->attribute_value ne $attribute->attribute_value || $exists->attribute_units // '' ne $attribute->attribute_units // '')){
+      ($exists->attribute_value // '' ne $attribute->attribute_value // '' ||
+          $exists->attribute_units // '' ne $attribute->attribute_units // '')){
       $attribute->dbID($exists->dbID);
 #      print "existing stats id is " . $exists->dbID . "\n";
 #			print "reassigned stats id is: " . $attribute->dbID . "\n";

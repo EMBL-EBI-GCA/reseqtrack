@@ -111,7 +111,7 @@ sub load_type_by_study_id {
 
   my $stored_count  = 0;
   my $checked_count = scalar(@$objects);
-  my @pooled_experiments = Empty;
+  my @pooled_experiments;
 
   for my $object (@$objects) {
     my $current_record = $reseq_adaptor->fetch_by_source_id( $object->source_id );
@@ -167,7 +167,7 @@ sub load_type_by_study_id {
     unless ( $self->quiet );
 
   # Report if there are experiments with pooled samples
-  if (@pooled_experiments){
+  if (@pooled_experiments > 0){
     my $pooled_experiments_list = join("\n        ",@pooled_experiments),"\n";
     $self->log(qq{
 *************************************************
