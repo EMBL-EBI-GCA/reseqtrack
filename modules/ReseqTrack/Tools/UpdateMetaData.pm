@@ -119,7 +119,10 @@ sub load_type_by_study_id {
     # Checking if the experiment has pooled samples (this causes issues in the database)
     # This check does NOT solve the problem, but it does make it detectable
     if ($type eq 'experiment') {
-      if ($object->is_pool > 0) {
+      if (not(defined $object->is_pool)){
+        print "Couldn't find the pool information for ".$object->source_id."\n"
+      }
+      elsif ($object->is_pool > 0) {
         push @pooled_experiments, $object->source_id;
       }
     }
@@ -170,7 +173,7 @@ sub load_type_by_study_id {
   if (@pooled_experiments > 0){
     my $spacing = "\n        ";
     my $pooled_experiments_list = $spacing.join($spacing,@pooled_experiments)."\n";
-    my $pooled_experiments_count = scalar @pooled_experiments
+    my $pooled_experiments_count = scalar(@pooled_experiments);
     $self->log(qq{
 *************************************************
 ** Encountered experiments with pooled samples **

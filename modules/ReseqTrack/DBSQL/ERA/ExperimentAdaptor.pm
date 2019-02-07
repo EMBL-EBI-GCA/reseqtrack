@@ -19,7 +19,7 @@ sub columns {
  experiment.paired_nominal_length, experiment.paired_nominal_sdev, submission.submission_id,
  to_char(submission.submission_date, 'YYYY-MM-DD HH24:MI') submission_date, experiment.ega_id,
  EXTRACTVALUE(experiment.experiment_xml, '//EXPERIMENT/DESIGN/SAMPLE_DESCRIPTOR/\@accession') sample_id,
- existsnode(experiment_xml,'//EXPERIMENT/DESIGN/SAMPLE_DESCRIPTOR/POOL') is_pool
+ existsnode(experiment.experiment_xml,'//EXPERIMENT/DESIGN/SAMPLE_DESCRIPTOR/POOL') is_pool
 ";
 }
 
