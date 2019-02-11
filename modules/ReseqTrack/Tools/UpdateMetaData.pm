@@ -128,8 +128,8 @@ sub load_type_by_study_id {
     # In some pooled-sample experiments, the species information has been a signifier that there is an issue.
     # Bringing this information forward should help illuminate potential issues.
     elsif ($type eq 'sample') {
-      my $key = $object->tax_id // 'NA' . '|' . $object->scientific_name // 'NA' . '|' . $object->common_name // 'NA' ;
-      @species{$key} = ();
+      my $key = ($object->tax_id // 'NA').'|'.($object->scientific_name // 'NA').'|'.($object->common_name // 'NA') ;
+      $species{$key} = ();
     }
 
     $fk_handler_sub->( $object, $reseq_db );
@@ -181,7 +181,7 @@ sub load_type_by_study_id {
     my $pooled_experiments_count = scalar(@pooled_experiments);
     $self->log(qq{
 *************************************************
-*****                WARNING                 ****
+*****                WARNING                *****
 ** Encountered experiments with pooled samples **
 *************************************************
     Affected experiments count: $pooled_experiments_count
