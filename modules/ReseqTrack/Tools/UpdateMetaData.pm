@@ -189,9 +189,9 @@ $pooled_experiments_list
 *************************************************
     })
   }
-  # Report the species information
-  $self->log("Stored species:\n".join("\n", keys %species)."\n");
-
+  for my $s (keys %species) {
+    $self->summary_unique( 'species', $s);
+  }
   $self->summary_stats( $type, $checked_count, $stored_count );
 }
 
@@ -405,6 +405,19 @@ sub summary_stats {
   return $self->{summary_stats};
 }
 
+sub summary_unique {
+  my ( $self, $type, $val ) = @_;
+
+  if ($type) {
+    if (!exists $self->{summary_unique}{$type}){
+      $self->{summary_unique}{$type} = {}
+    }
+    $self->{summary_unique}{$type}{$val} = ();
+  }
+
+  return $self->{summary_unique};
+}
+
 sub quiet {
   my ( $self, $arg ) = @_;
   if ($arg) {
@@ -440,6 +453,11 @@ sub summarise {
     my $stored  = $ss->{$type}{stored};
 
     $self->log("$type checked $checked stored $stored") if (!$quiet || $stored > 0);
+  }
+
+  my $su = $self->summary_unique();
+  for my $type ( sort keys %$su ) {
+    $self->log("Stored unique values for $type:\n" . join("\n", keys $su->{$type}) . "\n");
   }
 
 }
