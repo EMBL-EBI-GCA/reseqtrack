@@ -112,6 +112,7 @@ sub load_type_by_study_id {
   my $stored_count  = 0;
   my $checked_count = scalar(@$objects);
   my @pooled_experiments;
+  my %species;
 
   for my $object (@$objects) {
     my $current_record = $reseq_adaptor->fetch_by_source_id( $object->source_id );
@@ -119,12 +120,16 @@ sub load_type_by_study_id {
     # Checking if the experiment has pooled samples (this causes issues in the database)
     # This check does NOT solve the problem, but it does make it detectable
     if ($type eq 'experiment') {
-      if (not(defined $object->is_pool)){
-        print "Couldn't find the pool information for ".$object->source_id."\n"
-      }
-      elsif ($object->is_pool > 0) {
+      if ($object->is_pool > 0) {
         push @pooled_experiments, $object->source_id;
       }
+    }
+    # Storing the combination of species id, scientific name and common name
+    # In some pooled-sample experiments, the species information has been a signifier that there is an issue.
+    # Bringing this information forward should help illuminate potential issues.
+    elsif ($type eq 'sample') {
+      my $key = $object->tax_id // 'NA' . '|' . $object->scientific_name // 'NA' . '|' . $object->common_name // 'NA' ;
+      @species{$key} = ();
     }
 
     $fk_handler_sub->( $object, $reseq_db );
@@ -176,6 +181,7 @@ sub load_type_by_study_id {
     my $pooled_experiments_count = scalar(@pooled_experiments);
     $self->log(qq{
 *************************************************
+*****                WARNING                 ****
 ** Encountered experiments with pooled samples **
 *************************************************
     Affected experiments count: $pooled_experiments_count
@@ -183,6 +189,9 @@ $pooled_experiments_list
 *************************************************
     })
   }
+  # Report the species information
+  $self->log("Stored species:\n".join("\n", keys %species)."\n");
+
   $self->summary_stats( $type, $checked_count, $stored_count );
 }
 

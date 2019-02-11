@@ -227,7 +227,7 @@ sub sample_id {
 
 sub is_pool {
   my ( $self, $arg ) = @_;
-  if ($arg) { $self->{is_pool} = $arg; }
+  if (defined  $arg) { $self->{is_pool} = $arg; }
   return $self->{is_pool};
 }
 
