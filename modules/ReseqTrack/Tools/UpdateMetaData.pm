@@ -128,7 +128,7 @@ sub load_type_by_study_id {
     # In some pooled-sample experiments, the species information has been a signifier that there is an issue.
     # Bringing this information forward should help illuminate potential issues.
     elsif ($type eq 'sample') {
-      my $key = ($object->tax_id // 'NA').'|'.($object->scientific_name // 'NA').'|'.($object->common_name // 'NA') ;
+      my $key = ($object->tax_id // 'NA').' | '.($object->scientific_name // 'NA').' | '.($object->common_name // 'NA');
       $species{$key} = ();
     }
 
