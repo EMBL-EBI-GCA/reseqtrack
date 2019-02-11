@@ -81,7 +81,7 @@ STUDY: for my $study (@$studies) {
     }
 
     $self->log( "Checking " . $study->source_id ) unless ($quiet);
-  TYPE: for my $type (@$types) {
+    for my $type (@$types) {
       $self->log("...for $type") if ($verbose);
       $self->load_type_by_study_id( $type, $study->source_id(),
         $update_existing, $load_new, $force_update );
@@ -111,10 +111,26 @@ sub load_type_by_study_id {
 
   my $stored_count  = 0;
   my $checked_count = scalar(@$objects);
+  my @pooled_experiments;
+  my %species;
 
   for my $object (@$objects) {
-    my $current_record =
-      $reseq_adaptor->fetch_by_source_id( $object->source_id );
+    my $current_record = $reseq_adaptor->fetch_by_source_id( $object->source_id );
+
+    # Checking if the experiment has pooled samples (this causes issues in the database)
+    # This check does NOT solve the problem, but it does make it detectable
+    if ($type eq 'experiment') {
+      if ($object->is_pool > 0) {
+        push @pooled_experiments, $object->source_id;
+      }
+    }
+    # Storing the combination of species id, scientific name and common name
+    # In some pooled-sample experiments, the species information has been a signifier that there is an issue.
+    # Bringing this information forward should help illuminate potential issues.
+    elsif ($type eq 'sample') {
+      my $key = ($object->tax_id // 'NA').' | '.($object->scientific_name // 'NA').' | '.($object->common_name // 'NA');
+      $species{$key} = ();
+    }
 
     $fk_handler_sub->( $object, $reseq_db );
     my $run_stat_update;
@@ -154,8 +170,28 @@ sub load_type_by_study_id {
     }
   }
 
+
   $self->log("$type checked $checked_count stored $stored_count")
     unless ( $self->quiet );
+
+  # Report if there are experiments with pooled samples
+  if (@pooled_experiments > 0){
+    my $spacing = "\n        ";
+    my $pooled_experiments_list = $spacing.join($spacing,@pooled_experiments)."\n";
+    my $pooled_experiments_count = scalar(@pooled_experiments);
+    $self->log(qq{
+*************************************************
+*****                WARNING                *****
+** Encountered experiments with pooled samples **
+*************************************************
+    Affected experiments count: $pooled_experiments_count
+$pooled_experiments_list
+*************************************************
+    })
+  }
+  for my $s (keys %species) {
+    $self->summary_unique( 'species', $s);
+  }
   $self->summary_stats( $type, $checked_count, $stored_count );
 }
 
@@ -369,6 +405,19 @@ sub summary_stats {
   return $self->{summary_stats};
 }
 
+sub summary_unique {
+  my ( $self, $type, $val ) = @_;
+
+  if ($type) {
+    if (!exists $self->{summary_unique}{$type}){
+      $self->{summary_unique}{$type} = {}
+    }
+    $self->{summary_unique}{$type}{$val} = ();
+  }
+
+  return $self->{summary_unique};
+}
+
 sub quiet {
   my ( $self, $arg ) = @_;
   if ($arg) {
@@ -404,6 +453,11 @@ sub summarise {
     my $stored  = $ss->{$type}{stored};
 
     $self->log("$type checked $checked stored $stored") if (!$quiet || $stored > 0);
+  }
+
+  my $su = $self->summary_unique();
+  for my $type ( sort keys %$su ) {
+    $self->log("Stored unique values for $type:\n" . join("\n", keys $su->{$type}) . "\n");
   }
 
 }
