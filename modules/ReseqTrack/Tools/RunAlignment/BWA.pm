@@ -44,20 +44,20 @@ sub DEFAULT_OPTIONS { return {
         'max_gap_opens' => undef,
         'max_gap_extensions' => undef,
         'z_best' => undef,
-		'threads' => 1,
+        'threads' => 1,
         'load_fm_index' => 1,
         'disable_smith_waterman' => 0,
         'algorithm' => 'mem', # to run bwa-mem or bwa-backtrack or bwa-sw or alt-bwamem
         'mark_secondary_hits' => 1, # for compatibility with gatk indel realigner
-		'hla_typing' => 0, # this only applies to alt-bwamem
-	'band_width'    => undef,
+        'hla_typing' => 0, # this only applies to alt-bwamem
+        'band_width'    => undef,
         };
 }
 
 sub new {
-	my ( $class, @args ) = @_;
-	my $self = $class->SUPER::new(@args);
-	#setting defaults
+    my ( $class, @args ) = @_;
+    my $self = $class->SUPER::new(@args);
+    #setting defaults
         if (!$self->program) {  ## When run alt_bwamem, need to specify program=>bwakit dir.
           if ($ENV{BWA}) {
             $self->program($ENV{BWA} . '/bwa');
@@ -66,8 +66,7 @@ sub new {
             $self->program('bwa');
           }
         }
-
-	return $self;
+    ≠return $self;
 }
 
 sub run_alignment {
@@ -223,8 +222,8 @@ sub run_aln_mode {
 
 sub run_alt_bwamem {
     my ($self) = @_;
-	
-	TYPE:
+
+    TYPE:
     foreach my $aln_type ('MATE', 'FRAG') {
       next TYPE if $aln_type eq 'MATE' && (!$self->mate1_file || !$self->mate2_file);
       next TYPE if $aln_type eq 'FRAG' && !$self->fragment_file;
@@ -250,7 +249,7 @@ sub run_alt_bwamem {
               if ($self->options('band_width'));
 
       push(@cmd_words, '-M') if $self->options('mark_secondary_hits');
-	
+
       if ($self->read_group_fields->{'ID'}) {
         my $rg_string = q("@RG\tID:) . $self->read_group_fields->{'ID'};
         RG:
@@ -290,26 +289,26 @@ sub run_alt_bwamem {
       $self->output_files($output_file);
       $self->execute_command_line($cmd);
   
-      if ($self->options('hla_typing')) {    
-	      my @hla_cmd_words;
-	      my $hla_exec = $self->program . "/run-HLA";
-	      push (@hla_cmd_words, $hla_exec, $prefix_hla_hit);
-	      my $hla_top = $self->working_dir() . '/' . $prefix_hla_hit . ".top";
-	      push (@hla_cmd_words, ">", $hla_top);
-	      
-	      my $hla_cmd = join(' ', @hla_cmd_words);
-	      $self->output_files($hla_top);
-	      $self->execute_command_line($hla_cmd);
-	      
-	      my $hla_all = $self->working_dir() . '/' . $prefix_hla_hit . ".all";
-	      my $misc_cmd = "touch " . $self->working_dir() . '/' . $prefix_hla_hit . ".HLA-dummy.gt;";
-	      $misc_cmd .= "cat " . $self->working_dir() . '/' . $prefix_hla_hit . ".HLA*.gt" . "| grep ^GT | cut -f2- > $hla_all";
-		  
-	      $self->output_files($hla_all);
-	      $self->execute_command_line($misc_cmd);
-	      
-	      my $misc_cmd2 = "rm -f " . $self->working_dir() . '/' . $prefix_hla_hit . ".HLA*";
-	      $self->execute_command_line($misc_cmd2);
+      if ($self->options('hla_typing')) {
+        my @hla_cmd_words;
+        my $hla_exec = $self->program . "/run-HLA";
+        push (@hla_cmd_words, $hla_exec, $prefix_hla_hit);
+        my $hla_top = $self->working_dir() . '/' . $prefix_hla_hit . ".top";
+        push (@hla_cmd_words, ">", $hla_top);
+
+        my $hla_cmd = join(' ', @hla_cmd_words);
+        $self->output_files($hla_top);
+        $self->execute_command_line($hla_cmd);
+
+        my $hla_all = $self->working_dir() . '/' . $prefix_hla_hit . ".all";
+        my $misc_cmd = "touch " . $self->working_dir() . '/' . $prefix_hla_hit . ".HLA-dummy.gt;";
+        $misc_cmd .= "cat " . $self->working_dir() . '/' . $prefix_hla_hit . ".HLA*.gt" . "| grep ^GT | cut -f2- > $hla_all";
+
+        $self->output_files($hla_all);
+        $self->execute_command_line($misc_cmd);
+
+        my $misc_cmd2 = "rm -f " . $self->working_dir() . '/' . $prefix_hla_hit . ".HLA*";
+        $self->execute_command_line($misc_cmd2);
     }        
   } 
   return;   
@@ -401,7 +400,7 @@ sub run_bwa_sw {
       push(@cmd_words, '-r', $self->options('gap_extension_penalty'))
               if ($self->options('gap_extension_penalty'));
       push (@cmd_words, '-z', $self->options('z_best'))
-	      if ($self->options('z_best'));
+              if ($self->options('z_best'));
 
       push (@cmd_words, '-w', $self->options('band_width'))
               if ($self->options('band_width'));
