@@ -34,7 +34,7 @@ sub run_program {
 	my $temp_dir = $self->get_temp_dir;
 	my @fastq_files = @{$self->input_files};
 	
-	my $cmd  = "$program -q -o $temp_dir ".join(' ',@fastq_files);
+	my $cmd  = "$program --extract -q -o $temp_dir ".join(' ',@fastq_files);
 	
 	$self->execute_command_line($cmd); 
         
