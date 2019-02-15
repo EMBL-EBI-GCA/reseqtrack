@@ -177,9 +177,9 @@ sub default_options {
         'crai_type'                   => undef,
 
         'bwa_algorithm'               => 'mem',
-        'bwa_options'                 => { algorithm => $self->o('bwa_algorithm')},
+        'bwa_options'                 => { algorithm => $self->o('bwa_algorithm'), threads => 3},
 
-        gatk_threads                  => 1,
+        gatk_threads                  => 3,
 
         'RGSM'                        => '#sample_source_id#',
         'RGPU'                        => '#run_source_id#',
@@ -249,11 +249,13 @@ sub resource_classes {
         '1Gb'   => { 'LSF' => '-C0 -M1000 -q ' . $self->o('lsf_queue') . ' -R"select[mem>1000] rusage[mem=1000] select[' . $self->o('lsf_resource') . ']"' },
         '2Gb'   => { 'LSF' => '-C0 -M2000 -q ' . $self->o('lsf_queue') . ' -R"select[mem>2000] rusage[mem=2000] select[' . $self->o('lsf_resource') . ']"' },
         '3Gb'   => { 'LSF' => '-C0 -M3000 -q ' . $self->o('lsf_queue') . ' -R"select[mem>3000] rusage[mem=3000] select[' . $self->o('lsf_resource') . ']"' },
+        '3Gb3cpus'   => { 'LSF' => '-n 3 -C0 -M3000 -q ' . $self->o('lsf_queue') . ' -R"select[mem>3000] rusage[mem=3000] select[' . $self->o('lsf_resource') . ']"' },
         '4Gb'   => { 'LSF' => '-C0 -M4000 -q ' . $self->o('lsf_queue') . ' -R"select[mem>4000] rusage[mem=4000] select[' . $self->o('lsf_resource') . ']"' },
         '5Gb'   => { 'LSF' => '-C0 -M5000 -q ' . $self->o('lsf_queue') . ' -R"select[mem>5000] rusage[mem=5000] select[' . $self->o('lsf_resource') . ']"' },
+        '5Gb3cpus' => { 'LSF' => '-n 3 -C0 -M5000 -q '.$self->o('lsf_queue').' -R"select[mem>5000] rusage[mem=5000] select[' . $self->o('lsf_resource') . ']"' },
         '6Gb'   => { 'LSF' => '-C0 -M6000 -q ' . $self->o('lsf_queue') . ' -R"select[mem>6000] rusage[mem=6000] select[' . $self->o('lsf_resource') . ']"' },
         '8Gb'   => { 'LSF' => '-C0 -M8000 -q ' . $self->o('lsf_queue') . ' -R"select[mem>8000] rusage[mem=8000] select[' . $self->o('lsf_resource') . ']"' },
-        '8Gb2cpus' => { 'LSF' => '-n 2 -C0 -M8000 -q '.$self->o('lsf_queue').' -R"select[mem>5120] rusage[mem=5120] select[' . $self->o('lsf_resource') . ']"' },
+        '8Gb3cpus' => { 'LSF' => '-n 3 -C0 -M8000 -q '.$self->o('lsf_queue').' -R"select[mem>8000] rusage[mem=8000] select[' . $self->o('lsf_resource') . ']"' },
         '10Gb'  => { 'LSF' => '-C0 -M10000 -q ' . $self->o('lsf_queue') . ' -R"select[mem>10000] rusage[mem=10000] select[' . $self->o('lsf_resource') . ']"' },
     };
 }
@@ -372,7 +374,7 @@ sub pipeline_analyses {
                 delete_param => 'fastq',
             },
         },
-        -rc_name       => '8Gb', # Note the 'hardened' version of BWA may need 8Gb RAM or more
+        -rc_name       => '8Gb3cpus', # Note the 'hardened' version of BWA may need 8Gb RAM or more
         -hive_capacity => 100,
         -flow_into     => {
             1 => [ 'sort_chunks' ],
@@ -524,7 +526,7 @@ sub pipeline_analyses {
                 }
             }
         },
-        -rc_name       => '5Gb',
+        -rc_name       => '5Gb3cpus',
         -hive_capacity => 100,
         -flow_into     => {
             1 => [ 'calmd_run_level' ],
@@ -588,7 +590,8 @@ sub pipeline_analyses {
             realign_level       => $self->o('realign_level'),
             gatk_module_options => {
                 intervals   => $self->o('recalibration_chromosomes'),
-                threads     => $self->o('gatk_threads') },
+                # This tool can only support 1 thread.
+                threads     => 1 },
             reseqtrack_options  => {
                 delete_param      => [ 'bam', 'bai' ],
                 flows_non_factory => {
@@ -740,7 +743,7 @@ sub pipeline_analyses {
                 }
             },
         },
-        -rc_name       => '5Gb',
+        -rc_name       => '5Gb3cpus',
         -hive_capacity => 100,
         -flow_into     => {
             1 => [ 'calmd_sample_level' ],
@@ -803,7 +806,7 @@ sub pipeline_analyses {
                 delete_param => [ 'bam', 'bai' ],
             },
         },
-        -rc_name       => '2Gb',
+        -rc_name       => '3Gb3cpus',
         -hive_capacity => 200,
         -flow_into     => {
             1 => [ 'tag_strip_sample_level' ],

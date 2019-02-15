@@ -66,7 +66,7 @@ sub new {
             $self->program('bwa');
           }
         }
-    ≠return $self;
+    return $self;
 }
 
 sub run_alignment {

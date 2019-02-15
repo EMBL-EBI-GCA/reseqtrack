@@ -1,7 +1,7 @@
 CC = gcc
 CFLAGS=-O3 -D_GNU_SOURCE
-HTSPATH=/nfs/production/reseq-info/work/bin/samtools-1.2/htslib-1.2.1/
-SAMPATH=/nfs/production/reseq-info/work/bin/samtools-1.2/
+HTSPATH=/nfs/production/reseq-info/work/bin/htslib-1.3/
+SAMPATH=/nfs/production/reseq-info/work/bin/samtools-1.3/
 LDFLAGS=-L$(HTSPATH) -L$(SAMPATH) -Wl,-rpath,$(HTSPATH),-rpath,$(SAMPATH)
 
 all: validate_bam
