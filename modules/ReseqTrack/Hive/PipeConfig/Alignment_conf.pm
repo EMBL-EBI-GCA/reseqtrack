@@ -57,7 +57,7 @@ config_options=-final_output_layout '#POPULATION#/#sample_alias#/alignment'
       -known_snps_vcf, used for recalibration (default undefined). Mandatory if recalibrate_level != 0.
       -realign_intervals_file, should be given if realign_level=1.  Can be generated using gatk RealignerTargetCreator
       -recalibration_chromosomes, run recalibration_run_level for specified chromosomes; default is for GRCh38 recalibration_chromosomes=>join(',', (map {'chr'.$_} (1..22, 'X', 'Y', 'M'))). 
-	For earlier reference genomes, can be recalibration_chromosomes=>join(',', 1..22, 'X', 'Y', 'MT')
+            For earlier reference genomes, can be recalibration_chromosomes=>join(',', 1..22, 'X', 'Y', 'MT')
 
       Various options for reheadering a bam file:
       -header_lines_file should contain any @PG and @CO lines you want written to your bam header.
@@ -124,98 +124,100 @@ sub default_options {
     my ($self) = @_;
 
     return {
-        %{ $self->SUPER::default_options() },
+        %{$self->SUPER::default_options()},
 
-        'pipeline_name' => 'align',
+        'pipeline_name'               => 'align',
 
-        seeding_module => 'ReseqTrack::Hive::PipeSeed::BasePipeSeed',
-        seeding_options => {
-            output_columns => $self->o('sample_columns'),
-            output_attributes => $self->o('sample_attributes'),
-            require_columns => $self->o('require_sample_columns'),
-            exclude_columns => $self->o('exclude_sample_columns'),
+        seeding_module                => 'ReseqTrack::Hive::PipeSeed::BasePipeSeed',
+        seeding_options               => {
+            output_columns     => $self->o('sample_columns'),
+            output_attributes  => $self->o('sample_attributes'),
+            require_columns    => $self->o('require_sample_columns'),
+            exclude_columns    => $self->o('exclude_sample_columns'),
             require_attributes => $self->o('require_sample_attributes'),
             exclude_attributes => $self->o('exclude_sample_attributes'),
-          },
+        },
 
-        'chunk_max_reads'    => 5000000,
-        'type_fastq'    => 'FILTERED_FASTQ',
-        'split_exe' => $self->o('ENV', 'RESEQTRACK').'/c_code/split/split',
-        'validate_bam_exe' => $self->o('ENV', 'RESEQTRACK').'/c_code/validate_bam/validate_bam',
-        'bwa_exe' => '/nfs/1000g-work/G1K/work/bin/bwa/bwa',
-        'samtools_exe' => '/nfs/1000g-work/G1K/work/bin/samtools/samtools',
-        'cramtools_dir' => '/nfs/1000g-work/G1K/work/bin/crammer',
-        'cramtools_jar_file' => 'cramtools-2.1.jar',
-        'squeeze_exe' => '/nfs/1000g-work/G1K/work/bin/bamUtil/bin/bam',
-        'gatk_dir' => '/nfs/1000g-work/G1K/work/bin/gatk/',
-        'picard_dir' => '/nfs/1000g-work/G1K/work/bin/picard',
-        'biobambam_dir' => '/nfs/1000g-work/G1K/work/bin/biobambam/bin',
-        'known_indels_vcf' => [],
-        'known_snps_vcf' => undef,
-        'realign_intervals_file' => undef,
-        'max_paired_length' => undef,
+        'chunk_max_reads'             => 5000000,
+        'type_fastq'                  => 'FILTERED_FASTQ',
+        'split_exe'                   => $self->o('ENV', 'RESEQTRACK') . '/c_code/split/split',
+        'validate_bam_exe'            => $self->o('ENV', 'RESEQTRACK') . '/c_code/validate_bam/validate_bam',
+        'bwa_exe'                     => '/nfs/1000g-work/G1K/work/bin/bwa/bwa',
+        'samtools_exe'                => '/nfs/1000g-work/G1K/work/bin/samtools/samtools',
+        'cramtools_dir'               => '/nfs/1000g-work/G1K/work/bin/crammer',
+        'cramtools_jar_file'          => 'cramtools-2.1.jar',
+        'squeeze_exe'                 => '/nfs/1000g-work/G1K/work/bin/bamUtil/bin/bam',
+        'gatk_dir'                    => '/nfs/1000g-work/G1K/work/bin/gatk/',
+        'picard_dir'                  => '/nfs/1000g-work/G1K/work/bin/picard',
+        'biobambam_dir'               => '/nfs/1000g-work/G1K/work/bin/biobambam/bin',
+        'known_indels_vcf'            => [],
+        'known_snps_vcf'              => undef,
+        'realign_intervals_file'      => undef,
+        'max_paired_length'           => undef,
 
         #various options for overriding defaults in reheadering bam
-        'dict_file' => undef,
-        'reference_uri' => undef,
-        'ref_assembly' => undef,
-        'ref_species' => undef,
-        'header_lines_file' => undef,
+        'dict_file'                   => undef,
+        'reference_uri'               => undef,
+        'ref_assembly'                => undef,
+        'ref_species'                 => undef,
+        'header_lines_file'           => undef,
 
-	#recalibration_chromosomes => join(',', (map {'chr'.$_} (1..22, 'X', 'Y', 'M'))),
-	recalibration_chromosomes => undef,
+        #recalibration_chromosomes => join(',', (map {'chr'.$_} (1..22, 'X', 'Y', 'M'))),
+        recalibration_chromosomes     => undef,
 
-        'realign_level' => 0,
-        'recalibrate_level' => 2,
-        'run_calmd' => 1,
+        'realign_level'               => 0,
+        'recalibrate_level'           => 2,
+        'run_calmd'                   => 1,
 
-        'bam_type' => undef,
-        'bai_type' => undef,
-        'bas_type' => undef,
-		
-		'cram_type' => undef,
-		'crai_type' => undef,
-		
-        'bwa_algorithm' => 'mem',
-        'bwa_options' => {algorithm => $self->o('bwa_algorithm')},
+        'bam_type'                    => undef,
+        'bai_type'                    => undef,
+        'bas_type'                    => undef,
 
-        'RGSM' => '#sample_source_id#',
-        'RGPU' => '#run_source_id#',
+        'cram_type'                   => undef,
+        'crai_type'                   => undef,
 
-        'sample_attributes' => [],
-        'sample_columns' => ['sample_id', 'sample_source_id', 'sample_alias'],
-        'run_attributes' => [],
-        'run_columns' => ['run_source_id', 'center_name', 'run_alias'],
-        'study_attributes' => [],
-        'study_columns' => ['study_source_id'],
-        'experiment_attributes' => [],
-        'experiment_columns' => ['instrument_platform', 'paired_nominal_length'],
+        'bwa_algorithm'               => 'mem',
+        'bwa_options'                 => { algorithm => $self->o('bwa_algorithm'), threads => 3},
 
-        require_run_attributes => {},
+        gatk_threads                  => 3,
+
+        'RGSM'                        => '#sample_source_id#',
+        'RGPU'                        => '#run_source_id#',
+
+        'sample_attributes'           => [],
+        'sample_columns'              => [ 'sample_id', 'sample_source_id', 'sample_alias' ],
+        'run_attributes'              => [],
+        'run_columns'                 => [ 'run_source_id', 'center_name', 'run_alias' ],
+        'study_attributes'            => [],
+        'study_columns'               => [ 'study_source_id' ],
+        'experiment_attributes'       => [],
+        'experiment_columns'          => [ 'instrument_platform', 'paired_nominal_length' ],
+
+        require_run_attributes        => {},
         require_experiment_attributes => {},
-        require_study_attributes => {},
-        require_sample_attributes => {},
-        exclude_run_attributes => {},
+        require_study_attributes      => {},
+        require_sample_attributes     => {},
+        exclude_run_attributes        => {},
         exclude_experiment_attributes => {},
-        exclude_study_attributes => {},
-        exclude_sample_attributes => {},
-        require_experiment_columns => { instrument_platform => ['ILLUMINA'], },
-        require_run_columns => { status => ['public', 'private'], },
-        require_study_columns => {},
-        require_sample_columns => {},
-        exclude_sample_columns => {},
+        exclude_study_attributes      => {},
+        exclude_sample_attributes     => {},
+        require_experiment_columns    => { instrument_platform => [ 'ILLUMINA' ], },
+        require_run_columns           => { status => [ 'public', 'private' ], },
+        require_study_columns         => {},
+        require_sample_columns        => {},
+        exclude_sample_columns        => {},
 
 
-        final_output_dir => $self->o('root_output_dir'),
-        final_output_layout => '#sample_source_id#/alignment',
-        name_file_module => 'ReseqTrack::Hive::NameFile::BaseNameFile',
-        name_file_method => 'basic',
-        name_file_params => {
-            new_dir => '#final_output_dir#/#final_output_layout#',
-            new_basename => '#sample_source_id#.bwa',
+        final_output_dir              => $self->o('root_output_dir'),
+        final_output_layout           => '#sample_source_id#/alignment',
+        name_file_module              => 'ReseqTrack::Hive::NameFile::BaseNameFile',
+        name_file_method              => 'basic',
+        name_file_params              => {
+            new_dir       => '#final_output_dir#/#final_output_layout#',
+            new_basename  => '#sample_source_id#.bwa',
             add_datestamp => 1,
-            suffix => '.bam',
-          },
+            suffix        => '.bam',
+        },
 
     };
 }
@@ -233,25 +235,28 @@ sub pipeline_wide_parameters {
     return {
         %{$self->SUPER::pipeline_wide_parameters},
 
-        dir_label_params => ["sample_source_id", "library_name", "run_source_id", "chunk_label"],
+        dir_label_params => [ "sample_source_id", "library_name", "run_source_id", "chunk_label" ],
     };
 }
 
 sub resource_classes {
     my ($self) = @_;
     return {
-            %{$self->SUPER::resource_classes},  # inherit 'default' from the parent class
-            '200Mb' => { 'LSF' => '-C0 -M200 -q '.$self->o('lsf_queue').' -R"select[mem>200] rusage[mem=200] select[' .$self->o('lsf_resource') . ']"' },
-            '500Mb' => { 'LSF' => '-C0 -M500 -q '.$self->o('lsf_queue').' -R"select[mem>500] rusage[mem=500] select[' .$self->o('lsf_resource') . ']"' },
-            '800Mb' => { 'LSF' => '-C0 -M800 -q '.$self->o('lsf_queue').' -R"select[mem>800] rusage[mem=800] select[' .$self->o('lsf_resource') . ']"' },
-            '1Gb'   => { 'LSF' => '-C0 -M1000 -q '.$self->o('lsf_queue').' -R"select[mem>1000] rusage[mem=1000] select[' .$self->o('lsf_resource') . ']"' },
-            '2Gb' => { 'LSF' => '-C0 -M2000 -q '.$self->o('lsf_queue').' -R"select[mem>2000] rusage[mem=2000] select[' .$self->o('lsf_resource') . ']"' },
-            '3Gb' => { 'LSF' => '-C0 -M3000 -q '.$self->o('lsf_queue').' -R"select[mem>3000] rusage[mem=3000] select[' .$self->o('lsf_resource') . ']"' },
-            '4Gb' => { 'LSF' => '-C0 -M4000 -q '.$self->o('lsf_queue').' -R"select[mem>4000] rusage[mem=4000] select[' .$self->o('lsf_resource') . ']"' },
-            '5Gb' => { 'LSF' => '-C0 -M5000 -q '.$self->o('lsf_queue').' -R"select[mem>5000] rusage[mem=5000] select[' .$self->o('lsf_resource') . ']"' },
-            '6Gb' => { 'LSF' => '-C0 -M6000 -q '.$self->o('lsf_queue').' -R"select[mem>6000] rusage[mem=6000] select[' .$self->o('lsf_resource') . ']"' },
-            '8Gb' => { 'LSF' => '-C0 -M8000 -q '.$self->o('lsf_queue').' -R"select[mem>8000] rusage[mem=8000] select[' .$self->o('lsf_resource') . ']"' },
-	    '10Gb' => { 'LSF' => '-C0 -M10000 -q '.$self->o('lsf_queue').' -R"select[mem>10000] rusage[mem=10000] select[' .$self->o('lsf_resource') . ']"' },
+        %{$self->SUPER::resource_classes}, # inherit 'default' from the parent class
+        '200Mb' => { 'LSF' => '-C0 -M200 -q ' . $self->o('lsf_queue') . ' -R"select[mem>200] rusage[mem=200] select[' . $self->o('lsf_resource') . ']"' },
+        '500Mb' => { 'LSF' => '-C0 -M500 -q ' . $self->o('lsf_queue') . ' -R"select[mem>500] rusage[mem=500] select[' . $self->o('lsf_resource') . ']"' },
+        '800Mb' => { 'LSF' => '-C0 -M800 -q ' . $self->o('lsf_queue') . ' -R"select[mem>800] rusage[mem=800] select[' . $self->o('lsf_resource') . ']"' },
+        '1Gb'   => { 'LSF' => '-C0 -M1000 -q ' . $self->o('lsf_queue') . ' -R"select[mem>1000] rusage[mem=1000] select[' . $self->o('lsf_resource') . ']"' },
+        '2Gb'   => { 'LSF' => '-C0 -M2000 -q ' . $self->o('lsf_queue') . ' -R"select[mem>2000] rusage[mem=2000] select[' . $self->o('lsf_resource') . ']"' },
+        '3Gb'   => { 'LSF' => '-C0 -M3000 -q ' . $self->o('lsf_queue') . ' -R"select[mem>3000] rusage[mem=3000] select[' . $self->o('lsf_resource') . ']"' },
+        '3Gb3cpus'   => { 'LSF' => '-n 3 -C0 -M3000 -q ' . $self->o('lsf_queue') . ' -R"select[mem>3000] rusage[mem=3000] select[' . $self->o('lsf_resource') . ']"' },
+        '4Gb'   => { 'LSF' => '-C0 -M4000 -q ' . $self->o('lsf_queue') . ' -R"select[mem>4000] rusage[mem=4000] select[' . $self->o('lsf_resource') . ']"' },
+        '5Gb'   => { 'LSF' => '-C0 -M5000 -q ' . $self->o('lsf_queue') . ' -R"select[mem>5000] rusage[mem=5000] select[' . $self->o('lsf_resource') . ']"' },
+        '5Gb3cpus' => { 'LSF' => '-n 3 -C0 -M5000 -q '.$self->o('lsf_queue').' -R"select[mem>5000] rusage[mem=5000] select[' . $self->o('lsf_resource') . ']"' },
+        '6Gb'   => { 'LSF' => '-C0 -M6000 -q ' . $self->o('lsf_queue') . ' -R"select[mem>6000] rusage[mem=6000] select[' . $self->o('lsf_resource') . ']"' },
+        '8Gb'   => { 'LSF' => '-C0 -M8000 -q ' . $self->o('lsf_queue') . ' -R"select[mem>8000] rusage[mem=8000] select[' . $self->o('lsf_resource') . ']"' },
+        '8Gb3cpus' => { 'LSF' => '-n 3 -C0 -M8000 -q '.$self->o('lsf_queue').' -R"select[mem>8000] rusage[mem=8000] select[' . $self->o('lsf_resource') . ']"' },
+        '10Gb'  => { 'LSF' => '-C0 -M10000 -q ' . $self->o('lsf_queue') . ' -R"select[mem>10000] rusage[mem=10000] select[' . $self->o('lsf_resource') . ']"' },
     };
 }
 
@@ -261,116 +266,121 @@ sub pipeline_analyses {
 
     my @analyses;
     push(@analyses, {
-            -logic_name    => 'get_seeds',
-            -module        => 'ReseqTrack::Hive::Process::SeedFactory',
-            -meadow_type => 'LOCAL',
-            -parameters    => {
-                seeding_module => $self->o('seeding_module'),
-                seeding_options => $self->o('seeding_options'),
-            },
-            -flow_into => {
-                2 => [ 'libraries_factory' ],
-            },
-      });
-    push(@analyses, {
-            -logic_name    => 'libraries_factory',
-            -module        => 'ReseqTrack::Hive::Process::RunMetaInfoFactory',
-            -meadow_type => 'LOCAL',
-            -parameters    => {
-                factory_type => 'library',
-                require_experiment_columns => $self->o('require_experiment_columns'),
-                require_study_columns => $self->o('require_study_columns'),
-                require_experiment_attributes => $self->o('require_experiment_attributes'),
-                require_study_attributes => $self->o('require_study_attributes'),
-                exclude_experiment_attributes => $self->o('exclude_experiment_attributes'),
-                exclude_study_attributes => $self->o('exclude_study_attributes'),
-            },
-            -flow_into => {
-                '2->A' => [ 'runs_factory' ],
-                'A->1' => [ 'decide_merge_libraries'  ],
-            },
-      });
-    push(@analyses, {
-            -logic_name    => 'runs_factory',
-            -module        => 'ReseqTrack::Hive::Process::RunMetaInfoFactory',
-            -meadow_type => 'LOCAL',
-            -parameters    => {
-                factory_type => 'run',
-                require_experiment_columns => $self->o('require_experiment_columns'),
-                require_study_columns => $self->o('require_study_columns'),
-                require_run_columns => $self->o('require_run_columns'),
-                require_experiment_attributes => $self->o('require_experiment_attributes'),
-                require_study_attributes => $self->o('require_study_attributes'),
-                require_run_attributes => $self->o('require_run_attributes'),
-                exclude_experiment_attributes => $self->o('exclude_experiment_attributes'),
-                exclude_study_attributes => $self->o('exclude_study_attributes'),
-                exclude_run_attributes => $self->o('exclude_run_attributes'),
+        -logic_name  => 'get_seeds',
+        -module      => 'ReseqTrack::Hive::Process::SeedFactory',
+        -meadow_type => 'LOCAL',
+        -parameters  => {
+            seeding_module  => $self->o('seeding_module'),
+            seeding_options => $self->o('seeding_options'),
+        },
+        -flow_into   => {
+            2 => [ 'libraries_factory' ],
+        },
+    });
 
-                output_run_columns => $self->o('run_columns'),
-                output_study_columns => $self->o('study_columns'),
-                output_experiment_columns => $self->o('experiment_columns'),
-                output_run_attributes => $self->o('run_attributes'),
-                output_study_attributes => $self->o('study_attributes'),
-                output_experiment_attributes => $self->o('experiment_attributes'),
-            },
-            -flow_into => {
-                '2->A' => [ 'find_source_fastqs' ],
-                'A->1' => [ 'decide_mark_duplicates'  ],
-            },
-      });
     push(@analyses, {
-            -logic_name    => 'find_source_fastqs',
-            -module        => 'ReseqTrack::Hive::Process::ImportCollection',
-            -meadow_type => 'LOCAL',
-            -parameters    => {
-                collection_type => $self->o('type_fastq'),
-                collection_name => '#run_source_id#',
-                output_param => 'fastq',
-                reseqtrack_options => {
-                  flows_do_count_param => 'fastq',
-                  flows_do_count => { 1 => '1+', },
-                }
-            },
-            -flow_into => {
-                1 => [ 'split_fastq', ':////accu?fastq=[]' ],
-            },
-      });
+        -logic_name  => 'libraries_factory',
+        -module      => 'ReseqTrack::Hive::Process::RunMetaInfoFactory',
+        -meadow_type => 'LOCAL',
+        -parameters  => {
+            factory_type                  => 'library',
+            require_experiment_columns    => $self->o('require_experiment_columns'),
+            require_study_columns         => $self->o('require_study_columns'),
+            require_experiment_attributes => $self->o('require_experiment_attributes'),
+            require_study_attributes      => $self->o('require_study_attributes'),
+            exclude_experiment_attributes => $self->o('exclude_experiment_attributes'),
+            exclude_study_attributes      => $self->o('exclude_study_attributes'),
+        },
+        -flow_into   => {
+            '2->A' => [ 'runs_factory' ],
+            'A->1' => [ 'decide_merge_libraries' ],
+        },
+    });
+
     push(@analyses, {
-            -logic_name    => 'split_fastq',
-            -module        => 'ReseqTrack::Hive::Process::SplitFastq',
-            -parameters    => {
-                program_file => $self->o('split_exe'),
-                max_reads => $self->o('chunk_max_reads'),
-            },
-            -rc_name => '200Mb',
-            -analysis_capacity  =>  4,
-            -hive_capacity  =>  200,
-            -flow_into => {
-              '2->A' => {'bwa' => {'chunk_label' => '#run_source_id#.#chunk#', 'fastq' => '#fastq#'}},
-              'A->1' => ['decide_merge_chunks'],
+        -logic_name  => 'runs_factory',
+        -module      => 'ReseqTrack::Hive::Process::RunMetaInfoFactory',
+        -meadow_type => 'LOCAL',
+        -parameters  => {
+            factory_type                  => 'run',
+            require_experiment_columns    => $self->o('require_experiment_columns'),
+            require_study_columns         => $self->o('require_study_columns'),
+            require_run_columns           => $self->o('require_run_columns'),
+            require_experiment_attributes => $self->o('require_experiment_attributes'),
+            require_study_attributes      => $self->o('require_study_attributes'),
+            require_run_attributes        => $self->o('require_run_attributes'),
+            exclude_experiment_attributes => $self->o('exclude_experiment_attributes'),
+            exclude_study_attributes      => $self->o('exclude_study_attributes'),
+            exclude_run_attributes        => $self->o('exclude_run_attributes'),
+
+            output_run_columns            => $self->o('run_columns'),
+            output_study_columns          => $self->o('study_columns'),
+            output_experiment_columns     => $self->o('experiment_columns'),
+            output_run_attributes         => $self->o('run_attributes'),
+            output_study_attributes       => $self->o('study_attributes'),
+            output_experiment_attributes  => $self->o('experiment_attributes'),
+        },
+        -flow_into   => {
+            '2->A' => [ 'find_source_fastqs' ],
+            'A->1' => [ 'decide_mark_duplicates' ],
+        },
+    });
+
+    push(@analyses, {
+        -logic_name  => 'find_source_fastqs',
+        -module      => 'ReseqTrack::Hive::Process::ImportCollection',
+        -meadow_type => 'LOCAL',
+        -parameters  => {
+            collection_type    => $self->o('type_fastq'),
+            collection_name    => '#run_source_id#',
+            output_param       => 'fastq',
+            reseqtrack_options => {
+                flows_do_count_param => 'fastq',
+                flows_do_count       => { 1 => '1+', },
             }
-      });
+        },
+        -flow_into   => {
+            1 => [ 'split_fastq', ':////accu?fastq=[]' ],
+        },
+    });
+
     push(@analyses, {
-           -logic_name => 'bwa',
-            -module        => 'ReseqTrack::Hive::Process::BWA',
-            -parameters    => {
-                program_file => $self->o('bwa_exe'),
-                samtools => $self->o('samtools_exe'),
-                reference => $self->o('reference'),
-                options => $self->o('bwa_options'),
-                RGSM => $self->o('RGSM'),
-                RGPU => $self->o('RGPU'),
-                reseqtrack_options => {
-                  delete_param => 'fastq',
-                },
+        -logic_name        => 'split_fastq',
+        -module            => 'ReseqTrack::Hive::Process::SplitFastq',
+        -parameters        => {
+            program_file => $self->o('split_exe'),
+            max_reads    => $self->o('chunk_max_reads'),
+        },
+        -rc_name           => '200Mb',
+        -analysis_capacity => 4,
+        -hive_capacity     => 200,
+        -flow_into         => {
+            '2->A' => { 'bwa' => { 'chunk_label' => '#run_source_id#.#chunk#', 'fastq' => '#fastq#' } },
+            'A->1' => [ 'decide_merge_chunks' ],
+        }
+    });
+
+    push(@analyses, {
+        -logic_name    => 'bwa',
+        -module        => 'ReseqTrack::Hive::Process::BWA',
+        -parameters    => {
+            program_file       => $self->o('bwa_exe'),
+            samtools           => $self->o('samtools_exe'),
+            reference          => $self->o('reference'),
+            options            => $self->o('bwa_options'),
+            RGSM               => $self->o('RGSM'),
+            RGPU               => $self->o('RGPU'),
+            reseqtrack_options => {
+                delete_param => 'fastq',
             },
-            -rc_name => '8Gb', # Note the 'hardened' version of BWA may need 8Gb RAM or more
-            -hive_capacity  =>  100,
-            -flow_into => {
-                1 => ['sort_chunks'],
-            },
-      });
-      
+        },
+        -rc_name       => '8Gb3cpus', # Note the 'hardened' version of BWA may need 8Gb RAM or more
+        -hive_capacity => 100,
+        -flow_into     => {
+            1 => [ 'sort_chunks' ],
+        },
+    });
+
 =head    
     push(@analyses, {
             -logic_name => 'sort_chunks',
@@ -403,39 +413,39 @@ sub pipeline_analyses {
       });
 =cut      
 
-### As BioBamBam seems like not having a function called add_or_replace_read_groups, cannot do that for bwa-sw. When bwa-sw is used, one needs to switch to 
-### the picard sort (above) for sorting.
-### the resource requirement is 2G for BioBamBam Bamsort as well; no saving in memory comparing with Picard
+    ### As BioBamBam seems like not having a function called add_or_replace_read_groups, cannot do that for bwa-sw. When bwa-sw is used, one needs to switch to
+    ### the picard sort (above) for sorting.
+    ### the resource requirement is 2G for BioBamBam Bamsort as well; no saving in memory comparing with Picard
 
-      push(@analyses, {
-            -logic_name => 'sort_chunks',
-            -module        => 'ReseqTrack::Hive::Process::RunBioBamBam',
-            -parameters => {
-                biobambam_dir => $self->o('biobambam_dir'),
-                command => "bamsort",
-                options => { fixmates => 1 },
-                create_index => 1,
-                reseqtrack_options => {
-                  delete_param => 'bam',
-                },
-            },
-            -rc_name => '2Gb',
-            -hive_capacity  =>  200,
-            -flow_into => {
-                1 => [ ':////accu?bam=[]', ':////accu?bai=[]']
-            },
-      });
-        
     push(@analyses, {
-          -logic_name => 'decide_merge_chunks',
-          -module        => 'ReseqTrack::Hive::Process::BaseProcess',
-          -meadow_type=> 'LOCAL',
-          -parameters => {
-              realign_level => $self->o('realign_level'),
-              recalibrate_level => $self->o('recalibrate_level'),
-              run_calmd => $self->o('run_calmd'),
-              reseqtrack_options => {
-                flows_non_factory => {
+        -logic_name    => 'sort_chunks',
+        -module        => 'ReseqTrack::Hive::Process::RunBioBamBam',
+        -parameters    => {
+            biobambam_dir      => $self->o('biobambam_dir'),
+            command            => "bamsort",
+            options            => { fixmates => 1 },
+            create_index       => 1,
+            reseqtrack_options => {
+                delete_param => 'bam',
+            },
+        },
+        -rc_name       => '2Gb',
+        -hive_capacity => 200,
+        -flow_into     => {
+            1 => [ ':////accu?bam=[]', ':////accu?bai=[]' ]
+        },
+    });
+
+    push(@analyses, {
+        -logic_name  => 'decide_merge_chunks',
+        -module      => 'ReseqTrack::Hive::Process::BaseProcess',
+        -meadow_type => 'LOCAL',
+        -parameters  => {
+            realign_level      => $self->o('realign_level'),
+            recalibrate_level  => $self->o('recalibrate_level'),
+            run_calmd          => $self->o('run_calmd'),
+            reseqtrack_options => {
+                flows_non_factory    => {
                     1 => '#expr(#realign_level#==1)expr#',
                     2 => '#expr(#realign_level#==1)expr#',
                     3 => '#expr(#recalibrate_level#==1 && (#realign_level#==2 || (#realign_level#==0 && #run_calmd#==0)))expr#',
@@ -447,207 +457,220 @@ sub pipeline_analyses {
                     9 => '#expr(#realign_level#==2 && #recalibrate_level#!=1)expr#',
                 },
                 flows_do_count_param => 'bam',
-                flows_do_count => {
-                          1 => '1+',
-                          2 => '2+',
-                          3 => '1+',
-                          4 => '2+',
-                          5 => '1+',
-                          6 => '2+',
-                          7 => '1+',
-                          8 => '2+',
-                          9 => '1+',
-                        },
-              },
-          },
-          -flow_into => {
-                '2->A' => [ 'merge_chunks' ],
-                'A->1' => [ 'realign_knowns_only' ],
-                '4->B' => [ 'merge_chunks' ],
-                'B->3' => [ 'recalibrate_run_level' ],
-                '6->C' => [ 'merge_chunks' ],
-                'C->5' => [ 'calmd_run_level' ],
-                '8->D' => [ 'merge_chunks' ],
-                'D->7' => [ 'tag_strip_run_level' ],
-                9 => [ ':////accu?bam=[]', ':////accu?bai=[]'],
-          },
-      });
-    push(@analyses, {
-          -logic_name => 'merge_chunks',
-          -module        => 'ReseqTrack::Hive::Process::RunBioBamBam',
-          -parameters => {
-              biobambam_dir => $self->o('biobambam_dir'),
-              command => 'bammerge',
-              create_index => 1,
-              reseqtrack_options => {
-                delete_param => ['bam', 'bai'],
-              }
-          },
-          -rc_name => '500Mb',
-          -hive_capacity  =>  200,
-          -flow_into => {
-              1 => [ ':////accu?bam=[]', ':////accu?bai=[]'],
-          },
-    });       
-    push(@analyses, {
-            -logic_name => 'realign_knowns_only',
-            -module        => 'ReseqTrack::Hive::Process::RunBamImprovement',
-            -parameters => {
-                command => 'realign',
-                reference => $self->o('reference'),
-                gatk_dir => $self->o('gatk_dir'),
-                known_sites_vcf => $self->o('known_indels_vcf'),
-                intervals_file => $self->o('realign_intervals_file'),
-                gatk_module_options => {knowns_only => 1},
-                recalibrate_level => $self->o('recalibrate_level'),
-                java_exe => $self->o('java_exe'),
-		run_calmd => $self->o('run_calmd'),
-                reseqtrack_options => {
-                  delete_param => ['bam', 'bai'],
-                  flows_non_factory => {
-                      1 => '#expr(#run_calmd#==1)expr#',
-                      2 => '#expr(#run_calmd#==0 && #recalibrate_level#==1)expr#',
-                      3 => '#expr(#run_calmd#==0 && #recalibrate_level#==0)expr#',
-                      4 => '#expr(#run_calmd#==0 && #recalibrate_level#==2)expr#',
-                  }
-                }
+                flows_do_count       => {
+                    1 => '1+',
+                    2 => '2+',
+                    3 => '1+',
+                    4 => '2+',
+                    5 => '1+',
+                    6 => '2+',
+                    7 => '1+',
+                    8 => '2+',
+                    9 => '1+',
+                },
             },
-            -rc_name => '5Gb',
-            -hive_capacity  =>  100,
-            -flow_into => {
-                1 => [ 'calmd_run_level'],
-                2 => [ 'index_recalibrate_run_level'],
-                3 => [ 'tag_strip_run_level'],
-                4 => [ ':////accu?bam=[]', ':////accu?bai=[]'],
-            },
-      });
-    push(@analyses, {
-            -logic_name => 'calmd_run_level',
-            -module        => 'ReseqTrack::Hive::Process::RunSamtools',
-            -parameters => {
-                program_file => $self->o('samtools_exe'),
-                command => 'calmd',
-                reference => $self->o('reference'),
-                samtools_options => {input_sort_status => 'c'},
-                recalibrate_level => $self->o('recalibrate_level'),
-                reseqtrack_options => {
-                  delete_param => ['bam'],
-                  flows_non_factory => {
-                      1 => '#expr(#recalibrate_level#==1)expr#',
-                      2 => '#expr(#recalibrate_level#==0)expr#',
-                      3 => '#expr(#recalibrate_level#==2)expr#',
-                  }
-                }
-            },
-            -rc_name => '2Gb',
-            -hive_capacity  =>  200,
-            -flow_into => {
-                1 => [ 'index_recalibrate_run_level'],
-                2 => [ 'tag_strip_run_level'],
-                3 => [ ':////accu?bam=[]', ':////accu?bai=[]'],
-            },
-      });      
-    push(@analyses, {
-          -logic_name => 'index_recalibrate_run_level',
-          -module        => 'ReseqTrack::Hive::Process::RunSamtools',
-          -parameters => {
-              program_file => $self->o('samtools_exe'),
-              command => 'index',
-          },
-          -rc_name => '200Mb',
-          -hive_capacity  =>  200,
-            -flow_into => {
-                1 => ['recalibrate_run_level'],
-            },
+        },
+        -flow_into   => {
+            '2->A' => [ 'merge_chunks' ],
+            'A->1' => [ 'realign_knowns_only' ],
+            '4->B' => [ 'merge_chunks' ],
+            'B->3' => [ 'recalibrate_run_level' ],
+            '6->C' => [ 'merge_chunks' ],
+            'C->5' => [ 'calmd_run_level' ],
+            '8->D' => [ 'merge_chunks' ],
+            'D->7' => [ 'tag_strip_run_level' ],
+            9      => [ ':////accu?bam=[]', ':////accu?bai=[]' ],
+        },
     });
+
     push(@analyses, {
-          -logic_name => 'recalibrate_run_level',
-          -module        => 'ReseqTrack::Hive::Process::RunBamImprovement',
-          -parameters => {
-              command => 'recalibrate',
-              reference => $self->o('reference'),
-              gatk_dir => $self->o('gatk_dir'),
-              jvm_args => '-Xmx2g',
-	      	  java_exe => $self->o('java_exe'),
-              known_sites_vcf => $self->o('known_snps_vcf'),
-              realign_level => $self->o('realign_level'),
-              gatk_module_options => {intervals => $self->o('recalibration_chromosomes')},
-	     	  reseqtrack_options => {
-                delete_param => ['bam', 'bai'],
+        -logic_name    => 'merge_chunks',
+        -module        => 'ReseqTrack::Hive::Process::RunBioBamBam',
+        -parameters    => {
+            biobambam_dir      => $self->o('biobambam_dir'),
+            command            => 'bammerge',
+            create_index       => 1,
+            reseqtrack_options => {
+                delete_param => [ 'bam', 'bai' ],
+            }
+        },
+        -rc_name       => '500Mb',
+        -hive_capacity => 200,
+        -flow_into     => {
+            1 => [ ':////accu?bam=[]', ':////accu?bai=[]' ],
+        },
+    });
+
+    push(@analyses, {
+        -logic_name    => 'realign_knowns_only',
+        -module        => 'ReseqTrack::Hive::Process::RunBamImprovement',
+        -parameters    => {
+            command             => 'realign',
+            reference           => $self->o('reference'),
+            gatk_dir            => $self->o('gatk_dir'),
+            known_sites_vcf     => $self->o('known_indels_vcf'),
+            intervals_file      => $self->o('realign_intervals_file'),
+            gatk_module_options => {
+                knowns_only => 1,
+                threads     => $self->o('gatk_threads') },
+            recalibrate_level   => $self->o('recalibrate_level'),
+            java_exe            => $self->o('java_exe'),
+            run_calmd           => $self->o('run_calmd'),
+            reseqtrack_options  => {
+                delete_param      => [ 'bam', 'bai' ],
+                flows_non_factory => {
+                    1 => '#expr(#run_calmd#==1)expr#',
+                    2 => '#expr(#run_calmd#==0 && #recalibrate_level#==1)expr#',
+                    3 => '#expr(#run_calmd#==0 && #recalibrate_level#==0)expr#',
+                    4 => '#expr(#run_calmd#==0 && #recalibrate_level#==2)expr#',
+                }
+            }
+        },
+        -rc_name       => '5Gb3cpus',
+        -hive_capacity => 100,
+        -flow_into     => {
+            1 => [ 'calmd_run_level' ],
+            2 => [ 'index_recalibrate_run_level' ],
+            3 => [ 'tag_strip_run_level' ],
+            4 => [ ':////accu?bam=[]', ':////accu?bai=[]' ],
+        },
+    });
+
+    push(@analyses, {
+        -logic_name    => 'calmd_run_level',
+        -module        => 'ReseqTrack::Hive::Process::RunSamtools',
+        -parameters    => {
+            program_file       => $self->o('samtools_exe'),
+            command            => 'calmd',
+            reference          => $self->o('reference'),
+            samtools_options   => { input_sort_status => 'c' },
+            recalibrate_level  => $self->o('recalibrate_level'),
+            reseqtrack_options => {
+                delete_param      => [ 'bam' ],
+                flows_non_factory => {
+                    1 => '#expr(#recalibrate_level#==1)expr#',
+                    2 => '#expr(#recalibrate_level#==0)expr#',
+                    3 => '#expr(#recalibrate_level#==2)expr#',
+                }
+            }
+        },
+        -rc_name       => '2Gb',
+        -hive_capacity => 200,
+        -flow_into     => {
+            1 => [ 'index_recalibrate_run_level' ],
+            2 => [ 'tag_strip_run_level' ],
+            3 => [ ':////accu?bam=[]', ':////accu?bai=[]' ],
+        },
+    });
+
+    push(@analyses, {
+        -logic_name    => 'index_recalibrate_run_level',
+        -module        => 'ReseqTrack::Hive::Process::RunSamtools',
+        -parameters    => {
+            program_file => $self->o('samtools_exe'),
+            command      => 'index',
+        },
+        -rc_name       => '200Mb',
+        -hive_capacity => 200,
+        -flow_into     => {
+            1 => [ 'recalibrate_run_level' ],
+        },
+    });
+
+    push(@analyses, {
+        -logic_name    => 'recalibrate_run_level',
+        -module        => 'ReseqTrack::Hive::Process::RunBamImprovement',
+        -parameters    => {
+            command             => 'recalibrate',
+            reference           => $self->o('reference'),
+            gatk_dir            => $self->o('gatk_dir'),
+            jvm_args            => '-Xmx2g',
+            java_exe            => $self->o('java_exe'),
+            known_sites_vcf     => $self->o('known_snps_vcf'),
+            realign_level       => $self->o('realign_level'),
+            gatk_module_options => {
+                intervals   => $self->o('recalibration_chromosomes'),
+                # This tool can only support 1 thread.
+                threads     => 1 },
+            reseqtrack_options  => {
+                delete_param      => [ 'bam', 'bai' ],
                 flows_non_factory => {
                     1 => '#expr(#realign_level#!=2)expr#',
                     2 => '#expr(#realign_level#==2)expr#',
                 }
-              }
-          },
-          -rc_name => '3Gb',
-          -hive_capacity  =>  200,
-          -flow_into => {
-              1 => [ 'tag_strip_run_level'],
-              2 => [ ':////accu?bam=[]', ':////accu?bai=[]'],
-          },
+            }
+        },
+        -rc_name       => '3Gb',
+        -hive_capacity => 200,
+        -flow_into     => {
+            1 => [ 'tag_strip_run_level' ],
+            2 => [ ':////accu?bam=[]', ':////accu?bai=[]' ],
+        },
     });
- 
+
     push(@analyses, {
-            -logic_name => 'tag_strip_run_level',
-            -module        => 'ReseqTrack::Hive::Process::RunSqueezeBam',
-            -parameters => {
-                program_file => $self->o('squeeze_exe'),
-                'rm_OQ_fields' => 1,
-                'rm_tag_types' => ['XM:i', 'XG:i', 'XO:i', 'pa:f','BD:Z', 'BI:Z'],
-                reseqtrack_options => {
-                  delete_param => ['bam'],
-                }
-            },
-            -rc_name => '200Mb',
-            -hive_capacity  =>  200,
-            -flow_into => {
-                1 => [ ':////accu?bam=[]', ':////accu?bai=[]'],
-            },
-      });
-## remove_tag_type pa:f is most likely from biobambam, it messes up with bam validate, the step that generates bas      
+        -logic_name    => 'tag_strip_run_level',
+        -module        => 'ReseqTrack::Hive::Process::RunSqueezeBam',
+        -parameters    => {
+            program_file       => $self->o('squeeze_exe'),
+            'rm_OQ_fields'     => 1,
+            'rm_tag_types'     => [ 'XM:i', 'XG:i', 'XO:i', 'pa:f', 'BD:Z', 'BI:Z' ],
+            reseqtrack_options => {
+                delete_param => [ 'bam' ],
+            }
+        },
+        -rc_name       => '200Mb',
+        -hive_capacity => 200,
+        -flow_into     => {
+            1 => [ ':////accu?bam=[]', ':////accu?bai=[]' ],
+        },
+    });
+
+    ## remove_tag_type pa:f is most likely from biobambam, it messes up with bam validate, the step that generates bas
     push(@analyses, {
-          -logic_name => 'decide_mark_duplicates',
-          -module        => 'ReseqTrack::Hive::Process::BaseProcess',
-          -meadow_type=> 'LOCAL',
-          -parameters => {
-              reseqtrack_options => {
-                denestify => 'bam',
+        -logic_name  => 'decide_mark_duplicates',
+        -module      => 'ReseqTrack::Hive::Process::BaseProcess',
+        -meadow_type => 'LOCAL',
+        -parameters  => {
+            reseqtrack_options => {
+                denestify            => 'bam',
                 flows_do_count_param => 'bam',
-                flows_do_count => { 1 => '1+', },
-              }
-          },
-          -flow_into => {
-              1 => [ 'mark_duplicates', ':////accu?fastq=[]'],
-          },
-      });
-    push(@analyses, {
-            -logic_name => 'mark_duplicates',
-            -module        => 'ReseqTrack::Hive::Process::RunBioBamBam',
-            -parameters => {
-                biobambam_dir => $self->o('biobambam_dir'),
-                command => 'bammarkduplicates',
-                create_index => 1,
-                reseqtrack_options => {
-                  delete_param => ['bam', 'bai'],
-                  denestify => ['bam', 'bai'],
-                }
-            },
-            -rc_name => '800Mb',
-            -hive_capacity  =>  100,
-            -flow_into => {
-                1 => [ ':////accu?bam=[]', ':////accu?bai=[]'],
-            },
+                flows_do_count       => { 1 => '1+', },
+            }
+        },
+        -flow_into   => {
+            1 => [ 'mark_duplicates', ':////accu?fastq=[]' ],
+        },
     });
+
     push(@analyses, {
-          -logic_name => 'decide_merge_libraries',
-          -module        => 'ReseqTrack::Hive::Process::BaseProcess',
-          -meadow_type=> 'LOCAL',
-          -parameters => {
-              realign_level => $self->o('realign_level'),
-              recalibrate_level => $self->o('recalibrate_level'),
-              reseqtrack_options => {
-                flows_non_factory => {
+        -logic_name    => 'mark_duplicates',
+        -module        => 'ReseqTrack::Hive::Process::RunBioBamBam',
+        -parameters    => {
+            biobambam_dir      => $self->o('biobambam_dir'),
+            command            => 'bammarkduplicates',
+            create_index       => 1,
+            reseqtrack_options => {
+                delete_param => [ 'bam', 'bai' ],
+                denestify    => [ 'bam', 'bai' ],
+            }
+        },
+        -rc_name       => '800Mb',
+        -hive_capacity => 100,
+        -flow_into     => {
+            1 => [ ':////accu?bam=[]', ':////accu?bai=[]' ],
+        },
+    });
+
+    push(@analyses, {
+        -logic_name  => 'decide_merge_libraries',
+        -module      => 'ReseqTrack::Hive::Process::BaseProcess',
+        -meadow_type => 'LOCAL',
+        -parameters  => {
+            realign_level      => $self->o('realign_level'),
+            recalibrate_level  => $self->o('recalibrate_level'),
+            reseqtrack_options => {
+                flows_non_factory    => {
                     1 => '#expr(#realign_level#==2)expr#',
                     2 => '#expr(#realign_level#==2)expr#',
                     3 => '#expr(#recalibrate_level#==2 && #realign_level#!=2)expr#',
@@ -657,321 +680,341 @@ sub pipeline_analyses {
                     7 => 1,
                 },
                 flows_do_count_param => 'bam',
-                flows_do_count => {
-                          1 => '1+',
-                          2 => '2+',
-                          3 => '1+',
-                          4 => '2+',
-                          5 => '1+',
-                          6 => '2+',
-                          7 => '0',
-                        },
-              },
-          },
-            -flow_into => {
-                '2->A' => [ 'merge_libraries' ],
-                'A->1' => [ 'realign_full' ],
-                '4->B' => [ 'merge_libraries' ],
-                'B->3' => [ 'recalibrate_sample_level' ],
-                '6->C' => [ 'merge_libraries' ],
-                'C->5' => [ 'reheader' ],
-                '7' => [ 'mark_seed_futile' ],
-            },
-    });
-    push(@analyses, {
-          -logic_name => 'merge_libraries',
-          -module        => 'ReseqTrack::Hive::Process::RunBioBamBam',
-          -parameters => {
-              biobambam_dir => $self->o('biobambam_dir'),
-              command => 'bammerge',
-              create_index => 1,
-              reseqtrack_options => {
-                delete_param => ['bam', 'bai'],
-              },
-          },
-          -rc_name => '500Mb',
-          -hive_capacity  =>  200,
-          -flow_into => {
-              1 => [ ':////accu?bam=[]', ':////accu?bai=[]'],
-          },
-    });
-        
-    push(@analyses, {
-            -logic_name => 'realign_full',
-            -module        => 'ReseqTrack::Hive::Process::RunBamImprovement',
-            -parameters => {
-                command => 'realign',
-                reference => $self->o('reference'),
-                gatk_dir => $self->o('gatk_dir'),
-                java_exe => $self->o('java_exe'),
-				known_sites_vcf => $self->o('known_indels_vcf'),
-                gatk_module_options => {knowns_only => 0},
-                recalibrate_level => $self->o('recalibrate_level'),
-                run_calmd => $self->o('run_calmd'),
-                reseqtrack_options => {
-                  delete_param => ['bam', 'bai'],
-                  flows_non_factory => {
-                      1 => '#expr(#run_calmd#==1)expr#',
-                      2 => '#expr(#run_calmd#==0 && #recalibrate_level#==2)expr#',
-                      3 => '#expr(#run_calmd#==0 && #recalibrate_level#!=2)expr#',
-                  }
+                flows_do_count       => {
+                    1 => '1+',
+                    2 => '2+',
+                    3 => '1+',
+                    4 => '2+',
+                    5 => '1+',
+                    6 => '2+',
+                    7 => '0',
                 },
             },
-            -rc_name => '5Gb',
-            -hive_capacity  =>  100,
-            -flow_into => {
-                1 => [ 'calmd_sample_level'],
-                2 => [ 'index_recalibrate_sample_level'],
-                3 => [ 'tag_strip_sample_level'],
-            },
-      });
+        },
+        -flow_into   => {
+            '2->A' => [ 'merge_libraries' ],
+            'A->1' => [ 'realign_full' ],
+            '4->B' => [ 'merge_libraries' ],
+            'B->3' => [ 'recalibrate_sample_level' ],
+            '6->C' => [ 'merge_libraries' ],
+            'C->5' => [ 'reheader' ],
+            '7'    => [ 'mark_seed_futile' ],
+        },
+    });
+
     push(@analyses, {
-            -logic_name => 'calmd_sample_level',
-            -module        => 'ReseqTrack::Hive::Process::RunSamtools',
-            -parameters => {
-                program_file => $self->o('samtools_exe'),
-                command => 'calmd',
-                reference => $self->o('reference'),
-                samtools_options => {input_sort_status => 'c'},
-                recalibrate_level => $self->o('recalibrate_level'),
-                reseqtrack_options => {
-                  delete_param => ['bam'],
-                  flows_non_factory => {
-                      1 => '#expr(#recalibrate_level#==2)expr#',
-                      2 => '#expr(#recalibrate_level#!=2)expr#',
-                  }
+        -logic_name    => 'merge_libraries',
+        -module        => 'ReseqTrack::Hive::Process::RunBioBamBam',
+        -parameters    => {
+            biobambam_dir      => $self->o('biobambam_dir'),
+            command            => 'bammerge',
+            create_index       => 1,
+            reseqtrack_options => {
+                delete_param => [ 'bam', 'bai' ],
+            },
+        },
+        -rc_name       => '500Mb',
+        -hive_capacity => 200,
+        -flow_into     => {
+            1 => [ ':////accu?bam=[]', ':////accu?bai=[]' ],
+        },
+    });
+
+    push(@analyses, {
+        -logic_name    => 'realign_full',
+        -module        => 'ReseqTrack::Hive::Process::RunBamImprovement',
+        -parameters    => {
+            command             => 'realign',
+            reference           => $self->o('reference'),
+            gatk_dir            => $self->o('gatk_dir'),
+            java_exe            => $self->o('java_exe'),
+            known_sites_vcf     => $self->o('known_indels_vcf'),
+            gatk_module_options => {
+                knowns_only => 0,
+                threads => $self->o('gatk_threads') },
+            recalibrate_level   => $self->o('recalibrate_level'),
+            run_calmd           => $self->o('run_calmd'),
+            reseqtrack_options  => {
+                delete_param      => [ 'bam', 'bai' ],
+                flows_non_factory => {
+                    1 => '#expr(#run_calmd#==1)expr#',
+                    2 => '#expr(#run_calmd#==0 && #recalibrate_level#==2)expr#',
+                    3 => '#expr(#run_calmd#==0 && #recalibrate_level#!=2)expr#',
                 }
             },
-            -rc_name => '2Gb',
-            -hive_capacity  =>  200,
-            -flow_into => {
-                1 => [ 'index_recalibrate_sample_level'],
-                2 => [ 'tag_strip_sample_level'],
-            },
-      });
-    push(@analyses, {
-          -logic_name => 'index_recalibrate_sample_level',
-          -module        => 'ReseqTrack::Hive::Process::RunSamtools',
-          -parameters => {
-              program_file => $self->o('samtools_exe'),
-              command => 'index',
-          },
-          -rc_name => '200Mb',
-          -hive_capacity  =>  200,
-            -flow_into => {
-                1 => ['recalibrate_sample_level'],
-            },
+        },
+        -rc_name       => '5Gb3cpus',
+        -hive_capacity => 100,
+        -flow_into     => {
+            1 => [ 'calmd_sample_level' ],
+            2 => [ 'index_recalibrate_sample_level' ],
+            3 => [ 'tag_strip_sample_level' ],
+        },
     });
+
     push(@analyses, {
-          -logic_name => 'recalibrate_sample_level',
-          -module        => 'ReseqTrack::Hive::Process::RunBamImprovement',
-          -parameters => {
-              command => 'recalibrate',
-              reference => $self->o('reference'),
-              gatk_dir => $self->o('gatk_dir'),
-              jvm_args => '-Xmx2g',
-              java_exe => $self->o('java_exe'),
-	      known_sites_vcf => $self->o('known_snps_vcf'),
-              reseqtrack_options => {
-                delete_param => ['bam', 'bai'],
-              },
-          },
-          -rc_name => '2Gb',
-          -hive_capacity  =>  200,
-          -flow_into => {
-              1 => [ 'tag_strip_sample_level'],
-          },
+        -logic_name    => 'calmd_sample_level',
+        -module        => 'ReseqTrack::Hive::Process::RunSamtools',
+        -parameters    => {
+            program_file       => $self->o('samtools_exe'),
+            command            => 'calmd',
+            reference          => $self->o('reference'),
+            samtools_options   => { input_sort_status => 'c' },
+            recalibrate_level  => $self->o('recalibrate_level'),
+            reseqtrack_options => {
+                delete_param      => [ 'bam' ],
+                flows_non_factory => {
+                    1 => '#expr(#recalibrate_level#==2)expr#',
+                    2 => '#expr(#recalibrate_level#!=2)expr#',
+                }
+            }
+        },
+        -rc_name       => '2Gb',
+        -hive_capacity => 200,
+        -flow_into     => {
+            1 => [ 'index_recalibrate_sample_level' ],
+            2 => [ 'tag_strip_sample_level' ],
+        },
     });
+
     push(@analyses, {
-            -logic_name => 'tag_strip_sample_level',
-            -module        => 'ReseqTrack::Hive::Process::RunSqueezeBam',
-            -parameters => {
-                program_file => $self->o('squeeze_exe'),
-                'rm_OQ_fields' => 1,
-                'rm_tag_types' => ['XM:i', 'XG:i', 'XO:i', 'pa:f','BD:Z', 'BI:Z'],
-                reseqtrack_options => {
-                  delete_param => ['bam'],
-                },
-            },
-            -rc_name => '200Mb',
-            -hive_capacity  =>  200,
-            -flow_into => {
-                1 => [ 'reheader'],
-            },
-      });
+        -logic_name    => 'index_recalibrate_sample_level',
+        -module        => 'ReseqTrack::Hive::Process::RunSamtools',
+        -parameters    => {
+            program_file => $self->o('samtools_exe'),
+            command      => 'index',
+        },
+        -rc_name       => '200Mb',
+        -hive_capacity => 200,
+        -flow_into     => {
+            1 => [ 'recalibrate_sample_level' ],
+        },
+    });
+
     push(@analyses, {
-            -logic_name => 'reheader',
-            -module        => 'ReseqTrack::Hive::Process::ReheaderBam',
-            -parameters => {
-                'samtools' => $self->o('samtools_exe'),
-                'header_lines_file' => $self->o('header_lines_file'),
-                'dict_file' => $self->o('dict_file'),
-                'reference' => $self->o('reference'),
-                'SQ_assembly' => $self->o('ref_assembly'),
-                'SQ_species' => $self->o('ref_species'),
-                'SQ_uri' => $self->o('reference_uri'),
-                reseqtrack_options => {
-                  denestify => 'fastq',
-                  delete_param => ['bam', 'bai'],
-                },
+        -logic_name    => 'recalibrate_sample_level',
+        -module        => 'ReseqTrack::Hive::Process::RunBamImprovement',
+        -parameters    => {
+            command            => 'recalibrate',
+            reference          => $self->o('reference'),
+            gatk_dir           => $self->o('gatk_dir'),
+            gatk_module_options => { threads => $self->o('gatk_threads') },
+            jvm_args           => '-Xmx2g',
+            java_exe           => $self->o('java_exe'),
+            known_sites_vcf    => $self->o('known_snps_vcf'),
+            reseqtrack_options => {
+                delete_param => [ 'bam', 'bai' ],
             },
-            -rc_name => '200Mb',
-            -hive_capacity  =>  200,
-            -flow_into => {
-                1 => ['final_index'],
-            },
-      });
+        },
+        -rc_name       => '3Gb3cpus',
+        -hive_capacity => 200,
+        -flow_into     => {
+            1 => [ 'tag_strip_sample_level' ],
+        },
+    });
+
     push(@analyses, {
-            -logic_name => 'final_index',
-            -module        => 'ReseqTrack::Hive::Process::RunSamtools',
-            -parameters => {
-                program_file => $self->o('samtools_exe'),
-                command => 'index',
+        -logic_name    => 'tag_strip_sample_level',
+        -module        => 'ReseqTrack::Hive::Process::RunSqueezeBam',
+        -parameters    => {
+            program_file       => $self->o('squeeze_exe'),
+            'rm_OQ_fields'     => 1,
+            'rm_tag_types'     => [ 'XM:i', 'XG:i', 'XO:i', 'pa:f', 'BD:Z', 'BI:Z' ],
+            reseqtrack_options => {
+                delete_param => [ 'bam' ],
             },
-            -flow_into => {1 => ['store_bam']},
-            -rc_name => '200Mb',
-            -hive_capacity  =>  200,
-      });
+        },
+        -rc_name       => '200Mb',
+        -hive_capacity => 200,
+        -flow_into     => {
+            1 => [ 'reheader' ],
+        },
+    });
+
     push(@analyses, {
-            -logic_name    => 'store_bam',
-            -module        => 'ReseqTrack::Hive::Process::LoadFile',
-            -parameters    => {
-              type => $self->o('bam_type'),
-              file => '#bam#',
-              name_file_module => $self->o('name_file_module'),
-              name_file_method => $self->o('name_file_method'),
-              name_file_params => $self->o('name_file_params'),
-              final_output_dir => $self->o('final_output_dir'),
-              final_output_layout => $self->o('final_output_layout'),
-              clobber => 1,
+        -logic_name    => 'reheader',
+        -module        => 'ReseqTrack::Hive::Process::ReheaderBam',
+        -parameters    => {
+            'samtools'          => $self->o('samtools_exe'),
+            'header_lines_file' => $self->o('header_lines_file'),
+            'dict_file'         => $self->o('dict_file'),
+            'reference'         => $self->o('reference'),
+            'SQ_assembly'       => $self->o('ref_assembly'),
+            'SQ_species'        => $self->o('ref_species'),
+            'SQ_uri'            => $self->o('reference_uri'),
+            reseqtrack_options  => {
+                denestify    => 'fastq',
+                delete_param => [ 'bam', 'bai' ],
             },
-            -rc_name => '200Mb',
-            -hive_capacity  =>  200,
-            -flow_into => {1 => {'store_bai' => {'bam' => '#file#'}}},
-      });
+        },
+        -rc_name       => '200Mb',
+        -hive_capacity => 200,
+        -flow_into     => {
+            1 => [ 'final_index' ],
+        },
+    });
+
     push(@analyses, {
-            -logic_name    => 'store_bai',
-            -module        => 'ReseqTrack::Hive::Process::LoadFile',
-            -parameters    => {
-              type => $self->o('bai_type'),
-              file => '#bai#',
-              name_file_module => 'ReseqTrack::Hive::NameFile::BaseNameFile',
-              name_file_method => 'basic',
-              name_file_params => {new_full_path => '#bam#.bai'},
-               clobber => 1,
-            },
-            -rc_name => '200Mb',
-            -hive_capacity  =>  200,
-            -flow_into => {1 => {'validate' => {'bai' => '#file#'}}},
-      });
+        -logic_name    => 'final_index',
+        -module        => 'ReseqTrack::Hive::Process::RunSamtools',
+        -parameters    => {
+            program_file => $self->o('samtools_exe'),
+            command      => 'index',
+        },
+        -flow_into     => { 1 => [ 'store_bam' ] },
+        -rc_name       => '200Mb',
+        -hive_capacity => 200,
+    });
+
     push(@analyses, {
-            -logic_name => 'validate',
-            -module        => 'ReseqTrack::Hive::Process::RunValidateBam',
-            -parameters => {
-                'program_file' => $self->o('validate_bam_exe'),
-            },
-            -rc_name => '200Mb',
-            -hive_capacity  =>  200,
-            -flow_into => {1 => ['store_bas']},
-      });
+        -logic_name    => 'store_bam',
+        -module        => 'ReseqTrack::Hive::Process::LoadFile',
+        -parameters    => {
+            type                => $self->o('bam_type'),
+            file                => '#bam#',
+            name_file_module    => $self->o('name_file_module'),
+            name_file_method    => $self->o('name_file_method'),
+            name_file_params    => $self->o('name_file_params'),
+            final_output_dir    => $self->o('final_output_dir'),
+            final_output_layout => $self->o('final_output_layout'),
+            clobber             => 1,
+        },
+        -rc_name       => '200Mb',
+        -hive_capacity => 200,
+        -flow_into     => { 1 => { 'store_bai' => { 'bam' => '#file#' } } },
+    });
+
     push(@analyses, {
-            -logic_name    => 'store_bas',
-            -module        => 'ReseqTrack::Hive::Process::LoadFile',
-            -meadow_type => 'LOCAL',
-            -parameters    => {
-              type => $self->o('bas_type'),
-              file => '#bas#',
-              name_file_module => 'ReseqTrack::Hive::NameFile::BaseNameFile',
-              name_file_method => 'basic',
-              name_file_params => {new_full_path => '#bam#.bas'},
-               clobber => 1,
-            },
-            -flow_into => { 1 => ['bam_to_cram']},
-      });    
+        -logic_name    => 'store_bai',
+        -module        => 'ReseqTrack::Hive::Process::LoadFile',
+        -parameters    => {
+            type             => $self->o('bai_type'),
+            file             => '#bai#',
+            name_file_module => 'ReseqTrack::Hive::NameFile::BaseNameFile',
+            name_file_method => 'basic',
+            name_file_params => { new_full_path => '#bam#.bai' },
+            clobber          => 1,
+        },
+        -rc_name       => '200Mb',
+        -hive_capacity => 200,
+        -flow_into     => { 1 => { 'validate' => { 'bai' => '#file#' } } },
+    });
+
     push(@analyses, {
-            -logic_name => 'bam_to_cram',
-            -module        => 'ReseqTrack::Hive::Process::RunCramtools',
-            -parameters => {
-                bam 				=> '#bam#',
-                java_exe 			=> $self->o('java_exe'),
-                jvm_args 			=> '-Xmx4g',
-                program_file 		=> $self->o('cramtools_dir'),                
-                cramtools_jar_file 	=> $self->o('cramtools_jar_file'),
-                reference 			=> $self->o('reference'),
-                cramtools_options 	=> {'preserve-read-names' => 1, 'capture-all-tags' => 1, 'ignore-tags' => 'OQ:CQ:BQ','lossy-quality-score-spec' => '\'*8\''},
-            },
-	    	-rc_name => '4Gb',
-            -hive_capacity  =>  200,
-            -flow_into => {
-                1 => {'store_cram' => {'file'=>'#cram#'}},
-            },
-      });
+        -logic_name    => 'validate',
+        -module        => 'ReseqTrack::Hive::Process::RunValidateBam',
+        -parameters    => {
+            'program_file' => $self->o('validate_bam_exe'),
+        },
+        -rc_name       => '200Mb',
+        -hive_capacity => 200,
+        -flow_into     => { 1 => [ 'store_bas' ] },
+    });
+
     push(@analyses, {
-            -logic_name    => 'store_cram',
-            -module        => 'ReseqTrack::Hive::Process::LoadFile',
-            -parameters    => {
-              type 					=> $self->o('cram_type'),
-              file 					=> '#cram#',
-              name_file_module 		=> $self->o('name_file_module'),
-              name_file_method 		=> $self->o('name_file_method'),
-              name_file_params 		=>  {new_full_path => '#bam#.cram'},
-              final_output_dir 		=> $self->o('final_output_dir'),
-              final_output_layout 	=> $self->o('final_output_layout'),
-              clobber 				=> 1,
-            },
-            -rc_name => '200Mb',
-            -hive_capacity  =>  200,
-            -flow_into => {
-            	1 => {'index_cram' => {'bam'=>'#file#'}},
-            },
-      });   
+        -logic_name  => 'store_bas',
+        -module      => 'ReseqTrack::Hive::Process::LoadFile',
+        -meadow_type => 'LOCAL',
+        -parameters  => {
+            type             => $self->o('bas_type'),
+            file             => '#bas#',
+            name_file_module => 'ReseqTrack::Hive::NameFile::BaseNameFile',
+            name_file_method => 'basic',
+            name_file_params => { new_full_path => '#bam#.bas' },
+            clobber          => 1,
+        },
+        -flow_into   => { 1 => [ 'bam_to_cram' ] },
+    });
+
     push(@analyses, {
-          -logic_name => 'index_cram',
-          -module        => 'ReseqTrack::Hive::Process::RunCramtools',
-          -parameters => {
-              bam 					=> '#file#',
-              java_exe 				=> $self->o('java_exe'),
-              jvm_args				=> '-Xmx2g',
-              program_file 			=> $self->o('cramtools_dir'),                
-              cramtools_jar_file 	=> $self->o('cramtools_jar_file'),
-          },
-          -rc_name => '2Gb',
-          -hive_capacity  =>  200,
-            -flow_into => { 
-                1 => {'store_crai'=> {'file'=>'#crai#'}},
-            },
-    });   
+        -logic_name    => 'bam_to_cram',
+        -module        => 'ReseqTrack::Hive::Process::RunCramtools',
+        -parameters    => {
+            bam                => '#bam#',
+            java_exe           => $self->o('java_exe'),
+            jvm_args           => '-Xmx4g',
+            program_file       => $self->o('cramtools_dir'),
+            cramtools_jar_file => $self->o('cramtools_jar_file'),
+            reference          => $self->o('reference'),
+            cramtools_options  => { 'preserve-read-names' => 1, 'capture-all-tags' => 1, 'ignore-tags' => 'OQ:CQ:BQ', 'lossy-quality-score-spec' => '\'*8\'' },
+        },
+        -rc_name       => '4Gb',
+        -hive_capacity => 200,
+        -flow_into     => {
+            1 => { 'store_cram' => { 'file' => '#cram#' } },
+        },
+    });
+
     push(@analyses, {
-            -logic_name    => 'store_crai',
-            -module        => 'ReseqTrack::Hive::Process::LoadFile',
-            -parameters    => {
-              type => $self->o('crai_type'),
-              file => '#crai#',
-              name_file_module => 'ReseqTrack::Hive::NameFile::BaseNameFile',
-              name_file_method => 'basic',
-              name_file_params => {new_full_path => '#crai#'},
-               clobber => 1,
-            },
-            -rc_name => '200Mb',
-            -hive_capacity  =>  200,
-            -flow_into => {1 => {'mark_seed_complete' => {'crai' => '#file#'}}},
-      });    
+        -logic_name    => 'store_cram',
+        -module        => 'ReseqTrack::Hive::Process::LoadFile',
+        -parameters    => {
+            type                => $self->o('cram_type'),
+            file                => '#cram#',
+            name_file_module    => $self->o('name_file_module'),
+            name_file_method    => $self->o('name_file_method'),
+            name_file_params    => { new_full_path => '#bam#.cram' },
+            final_output_dir    => $self->o('final_output_dir'),
+            final_output_layout => $self->o('final_output_layout'),
+            clobber             => 1,
+        },
+        -rc_name       => '200Mb',
+        -hive_capacity => 200,
+        -flow_into     => {
+            1 => { 'index_cram' => { 'bam' => '#file#' } },
+        },
+    });
+
     push(@analyses, {
-            -logic_name    => 'mark_seed_complete',
-            -module        => 'ReseqTrack::Hive::Process::UpdateSeed',
-            -parameters    => {
-              is_complete  => 1,
-            },
-            -meadow_type => 'LOCAL',
-      });
+        -logic_name    => 'index_cram',
+        -module        => 'ReseqTrack::Hive::Process::RunCramtools',
+        -parameters    => {
+            bam                => '#file#',
+            java_exe           => $self->o('java_exe'),
+            jvm_args           => '-Xmx2g',
+            program_file       => $self->o('cramtools_dir'),
+            cramtools_jar_file => $self->o('cramtools_jar_file'),
+        },
+        -rc_name       => '2Gb',
+        -hive_capacity => 200,
+        -flow_into     => {
+            1 => { 'store_crai' => { 'file' => '#crai#' } },
+        },
+    });
+
     push(@analyses, {
-            -logic_name    => 'mark_seed_futile',
-            -module        => 'ReseqTrack::Hive::Process::UpdateSeed',
-            -parameters    => {
-              is_futile  => 1,
-            },
-            -meadow_type => 'LOCAL',
-      });
+        -logic_name    => 'store_crai',
+        -module        => 'ReseqTrack::Hive::Process::LoadFile',
+        -parameters    => {
+            type             => $self->o('crai_type'),
+            file             => '#crai#',
+            name_file_module => 'ReseqTrack::Hive::NameFile::BaseNameFile',
+            name_file_method => 'basic',
+            name_file_params => { new_full_path => '#crai#' },
+            clobber          => 1,
+        },
+        -rc_name       => '200Mb',
+        -hive_capacity => 200,
+        -flow_into     => { 1 => { 'mark_seed_complete' => { 'crai' => '#file#' } } },
+    });
+
+    push(@analyses, {
+        -logic_name  => 'mark_seed_complete',
+        -module      => 'ReseqTrack::Hive::Process::UpdateSeed',
+        -parameters  => {
+            is_complete => 1,
+        },
+        -meadow_type => 'LOCAL',
+    });
+
+    push(@analyses, {
+        -logic_name  => 'mark_seed_futile',
+        -module      => 'ReseqTrack::Hive::Process::UpdateSeed',
+        -parameters  => {
+            is_futile => 1,
+        },
+        -meadow_type => 'LOCAL',
+    });
     return \@analyses;
 }
 
