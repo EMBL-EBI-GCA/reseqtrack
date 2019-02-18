@@ -30,8 +30,8 @@ sub run {
     my $clobber = $self->param('clobber');
     my $era_dbuser = $self->param_required('era_dbuser');
     my $era_dbpass = $self->param_required('era_dbpass');
-		my $era_dbname = $self->param('era_dbname');
-		
+    my $era_dbname = $self->param('era_dbname');
+
     eval "require $module" or throw "cannot load module $module $@";
 
     my $db = ReseqTrack::DBSQL::DBAdaptor->new(%{$db_params});
