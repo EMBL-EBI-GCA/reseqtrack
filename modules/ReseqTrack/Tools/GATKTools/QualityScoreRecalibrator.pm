@@ -82,7 +82,7 @@ sub create_recalibration_table {
     my @cmd_words = ($self->java_exe, $self->jvm_args, '-jar');
     push(@cmd_words, $self->gatk_path . '/' . $self->jar_file);
     push(@cmd_words, '-T', 'BaseRecalibrator');
-    push(@cmd_words, '-nt ' . $self->options('threads') || 1);
+    push(@cmd_words, '-nct ' . $self->options('threads') || 1);
     push(@cmd_words, '-l', $self->options('log_level')) if ($self->options('log_level'));
     push(@cmd_words, '-cov ReadGroupCovariate') if ($self->options('read_group_covariate'));
     push(@cmd_words, '-cov QualityScoreCovariate') if ($self->options('quality_score_covariate'));
@@ -131,6 +131,7 @@ sub create_recalibrated_bam {
     }
     push(@cmd_words, '-allowPotentiallyMisencodedQuals') if ($self->options('allowPotentiallyMisencodedQuals'));
     push(@cmd_words, '--disable_bam_indexing');
+    push(@cmd_words, '-nct ' . $self->options('threads') || 1);
     push(@cmd_words, '--solid_nocall_strategy', 'LEAVE_READ_UNRECALIBRATED') if ($self->options('solid_nocall_strategy'));
     push(@cmd_words, '-BQSR', $self->covariates_file);
     push(@cmd_words, '-R', $self->reference);
