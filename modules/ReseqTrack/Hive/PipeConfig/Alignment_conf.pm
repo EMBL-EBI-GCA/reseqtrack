@@ -590,7 +590,7 @@ sub pipeline_analyses {
             realign_level       => $self->o('realign_level'),
             gatk_module_options => {
                 intervals   => $self->o('recalibration_chromosomes'),
-                # This tool can only support 1 thread.
+                # This tool requires that parallelism is set by using the -nct option.
                 threads     => 1 },
             reseqtrack_options  => {
                 delete_param      => [ 'bam', 'bai' ],
