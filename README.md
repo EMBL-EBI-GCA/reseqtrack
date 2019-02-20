@@ -19,6 +19,6 @@ The projects which use this code base are
 [NextGen](http://projects.ensembl.org/nextgen/)  
 [Blueprint](http://www.blueprint-epigenome.eu/)  
 [HipSci](http://www.hipsci.org)  
-[FAANG](http://www.faang.org)
+[FAANG](http://www.faang.org)  
 [IGSR](http://www.internationalgenome.org/)
 
