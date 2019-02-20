@@ -22,3 +22,4 @@ The projects which use this code base are
 [FAANG](http://www.faang.org)  
 [IGSR](http://www.internationalgenome.org/)
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.2573969.svg)](https://doi.org/10.5281/zenodo.2573969)
