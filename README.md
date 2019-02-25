@@ -20,4 +20,6 @@ The projects which use this code base are
 [Blueprint](http://www.blueprint-epigenome.eu/)  
 [HipSci](http://www.hipsci.org)  
 [FAANG](http://www.faang.org)  
+[IGSR](http://www.internationalgenome.org/)
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.2573969.svg)](https://doi.org/10.5281/zenodo.2573969)
