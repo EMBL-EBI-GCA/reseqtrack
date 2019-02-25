@@ -987,10 +987,9 @@ sub pipeline_analyses {
         -module        => 'ReseqTrack::Hive::Process::LoadFile',
         -parameters    => {
             type             => $self->o('crai_type'),
-            file             => '#crai#',
             name_file_module => 'ReseqTrack::Hive::NameFile::BaseNameFile',
             name_file_method => 'basic',
-            name_file_params => { new_full_path => '#crai#' },
+            name_file_params => { new_full_path => '#file#' },
             clobber          => 1,
         },
         -rc_name       => '200Mb',
