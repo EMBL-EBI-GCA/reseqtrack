@@ -73,8 +73,9 @@ sub get_files {
             -remote_path  => $source_path,
             -local_path   => $output_path,
         );
+        chmod 0644, $output_path;
+        $self->output_files($output_path);
     }
-
 }
 
 
