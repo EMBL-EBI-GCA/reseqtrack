@@ -88,7 +88,7 @@ sub run_download {
         @args
     );
 
-    my $log_dir = $self->get_logdir($local_path);
+    my $log_dir = get_logdir($local_path);
     my $ascp_param = $self->ascp_param;
     $$ascp_param{'L'} = $log_dir;
 
@@ -100,10 +100,9 @@ sub run_download {
     my $asp_addr = $self->username . '@' . $self->aspera_url . ':';
 
 
-    $local_path =~ s{//}{/}g;
-    make_path($local_path); ## preserve the directory structure
+    $local_path =~ s{//}{/}g; # Escape any spaces
+    make_path(dirname $local_path); ## preserve the directory structure
     $cmd .= ' ' . $asp_addr . $remote_path . ' ' . $local_path;
-
 
     # Use the inherited function to execute the command
     $self->execute_command_line($cmd);

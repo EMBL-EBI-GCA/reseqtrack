@@ -38,11 +38,19 @@ sub new {
     my ($class, @args) = @_;
     my $self = $class->SUPER::new(@args);
 
-    my ($ena_ascphost, $ascp_param, $source_root_dir)
-        = rearrange([ qw(ENA_ASCPHOST ASCP_PARAM SOURCE_ROOT_DIR) ], @args);
+    my ($ena_ascphost, $ena_user, $ascp_param, $source_root_dir)
+        = rearrange([ qw(ENA_ASCPHOST ENA_USER, ASCP_PARAM SOURCE_ROOT_DIR) ], @args);
 
     $self->ena_ascphost($ena_ascphost || 'fasp.sra.ebi.ac.uk');
-    $self->ascp_param($ascp_param || {'P' => 33001});
+    $self->ena_user($ena_user || "era-fasp");
+    $self->ascp_param($ascp_param || {
+            'P' => 33001,
+            'k' => 2,       # Resume if checksums match, else re-transfer
+            'Q' => undef,   # Queue the downloads fairly (is probably deprecated)
+            'T' => undef,   # Don't use encryption
+            'r' => undef,   # ? (is probably deprecated)
+            'i' => '~/.aspera/cli/etc/asperaweb_id_dsa.openssh', # Default location for private key file
+        });
 
     # This overrides the default set in ReseqTrack::Tools::GetFastq
     $self->source_root_dir($source_root_dir || '/');
@@ -56,7 +64,7 @@ sub get_files {
 
     my $output_hash = $self->output_hash;
     my $aspera_getter = ReseqTrack::Tools::Aspera -> new(
-            -username     => "fasp",
+            -username     => $self->ena_user,
             -aspera_url   => $self->ena_ascphost,
             -ascp_param   => $self->ascp_param
     );
@@ -78,6 +86,13 @@ sub ena_ascphost {
     return $self->{ena_ascphost};
 }
 
+sub ena_user {
+    my ($self, $ena_user) = @_;
+    if (defined($ena_user)) {
+        $self->{ena_user} = $ena_user;
+    }
+    return $self->{ena_ascphost};
+}
 
 sub ascp_param {
     my ($self, $ascp_param) = @_;
