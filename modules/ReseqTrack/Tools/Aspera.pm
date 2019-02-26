@@ -58,8 +58,8 @@ sub new {
     my ($class, @args) = @_;
     my $self = $class->SUPER::new(@args);
 
-    my ($ascp_exe, $username, $aspera_url, $ascp_param) = rearrange(
-        [ qw(ASCP_EXE USERNAME ASPERA_URL ASCP_PARAM WORK_DIR) ],
+    my ($ascp_exe, $username, $aspera_url, $ascp_param) = rearrange([
+        qw(ASCP_EXE USERNAME ASPERA_URL ASCP_PARAM ) ],
         @args
     );
 
@@ -77,7 +77,6 @@ sub new {
 
     return $self;
 }
-
 
 
 sub run_download {

@@ -38,8 +38,8 @@ sub new {
     my ($class, @args) = @_;
     my $self = $class->SUPER::new(@args);
 
-    my ($ena_ascphost, $ena_user, $ascp_param, $source_root_dir)
-        = rearrange([ qw(ENA_ASCPHOST ENA_USER, ASCP_PARAM SOURCE_ROOT_DIR) ], @args);
+    my ($ena_ascphost, $ena_user, $ascp_param, $source_root_dir) = rearrange([
+        qw(ENA_ASCPHOST ENA_USER ASCP_PARAM SOURCE_ROOT_DIR) ], @args);
 
     $self->ena_ascphost($ena_ascphost || 'fasp.sra.ebi.ac.uk');
     $self->ena_user($ena_user || "era-fasp");
@@ -91,7 +91,7 @@ sub ena_user {
     if (defined($ena_user)) {
         $self->{ena_user} = $ena_user;
     }
-    return $self->{ena_ascphost};
+    return $self->{ena_user};
 }
 
 sub ascp_param {
