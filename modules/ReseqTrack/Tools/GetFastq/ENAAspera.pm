@@ -55,15 +55,16 @@ sub get_files {
     my $self = shift;
 
     my $output_hash = $self->output_hash;
-    while (my ($source_path, $output_path) = each %$output_hash) {
-        my $aspera_getter = ReseqTrack::Tools::Aspera -> new(
+    my $aspera_getter = ReseqTrack::Tools::Aspera -> new(
             -username     => "fasp",
             -aspera_url   => $self->ena_ascphost,
-            -ascp_param   => $self->ascp_param,
-            -filename     => $source_path,
-            -download_dir => $output_path,
+            -ascp_param   => $self->ascp_param
+    );
+    while (my ($source_path, $output_path) = each %$output_hash) {
+        $aspera_getter->run_download(
+            -remote_path  => $source_path,
+            -local_path   => $output_path,
         );
-        $aspera_getter->run_program
     }
 
 }

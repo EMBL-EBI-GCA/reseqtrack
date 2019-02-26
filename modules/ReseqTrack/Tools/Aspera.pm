@@ -25,9 +25,9 @@ sub DEFAULT_OPTIONS {
         'ascp_exe'     => 'ascp',
         'ascp_param'   => {
             'k' => 2,       # Resume if checksums match, else re-transfer
-            'Q' => undef,   # Queue the downloads fairly
+            'Q' => undef,   # Queue the downloads fairly (is probably deprecated)
             'T' => undef,   # Don't use encryption
-            'r' => undef,   # ?
+            'r' => undef,   # ? (is probably deprecated)
             'i' => '~/.aspera/cli/etc/asperaweb_id_dsa.openssh', # Default location for private key file
         },
     };
@@ -58,63 +58,39 @@ sub new {
     my ($class, @args) = @_;
     my $self = $class->SUPER::new(@args);
 
-    my ($ascp_exe, $username, $aspera_url,
-        $ascp_param, $work_dir,
-        $filename, $download_dir, $upload_dir, $trim_path) = rearrange(
-        [ qw(ASCP_EXE USERNAME ASPERA_URL
-            ASCP_PARAM WORK_DIR
-            FILENAME DOWNLOAD_DIR UPLOAD_DIR TRIM_PATH) ],
+    my ($ascp_exe, $username, $aspera_url, $ascp_param) = rearrange(
+        [ qw(ASCP_EXE USERNAME ASPERA_URL ASCP_PARAM WORK_DIR) ],
         @args
     );
 
     $self->ascp_exe($ascp_exe // $self->options('ascp_exe'));
+    $self->check_ascp_exe;  # Check that the aspera executable can be accessed
+
     $self->username($username);
     $self->aspera_url($aspera_url);
 
     # merge the parameter hashes (the user's params take priority)
-    # This solution doesn't give thr user the ability to disable flags,
+    # This solution doesn't give the user the ability to disable default flags,
     # will need to redesign if this feature is needed in future
     $ascp_param = ($self->options('ascp_param'), $ascp_param);
     $self->ascp_param($ascp_param);
-
-    $self->filename($filename);
-    $self->download_dir($download_dir);
-    $self->upload_dir($upload_dir);
-    $self->trim_path($trim_path);
-
-    # Check that the aspera executable can be accessed
-    $self->check_ascp_exe;
-
-    # Check that the user option is either upload or download
-    die "require either download_dir or upload_dir", $/ if !$download_dir && !$upload_dir;
-    die "mutually exclusive options:  download_dir or upload_dir", $/ if $download_dir && $upload_dir;
-    die "trim_path is required for file upload", $/ if $upload_dir && !$trim_path;
-
-    # Set the workdir
-    if (!defined($work_dir)){
-        if (defined ($download_dir)) {
-            $work_dir = dirname $download_dir;
-        } else {
-            $work_dir = dirname $filename;
-        }
-    }
-    $self->work_dir($work_dir);
 
     return $self;
 }
 
 
 
-sub run_program {
-    my $self = shift;
+sub run_download {
+    my ($self, @args) = @_;
 
-    my $filename = $self->filename;
-    my $download_dir = $self->download_dir;
-    my $upload_dir = $self->upload_dir;
+    my ($remote_path, $local_path) = rearrange(
+        [ qw(REMOTE_PATH LOCAL_PATH) ],
+        @args
+    );
 
+    my $log_dir = $self->get_logdir($local_path);
     my $ascp_param = $self->ascp_param;
-    $$ascp_param{'L'} = $self->get_logdir;    ## log dir path is required
-    $$ascp_param{'d'} = undef if $upload_dir; ## required for creating directory in remote
+    $$ascp_param{'L'} = $log_dir;
 
 
     # Assemble the Aspera command
@@ -123,38 +99,18 @@ sub run_program {
     $cmd .= ' ' . $ascp_param_str if $ascp_param_str;
     my $asp_addr = $self->username . '@' . $self->aspera_url . ':';
 
-    my $trim_path = $self->trim_path;
-    my $trim_re = qr/$trim_path/ if $trim_path;
 
-    ### Run Aspera for a Download
-    if ($download_dir) {
-        my $dest_path = dirname $filename;
-        $dest_path =~ s/$trim_re//g if $trim_path; ## trim destination path
-        my $download_path = $download_dir . '/' . $dest_path;
-        $download_path =~ s{//}{/}g;
-        make_path($download_path); ## preserve the directory structure
-
-        $cmd .= ' ' . $asp_addr . $filename . ' ' . $download_path;
-    }
-    ### Run Aspera for an Upload
-    else {
-        die "trim_path is required for file upload", $/ unless $trim_path;
-
-        my $upload_path = dirname $filename;         ## remove filename from upload path
-        $upload_path =~ s/$trim_re//g if $trim_path; ## trim upload path
-        $upload_path = $upload_dir . '/' . $upload_path . '/';
-        $upload_path =~ s{//}{/}g;
-
-        $cmd .= ' ' . $filename . ' ' . $asp_addr . $upload_path
-    }
+    $local_path =~ s{//}{/}g;
+    make_path($local_path); ## preserve the directory structure
+    $cmd .= ' ' . $asp_addr . $remote_path . ' ' . $local_path;
 
 
     # Use the inherited function to execute the command
     $self->execute_command_line($cmd);
 
     # Cleanup the log file
-    _check_log_file($self->get_logdir);
-    remove_tree($self->get_logdir);
+    _check_log_file($log_dir);
+    remove_tree($log_dir);
 }
 
 
@@ -173,13 +129,13 @@ sub check_ascp_exe {
 }
 
 sub get_logdir {
-    my $self = shift;
+    my ($local_path) = @_;
 
-    my $file_basename = basename($self->filename);
-    $file_basename =~ s{\\\s}{_}g; # Change spaces to underscores in the file name
+    my $local_dir = dirname $local_path;
+    my $file_name = basename $local_path;
+    $file_name =~ s{\\\s}{_}g; # Change spaces to underscores in the file name
 
-    my $log_dir = tempdir($file_basename . 'XXXX', DIR => $self->work_dir, CLEANUP => 0);
-    print "LD: $log_dir , WD: ". $self->work_dir." \n";
+    my $log_dir = tempdir($file_name . 'XXXX', DIR => $local_dir, CLEANUP => 0);
     return $log_dir
 }
 
@@ -243,48 +199,6 @@ sub ascp_param {
         $self->{'ascp_param'} = $ascp_param;
     }
     return $self->{'ascp_param'};
-}
-
-
-sub work_dir {
-    my ($self, $work_dir) = @_;
-    if (defined($work_dir)) {
-        $self->{'work_dir'} = $work_dir;
-    }
-    return $self->{'work_dir'}
-}
-
-sub trim_path {
-    my ($self, $trim_path) = @_;
-    if (defined($trim_path)) {
-        $self->{'trim_path'} = $trim_path;
-    }
-    return $self->{'trim_path'}
-}
-
-sub filename {
-    my ($self, $filename) = @_;
-    if (defined($filename)) {
-        $filename =~ s{\s}{\\ }g; # escape spaces in file path
-        $self->{'filename'} = $filename;
-    }
-    return $self->{'filename'}
-}
-
-sub download_dir {
-    my ($self, $download_dir) = @_;
-    if (defined($download_dir)) {
-        $self->{'download_dir'} = $download_dir;
-    }
-    return $self->{'download_dir'}
-}
-
-sub upload_dir {
-    my ($self, $upload_dir) = @_;
-    if (defined($upload_dir)) {
-        $self->{'upload_dir'} = $upload_dir;
-    }
-    return $self->{'upload_dir'}
 }
 
 1;
