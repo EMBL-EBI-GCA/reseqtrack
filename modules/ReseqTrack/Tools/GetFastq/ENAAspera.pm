@@ -20,16 +20,6 @@ ReseqTrack::Tools::GetFastq::ENAAspera
 
 class for getting fastq files using Aspera protocol. Child class of ReseqTrack::Tools::GetFastq
 
-=head1 Example
-
-my $fastq_getter = ReseqTrack::Tools::GetFastq::ENAAspera(
-                      -output_dir => '/path/to/dir',
-                      -run_info => $my_run,
-                      -db => $era_db,
-                      -source_root_dir => '/mount/ena/dir',
-                      );
-$fastq_getter->run();
-my $output_file_list = $fastq_getter->output_files;
 
 =cut
 

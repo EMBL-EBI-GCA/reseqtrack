@@ -38,10 +38,12 @@ sub DEFAULT_OPTIONS {
 
   Arg [-ascp_exe]     :
       string, path to aspera CLI
-  Arg [-ascp_param_k] :
-      number, the resume level
-  Arg [-aspera_url]    :
+  Arg [-username]     :
+      string, user account on the target server
+  Arg [-aspera_url]   :
       string, the root location of the aspera server
+  Arg [-ascp_param] :
+      hash, key-value pairs of parameters for aspera. Parmameters without values are passed in with a value of undef
 
   + Arguments for ReseqTrack::Tools::RunProgram parent class
 
@@ -49,8 +51,14 @@ sub DEFAULT_OPTIONS {
   Returntype: ReseqTrack::Tools::Aspera
   Exceptions:
   Example   : my $run_aspera = ReseqTrack::Tools::Aspera->new(
-                                -aspera_url=fasp.sra.ebi.ac.uk
-                               );
+                                -aspera_url  = 'fasp.sra.ebi.ac.uk',
+                                -username    = 'era-fasp',
+                                -ascp_param  = {'P' => 33001, 'k' => 2}
+                              );
+              $run_aspera->run_download(
+                                -remote_path  = $source_path,
+                                -local_path   = $output_path,
+                              );
 
 =cut
 
@@ -69,9 +77,6 @@ sub new {
     $self->username($username);
     $self->aspera_url($aspera_url);
 
-    # merge the parameter hashes (the user's params take priority)
-    # This solution doesn't give the user the ability to disable default flags,
-    # will need to redesign if this feature is needed in future
     $ascp_param = ($self->options('ascp_param'), $ascp_param);
     $self->ascp_param($ascp_param);
 
