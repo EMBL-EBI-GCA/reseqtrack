@@ -47,7 +47,12 @@ my $pipeline = $db->get_PipelineAdaptor->fetch_by_name($pipeline_name);
 throw("did not find pipeline with name $pipeline_name") if !$pipeline;
 
 $hive_name //= join('_', $dbname, $pipeline_name, strftime("%Y%m%d_%H%M", localtime));
-$hive_name =~ s/\s+/_/g;
+# See: Bio::EnsEMBL::Hive::PipeConfig::HiveGeneric_conf | line 318: process_pipeline_name
+# Altering database name to match alterations that would happen in eHive
+$hive_name=~s/([[:lower:]])([[:upper:]])/${1}_${2}/g;   # CamelCase into Camel_Case
+$hive_name =~s/\s/_/g;                                  # remove all spaces
+$hive_name = lc($hive_name);                            # Lower case
+
 
 my @init_options = ($pipeline->config_options);
 push(@init_options, '-reseqtrack_db', "-host=$dbhost");
