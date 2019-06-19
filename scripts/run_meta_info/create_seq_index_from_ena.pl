@@ -95,20 +95,18 @@ for my $study_id (@studies_to_add) {
             ($md5hash, $sizehash, $namehash) = get_fastq_details($run->source_id(), $era_db, $ftp_prefix);
 
             #assign files to work out pairing of files
-            my @run_files; #need array of file names for assign_files
             for my $filename (keys %$namehash) {
                 push @run_files, $filename;
             }
             ($mate1, $mate2, $frag) = assign_files(\@run_files);
         }
         elsif (($file_format eq "bam") | ($file_format eq "pacbio")) {
-
             $file_sth->execute($run->source_id());
             while (my $hashref = $file_sth->fetchrow_hashref) {
                 my $filename = $hashref->{FILENAME};
                 my $md5 = $hashref->{CHECKSUM};
-                $$namehash{$filename} = $ftp_prefix . "/" . $filename;
-                $$md5hash{$ftp_prefix . "/" . $filename} = $md5;
+                $$namehash{$filename} = $ftp_prefix . "vol1/" . $filename;
+                $$md5hash{$ftp_prefix . "vol1/" . $filename} = $md5;
             }
         }
 
