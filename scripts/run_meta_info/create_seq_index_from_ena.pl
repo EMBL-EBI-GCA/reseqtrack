@@ -185,7 +185,7 @@ sub header {
     print "##RUN_NAME=Name of machine run\n";
 
     #print "##RUN_BLOCK_NAME=Name of machine run sector  (This is no longer recorded so this column is entirely null, it was left in so as not to disrupt existing sequence index parsers)\n";
-    print "##INSERT_SIZE=Submitter specifed insert size/paired nominal length\n";
+    print "##INSERT_SIZE=Submitter specified insert size/paired nominal length\n";
 
     print "##LIBRARY_LAYOUT=Library layout, this can be either PAIRED or SINGLE\n";
 
